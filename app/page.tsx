@@ -32,7 +32,8 @@ export default function Home() {
             <div className="relative w-10 h-10 rounded-full overflow-hidden border border-primary/30">
               <Image src="https://i.pravatar.cc/150?img=11" alt="Avatar" fill className="object-cover" unoptimized />
             </div>
-            <span className="text-2xl font-extrabold tracking-tighter text-primary">ARCADE</span>
+            {/* 🏷️ Branded App Header Label */}
+            <span className="text-2xl font-extrabold tracking-tighter text-primary">JOE YOKE</span>
           </div>
         </header>
 

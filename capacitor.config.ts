@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.kghtetoo.games',
-  appName: 'Arcade Hub',
+  appName: 'Joe Yoke',
   webDir: 'out'
 };
 

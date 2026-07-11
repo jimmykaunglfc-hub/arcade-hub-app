@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ARCADE | Social Gaming Hub",
+  title: "Joe Yoke | Social Gaming Hub",
   description: "Play HTML5 games and chat with friends.",
 };
 
