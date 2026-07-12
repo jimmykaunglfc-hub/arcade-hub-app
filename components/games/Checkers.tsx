@@ -27,9 +27,9 @@ export default function Checkers({
   );
   
   const [matchId, setMatchId] = useState<string>("");
-  const [roomCode, setRoomCode] = useState<string>(""); // 👈 Tracks the new 6-digit short code
+  const [roomCode, setRoomCode] = useState<string>(""); 
   const [joinCode, setJoinCode] = useState<string>("");
-  const [copied, setCopied] = useState(false); // 👈 Tracks the copy button state
+  const [copied, setCopied] = useState(false); 
   
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myPlayerRole, setMyPlayerRole] = useState<number>(P1);
@@ -64,8 +64,6 @@ export default function Checkers({
 
   const hostMatch = async () => {
     if (!myUserId) return alert("Must be logged in to play online.");
-    
-    // 🎲 Generate a random 6-character alphanumeric code
     const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
     const { data, error } = await supabase.from('checkers_matches').insert({
@@ -88,40 +86,43 @@ export default function Checkers({
     
     const { data, error } = await supabase.from('checkers_matches')
       .update({ p2_id: myUserId, status: 'playing' })
-      .eq('room_code', codeToJoin) // 👈 Search by the short code instead of the UUID
+      .eq('room_code', codeToJoin) 
       .select().single();
 
-    if (data) {
+    if (data && !error) {
       setMatchId(data.id);
       setMyPlayerRole(P2);
       setBoard(data.board);
       setTurn(data.turn);
       setPlayMode("online");
     } else {
-      alert("Invalid Room Code or Match Already Started.");
+      alert("Invalid Room Code or Match Already Occupied.");
       setPlayMode("menu");
     }
   };
 
   useEffect(() => {
-    // If the interceptor passes a UUID (from a direct chat invite), bypass the shortcode and join directly
     if (preloadedMatchId && myUserId) {
       joinDirectlyByUUID(preloadedMatchId);
     }
   }, [preloadedMatchId, myUserId]);
 
   const joinDirectlyByUUID = async (uuid: string) => {
-    const { data } = await supabase.from('checkers_matches')
+    const { data, error } = await supabase.from('checkers_matches')
       .update({ p2_id: myUserId, status: 'playing' })
       .eq('id', uuid)
       .select().single();
 
-    if (data) {
+    if (data && !error) {
       setMatchId(data.id);
       setMyPlayerRole(P2);
       setBoard(data.board);
       setTurn(data.turn);
       setPlayMode("online");
+    } else {
+      console.error("Multiplayer Sync Interrupted:", error);
+      alert("Unable to join matrix session. The match may have expired or filled up.");
+      setPlayMode("menu");
     }
   };
 
@@ -149,6 +150,7 @@ export default function Checkers({
             const isOpponent = (piece === P1 || piece === P1_KING) ? (currentBoard[nr][nc] === P2 || currentBoard[nr][nc] === P2_KING) : (currentBoard[nr][nc] === P1 || currentBoard[nr][nc] === P1_KING);
             if (isOpponent) {
               const jr = nr + dr, jc = nc + dc;
+              // 🛠️ BUG FIXED HERE: c: jc instead of just jc
               if (jr >= 0 && jr < 8 && jc >= 0 && jc < 8 && currentBoard[jr][jc] === EMPTY) moves.push({ r: jr, c: jc, jump: { r: nr, c: nc } });
             }
           }
@@ -277,8 +279,6 @@ export default function Checkers({
               {playMode === "host" && (
                 <>
                   <p className="text-xs text-on-surface-variant mt-2 mb-4">Share this shortcode with your opponent:</p>
-                  
-                  {/* 📋 THE NEW COPY BUTTON COMPONENT */}
                   <div className="bg-black/50 border border-blue-400/30 p-2 rounded-xl flex items-center justify-between">
                     <span className="text-blue-400 font-mono text-2xl font-black tracking-[0.2em] pl-4">{roomCode}</span>
                     <button 
