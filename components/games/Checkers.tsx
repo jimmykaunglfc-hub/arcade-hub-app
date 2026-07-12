@@ -260,8 +260,7 @@ export default function Checkers({
   const validMovesForSelected = selected ? getValidMovesForPiece(selected.r, selected.c, board[selected.r][selected.c], board) : [];
   const activeMoveTargets = getAllValidMoves(turn, board).some(m => m.move.jump) ? validMovesForSelected.filter(m => m.jump) : validMovesForSelected;
 
-  // 🗺️ PERSPECTIVE ROTATOR GRID GENERATOR
-  const viewIndices = [0, 1, 2, 3, 4, 5, 6, 7];
+  // 🔄 PERSPECTIVE FILTER DETECTOR
   const shouldFlipBoard = playMode === "online" && myPlayerRole === P2;
 
   return (
@@ -348,7 +347,8 @@ export default function Checkers({
       {(playMode === "local" || playMode === "online") && (
         <>
           <div className="w-full max-w-md px-6 py-6 flex justify-between items-center relative">
-            {/* Left Box HUD (Swaps display alignment dynamically depending on role perspective) */}
+            
+            {/* 👤 PERSPECTIVE AWARE HUD LEFT (Always Opponent in Online Mode) */}
             <div className={`flex flex-col items-center transition-all ${turn === (shouldFlipBoard ? P1 : P2) ? "scale-110 opacity-100" : "opacity-40"}`}>
               <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center shadow-lg ${
                 shouldFlipBoard 
@@ -366,7 +366,7 @@ export default function Checkers({
                 : (turn === P1 ? "Player 1 Turn" : "Player 2 Turn")}
             </span>
 
-            {/* Right Box HUD */}
+            {/* 👤 PERSPECTIVE AWARE HUD RIGHT (Always You in Online Mode) */}
             <div className={`flex flex-col items-center transition-all ${turn === (shouldFlipBoard ? P2 : P1) ? "scale-110 opacity-100" : "opacity-40"}`}>
               <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center shadow-lg ${
                 shouldFlipBoard 
@@ -382,22 +382,21 @@ export default function Checkers({
           {/* 8x8 Board Container */}
           <div className="w-full max-w-md px-4 mt-2">
             <div className="w-full aspect-square bg-surface-variant/20 rounded-2xl border border-white/10 p-2 shadow-2xl">
-              <div className="w-full h-full grid grid-cols-8 grid-rows-8 rounded-xl overflow-hidden border border-white/5 bg-black">
-                {viewIndices.map((r) => 
-                  viewIndices.map((c) => {
-                    // 🔄 PERSPECTIVE INTERCEPTOR LAYER: Flips index view parameters cleanly for Player 2
-                    const actualR = shouldFlipBoard ? 7 - r : r;
-                    const actualC = shouldFlipBoard ? 7 - c : c;
-
-                    const playable = isPlayableSquare(actualR, actualC);
-                    const isSelected = selected?.r === actualR && selected?.c === actualC;
-                    const isTarget = activeMoveTargets.some((m) => m.r === actualR && m.c === actualC);
-                    const piece = board[actualR][actualC];
+              
+              {/* 🔄 CSS INVERSION ENGINE: Flips layout orientation completely for Player 2 */}
+              <div className={`w-full h-full grid grid-cols-8 grid-rows-8 rounded-xl overflow-hidden border border-white/5 bg-black transition-transform duration-500 ${
+                shouldFlipBoard ? "rotate-180" : "rotate-0"
+              }`}>
+                {board.map((row, r) => 
+                  row.map((piece, c) => {
+                    const playable = isPlayableSquare(r, c);
+                    const isSelected = selected?.r === r && selected?.c === c;
+                    const isTarget = activeMoveTargets.some((m) => m.r === r && m.c === c);
                     
                     return (
                       <div 
                         key={`${r}-${c}`}
-                        onClick={() => playable && handleSquareClick(actualR, actualC)}
+                        onClick={() => playable && handleSquareClick(r, c)}
                         className={`relative w-full h-full flex items-center justify-center transition-colors ${
                           playable ? "bg-surface-variant/40 hover:bg-surface-variant/60 cursor-pointer" : "bg-black/60"
                         } ${isSelected ? "ring-2 ring-inset ring-white bg-surface-variant" : ""} ${isTarget ? "bg-blue-500/20 cursor-pointer" : ""}`}
@@ -405,7 +404,10 @@ export default function Checkers({
                         {isTarget && <div className="w-3 h-3 rounded-full bg-blue-400/80 animate-pulse drop-shadow-[0_0_5px_rgba(96,165,250,0.8)]"></div>}
 
                         {piece !== EMPTY && (
+                          /* 🔄 COUNTER-ROTATION: Automatically counter-rotates piece components back upright if board is turned */
                           <div className={`w-[75%] h-[75%] rounded-full shadow-lg flex items-center justify-center border-[3px] transition-all duration-300 ${
+                            shouldFlipBoard ? "rotate-180" : "rotate-0"
+                          } ${
                             piece === P1 || piece === P1_KING ? "bg-blue-500/20 border-blue-400 shadow-[inset_0_0_10px_rgba(96,165,250,0.5)]" : ""
                           } ${
                             piece === P2 || piece === P2_KING ? "bg-secondary/20 border-secondary shadow-[inset_0_0_10px_rgba(74,225,118,0.5)]" : ""
@@ -418,6 +420,7 @@ export default function Checkers({
                   })
                 )}
               </div>
+
             </div>
           </div>
         </>
