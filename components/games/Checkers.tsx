@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
 const EMPTY = 0, P1 = 1, P2 = 2, P1_KING = 3, P2_KING = 4;
@@ -32,7 +32,6 @@ export default function Checkers({
   const [matchId, setMatchId] = useState<string>("");
   const [roomCode, setRoomCode] = useState<string>(""); 
   const [joinCode, setJoinCode] = useState<string>("");
-  const [copied, setCopied] = useState(false); 
   
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myPlayerRole, setMyPlayerRole] = useState<number>(P1);
@@ -55,7 +54,7 @@ export default function Checkers({
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
 
-  // 📡 REAL-TIME SYNCHRONIZATION (Database & Broadcasts)
+  // 📡 REAL-TIME SYNCHRONIZATION
   useEffect(() => {
     if (playMode !== "online" && playMode !== "host") return;
     if (!matchId) return;
@@ -133,7 +132,6 @@ export default function Checkers({
     }
   };
 
-  // --- CORE ENGINE LOGIC ---
   const getValidMovesForPiece = (r: number, c: number, piece: number, currentBoard: number[][]) => {
     const moves: { r: number; c: number; jump?: { r: number; c: number } }[] = [];
     if (piece === EMPTY) return moves;
@@ -297,8 +295,7 @@ export default function Checkers({
       )}
 
       {/* --- IN-GAME ARENA --- */}
-      {/* Top Header */}
-      <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30">
+      <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
         <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
           <span className="material-symbols-outlined text-lg">close</span>
         </button>
@@ -309,7 +306,6 @@ export default function Checkers({
           </span>
         </div>
         
-        {/* Emoji Button */}
         <div className="relative">
           <button onClick={() => setShowEmojiMenu(!showEmojiMenu)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
             <span className="material-symbols-outlined text-lg">add_reaction</span>
@@ -325,18 +321,17 @@ export default function Checkers({
         </div>
       </div>
 
-      {/* Scoreboard HUD */}
       {(playMode === "local" || playMode === "online") && (
-        <>
-          <div className="w-full max-w-md px-6 py-5 flex justify-between items-center relative z-20">
-            
-            {/* HUD LEFT (Opponent Online, or P2 Local) */}
+        <div className="flex-1 w-full max-w-md mx-auto flex flex-col justify-start min-h-0 relative">
+          
+          {/* Scoreboard HUD */}
+          <div className="px-6 py-4 flex justify-between items-center shrink-0">
             <div className={`flex flex-col items-center transition-all duration-300 ${turn === (shouldFlipBoard ? P1 : P2) ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">{shouldFlipBoard ? p1Score : p2Score}</span>
                 <span className="text-[8px] text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">Wins</span>
               </div>
-              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_10px_rgba(0,0,0,0.3)] bg-white dark:bg-neutral-900 ${
+              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-white dark:bg-neutral-900 ${
                 shouldFlipBoard ? "border-indigo-500 text-indigo-500" : "border-emerald-500 text-emerald-500"
               }`}>
                 <span className="font-black text-sm">{shouldFlipBoard ? "P1" : "P2"}</span>
@@ -346,20 +341,18 @@ export default function Checkers({
               </span>
             </div>
             
-            {/* Center Status */}
             <div className="text-center px-4 py-2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-full shadow-sm">
               <span className="text-[10px] font-black text-neutral-900 dark:text-white uppercase tracking-widest">
                 {playMode === "online" ? (turn === myPlayerRole ? "Your Turn" : "Opponent's Turn") : (turn === P1 ? "Player 1 Turn" : "Player 2 Turn")}
               </span>
             </div>
 
-            {/* HUD RIGHT (You Online, or P1 Local) */}
             <div className={`flex flex-col items-center transition-all duration-300 ${turn === (shouldFlipBoard ? P2 : P1) ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="text-[8px] text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">Wins</span>
                 <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{shouldFlipBoard ? p2Score : p1Score}</span>
               </div>
-              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_10px_rgba(0,0,0,0.3)] bg-white dark:bg-neutral-900 ${
+              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-white dark:bg-neutral-900 ${
                 shouldFlipBoard ? "border-emerald-500 text-emerald-500" : "border-indigo-500 text-indigo-500"
               }`}>
                 <span className="font-black text-sm">{shouldFlipBoard ? "P2" : "P1"}</span>
@@ -370,22 +363,22 @@ export default function Checkers({
             </div>
           </div>
 
-          {/* 8x8 Matrix Board Container */}
-          <div className="w-full max-w-md px-4 relative">
+          {/* 8x8 Flexible Board Container (Prevents Bottom Clipping) */}
+          <div className="flex-1 w-full flex items-center justify-center px-4 pb-6 min-h-0 relative">
             
             {/* FLOATING EMOJI LAYER */}
             {floatingEmojis.map((em) => {
               const isMine = em.role === myPlayerRole;
               return (
                 <div key={em.id} className={`absolute z-40 text-4xl animate-float-up pointer-events-none ${
-                  isMine ? "right-10 bottom-0" : "left-10 top-0"
+                  isMine ? "right-10 bottom-10" : "left-10 top-10"
                 }`}>
                   {em.emoji}
                 </div>
               );
             })}
 
-            {/* VICTORY OVERLAY DIALOG */}
+            {/* VICTORY DIALOG */}
             {winner && (
               <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-in">
                 <div className="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-md rounded-[2.5rem]"></div>
@@ -410,9 +403,9 @@ export default function Checkers({
               </div>
             )}
 
-            {/* HIGH-END BOARD FRAME */}
-            <div className="w-full aspect-square bg-neutral-200 dark:bg-neutral-800 rounded-[2.5rem] p-3 shadow-[inset_0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_4px_12px_rgba(0,0,0,0.5)] border border-white/50 dark:border-white/5 relative overflow-hidden">
-              <div className={`w-full h-full grid grid-cols-8 grid-rows-8 rounded-2xl overflow-hidden border-4 border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 shadow-xl transition-transform duration-500 ${
+            {/* CASINO-GRADE BOARD FRAME */}
+            <div className="w-full max-h-full aspect-square bg-gradient-to-b from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 rounded-3xl p-2 shadow-[0_15px_35px_rgba(0,0,0,0.2)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.6)] border border-white/60 dark:border-white/10 relative">
+              <div className={`w-full h-full grid grid-cols-8 grid-rows-8 rounded-2xl overflow-hidden border-4 border-neutral-800 dark:border-black bg-neutral-800 dark:bg-black shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] transition-transform duration-500 ${
                 shouldFlipBoard ? "rotate-180" : "rotate-0"
               }`}>
                 {viewIndices.map((r) => 
@@ -420,35 +413,45 @@ export default function Checkers({
                     const actualR = shouldFlipBoard ? 7 - r : r;
                     const actualC = shouldFlipBoard ? 7 - c : c;
                     
-                    // 🏁 Distinct High-Contrast Checkerboard Layout
                     const playable = isPlayableSquare(actualR, actualC);
+                    
+                    // High Contrast Premium Squares
                     const squareClass = playable 
-                      ? "bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer" 
-                      : "bg-white dark:bg-neutral-900";
+                      ? "bg-neutral-800 dark:bg-neutral-900 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] cursor-pointer" 
+                      : "bg-neutral-300 dark:bg-neutral-200";
                     
                     const isSelected = selected?.r === actualR && selected?.c === actualC;
                     const isTarget = activeMoveTargets.some((m) => m.r === actualR && m.c === actualC);
                     const piece = board[actualR][actualC];
                     
-                    // 🎮 3D Physical Piece Rendering
-                    let pieceClass = "";
+                    // 🎲 3D TACTILE POKER CHIP RENDERING
+                    let chipOuter = "";
+                    let chipInner = "";
+                    
                     if (piece === P1 || piece === P1_KING) {
-                      pieceClass = "bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-[inset_0_2px_4px_rgba(255,255,255,0.4),0_4px_8px_rgba(79,70,229,0.5)] ring-1 ring-indigo-300 dark:ring-indigo-700";
+                      chipOuter = "bg-gradient-to-b from-indigo-400 to-indigo-800 shadow-[0_5px_10px_rgba(0,0,0,0.5),inset_0_2px_2px_rgba(255,255,255,0.4),inset_0_-4px_4px_rgba(0,0,0,0.4)] ring-1 ring-indigo-900";
+                      chipInner = "border-[2px] border-indigo-900/60 bg-gradient-to-br from-indigo-500 to-indigo-900 shadow-[inset_0_2px_5px_rgba(0,0,0,0.5)]";
                     } else if (piece === P2 || piece === P2_KING) {
-                      pieceClass = "bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[inset_0_2px_4px_rgba(255,255,255,0.4),0_4px_8px_rgba(16,185,129,0.5)] ring-1 ring-emerald-300 dark:ring-emerald-700";
+                      chipOuter = "bg-gradient-to-b from-emerald-400 to-emerald-800 shadow-[0_5px_10px_rgba(0,0,0,0.5),inset_0_2px_2px_rgba(255,255,255,0.4),inset_0_-4px_4px_rgba(0,0,0,0.4)] ring-1 ring-emerald-900";
+                      chipInner = "border-[2px] border-emerald-900/60 bg-gradient-to-br from-emerald-500 to-emerald-900 shadow-[inset_0_2px_5px_rgba(0,0,0,0.5)]";
                     }
 
                     return (
                       <div 
                         key={`${r}-${c}`}
                         onClick={() => playable && handleSquareClick(actualR, actualC)}
-                        className={`relative w-full h-full flex items-center justify-center transition-colors ${squareClass} ${isSelected ? "ring-inset ring-2 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/30" : ""} ${isTarget ? "bg-indigo-100/60 dark:bg-indigo-500/20" : ""}`}
+                        className={`relative w-full h-full flex items-center justify-center transition-colors ${squareClass} ${isSelected ? "ring-inset ring-2 ring-indigo-400 bg-indigo-900/40" : ""} ${isTarget ? "bg-indigo-500/30" : ""}`}
                       >
-                        {isTarget && <div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)] animate-pulse"></div>}
+                        {isTarget && <div className="w-3 h-3 rounded-full bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.8)] animate-pulse"></div>}
 
                         {piece !== EMPTY && (
-                          <div className={`w-[80%] h-[80%] rounded-full flex items-center justify-center transition-all duration-300 border-t border-white/40 ${pieceClass} ${shouldFlipBoard ? "rotate-180" : "rotate-0"} ${isSelected ? "scale-110 ring-4 ring-white dark:ring-neutral-900" : ""}`}>
-                            {(piece === P1_KING || piece === P2_KING) && <span className="material-symbols-outlined text-[20px] text-white drop-shadow-md" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>}
+                          <div className={`w-[85%] h-[85%] rounded-full flex items-center justify-center transition-all duration-300 ${chipOuter} ${shouldFlipBoard ? "rotate-180" : "rotate-0"} ${isSelected ? "scale-110 ring-4 ring-white dark:ring-neutral-900" : ""}`}>
+                            
+                            {/* Inner Core of the Poker Chip */}
+                            <div className={`w-[70%] h-[70%] rounded-full flex items-center justify-center ${chipInner}`}>
+                                {(piece === P1_KING || piece === P2_KING) && <span className="material-symbols-outlined text-[18px] text-white/90 drop-shadow-md" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>}
+                            </div>
+                            
                           </div>
                         )}
                       </div>
@@ -458,7 +461,7 @@ export default function Checkers({
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
