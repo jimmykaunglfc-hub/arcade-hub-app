@@ -56,7 +56,6 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
       if (!user) return;
       setMyUserId(user.id);
 
-      // Fetch my username for the ID card
       const { data: myProfile } = await supabase.from("profiles").select("username").eq("id", user.id).single();
       if (myProfile) setMyUsername(myProfile.username);
 
@@ -111,9 +110,12 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     return () => { supabase.removeChannel(channel); };
   }, [myUserId, activeChat, activeView]);
 
+  // Safely scroll to bottom ONLY when inside the full-screen chat modal
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (activeView === "chat") {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, activeView]);
 
   // --- ACTIONS ---
   const handleSendText = async (e: React.FormEvent) => {
@@ -157,7 +159,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     const { data: targetProfile } = await supabase
       .from("profiles")
       .select("id, username")
-      .eq("username", searchTarget.trim()) // 👈 STRICTLY SEARCHING BY USERNAME ID NOW
+      .eq("username", searchTarget.trim())
       .maybeSingle();
 
     if (!targetProfile) {
@@ -199,14 +201,14 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
 
 
   // ============================================================================
-  // RENDER VIEW 1: THE PROFESSIONAL COMMUNICATIONS HUB (FULL NATIVE LAYOUT)
+  // RENDER VIEW 1: THE HUB (Resides perfectly inside the Main layout block)
   // ============================================================================
   if (activeView === "hub") {
     return (
-      <div className="w-full min-h-[calc(100vh-160px)] animate-fade-in text-neutral-900 dark:text-neutral-100 flex flex-col gap-6 pb-6">
+      <div className="w-full animate-fade-in text-neutral-900 dark:text-neutral-100 flex flex-col gap-6 pb-6">
         
-        {/* 🎛️ SEGMENTED HUB NAVIGATION */}
-        <div className="bg-neutral-200/50 dark:bg-neutral-900/50 p-1 rounded-xl flex items-center border border-neutral-200 dark:border-neutral-800">
+        {/* 🎛️ SEGMENTED HUB NAVIGATION (iOS Style) */}
+        <div className="bg-neutral-200/60 dark:bg-neutral-800/60 p-1.5 rounded-xl flex items-center shadow-sm">
           {[
             { id: "dms", label: "Messages" },
             { id: "groups", label: "Groups" },
@@ -215,9 +217,9 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
             <button
               key={tab.id}
               onClick={() => setHubTab(tab.id as any)}
-              className={`flex-1 py-2 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all ${
+              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${
                 hubTab === tab.id 
-                  ? "bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-sm" 
+                  ? "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm" 
                   : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300"
               }`}
             >
@@ -228,66 +230,70 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
 
         {/* 💬 TAB: DIRECT MESSAGES */}
         {hubTab === "dms" && (
-          <div className="flex flex-col gap-2">
-            <h3 className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest px-1 mb-2">
-              Recent Conversations
+          <div className="flex flex-col gap-3">
+            <h3 className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest px-1">
+              Active Conversations
             </h3>
             {friends.length === 0 ? (
-              <div className="p-8 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-sm">
-                <span className="material-symbols-outlined text-3xl text-neutral-300 dark:text-neutral-700 mb-2">chat_bubble</span>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Your inbox is empty.<br/>Head to the Network tab to invite friends.</p>
+              <div className="p-8 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-sm">
+                <span className="material-symbols-outlined text-4xl text-neutral-300 dark:text-neutral-700 mb-3">chat_bubble</span>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium leading-relaxed">Your inbox is empty.<br/>Head to the Network tab to connect.</p>
               </div>
             ) : (
-              friends.map(friend => (
-                <button 
-                  key={friend.id}
-                  onClick={() => openChat(friend)}
-                  className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 flex items-center justify-between transition-all hover:border-neutral-300 dark:hover:border-neutral-700 active:scale-[0.99] shadow-sm text-left"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full overflow-hidden relative border border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 shrink-0">
-                      <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover p-0.5" unoptimized />
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-neutral-900 rounded-full"></div>
+              <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl overflow-hidden shadow-sm">
+                {friends.map((friend, index) => (
+                  <button 
+                    key={friend.id}
+                    onClick={() => openChat(friend)}
+                    className={`w-full p-4 flex items-center justify-between transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800/50 text-left ${
+                      index !== friends.length - 1 ? 'border-b border-neutral-100 dark:border-neutral-800/60' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full overflow-hidden relative border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 shrink-0">
+                        <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover p-0.5" unoptimized />
+                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-[2.5px] border-white dark:border-neutral-900 rounded-full"></div>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black tracking-tight text-neutral-900 dark:text-white">{friend.username}</h4>
+                        <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium truncate mt-0.5">Tap to open secure comms...</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-black tracking-tight">{friend.username}</h4>
-                      <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium truncate mt-0.5">Tap to open secure comms...</p>
-                    </div>
-                  </div>
-                  <span className="material-symbols-outlined text-neutral-300 dark:text-neutral-700 text-sm">chevron_right</span>
-                </button>
-              ))
+                    <span className="material-symbols-outlined text-neutral-300 dark:text-neutral-600 text-lg">chevron_right</span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         )}
 
-        {/* 🏛️ TAB: GROUPS (Mocked Professional Layout for Future Expansion) */}
+        {/* 🏛️ TAB: GROUPS */}
         {hubTab === "groups" && (
-          <div className="flex flex-col gap-2">
-            <h3 className="text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest px-1 mb-2">
+          <div className="flex flex-col gap-3">
+            <h3 className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest px-1">
               Discover Communities
             </h3>
             
-            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 flex items-center justify-center shrink-0">
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-5 flex items-center gap-4 shadow-sm hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer">
+              <div className="w-12 h-12 rounded-[1.25rem] bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 flex items-center justify-center shrink-0 shadow-inner">
                 <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400">grid_4x4</span>
               </div>
               <div className="flex-1">
-                <h4 className="text-sm font-black tracking-tight">Global Checkers Hub</h4>
+                <h4 className="text-sm font-black tracking-tight text-neutral-900 dark:text-white">Global Checkers Hub</h4>
                 <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium mt-0.5">2,140 Members • 14 Online</p>
               </div>
-              <button className="px-4 py-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white text-[10px] font-bold uppercase tracking-wider rounded-lg">Join</button>
+              <button className="px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white text-[10px] font-bold uppercase tracking-wider rounded-xl transition-colors">Join</button>
             </div>
 
-            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer">
-              <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 flex items-center justify-center shrink-0">
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-5 flex items-center gap-4 shadow-sm hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer">
+              <div className="w-12 h-12 rounded-[1.25rem] bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 flex items-center justify-center shrink-0 shadow-inner">
                 <span className="material-symbols-outlined text-purple-600 dark:text-purple-400">style</span>
               </div>
               <div className="flex-1">
-                <h4 className="text-sm font-black tracking-tight">Glitch Deck Veterans</h4>
+                <h4 className="text-sm font-black tracking-tight text-neutral-900 dark:text-white">Glitch Deck Veterans</h4>
                 <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium mt-0.5">856 Members • 3 Online</p>
               </div>
-              <button className="px-4 py-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white text-[10px] font-bold uppercase tracking-wider rounded-lg">Join</button>
+              <button className="px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white text-[10px] font-bold uppercase tracking-wider rounded-xl transition-colors">Join</button>
             </div>
           </div>
         )}
@@ -297,18 +303,18 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
           <div className="flex flex-col gap-6">
             
             {/* Share Your ID Card */}
-            <div className="bg-gradient-to-br from-indigo-600 to-blue-600 rounded-2xl p-5 shadow-md text-white relative overflow-hidden">
+            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-3xl p-6 shadow-[0_8px_20px_rgba(79,70,229,0.25)] text-white relative overflow-hidden border border-indigo-400/30">
               <div className="absolute top-0 right-0 p-4 opacity-10">
                 <span className="material-symbols-outlined text-8xl">share</span>
               </div>
-              <h3 className="text-[10px] font-bold uppercase tracking-widest text-indigo-100 mb-1">Your Network ID</h3>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-200 mb-1.5">Your Network ID</h3>
               <div className="flex items-end justify-between relative z-10">
                 <p className="text-2xl font-black tracking-tight">{myUsername || "Loading..."}</p>
-                <div className="flex gap-2">
-                  <button onClick={handleCopyId} className="w-9 h-9 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl flex items-center justify-center transition-all active:scale-95">
+                <div className="flex gap-2.5">
+                  <button onClick={handleCopyId} className="w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl flex items-center justify-center transition-all active:scale-95 shadow-inner border border-white/10">
                     <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
                   </button>
-                  <button className="w-9 h-9 bg-white text-indigo-600 rounded-xl flex items-center justify-center shadow-sm transition-all active:scale-95">
+                  <button className="w-10 h-10 bg-white text-indigo-600 rounded-xl flex items-center justify-center shadow-md hover:scale-105 transition-all active:scale-95">
                     <span className="material-symbols-outlined text-sm">ios_share</span>
                   </button>
                 </div>
@@ -316,43 +322,22 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
             </div>
 
             {/* Add Friend Form */}
-            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm">
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm">
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 dark:text-neutral-500 mb-3 px-1">Add Connection</h3>
               <form onSubmit={handleAddFriend} className="flex gap-2">
                 <input 
                   type="text" 
-                  placeholder="Enter Network ID (Username)..."
+                  placeholder="Enter Network ID..."
                   value={searchTarget}
                   onChange={(e) => setSearchTarget(e.target.value)}
                   className="flex-1 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-indigo-500 transition-colors text-neutral-900 dark:text-white"
                 />
-                <button type="submit" className="px-5 bg-neutral-900 dark:bg-white text-white dark:text-black font-bold text-[10px] uppercase tracking-wider rounded-xl hover:opacity-90 transition-all active:scale-95">
+                <button type="submit" disabled={!searchTarget.trim()} className="px-6 bg-neutral-900 dark:bg-white text-white dark:text-black font-bold text-[10px] uppercase tracking-wider rounded-xl hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 shadow-sm">
                   Invite
                 </button>
               </form>
-              {inviteStatus && <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mt-2 px-1">{inviteStatus}</p>}
+              {inviteStatus && <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mt-2.5 px-1">{inviteStatus}</p>}
             </div>
-
-            {/* Current Friends Simple List */}
-            <div className="flex flex-col gap-2">
-              <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 dark:text-neutral-500 px-1 mb-1">My Network Roster</h3>
-              {friends.length === 0 ? (
-                <p className="text-xs text-neutral-400 dark:text-neutral-500 px-1">No connections yet.</p>
-              ) : (
-                friends.map(friend => (
-                  <div key={friend.id} className="flex items-center justify-between p-3 bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-xl shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800 relative">
-                        <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover p-0.5" unoptimized />
-                      </div>
-                      <span className="text-sm font-bold tracking-tight">{friend.username}</span>
-                    </div>
-                    <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest">Connected</span>
-                  </div>
-                ))
-              )}
-            </div>
-
           </div>
         )}
       </div>
@@ -361,39 +346,41 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
 
 
   // ============================================================================
-  // RENDER VIEW 2: ACTIVE SECURE CHAT THREAD (FULL HEIGHT)
+  // RENDER VIEW 2: FULL-SCREEN OVERLAY CHAT MODAL (Solves the scroll jump completely)
   // ============================================================================
   return (
-    <div className="flex flex-col h-[calc(100vh-180px)] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-sm overflow-hidden transition-colors relative z-10">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden animate-fade-in text-neutral-900 dark:text-neutral-100">
       
-      {/* 📞 THREAD HEADER */}
-      <header className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/80 dark:bg-neutral-950/80 backdrop-blur-md sticky top-0 z-20">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setActiveView("hub")}
-            className="w-9 h-9 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 flex items-center justify-center transition-all active:scale-90 shadow-sm"
-          >
-            <span className="material-symbols-outlined text-base">arrow_back</span>
-          </button>
+      {/* 📞 THREAD HEADER: Glued to absolute top, accounts for iOS safe area notch */}
+      <header className="shrink-0 w-full bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 z-20 shadow-sm" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
+        <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full overflow-hidden relative border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-950">
-              <Image src={activeChat?.avatar_url || ""} alt="User" fill className="object-cover p-0.5" unoptimized />
-            </div>
-            <div>
-              <h3 className="text-xs font-black tracking-tight text-neutral-900 dark:text-white">{activeChat?.username}</h3>
-              <span className="text-[8px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-widest flex items-center gap-1 mt-0.5">
-                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> Online
-              </span>
+            <button 
+              onClick={() => setActiveView("hub")}
+              className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-neutral-200/50 dark:border-neutral-700/50 text-neutral-600 dark:text-neutral-300 flex items-center justify-center transition-all active:scale-90"
+            >
+              <span className="material-symbols-outlined text-lg">arrow_back_ios_new</span>
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full overflow-hidden relative border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-950">
+                <Image src={activeChat?.avatar_url || ""} alt="User" fill className="object-cover p-0.5" unoptimized />
+              </div>
+              <div>
+                <h3 className="text-sm font-black tracking-tight text-neutral-900 dark:text-white">{activeChat?.username}</h3>
+                <span className="text-[9px] text-emerald-500 dark:text-emerald-400 font-bold uppercase tracking-widest flex items-center gap-1 mt-0.5">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Online
+                </span>
+              </div>
             </div>
           </div>
+          <button className="w-10 h-10 flex items-center justify-center text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
+            <span className="material-symbols-outlined text-2xl">more_vert</span>
+          </button>
         </div>
-        <button className="w-9 h-9 flex items-center justify-center text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
-          <span className="material-symbols-outlined text-xl">more_vert</span>
-        </button>
       </header>
 
-      {/* 💬 MESSAGE SCROLL AREA */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5 no-scrollbar bg-neutral-50 dark:bg-neutral-950">
+      {/* 💬 MESSAGE SCROLL AREA: Only this box scrolls, protecting the rest of the layout */}
+      <div className="flex-1 w-full overflow-y-auto px-4 py-6 space-y-6 no-scrollbar relative">
         {messages.map((msg) => {
           const isMe = msg.sender_id === myUserId;
 
@@ -403,10 +390,10 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                 
                 {/* Text Bubble */}
                 {msg.message_type === 'text' && (
-                  <div className={`px-4 py-3 text-xs rounded-2xl shadow-sm leading-relaxed border ${
+                  <div className={`px-4 py-3 text-[13px] shadow-sm leading-relaxed border ${
                     isMe 
-                      ? "bg-indigo-600 text-white border-transparent rounded-tr-sm" 
-                      : "bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-neutral-800 rounded-tl-sm"
+                      ? "bg-indigo-600 text-white border-transparent rounded-[1.25rem] rounded-tr-sm" 
+                      : "bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-neutral-800 rounded-[1.25rem] rounded-tl-sm"
                   }`}>
                     <p className="whitespace-pre-wrap break-words font-medium">{msg.content}</p>
                   </div>
@@ -414,33 +401,37 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
 
                 {/* Game Invite Card */}
                 {msg.message_type === 'game_invite' && (
-                  <div className="w-60 rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm p-4 flex flex-col items-center gap-2.5 text-center">
-                    <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-1">
-                      <span className="material-symbols-outlined text-2xl">swords</span>
+                  <div className={`w-64 rounded-3xl overflow-hidden border shadow-sm p-5 flex flex-col items-center gap-3 text-center ${
+                    isMe 
+                      ? "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/50 rounded-tr-sm" 
+                      : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-tl-sm"
+                  }`}>
+                    <div className="w-14 h-14 rounded-[1.25rem] bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-1 shadow-inner">
+                      <span className="material-symbols-outlined text-3xl">swords</span>
                     </div>
                     <div>
-                      <h4 className="text-xs font-black tracking-tight text-neutral-900 dark:text-white">{msg.game_name}</h4>
-                      <p className="text-[9px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-wider mt-1">Challenge Request</p>
+                      <h4 className="text-sm font-black tracking-tight text-neutral-900 dark:text-white">{msg.game_name}</h4>
+                      <p className="text-[9px] text-neutral-500 dark:text-neutral-400 font-bold uppercase tracking-wider mt-1">Challenge Request</p>
                     </div>
 
-                    <div className="w-full mt-2">
+                    <div className="w-full mt-3">
                       {msg.invite_status === 'pending' && (
                         isMe ? (
-                          <div className="text-[10px] text-neutral-400 dark:text-neutral-500 font-bold uppercase py-2 bg-neutral-50 dark:bg-neutral-950 rounded-xl border border-neutral-200/40 dark:border-neutral-800/40">Awaiting...</div>
+                          <div className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase py-2.5 bg-white/50 dark:bg-black/20 rounded-xl border border-indigo-200/50 dark:border-indigo-900/50">Awaiting...</div>
                         ) : (
                           <div className="flex gap-2">
-                            <button onClick={() => updateInviteStatus(msg.id, 'declined')} className="flex-1 py-2 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all">Decline</button>
-                            <button onClick={() => updateInviteStatus(msg.id, 'accepted')} className="flex-1 py-2 bg-indigo-600 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm">Accept</button>
+                            <button onClick={() => updateInviteStatus(msg.id, 'declined')} className="flex-1 py-2.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all">Decline</button>
+                            <button onClick={() => updateInviteStatus(msg.id, 'accepted')} className="flex-1 py-2.5 bg-indigo-600 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-md hover:bg-indigo-700">Accept</button>
                           </div>
                         )
                       )}
                       {msg.invite_status === 'declined' && (
-                        <div className="text-[10px] text-red-500 font-bold uppercase py-2 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-100 dark:border-red-900/40">Declined</div>
+                        <div className="text-[10px] text-red-500 font-bold uppercase py-2.5 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-100 dark:border-red-900/40">Declined</div>
                       )}
                       {msg.invite_status === 'accepted' && (
                         <button 
                           onClick={() => onPlay?.("native://checkers", msg.match_id!)}
-                          className="w-full py-2.5 bg-neutral-900 dark:bg-white text-white dark:text-black font-black text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-md"
+                          className="w-full py-3 bg-neutral-900 dark:bg-white text-white dark:text-black font-black text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-md hover:opacity-90"
                         >
                           <span className="material-symbols-outlined text-[14px]">play_arrow</span>
                           Enter Arena
@@ -449,7 +440,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                     </div>
                   </div>
                 )}
-                <span className="text-[9px] block mt-1.5 px-1 text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-widest">
+                <span className="text-[9px] block mt-1.5 px-2 text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-widest">
                   {formatTime(msg.created_at)}
                 </span>
               </div>
@@ -459,36 +450,38 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 📥 CHAT INPUT */}
-      <footer className="p-3 border-t border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 sticky bottom-0 z-20">
-        <form onSubmit={handleSendText} className="flex items-center gap-2.5">
+      {/* 📥 CHAT INPUT: Glued to Absolute Bottom, accounts for iOS home indicator area */}
+      <footer className="shrink-0 w-full bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 z-20" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
+        <form onSubmit={handleSendText} className="px-4 py-3 flex items-center gap-3">
           <button
             type="button"
             onClick={handleSendGameInvite}
-            className="w-11 h-11 bg-neutral-50 dark:bg-neutral-950 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-indigo-600 dark:text-indigo-400 border border-neutral-200/60 dark:border-neutral-800 rounded-xl flex items-center justify-center transition-all active:scale-90 shadow-sm shrink-0"
+            className="w-11 h-11 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-sm shrink-0"
           >
-            <span className="material-symbols-outlined text-lg">swords</span>
+            <span className="material-symbols-outlined text-[20px]">swords</span>
           </button>
-          <div className="flex-1 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200/60 dark:border-neutral-800 rounded-xl flex items-center pr-1.5 focus-within:border-indigo-300 dark:focus-within:border-indigo-700 transition-all overflow-hidden">
+          
+          <div className="flex-1 bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-full flex items-center pr-1.5 focus-within:border-indigo-400 dark:focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all overflow-hidden shadow-inner">
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-1 bg-transparent border-none text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none px-4 py-3.5 w-full"
+              placeholder="Message..."
+              className="flex-1 bg-transparent border-none text-[13px] text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none px-4 py-3 w-full"
             />
             <button
               type="submit"
               disabled={!newMessage.trim()}
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all shrink-0 ${
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0 ${
                 newMessage.trim() ? "bg-indigo-600 text-white active:scale-90 shadow-sm" : "bg-transparent text-neutral-300 dark:text-neutral-700 cursor-not-allowed"
               }`}
             >
-              <span className="material-symbols-outlined text-[14px] font-bold">send</span>
+              <span className="material-symbols-outlined text-[16px] font-bold">arrow_upward</span>
             </button>
           </div>
         </form>
       </footer>
+
     </div>
   );
 }

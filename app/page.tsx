@@ -63,7 +63,7 @@ export default function Home() {
 
   if (checkingAuth) {
     return (
-      <div className="h-[100dvh] w-full bg-neutral-100 dark:bg-neutral-950 flex items-center justify-center transition-colors">
+      <div className="fixed inset-0 bg-neutral-100 dark:bg-neutral-950 flex items-center justify-center transition-colors">
         <span className="text-xs font-bold text-neutral-400 dark:text-neutral-600 uppercase tracking-widest animate-pulse">
           Syncing Session Matrix...
         </span>
@@ -93,11 +93,11 @@ export default function Home() {
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : null}
 
-      {/* 📱 NATIVE APP WRAPPER: Fixed height (100dvh), flex-col, hidden overflow */}
-      <div className={playingGame ? "hidden" : "flex flex-col h-[100dvh] w-full bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors overflow-hidden"}>
+      {/* 📱 NATIVE APP WRAPPER: fixed inset-0 completely locks the bounds of the app to the screen */}
+      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors overflow-hidden"}>
         
-        {/* 💳 HEADER: Shrinks to fit, no absolute positioning needed */}
-        <header className="shrink-0 w-full z-50 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-900 flex items-center justify-between px-6 h-20 pt-safe transition-colors">
+        {/* 💳 HEADER: Shrink-0 keeps it glued to the top */}
+        <header className="shrink-0 w-full z-40 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-900 flex items-center justify-between px-6 h-20 pt-safe transition-colors">
           <div className="flex items-center gap-3">
             <div className="relative w-9 h-9 flex items-center justify-center transition-colors">
               <Image 
@@ -114,7 +114,7 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 📜 SCROLLABLE MAIN CONTENT: Uses flex-1 to take up remaining space. THIS is the only thing that scrolls now. */}
+        {/* 📜 SCROLLABLE MAIN CONTENT: This is now the ONLY part of the app that scrolls */}
         <main className="flex-1 w-full max-w-xl mx-auto overflow-y-auto no-scrollbar px-4 pt-6 pb-6 relative">
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
@@ -148,8 +148,8 @@ export default function Home() {
           )}
         </main>
 
-        {/* 🗺️ NAVIGATION DECK: Shrinks to fit at the bottom */}
-        <nav className="shrink-0 w-full z-50 flex justify-between items-center h-20 pb-safe px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-900 transition-colors">
+        {/* 🗺️ NAVIGATION DECK: Shrink-0 keeps it perfectly glued to the bottom safe area */}
+        <nav className="shrink-0 w-full z-40 flex justify-between items-center h-20 pb-safe px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-900 transition-colors">
           {["Games", "Ranks", "Chat", "Shop", "Profile"].map((tab) => {
             const isActive = activeTab === tab;
             return (
