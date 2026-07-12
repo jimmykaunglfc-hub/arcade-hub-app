@@ -210,13 +210,12 @@ export default function Checkers({
         const nextTurn = turn === P1 ? P2 : P1;
         const nextMoves = getAllValidMoves(nextTurn, newBoard);
         
-        // 🏆 WIN DETECTION LOGIC
         let newWinner = null;
         let newP1Score = p1Score;
         let newP2Score = p2Score;
         
         if (nextMoves.length === 0) {
-          newWinner = turn; // The person who just moved trapped the opponent!
+          newWinner = turn; 
           if (turn === P1) newP1Score++; else newP2Score++;
         }
 
@@ -234,9 +233,8 @@ export default function Checkers({
     }
   };
 
-  // 🔄 SERIES REMATCH RESET
   const handleRematch = async () => {
-    const nextStartingTurn = winner === P1 ? P2 : P1; // Loser goes first next game
+    const nextStartingTurn = winner === P1 ? P2 : P1;
     if (playMode === "online") {
       await supabase.from('checkers_matches').update({
         board: INITIAL_BOARD, turn: nextStartingTurn, winner: null, p1_captures: 0, p2_captures: 0
@@ -246,7 +244,6 @@ export default function Checkers({
     }
   };
 
-  // 🤩 EMOJI BROADCASTER
   const sendEmoji = async (emoji: string) => {
     setShowEmojiMenu(false);
     if (playMode === "online") {
@@ -254,7 +251,6 @@ export default function Checkers({
         type: 'broadcast', event: 'emoji', payload: { emoji, role: myPlayerRole }
       });
     } else {
-      // Local mode fallback
       const newEmoji = { id: Date.now(), emoji, role: turn };
       setFloatingEmojis(prev => [...prev, newEmoji]);
       setTimeout(() => setFloatingEmojis(prev => prev.filter(e => e.id !== newEmoji.id)), 2500);
@@ -276,7 +272,7 @@ export default function Checkers({
         <div className="absolute inset-0 z-50 bg-neutral-100/90 dark:bg-neutral-950/90 backdrop-blur-md flex items-center justify-center p-6">
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2rem] p-8 w-full max-w-sm shadow-xl space-y-6">
             <div className="text-center space-y-2">
-              <div className="w-16 h-16 mx-auto bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center border border-indigo-100 dark:border-indigo-800 mb-4">
+              <div className="w-16 h-16 mx-auto bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center border border-indigo-100 dark:border-indigo-800 mb-4 shadow-[0_4px_10px_rgba(79,70,229,0.1)]">
                 <span className="material-symbols-outlined text-4xl">grid_4x4</span>
               </div>
               <h2 className="text-xl font-black text-neutral-900 dark:text-white tracking-tight">Checkers Arena</h2>
@@ -302,8 +298,8 @@ export default function Checkers({
 
       {/* --- IN-GAME ARENA --- */}
       {/* Top Header */}
-      <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md">
-        <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all">
+      <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30">
+        <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
           <span className="material-symbols-outlined text-lg">close</span>
         </button>
         <div className="text-center">
@@ -315,7 +311,7 @@ export default function Checkers({
         
         {/* Emoji Button */}
         <div className="relative">
-          <button onClick={() => setShowEmojiMenu(!showEmojiMenu)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all">
+          <button onClick={() => setShowEmojiMenu(!showEmojiMenu)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
             <span className="material-symbols-outlined text-lg">add_reaction</span>
           </button>
           
@@ -332,20 +328,22 @@ export default function Checkers({
       {/* Scoreboard HUD */}
       {(playMode === "local" || playMode === "online") && (
         <>
-          <div className="w-full max-w-md px-6 py-5 flex justify-between items-center relative">
+          <div className="w-full max-w-md px-6 py-5 flex justify-between items-center relative z-20">
             
             {/* HUD LEFT (Opponent Online, or P2 Local) */}
-            <div className={`flex flex-col items-center transition-all ${turn === (shouldFlipBoard ? P1 : P2) ? "scale-105 opacity-100" : "opacity-50 grayscale"}`}>
+            <div className={`flex flex-col items-center transition-all duration-300 ${turn === (shouldFlipBoard ? P1 : P2) ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">{shouldFlipBoard ? p1Score : p2Score}</span>
-                <span className="text-[8px] text-neutral-400 uppercase tracking-widest">Wins</span>
+                <span className="text-[8px] text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">Wins</span>
               </div>
-              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-sm bg-white dark:bg-neutral-900 ${
+              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_10px_rgba(0,0,0,0.3)] bg-white dark:bg-neutral-900 ${
                 shouldFlipBoard ? "border-indigo-500 text-indigo-500" : "border-emerald-500 text-emerald-500"
               }`}>
                 <span className="font-black text-sm">{shouldFlipBoard ? "P1" : "P2"}</span>
               </div>
-              <span className="text-[9px] font-bold text-neutral-500 dark:text-neutral-400 mt-2 uppercase tracking-wider">Cap: {shouldFlipBoard ? p1Captures : p2Captures}</span>
+              <span className="text-[9px] font-bold text-neutral-500 dark:text-neutral-400 mt-2 uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 rounded-md border border-neutral-300 dark:border-neutral-700">
+                Cap: {shouldFlipBoard ? p1Captures : p2Captures}
+              </span>
             </div>
             
             {/* Center Status */}
@@ -356,17 +354,19 @@ export default function Checkers({
             </div>
 
             {/* HUD RIGHT (You Online, or P1 Local) */}
-            <div className={`flex flex-col items-center transition-all ${turn === (shouldFlipBoard ? P2 : P1) ? "scale-105 opacity-100" : "opacity-50 grayscale"}`}>
+            <div className={`flex flex-col items-center transition-all duration-300 ${turn === (shouldFlipBoard ? P2 : P1) ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
               <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-[8px] text-neutral-400 uppercase tracking-widest">Wins</span>
+                <span className="text-[8px] text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">Wins</span>
                 <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{shouldFlipBoard ? p2Score : p1Score}</span>
               </div>
-              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-sm bg-white dark:bg-neutral-900 ${
+              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_10px_rgba(0,0,0,0.3)] bg-white dark:bg-neutral-900 ${
                 shouldFlipBoard ? "border-emerald-500 text-emerald-500" : "border-indigo-500 text-indigo-500"
               }`}>
                 <span className="font-black text-sm">{shouldFlipBoard ? "P2" : "P1"}</span>
               </div>
-              <span className="text-[9px] font-bold text-neutral-500 dark:text-neutral-400 mt-2 uppercase tracking-wider">Cap: {shouldFlipBoard ? p2Captures : p1Captures}</span>
+              <span className="text-[9px] font-bold text-neutral-500 dark:text-neutral-400 mt-2 uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 rounded-md border border-neutral-300 dark:border-neutral-700">
+                Cap: {shouldFlipBoard ? p2Captures : p1Captures}
+              </span>
             </div>
           </div>
 
@@ -375,7 +375,6 @@ export default function Checkers({
             
             {/* FLOATING EMOJI LAYER */}
             {floatingEmojis.map((em) => {
-              // Decide animation side based on who sent it vs perspective
               const isMine = em.role === myPlayerRole;
               return (
                 <div key={em.id} className={`absolute z-40 text-4xl animate-float-up pointer-events-none ${
@@ -389,9 +388,9 @@ export default function Checkers({
             {/* VICTORY OVERLAY DIALOG */}
             {winner && (
               <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-in">
-                <div className="absolute inset-0 bg-white/60 dark:bg-black/60 backdrop-blur-md rounded-3xl"></div>
+                <div className="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-md rounded-[2.5rem]"></div>
                 <div className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 w-full shadow-2xl flex flex-col items-center text-center">
-                  <div className="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4 border border-indigo-100 dark:border-indigo-800 shadow-[0_4px_15px_rgba(79,70,229,0.15)]">
                     <span className="material-symbols-outlined text-4xl">emoji_events</span>
                   </div>
                   <h2 className="text-2xl font-black text-neutral-900 dark:text-white tracking-tight uppercase">
@@ -404,45 +403,52 @@ export default function Checkers({
                   </p>
                   
                   <div className="w-full flex gap-3 mt-8">
-                    <button onClick={onClose} className="flex-1 py-3 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all">Exit</button>
+                    <button onClick={onClose} className="flex-1 py-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm">Exit</button>
                     <button onClick={handleRematch} className="flex-1 py-3 bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-md">Play Next Round</button>
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="w-full aspect-square bg-white dark:bg-neutral-900 rounded-[2rem] border border-neutral-200 dark:border-neutral-800 p-2 shadow-sm relative overflow-hidden">
-              <div className={`w-full h-full grid grid-cols-8 grid-rows-8 rounded-2xl overflow-hidden border border-neutral-100 dark:border-neutral-800/50 bg-neutral-50 dark:bg-neutral-950 transition-transform duration-500 ${
+            {/* HIGH-END BOARD FRAME */}
+            <div className="w-full aspect-square bg-neutral-200 dark:bg-neutral-800 rounded-[2.5rem] p-3 shadow-[inset_0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_4px_12px_rgba(0,0,0,0.5)] border border-white/50 dark:border-white/5 relative overflow-hidden">
+              <div className={`w-full h-full grid grid-cols-8 grid-rows-8 rounded-2xl overflow-hidden border-4 border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 shadow-xl transition-transform duration-500 ${
                 shouldFlipBoard ? "rotate-180" : "rotate-0"
               }`}>
                 {viewIndices.map((r) => 
                   viewIndices.map((c) => {
                     const actualR = shouldFlipBoard ? 7 - r : r;
                     const actualC = shouldFlipBoard ? 7 - c : c;
+                    
+                    // 🏁 Distinct High-Contrast Checkerboard Layout
                     const playable = isPlayableSquare(actualR, actualC);
+                    const squareClass = playable 
+                      ? "bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer" 
+                      : "bg-white dark:bg-neutral-900";
+                    
                     const isSelected = selected?.r === actualR && selected?.c === actualC;
                     const isTarget = activeMoveTargets.some((m) => m.r === actualR && m.c === actualC);
                     const piece = board[actualR][actualC];
                     
+                    // 🎮 3D Physical Piece Rendering
+                    let pieceClass = "";
+                    if (piece === P1 || piece === P1_KING) {
+                      pieceClass = "bg-gradient-to-br from-indigo-400 to-indigo-600 shadow-[inset_0_2px_4px_rgba(255,255,255,0.4),0_4px_8px_rgba(79,70,229,0.5)] ring-1 ring-indigo-300 dark:ring-indigo-700";
+                    } else if (piece === P2 || piece === P2_KING) {
+                      pieceClass = "bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-[inset_0_2px_4px_rgba(255,255,255,0.4),0_4px_8px_rgba(16,185,129,0.5)] ring-1 ring-emerald-300 dark:ring-emerald-700";
+                    }
+
                     return (
                       <div 
                         key={`${r}-${c}`}
                         onClick={() => playable && handleSquareClick(actualR, actualC)}
-                        className={`relative w-full h-full flex items-center justify-center transition-colors ${
-                          playable ? "bg-neutral-200/50 hover:bg-neutral-300/50 dark:bg-neutral-800/50 dark:hover:bg-neutral-700/50 cursor-pointer" : "bg-neutral-100 dark:bg-neutral-900"
-                        } ${isSelected ? "ring-2 ring-inset ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/20" : ""} ${isTarget ? "bg-indigo-100/50 dark:bg-indigo-500/20 cursor-pointer" : ""}`}
+                        className={`relative w-full h-full flex items-center justify-center transition-colors ${squareClass} ${isSelected ? "ring-inset ring-2 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/30" : ""} ${isTarget ? "bg-indigo-100/60 dark:bg-indigo-500/20" : ""}`}
                       >
-                        {isTarget && <div className="w-3 h-3 rounded-full bg-indigo-500 animate-pulse shadow-sm"></div>}
+                        {isTarget && <div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)] animate-pulse"></div>}
 
                         {piece !== EMPTY && (
-                          <div className={`w-[75%] h-[75%] rounded-full flex items-center justify-center border-[3px] transition-all duration-300 shadow-md ${
-                            shouldFlipBoard ? "rotate-180" : "rotate-0"
-                          } ${
-                            piece === P1 || piece === P1_KING ? "bg-indigo-500 border-indigo-300 text-white" : ""
-                          } ${
-                            piece === P2 || piece === P2_KING ? "bg-emerald-500 border-emerald-300 text-white" : ""
-                          } ${isSelected ? "scale-110" : ""}`}>
-                            {(piece === P1_KING || piece === P2_KING) && <span className="material-symbols-outlined text-[16px]">crownd</span>}
+                          <div className={`w-[80%] h-[80%] rounded-full flex items-center justify-center transition-all duration-300 border-t border-white/40 ${pieceClass} ${shouldFlipBoard ? "rotate-180" : "rotate-0"} ${isSelected ? "scale-110 ring-4 ring-white dark:ring-neutral-900" : ""}`}>
+                            {(piece === P1_KING || piece === P2_KING) && <span className="material-symbols-outlined text-[20px] text-white drop-shadow-md" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>}
                           </div>
                         )}
                       </div>
