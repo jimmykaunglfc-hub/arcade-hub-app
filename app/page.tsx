@@ -22,16 +22,12 @@ export default function Home() {
   const [rewardClaimed, setRewardClaimed] = useState(false);
   const [activeTab, setActiveTab] = useState("Games");
   
-  // 🎮 Core Game Routing State Matrix
   const [playingGame, setPlayingGame] = useState<string | null>(null);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
 
-  // 🌓 THEME HUB CORE STATE
   const [isDarkMode, setIsDarkMode] = useState(true);
 
-  // 📡 Initial configuration lifecycle hook
   useEffect(() => {
-    // 1. Synchronize system or cached visual theme parameters
     const cachedTheme = localStorage.getItem("app_theme");
     if (cachedTheme === "light") {
       setIsDarkMode(false);
@@ -41,7 +37,6 @@ export default function Home() {
       document.documentElement.classList.add("dark");
     }
 
-    // 2. Synchronize current authentication state
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setCheckingAuth(false);
@@ -54,7 +49,6 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 🌓 Premium Minimalist Toggle Engine
   const toggleTheme = () => {
     if (isDarkMode) {
       document.documentElement.classList.remove("dark");
@@ -69,7 +63,7 @@ export default function Home() {
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex items-center justify-center transition-colors">
+      <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 flex items-center justify-center transition-colors">
         <span className="text-xs font-bold text-neutral-400 dark:text-neutral-600 uppercase tracking-widest animate-pulse">
           Syncing Session Matrix...
         </span>
@@ -79,7 +73,6 @@ export default function Home() {
 
   return (
     <>
-      {/* 🚀 BACKGROUND REALTIME INVITE ROUTER */}
       {session && (
         <GlobalInviteListener 
           onAccept={(gameUrl, matchId) => {
@@ -89,7 +82,6 @@ export default function Home() {
         />
       )}
 
-      {/* 🚀 NATIVE RUNTIME LOBBY FRAME INTERCEPTOR */}
       {playingGame === "native://glitch-deck" ? (
         <GlitchDeck onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://checkers" ? (
@@ -101,28 +93,27 @@ export default function Home() {
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : null}
 
-      {/* Primary Minimal Workspace Viewport */}
-      <div className={playingGame ? "hidden" : "block min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors"}>
+      {/* 🌓 IMPROVED CONTRAST: Changed bg-neutral-50 to bg-neutral-100 for Light Mode depth */}
+      <div className={playingGame ? "hidden" : "block min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors"}>
         
-        {/* 💳 STICKY ULTRA-PREMIUM NAVIGATION BANNER */}
-        <header className="fixed top-0 left-0 w-full z-50 bg-white/80 dark:bg-neutral-950/80 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-900 flex items-center justify-between px-6 h-20 pt-safe transition-colors">
+        <header className="fixed top-0 left-0 w-full z-50 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-900 flex items-center justify-between px-6 h-20 pt-safe transition-colors">
           <div className="flex items-center gap-3">
-            <div className="relative w-9 h-9 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center transition-colors">
+            <div className="relative w-9 h-9 flex items-center justify-center transition-colors">
+              {/* 🎨 LOGO FIX: Added 'invert dark:invert-0' so it flips to black in light mode! */}
               <Image 
                 src="/joeyoke-logo.png" 
                 alt="Joe Yoke Logo" 
                 fill 
-                className="object-cover p-1.5" 
+                className="object-contain invert dark:invert-0 transition-all duration-300" 
                 unoptimized 
               />
             </div>
-            <span className="text-base font-black tracking-tight text-neutral-900 dark:text-white uppercase">
+            <span className="text-lg font-black tracking-tight text-neutral-900 dark:text-white uppercase">
               JOE YOKE
             </span>
           </div>
         </header>
 
-        {/* 📱 CENTRAL STRUCTURAL WORKSPACE CONTAINER */}
         <main className="pt-28 px-4 max-w-xl mx-auto pb-28">
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
@@ -137,7 +128,6 @@ export default function Home() {
               )}
               {activeTab === "Ranks" && <LeaderboardTab />}
               
-              {/* 💬 Chat updates dynamically from in-feed room challenges */}
               {activeTab === "Chat" && (
                 <ChatTab onPlay={(url, matchId) => {
                   setActiveMatchId(matchId);
@@ -157,8 +147,7 @@ export default function Home() {
           )}
         </main>
 
-        {/* 🗺️ MINIMALIST CORE CONTROL DECK NAVIGATION */}
-        <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center h-20 pb-safe px-6 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-900 transition-colors">
+        <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center h-20 pb-safe px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-900 transition-colors">
           {["Games", "Ranks", "Chat", "Shop", "Profile"].map((tab) => {
             const isActive = activeTab === tab;
             return (
