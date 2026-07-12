@@ -3,6 +3,15 @@
 @tailwind utilities;
 
 @layer base {
+  /* 🔒 NATIVE APP VIEWPORT LOCK */
+  /* This prevents the entire webpage from "rubber-banding" or bouncing up and down */
+  html, body {
+    overscroll-behavior-y: none; 
+    height: 100%;
+    overflow: hidden; 
+    -webkit-overflow-scrolling: auto;
+  }
+
   /* ☀️ Light Mode Foundation */
   :root {
     --bg-app: #f9f9f9;
@@ -31,7 +40,8 @@
   }
 }
 
-/* Clear, premium scrolling mechanics */
+/* 📜 PREMIUM SCROLLING MECHANICS */
+/* Hides scrollbars while keeping functionality intact for flex containers */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -40,6 +50,8 @@
   scrollbar-width: none;
 }
 
+/* 🤩 FLOATING EMOJI ANIMATION */
+/* Handles the interactive WebSockets reaction logic for the game boards */
 @keyframes float-up {
   0% { transform: translateY(0) scale(0.8); opacity: 0; }
   10% { opacity: 1; transform: translateY(-20px) scale(1.2); }

@@ -63,7 +63,7 @@ export default function Home() {
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 flex items-center justify-center transition-colors">
+      <div className="h-[100dvh] w-full bg-neutral-100 dark:bg-neutral-950 flex items-center justify-center transition-colors">
         <span className="text-xs font-bold text-neutral-400 dark:text-neutral-600 uppercase tracking-widest animate-pulse">
           Syncing Session Matrix...
         </span>
@@ -93,13 +93,13 @@ export default function Home() {
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : null}
 
-      {/* 🌓 IMPROVED CONTRAST: Changed bg-neutral-50 to bg-neutral-100 for Light Mode depth */}
-      <div className={playingGame ? "hidden" : "block min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors"}>
+      {/* 📱 NATIVE APP WRAPPER: Fixed height (100dvh), flex-col, hidden overflow */}
+      <div className={playingGame ? "hidden" : "flex flex-col h-[100dvh] w-full bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors overflow-hidden"}>
         
-        <header className="fixed top-0 left-0 w-full z-50 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-900 flex items-center justify-between px-6 h-20 pt-safe transition-colors">
+        {/* 💳 HEADER: Shrinks to fit, no absolute positioning needed */}
+        <header className="shrink-0 w-full z-50 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-900 flex items-center justify-between px-6 h-20 pt-safe transition-colors">
           <div className="flex items-center gap-3">
             <div className="relative w-9 h-9 flex items-center justify-center transition-colors">
-              {/* 🎨 LOGO FIX: Added 'invert dark:invert-0' so it flips to black in light mode! */}
               <Image 
                 src="/joeyoke-logo.png" 
                 alt="Joe Yoke Logo" 
@@ -114,7 +114,8 @@ export default function Home() {
           </div>
         </header>
 
-        <main className="pt-28 px-4 max-w-xl mx-auto pb-28">
+        {/* 📜 SCROLLABLE MAIN CONTENT: Uses flex-1 to take up remaining space. THIS is the only thing that scrolls now. */}
+        <main className="flex-1 w-full max-w-xl mx-auto overflow-y-auto no-scrollbar px-4 pt-6 pb-6 relative">
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
@@ -147,7 +148,8 @@ export default function Home() {
           )}
         </main>
 
-        <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center h-20 pb-safe px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-900 transition-colors">
+        {/* 🗺️ NAVIGATION DECK: Shrinks to fit at the bottom */}
+        <nav className="shrink-0 w-full z-50 flex justify-between items-center h-20 pb-safe px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-900 transition-colors">
           {["Games", "Ranks", "Chat", "Shop", "Profile"].map((tab) => {
             const isActive = activeTab === tab;
             return (
