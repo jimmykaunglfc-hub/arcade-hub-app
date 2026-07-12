@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 
-// 🎮 DYNAMIC CONFIGURATION: Local Asset Registry
+// 🎮 DYNAMIC CONFIGURATION: Neon UI Asset Registry
 const GAME_CATEGORIES = [
   {
     id: "strategy-cards",
@@ -15,7 +14,9 @@ const GAME_CATEGORIES = [
         title: "Neon Checkers",
         genre: "Board • Local PvP",
         playersOnline: "Local",
-        image: "/game-covers/checkers.jpg", // 📁 Loads from public/game-covers/
+        iconName: "grid_4x4", // Material Symbol Name
+        iconColor: "text-blue-400", // Glow Color
+        bgGradient: "from-blue-500/20 to-transparent",
         url: "native://checkers" 
       },
       {
@@ -23,7 +24,9 @@ const GAME_CATEGORIES = [
         title: "Glitch Deck",
         genre: "Cyberpunk • TCG",
         playersOnline: "1.4k",
-        image: "/game-covers/glitch-deck.jpg",
+        iconName: "style",
+        iconColor: "text-purple-400",
+        bgGradient: "from-purple-500/20 to-transparent",
         url: "native://glitch-deck"
       },
       {
@@ -31,7 +34,9 @@ const GAME_CATEGORIES = [
         title: "Rune Masters",
         genre: "Strategy • TCG",
         playersOnline: "2.1k",
-        image: "/game-covers/rune-masters.jpg",
+        iconName: "auto_awesome",
+        iconColor: "text-amber-400",
+        bgGradient: "from-amber-500/20 to-transparent",
         url: "https://html5.gamedistribution.com/a42b9d8df2e245a4a5bb86524a806954/"
       }
     ]
@@ -46,7 +51,9 @@ const GAME_CATEGORIES = [
         title: "Neon Velocity",
         genre: "Racing • Action",
         playersOnline: "4.2k",
-        image: "/game-covers/neon-velocity.jpg",
+        iconName: "sports_esports",
+        iconColor: "text-rose-400",
+        bgGradient: "from-rose-500/20 to-transparent",
         url: "https://html5.gamedistribution.com/b5a5b54637ad4f7c80521e1cb04a23de/"
       },
       {
@@ -54,7 +61,9 @@ const GAME_CATEGORIES = [
         title: "Cyber Rush",
         genre: "Sci-Fi • Runner",
         playersOnline: "1.8k",
-        image: "/game-covers/cyber-strike.jpg",
+        iconName: "bolt",
+        iconColor: "text-cyan-400",
+        bgGradient: "from-cyan-500/20 to-transparent",
         url: "https://html5.gamedistribution.com/f255260a4f554032bfdf6f0813959b85/"
       }
     ]
@@ -120,19 +129,23 @@ export default function GamesTab({
         </button>
       </section>
 
-      {/* 🎯 ULTRA-PREMIUM FEATURED CONSOLE VIEW */}
+      {/* 🎯 ULTRA-PREMIUM FEATURED CONSOLE VIEW (NEON EDITION) */}
       <section className={`transition-all duration-500 ease-in-out origin-top ${
-        activeFilter ? "max-h-0 opacity-0 overflow-hidden mb-0 scale-95 pointer-events-none" : "max-h-[420px] opacity-100"
+        activeFilter ? "max-h-0 opacity-0 overflow-hidden mb-0 scale-95 pointer-events-none" : "max-h-[340px] opacity-100"
       }`}>
-        <div className="relative w-full h-[320px] rounded-[2rem] overflow-hidden group shadow-2xl border border-white/5 bg-surface-variant/20">
-          <Image 
-            src="/game-covers/checkers.jpg" // 📁 Updated to use local asset pipeline
-            alt="Neon Checkers Local Match" 
-            fill 
-            className="object-cover opacity-85 transition-transform duration-700 group-hover:scale-103" 
-            unoptimized 
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent z-10"></div>
+        <div className="relative w-full h-[280px] rounded-[2rem] overflow-hidden group shadow-2xl border border-white/5 bg-gradient-to-b from-blue-500/20 to-surface">
+          
+          {/* Glowing Background Icon */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-30 mt-[-40px]">
+            <span 
+              className="material-symbols-outlined text-[160px] text-blue-400 group-hover:scale-110 transition-transform duration-700" 
+              style={{ fontVariationSettings: "'FILL' 1", filter: 'drop-shadow(0 0 40px currentColor)' }}
+            >
+              grid_4x4
+            </span>
+          </div>
+          
+          <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/80 to-transparent z-10"></div>
           
           <div className="absolute bottom-0 left-0 w-full p-6 z-20 flex flex-col gap-4">
             <div className="space-y-1">
@@ -145,10 +158,10 @@ export default function GamesTab({
             
             <button 
               onClick={() => onPlay("native://checkers")}
-              className="bg-primary text-on-primary w-full h-12 rounded-xl text-xs font-black tracking-widest uppercase shadow-[0_4px_20px_rgba(192,193,255,0.2)] hover:brightness-105 active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+              className="bg-white text-black w-full h-12 rounded-xl text-xs font-black tracking-widest uppercase shadow-[0_4px_20px_rgba(255,255,255,0.15)] hover:bg-gray-100 active:scale-[0.99] transition-all flex items-center justify-center gap-2"
             >
-              <span className="material-symbols-outlined text-sm font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
-              Initialize Match Engine
+              <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
+              Play Now
             </button>
           </div>
         </div>
@@ -204,32 +217,29 @@ export default function GamesTab({
                 {category.games.map((game) => (
                   <div 
                     key={game.id} 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onPlay(game.url);
-                    }}
-                    className="group cursor-pointer bg-gradient-to-b from-surface-variant/30 to-surface rounded-2xl p-2 border border-white/5 hover:border-primary/30 active:scale-[0.98] transition-all duration-300 shadow-md flex flex-col justify-between"
+                    className="group bg-surface-variant/20 rounded-[1.25rem] border border-white/5 overflow-hidden hover:border-white/15 transition-all flex flex-col shadow-lg"
                   >
-                    <div className="relative aspect-[4/5] rounded-xl overflow-hidden mb-2 shadow-inner">
-                      <Image 
-                        src={game.image} 
-                        alt={game.title} 
-                        fill 
-                        className="object-cover transition-transform duration-500 group-hover:scale-103" 
-                        unoptimized 
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    {/* Top Visual Half (Neon Icon + Gradient) */}
+                    <div className={`relative h-28 w-full flex items-center justify-center bg-gradient-to-b ${game.bgGradient}`}>
+                      <span 
+                        className={`material-symbols-outlined text-[48px] ${game.iconColor} transition-transform duration-500 group-hover:scale-110`}
+                        style={{ fontVariationSettings: "'FILL' 1", filter: 'drop-shadow(0 0 15px currentColor)' }}
+                      >
+                        {game.iconName}
+                      </span>
                       
-                      <div className="absolute top-1.5 right-1.5 bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-white/10">
-                        <span className="text-[8px] text-secondary font-black flex items-center gap-1 uppercase tracking-wider">
-                          <span className="w-1 h-1 rounded-full bg-secondary animate-pulse"></span>
+                      {/* Status Badge */}
+                      <div className="absolute top-2 right-2 bg-black/40 backdrop-blur-md px-1.5 py-0.5 rounded border border-white/5">
+                        <span className="text-[8px] text-white/80 font-bold flex items-center gap-1 uppercase tracking-wider">
+                          <span className={`w-1 h-1 rounded-full animate-pulse bg-current ${game.iconColor}`}></span>
                           {game.playersOnline}
                         </span>
                       </div>
                     </div>
                     
-                    <div className="px-1.5 pb-1 flex items-center justify-between gap-2">
-                      <div className="truncate flex-1">
+                    {/* Bottom Content Half */}
+                    <div className="p-3 flex flex-col flex-1 justify-between gap-3 bg-surface-variant/30">
+                      <div>
                         <h4 className="text-xs font-black text-white group-hover:text-primary transition-colors truncate tracking-tight">
                           {game.title}
                         </h4>
@@ -237,9 +247,16 @@ export default function GamesTab({
                           {game.genre}
                         </p>
                       </div>
-                      <span className="material-symbols-outlined text-sm text-on-surface-variant/20 group-hover:text-primary group-hover:translate-x-0.5 transition-all">
-                        arrow_forward
-                      </span>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPlay(game.url);
+                        }}
+                        className="w-full py-2 bg-white text-black text-[10px] font-black uppercase tracking-wider rounded-lg flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                      >
+                        <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
+                        Play Now
+                      </button>
                     </div>
                   </div>
                 ))}
