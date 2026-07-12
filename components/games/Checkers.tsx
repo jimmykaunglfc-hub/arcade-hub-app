@@ -108,21 +108,51 @@ export default function Checkers({
   }, [preloadedMatchId, myUserId]);
 
   const joinDirectlyByUUID = async (uuid: string) => {
-    const { data, error } = await supabase.from('checkers_matches')
-      .update({ p2_id: myUserId, status: 'playing' })
+    const { data: match, error: fetchError } = await supabase
+      .from('checkers_matches')
+      .select('*')
       .eq('id', uuid)
-      .select().single();
+      .maybeSingle();
 
-    if (data && !error) {
-      setMatchId(data.id);
-      setMyPlayerRole(P2);
-      setBoard(data.board);
-      setTurn(data.turn);
-      setPlayMode("online");
-    } else {
-      console.error("Multiplayer Sync Interrupted:", error);
-      alert("Unable to join matrix session. The match may have expired or filled up.");
+    if (!match || fetchError) {
+      alert("Match session not found.");
       setPlayMode("menu");
+      return;
+    }
+
+    if (match.p1_id === myUserId) {
+      // 🏠 CURRENT USER IS THE HOST (Player 1)
+      setMatchId(match.id);
+      setRoomCode(match.room_code || "");
+      setMyPlayerRole(P1); 
+      setBoard(match.board);
+      setTurn(match.turn);
+      setP1Captures(match.p1_captures);
+      setP2Captures(match.p2_captures);
+      setWinner(match.winner);
+      setPlayMode(match.status === 'playing' ? "online" : "host");
+    } else {
+      // 🚪 CURRENT USER IS THE GUEST (Player 2) -> Fixed the comment syntax issue here
+      const { data: updatedMatch, error: updateError } = await supabase
+        .from('checkers_matches')
+        .update({ p2_id: myUserId, status: 'playing' })
+        .eq('id', uuid)
+        .select().single();
+
+      if (updatedMatch && !updateError) {
+        setMatchId(updatedMatch.id);
+        setRoomCode(updatedMatch.room_code || "");
+        setMyPlayerRole(P2); 
+        setBoard(updatedMatch.board);
+        setTurn(updatedMatch.turn);
+        setP1Captures(updatedMatch.p1_captures);
+        setP2Captures(updatedMatch.p2_captures);
+        setWinner(updatedMatch.winner);
+        setPlayMode("online");
+      } else {
+        alert("Unable to join matrix session.");
+        setPlayMode("menu");
+      }
     }
   };
 
@@ -150,7 +180,6 @@ export default function Checkers({
             const isOpponent = (piece === P1 || piece === P1_KING) ? (currentBoard[nr][nc] === P2 || currentBoard[nr][nc] === P2_KING) : (currentBoard[nr][nc] === P1 || currentBoard[nr][nc] === P1_KING);
             if (isOpponent) {
               const jr = nr + dr, jc = nc + dc;
-              // 🛠️ BUG FIXED HERE: c: jc instead of just jc
               if (jr >= 0 && jr < 8 && jc >= 0 && jc < 8 && currentBoard[jr][jc] === EMPTY) moves.push({ r: jr, c: jc, jump: { r: nr, c: nc } });
             }
           }
