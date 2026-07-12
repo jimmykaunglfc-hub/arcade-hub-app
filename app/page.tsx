@@ -29,8 +29,15 @@ export default function Home() {
       <div className={playingGame ? "hidden" : "block"}>
         <header className="fixed top-0 left-0 w-full z-50 bg-surface/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-4 h-20 pt-safe">
           <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10 rounded-full overflow-hidden border border-primary/30">
-              <Image src="https://i.pravatar.cc/150?img=11" alt="Avatar" fill className="object-cover" unoptimized />
+            {/* 🖼️ Updated App Logo Container */}
+            <div className="relative w-10 h-10 rounded-full overflow-hidden border border-primary/30 bg-surface">
+              <Image 
+                src="/joeyoke-logo.png" 
+                alt="Joe Yoke Logo" 
+                fill 
+                className="object-cover p-1" 
+                unoptimized 
+              />
             </div>
             {/* 🏷️ Branded App Header Label */}
             <span className="text-2xl font-extrabold tracking-tighter text-primary">JOE YOKE</span>
