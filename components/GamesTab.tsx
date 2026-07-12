@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-// 🎮 DYNAMIC CONFIGURATION: Neon UI Asset Registry
+// 🎮 DYNAMIC CONFIGURATION: Clean, Premium Modular Registry
 const GAME_CATEGORIES = [
   {
     id: "strategy-cards",
@@ -12,31 +12,25 @@ const GAME_CATEGORIES = [
       {
         id: "checkers-matrix",
         title: "Neon Checkers",
-        genre: "Board • Local PvP",
-        playersOnline: "Local",
-        iconName: "grid_4x4", // Material Symbol Name
-        iconColor: "text-blue-400", // Glow Color
-        bgGradient: "from-blue-500/20 to-transparent",
+        genre: "Board • Network Live",
+        playersOnline: "Live PvP",
+        iconName: "grid_4x4",
         url: "native://checkers" 
       },
       {
         id: "glitch-deck",
         title: "Glitch Deck",
         genre: "Cyberpunk • TCG",
-        playersOnline: "1.4k",
+        playersOnline: "1.4k active",
         iconName: "style",
-        iconColor: "text-purple-400",
-        bgGradient: "from-purple-500/20 to-transparent",
         url: "native://glitch-deck"
       },
       {
         id: "rune-masters",
         title: "Rune Masters",
         genre: "Strategy • TCG",
-        playersOnline: "2.1k",
+        playersOnline: "2.1k active",
         iconName: "auto_awesome",
-        iconColor: "text-amber-400",
-        bgGradient: "from-amber-500/20 to-transparent",
         url: "https://html5.gamedistribution.com/a42b9d8df2e245a4a5bb86524a806954/"
       }
     ]
@@ -50,20 +44,16 @@ const GAME_CATEGORIES = [
         id: "neon-velocity",
         title: "Neon Velocity",
         genre: "Racing • Action",
-        playersOnline: "4.2k",
+        playersOnline: "4.2k active",
         iconName: "sports_esports",
-        iconColor: "text-rose-400",
-        bgGradient: "from-rose-500/20 to-transparent",
         url: "https://html5.gamedistribution.com/b5a5b54637ad4f7c80521e1cb04a23de/"
       },
       {
         id: "cyber-strike",
         title: "Cyber Rush",
         genre: "Sci-Fi • Runner",
-        playersOnline: "1.8k",
+        playersOnline: "1.8k active",
         iconName: "bolt",
-        iconColor: "text-cyan-400",
-        bgGradient: "from-cyan-500/20 to-transparent",
         url: "https://html5.gamedistribution.com/f255260a4f554032bfdf6f0813959b85/"
       }
     ]
@@ -86,32 +76,30 @@ export default function GamesTab({
   };
 
   return (
-    <div className="space-y-6 animate-fade-in w-full pb-8">
+    <div className="space-y-6 animate-fade-in w-full pb-12 text-neutral-900 dark:text-neutral-100">
       
-      {/* 🎁 PREMIUM REWARD ACCELERATOR BANNER */}
+      {/* 🎁 SECTION 1: PREMIUM REWARD HUD CARD */}
       <section 
-        className={`relative overflow-hidden rounded-2xl border p-4 flex items-center justify-between shadow-xl transition-all duration-500 bg-gradient-to-r ${
+        className={`bg-white dark:bg-neutral-900 border rounded-2xl p-4 flex items-center justify-between shadow-sm transition-all duration-300 ${
           rewardClaimed 
-            ? "from-surface-variant/20 to-surface border-white/5 opacity-60" 
-            : "from-secondary/15 via-surface-variant/40 to-surface border-secondary/30 shadow-[0_8px_32px_rgba(74,225,118,0.08)]"
+            ? "border-neutral-200 dark:border-neutral-900 opacity-60" 
+            : "border-indigo-100 dark:border-indigo-950 bg-gradient-to-r from-indigo-50/30 to-transparent dark:from-indigo-950/10"
         }`}
       >
-        <div className="flex items-center gap-4 z-10">
-          <div className={`w-11 h-11 flex items-center justify-center rounded-xl border transition-all ${
+        <div className="flex items-center gap-3.5">
+          <div className={`w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${
             rewardClaimed 
-              ? "bg-black/20 border-white/5 text-on-surface-variant/40" 
-              : "bg-secondary/10 border-secondary/30 text-secondary"
+              ? "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-900 text-neutral-400" 
+              : "bg-primary/10 border-primary/20 text-primary"
           }`}>
-            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-              card_giftcard
-            </span>
+            <span className="material-symbols-outlined text-lg">card_giftcard</span>
           </div>
           <div>
-            <h3 className={`text-[10px] font-black tracking-widest uppercase ${rewardClaimed ? "text-on-surface-variant/40" : "text-secondary"}`}>
+            <h3 className={`text-[10px] font-bold tracking-wider uppercase ${rewardClaimed ? "text-neutral-400" : "text-primary"}`}>
               Daily Multiplier
             </h3>
-            <p className="text-sm font-bold text-white tracking-tight mt-0.5">
-              {rewardClaimed ? "Credits Synced Successfully" : "Claim +250 Network Credits!"}
+            <p className="text-xs font-black tracking-tight mt-0.5">
+              {rewardClaimed ? "Credits Synced Successfully" : "Claim +250 Network Credits"}
             </p>
           </div>
         </div>
@@ -119,97 +107,92 @@ export default function GamesTab({
         <button
           onClick={() => setRewardClaimed(true)}
           disabled={rewardClaimed}
-          className={`h-9 px-5 rounded-xl text-xs font-black tracking-wider uppercase transition-all z-10 border ${
+          className={`h-8 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
             rewardClaimed 
-              ? "bg-black/40 text-on-surface-variant/30 border-white/5 cursor-not-allowed" 
-              : "bg-secondary text-on-secondary border-secondary shadow-md hover:brightness-110 active:scale-95"
+              ? "bg-transparent text-neutral-400 border-neutral-200 dark:border-neutral-800 cursor-not-allowed" 
+              : "bg-neutral-900 dark:bg-white text-white dark:text-black border-transparent hover:opacity-90 active:scale-95 shadow-sm"
           }`}
         >
-          {rewardClaimed ? "CLAIMED" : "CLAIM"}
+          {rewardClaimed ? "Claimed" : "Claim"}
         </button>
       </section>
 
-      {/* 🎯 ULTRA-PREMIUM FEATURED CONSOLE VIEW (NEON EDITION) */}
+      {/* 🎯 SECTION 2: EDITORIAL FEATURED CARD VIEW */}
       <section className={`transition-all duration-500 ease-in-out origin-top ${
-        activeFilter ? "max-h-0 opacity-0 overflow-hidden mb-0 scale-95 pointer-events-none" : "max-h-[340px] opacity-100"
+        activeFilter ? "max-h-0 opacity-0 overflow-hidden mb-0 scale-95 pointer-events-none" : "max-h-[360px] opacity-100"
       }`}>
-        <div className="relative w-full h-[280px] rounded-[2rem] overflow-hidden group shadow-2xl border border-white/5 bg-gradient-to-b from-blue-500/20 to-surface">
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-900 rounded-[2rem] p-5 shadow-sm transition-colors flex flex-col gap-4 relative overflow-hidden group">
           
-          {/* Glowing Background Icon */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-30 mt-[-40px]">
-            <span 
-              className="material-symbols-outlined text-[160px] text-blue-400 group-hover:scale-110 transition-transform duration-700" 
-              style={{ fontVariationSettings: "'FILL' 1", filter: 'drop-shadow(0 0 40px currentColor)' }}
-            >
+          {/* Subtle clean mesh design layout */}
+          <div className="relative w-full aspect-[16/9] bg-neutral-50 dark:bg-neutral-950 rounded-2xl border border-neutral-200/60 dark:border-neutral-900 flex items-center justify-center overflow-hidden">
+            <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:20px_20px]" />
+            <span className="material-symbols-outlined text-5xl text-neutral-300 dark:text-neutral-800 group-hover:scale-105 transition-transform duration-500">
               grid_4x4
             </span>
           </div>
           
-          <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/80 to-transparent z-10"></div>
-          
-          <div className="absolute bottom-0 left-0 w-full p-6 z-20 flex flex-col gap-4">
-            <div className="space-y-1">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/20 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/30 backdrop-blur-md">
-                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
-                Featured Local Game
+          <div className="flex flex-col gap-3 relative z-10">
+            <div>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-[9px] font-bold uppercase tracking-wider border border-primary/20">
+                Featured Live Title
               </span>
-              <h2 className="text-2xl font-black text-white tracking-tight">Neon Checkers</h2>
+              <h2 className="text-lg font-black tracking-tight mt-2">Neon Checkers</h2>
             </div>
             
             <button 
               onClick={() => onPlay("native://checkers")}
-              className="bg-white text-black w-full h-12 rounded-xl text-xs font-black tracking-widest uppercase shadow-[0_4px_20px_rgba(255,255,255,0.15)] hover:bg-gray-100 active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+              className="bg-neutral-900 dark:bg-white text-white dark:text-black w-full h-11 rounded-xl text-xs font-bold tracking-wider uppercase hover:opacity-90 active:scale-[0.99] transition-all flex items-center justify-center gap-1 shadow-sm"
             >
-              <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
-              Play Now
+              <span className="material-symbols-outlined text-base">play_arrow</span>
+              Launch Engine
             </button>
           </div>
         </div>
       </section>
 
-      {/* 🎰 DYNAMIC GENRE MATRIX SECTIONS */}
-      <div className="space-y-4">
+      {/* 🎰 SECTION 3: ORGANIZED CATEGORIES CORE MODULE */}
+      <div className="space-y-3">
         {GAME_CATEGORIES.map((category) => {
           const isSelected = activeFilter === category.id;
           const isAnyFilterActive = activeFilter !== null;
           const showGrid = !isAnyFilterActive || isSelected;
 
           return (
-            <section key={category.id} className="space-y-3 transition-all duration-300">
+            <section key={category.id} className="space-y-2.5 transition-all duration-300">
               
-              {/* INTERACTIVE HEADER DECK */}
+              {/* HIGH-END INTERACTIVE BAR ROW */}
               <div 
                 onClick={() => toggleFilter(category.id)}
-                className={`p-3 rounded-xl border flex items-center justify-between shadow-sm cursor-pointer transition-all duration-300 select-none ${
+                className={`p-3 rounded-2xl border flex items-center justify-between cursor-pointer select-none transition-all ${
                   isSelected 
-                    ? "border-primary/40 bg-primary/5 shadow-[0_4px_20px_rgba(192,193,255,0.05)] opacity-100" 
+                    ? "border-primary/30 bg-primary/5 shadow-none opacity-100" 
                     : isAnyFilterActive 
-                      ? "border-white/5 bg-transparent opacity-20 scale-[0.99] hover:opacity-40"
-                      : "border-white/5 bg-surface-variant/20 hover:border-white/10 opacity-100"
+                      ? "border-neutral-200 dark:border-neutral-900 bg-transparent opacity-30 scale-[0.99]"
+                      : "border-neutral-200 dark:border-neutral-900 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-800 opacity-100 shadow-sm"
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-all ${
-                    isSelected ? "bg-primary/20 border-primary/40 text-primary" : "bg-black/30 border-white/5 text-primary/70"
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all ${
+                    isSelected ? "bg-primary/10 border-primary/20 text-primary" : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-400"
                   }`}>
-                    <span className="material-symbols-outlined text-lg">{category.icon}</span>
+                    <span className="material-symbols-outlined text-base">{category.icon}</span>
                   </div>
                   <div>
-                    <h3 className="text-sm font-black text-white tracking-tight">{category.name}</h3>
-                    <p className="text-[9px] text-on-surface-variant/50 font-extrabold uppercase tracking-wider mt-0.5">
-                      {category.games.length} {category.games.length === 1 ? "Module" : "Modules"} Online
+                    <h3 className="text-xs font-black tracking-tight">{category.name}</h3>
+                    <p className="text-[9px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-wider mt-0.5">
+                      {category.games.length} {category.games.length === 1 ? "Module" : "Modules"} Configured
                     </p>
                   </div>
                 </div>
                 <span className={`material-symbols-outlined text-sm transition-transform duration-300 ${
-                  isSelected ? "text-primary rotate-90 font-bold" : "text-on-surface-variant/40"
+                  isSelected ? "text-primary rotate-90" : "text-neutral-400"
                 }`}>
                   {isSelected ? "close" : "chevron_right"}
                 </span>
               </div>
               
-              {/* COLLAPSIBLE PREMIUM GRID LAYER */}
-              <div className={`grid grid-cols-2 gap-3 transition-all duration-500 ease-in-out origin-top overflow-hidden ${
+              {/* CLEAN CORE MINIMALIST CARD GRID */}
+              <div className={`grid grid-cols-2 gap-3 transition-all duration-300 ease-in-out origin-top overflow-hidden ${
                 showGrid 
                   ? "max-h-[800px] opacity-100 pt-0.5 scale-100 pointer-events-auto" 
                   : "max-h-0 opacity-0 pt-0 scale-95 pointer-events-none"
@@ -217,33 +200,30 @@ export default function GamesTab({
                 {category.games.map((game) => (
                   <div 
                     key={game.id} 
-                    className="group bg-surface-variant/20 rounded-[1.25rem] border border-white/5 overflow-hidden hover:border-white/15 transition-all flex flex-col shadow-lg"
+                    className="group bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-900 overflow-hidden transition-all flex flex-col shadow-sm"
                   >
-                    {/* Top Visual Half (Neon Icon + Gradient) */}
-                    <div className={`relative h-28 w-full flex items-center justify-center bg-gradient-to-b ${game.bgGradient}`}>
-                      <span 
-                        className={`material-symbols-outlined text-[48px] ${game.iconColor} transition-transform duration-500 group-hover:scale-110`}
-                        style={{ fontVariationSettings: "'FILL' 1", filter: 'drop-shadow(0 0 15px currentColor)' }}
-                      >
+                    {/* Top Content Half (Minimal Vector Preview Box) */}
+                    <div className="relative h-24 w-full flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 border-b border-neutral-100 dark:border-neutral-900/60">
+                      <span className="material-symbols-outlined text-3xl text-neutral-300 dark:text-neutral-800 transition-transform duration-300 group-hover:scale-105">
                         {game.iconName}
                       </span>
                       
-                      {/* Status Badge */}
-                      <div className="absolute top-2 right-2 bg-black/40 backdrop-blur-md px-1.5 py-0.5 rounded border border-white/5">
-                        <span className="text-[8px] text-white/80 font-bold flex items-center gap-1 uppercase tracking-wider">
-                          <span className={`w-1 h-1 rounded-full animate-pulse bg-current ${game.iconColor}`}></span>
+                      {/* Premium Subtle Network Status Badge */}
+                      <div className="absolute top-2 right-2 bg-white/80 dark:bg-neutral-900/80 border border-neutral-200 dark:border-neutral-800 px-1.5 py-0.5 rounded-md backdrop-blur-sm shadow-sm">
+                        <span className="text-[8px] text-neutral-500 dark:text-neutral-400 font-bold flex items-center gap-1.5 uppercase tracking-wider">
+                          <span className={`w-1 h-1 rounded-full ${game.playersOnline === "Local" ? "bg-neutral-400" : "bg-emerald-500 animate-pulse"}`}></span>
                           {game.playersOnline}
                         </span>
                       </div>
                     </div>
                     
-                    {/* Bottom Content Half */}
-                    <div className="p-3 flex flex-col flex-1 justify-between gap-3 bg-surface-variant/30">
+                    {/* Bottom Action Half */}
+                    <div className="p-3 flex flex-col flex-1 justify-between gap-3 bg-white dark:bg-neutral-900">
                       <div>
-                        <h4 className="text-xs font-black text-white group-hover:text-primary transition-colors truncate tracking-tight">
+                        <h4 className="text-xs font-black tracking-tight truncate">
                           {game.title}
                         </h4>
-                        <p className="text-[9px] text-on-surface-variant/60 font-medium truncate mt-0.5">
+                        <p className="text-[9px] text-neutral-400 dark:text-neutral-500 font-bold tracking-wider uppercase mt-0.5 truncate">
                           {game.genre}
                         </p>
                       </div>
@@ -252,9 +232,8 @@ export default function GamesTab({
                           e.stopPropagation();
                           onPlay(game.url);
                         }}
-                        className="w-full py-2 bg-white text-black text-[10px] font-black uppercase tracking-wider rounded-lg flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                        className="w-full py-1.5 bg-neutral-50 dark:bg-neutral-950 hover:bg-neutral-900 dark:hover:bg-white text-neutral-800 dark:text-neutral-300 hover:text-white dark:hover:text-black font-bold text-[10px] uppercase tracking-wider rounded-lg border border-neutral-200 dark:border-neutral-800 transition-colors active:scale-98"
                       >
-                        <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
                         Play Now
                       </button>
                     </div>
