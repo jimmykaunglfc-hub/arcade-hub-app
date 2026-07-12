@@ -9,6 +9,7 @@ import LeaderboardTab from "../components/LeaderboardTab";
 import ChatTab from "../components/ChatTab";
 import ShopTab from "../components/ShopTab";
 import ProfileTab from "../components/ProfileTab";
+import GlobalInviteListener from "../components/GlobalInviteListener";
 
 import GamePlayer from "../components/GamePlayer";
 import GlitchDeck from "../components/games/GlitchDeck";
@@ -20,7 +21,10 @@ export default function Home() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [rewardClaimed, setRewardClaimed] = useState(false);
   const [activeTab, setActiveTab] = useState("Games");
+  
+  // 🎮 Core Engine States
   const [playingGame, setPlayingGame] = useState<string | null>(null);
+  const [activeMatchId, setActiveMatchId] = useState<string | null>(null); // 👈 Tracks incoming multiplayer room IDs
 
   // 📡 Watch and synchronize authentication states globally
   useEffect(() => {
@@ -46,14 +50,27 @@ export default function Home() {
 
   return (
     <>
+      {/* 🚀 INVISIBLE MULTIPLAYER INVITE LISTENER */}
+      {session && (
+        <GlobalInviteListener 
+          onAccept={(gameUrl, matchId) => {
+            setActiveMatchId(matchId);
+            setPlayingGame(gameUrl);
+          }} 
+        />
+      )}
+
       {/* 🚀 NATIVE RUNTIME FRAME INTERCEPTOR */}
-        {playingGame === "native://glitch-deck" ? (
-        <GlitchDeck onClose={() => setPlayingGame(null)} />
-        ) : playingGame === "native://checkers" ? (
-        <Checkers onClose={() => setPlayingGame(null)} />
-        ) : playingGame ? (
-        <GamePlayer gameUrl={playingGame} onClose={() => setPlayingGame(null)} />
-        ) : null}
+      {playingGame === "native://glitch-deck" ? (
+        <GlitchDeck onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+      ) : playingGame === "native://checkers" ? (
+        <Checkers 
+          onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} 
+          preloadedMatchId={activeMatchId} // 👈 Passes the incoming invite ID directly to the engine
+        />
+      ) : playingGame ? (
+        <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+      ) : null}
 
       {/* Primary Workspace Viewport Container */}
       <div className={playingGame ? "hidden" : "block"}>

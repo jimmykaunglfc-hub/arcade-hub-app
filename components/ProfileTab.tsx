@@ -1,114 +1,282 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
 
+interface Profile {
+  id: string;
+  email: string;
+  username: string;
+  avatar_url: string;
+  created_at: string;
+}
+
+interface Friend {
+  id: string;
+  username: string;
+  avatar_url: string;
+  friendship_id: string;
+}
+
 export default function ProfileTab() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [searchTarget, setSearchTarget] = useState("");
+  const [loadingAction, setLoadingAction] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
 
-  // 📡 Dynamically fetch user metadata block on layout mounting
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      setLoading(false);
-    };
-
-    fetchUser();
+    fetchProfileAndFriends();
   }, []);
 
-  // 🚪 Gracefully terminate active session state
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    // Next.js automatically responds to onAuthStateChange inside app/page.tsx, instantly flipping the view back to the login screen.
+  // 📡 Sync user profile metadata and real-time social graph
+  const fetchProfileAndFriends = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // 1. Pull user's public profile row
+    const { data: myProfile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+    
+    if (myProfile) setProfile(myProfile);
+
+    // 2. Pull all accepted friendships
+    const { data: friendships } = await supabase
+      .from("friendships")
+      .select("*")
+      .eq("status", "accepted")
+      .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`);
+
+    if (friendships) {
+      const friendIds = friendships.map(f => f.requester_id === user.id ? f.receiver_id : f.requester_id);
+      
+      if (friendIds.length > 0) {
+        const { data: friendProfiles } = await supabase
+          .from("profiles")
+          .select("id, username, avatar_url")
+          .in("id", friendIds);
+        
+        if (friendProfiles) {
+          const mappedFriends = friendProfiles.map(p => ({
+            id: p.id,
+            username: p.username,
+            avatar_url: p.avatar_url,
+            friendship_id: friendships.find(f => f.requester_id === p.id || f.receiver_id === p.id)?.id || ""
+          }));
+          setFriends(mappedFriends);
+        }
+      } else {
+        setFriends([]);
+      }
+    }
   };
 
-  if (loading) {
+  // 🤝 SEND FRIEND REQUEST LOGIC
+  const handleAddFriend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile || !searchTarget.trim()) return;
+    setLoadingAction(true);
+    setStatusMessage("");
+
+    // Find the target user by checking both email and username columns
+    const { data: targetProfile, error } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .or(`email.eq.${searchTarget.trim()},username.eq.${searchTarget.trim()}`)
+      .maybeSingle();
+
+    if (!targetProfile) {
+      setStatusMessage("Player node not found in network matrix.");
+      setLoadingAction(false);
+      return;
+    }
+
+    if (targetProfile.id === profile.id) {
+      setStatusMessage("You cannot establish a connection loop with yourself.");
+      setLoadingAction(false);
+      return;
+    }
+
+    // Insert a fresh pending friendship row
+    const { error: inviteError } = await supabase
+      .from("friendships")
+      .insert({
+        requester_id: profile.id,
+        receiver_id: targetProfile.id,
+        status: "accepted" // Automatically accept for now to streamline testing experience!
+      });
+
+    if (inviteError) {
+      setStatusMessage("Connection link already exists or is pending.");
+    } else {
+      setStatusMessage(`Successfully connected with ${targetProfile.username}!`);
+      setSearchTarget("");
+      fetchProfileAndFriends();
+    }
+    setLoadingAction(false);
+  };
+
+  // ⚔️ 1-TAP MULTIPLAYER CHALLENGE ENGINE
+  const sendGameChallenge = async (friendId: string, gameName: string) => {
+    if (!profile) return;
+    
+    // 1. Create a live checkers room instance in the background database
+    const { data: match } = await supabase
+      .from("checkers_matches")
+      .insert({
+        p1_id: profile.id,
+        board: [
+          [0, 2, 0, 2, 0, 2, 0, 2],
+          [2, 0, 2, 0, 2, 0, 2, 0],
+          [0, 2, 0, 2, 0, 2, 0, 2],
+          [0, 0, 0, 0, 0, 0, 0, 0],
+          [0, 0, 0, 0, 0, 0, 0, 0],
+          [1, 0, 1, 0, 1, 0, 1, 0],
+          [0, 1, 0, 1, 0, 1, 0, 1],
+          [1, 0, 1, 0, 1, 0, 1, 0],
+        ],
+        status: "waiting"
+      })
+      .select()
+      .single();
+
+    if (!match) return alert("Failed to initialize match framework.");
+
+    // 2. Fire the real-time invite payload straight to their active screen
+    const { error } = await supabase
+      .from("game_invites")
+      .insert({
+        sender_id: profile.id,
+        receiver_id: friendId,
+        match_id: match.id,
+        game_name: gameName,
+        status: "pending"
+      });
+
+    if (!error) {
+      alert(`Challenge broadcasted! Opening room lobby...`);
+      // Simulates hitting "Host Online Room" manually by forcing app/page.tsx routing logic
+      window.location.reload(); 
+    }
+  };
+
+  const terminateSession = async () => {
+    await supabase.auth.signOut();
+    window.location.reload();
+  };
+
+  if (!profile) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 space-y-3">
-        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <span className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Compiling Profile Matrix...</span>
+      <div className="text-center p-6 text-xs font-black text-on-surface-variant uppercase tracking-widest animate-pulse">
+        Compiling User Node...
       </div>
     );
   }
 
-  // Fallback state in case access checks fail
-  if (!user) return null;
-
-  // Clean layout helper for account age tracking
-  const formatJoinedDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString([], {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  // Generate a distinct avatar asset tied permanently to their unique account ID string
-  const userAvatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${user.id}`;
-
   return (
-    <div className="w-full bg-gradient-to-b from-surface-variant/20 to-surface rounded-[2rem] border border-white/5 shadow-2xl overflow-hidden p-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-12 w-full">
       
-      {/* 👤 HERO ACCOUNT PANEL CARD */}
-      <div className="flex flex-col items-center text-center pb-6 border-b border-white/5">
-        <div className="relative w-20 h-20 rounded-[1.5rem] bg-primary/10 border border-primary/30 flex items-center justify-center shadow-lg overflow-hidden mb-4">
-          <img 
-            src={userAvatarUrl} 
-            alt="Secure Identity Vector node" 
-            className="w-full h-full object-cover p-1" 
-          />
+      {/* 👤 SECTION 1: IDENTITY DISPLAY CARD */}
+      <div className="bg-gradient-to-b from-surface-variant/40 to-surface rounded-[2rem] border border-white/5 p-6 shadow-xl relative overflow-hidden flex flex-col items-center text-center">
+        <div className="w-20 h-20 rounded-full border-2 border-primary overflow-hidden relative bg-black/40 shadow-[0_0_25px_rgba(192,193,255,0.25)]">
+          <Image src={profile.avatar_url} alt="Profile Node" fill className="object-cover p-1.5" unoptimized />
         </div>
-        <h3 className="text-sm font-black text-white tracking-tight break-all max-w-full px-4">
-          {user.email}
-        </h3>
-        <span className="text-[9px] text-primary font-extrabold uppercase tracking-widest mt-1.5 px-2.5 py-1 bg-primary/10 rounded-full border border-primary/20">
-          Verified Player Node
-        </span>
-      </div>
-
-      {/* 📊 CORE SECURITY & METADATA DETAILS MATRIX */}
-      <div className="py-6 space-y-4">
-        <div>
-          <label className="block text-[9px] text-on-surface-variant/40 font-black uppercase tracking-wider mb-1.5 pl-1">
-            System Network Identifier (UID)
-          </label>
-          <div className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-[11px] font-mono text-on-surface-variant break-all select-all">
-            {user.id}
-          </div>
+        
+        <div className="mt-4 space-y-1">
+          <h2 className="text-xl font-black text-white tracking-tight">{profile.username}</h2>
+          <p className="text-xs text-on-surface-variant/60 font-medium">{profile.email}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-surface-variant/30 border border-white/5 p-3.5 rounded-xl">
-            <span className="block text-[8px] text-on-surface-variant/40 font-black uppercase tracking-wider">
-              Identity Genesis
-            </span>
-            <span className="block text-xs font-bold text-white mt-1">
-              {formatJoinedDate(user.created_at)}
-            </span>
-          </div>
-
-          <div className="bg-surface-variant/30 border border-white/5 p-3.5 rounded-xl">
-            <span className="block text-[8px] text-on-surface-variant/40 font-black uppercase tracking-wider">
-              Encryption Protocol
-            </span>
-            <span className="block text-xs font-bold text-secondary mt-1">
-              Supabase JWT
-            </span>
-          </div>
+        <div className="flex gap-2 mt-4">
+          <span className="bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+            Verified Player
+          </span>
+          <span className="bg-white/5 border border-white/10 text-on-surface-variant/80 text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+            Supabase Auth
+          </span>
         </div>
-      </div>
 
-      {/* 🛑 DESTRUCTIVE OPERATIONS LAYER */}
-      <div className="pt-2 border-t border-white/5 space-y-3">
-        <button
-          onClick={handleSignOut}
-          className="w-full h-11 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-bold rounded-xl flex items-center justify-center gap-2 text-xs tracking-wider uppercase active:scale-98 transition-all"
+        <button 
+          onClick={terminateSession}
+          className="mt-6 text-[10px] font-black uppercase tracking-widest text-red-400/70 hover:text-red-400 transition-colors flex items-center gap-1.5"
         >
-          <span className="material-symbols-outlined text-sm font-bold">logout</span>
+          <span className="material-symbols-outlined text-sm">logout</span>
           Terminate Identity Session
         </button>
+      </div>
+
+      {/* 🤝 SECTION 2: SOCIAL CONNECTION PORTAL (ADD FRIENDS) */}
+      <div className="bg-surface-variant/20 rounded-2xl border border-white/5 p-4 space-y-3 shadow-md">
+        <div>
+          <h3 className="text-xs font-black uppercase tracking-widest text-primary">Establish Connection Link</h3>
+          <p className="text-[10px] text-on-surface-variant/50 font-medium mt-0.5">Input a target network username or email address below.</p>
+        </div>
+
+        <form onSubmit={handleAddFriend} className="flex gap-2">
+          <input 
+            type="text" 
+            placeholder="Username or email address..."
+            value={searchTarget}
+            onChange={(e) => setSearchTarget(e.target.value)}
+            className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 text-xs text-white focus:outline-none focus:border-primary transition-colors"
+          />
+          <button 
+            type="submit"
+            disabled={loadingAction}
+            className="px-5 bg-white text-black font-black text-xs uppercase rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50"
+          >
+            Connect
+          </button>
+        </form>
+        {statusMessage && <p className="text-[10px] text-primary font-bold px-1">{statusMessage}</p>}
+      </div>
+
+      {/* ⚔️ SECTION 3: REAL-TIME FRIENDS ROSTER */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-black uppercase tracking-widest text-on-surface-variant/60 px-1">
+          Synchronized Network Friends ({friends.length})
+        </h3>
+
+        {friends.length === 0 ? (
+          <div className="border border-white/5 bg-surface-variant/5 rounded-2xl p-6 text-center text-xs text-on-surface-variant/40 font-medium">
+            No active peer-to-peer friend links found.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-2.5">
+            {friends.map((friend) => (
+              <div 
+                key={friend.id}
+                className="bg-surface-variant/20 border border-white/5 rounded-2xl p-3 flex items-center justify-between shadow-sm group hover:border-white/10 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-black/40 border border-white/10 overflow-hidden relative">
+                    <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover p-1" unoptimized />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white tracking-tight">{friend.username}</h4>
+                    <span className="text-[8px] text-green-400 font-black tracking-wider uppercase flex items-center gap-1 mt-0.5">
+                      <span className="w-1 h-1 rounded-full bg-green-400 animate-pulse"></span>
+                      Online Matrix
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => sendGameChallenge(friend.id, "Neon Checkers")}
+                  className="h-8 px-3.5 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary text-primary hover:text-on-primary font-black text-[10px] uppercase tracking-wider transition-all duration-300 active:scale-95 flex items-center gap-1"
+                  style={{ filter: 'drop-shadow(0 0 4px rgba(192,193,255,0.15))' }}
+                >
+                  <span className="material-symbols-outlined text-xs">swords</span>
+                  Challenge
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
     </div>
