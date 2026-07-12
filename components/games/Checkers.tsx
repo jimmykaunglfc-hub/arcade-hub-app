@@ -32,6 +32,7 @@ export default function Checkers({
   const [matchId, setMatchId] = useState<string>("");
   const [roomCode, setRoomCode] = useState<string>(""); 
   const [joinCode, setJoinCode] = useState<string>("");
+  const [copied, setCopied] = useState(false); 
   
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myPlayerRole, setMyPlayerRole] = useState<number>(P1);
@@ -255,6 +256,12 @@ export default function Checkers({
     }
   };
 
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(roomCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const isPlayableSquare = (r: number, c: number) => (r + c) % 2 === 1;
   const validMovesForSelected = selected ? getValidMovesForPiece(selected.r, selected.c, board[selected.r][selected.c], board) : [];
   const activeMoveTargets = getAllValidMoves(turn, board).some(m => m.move.jump) ? validMovesForSelected.filter(m => m.jump) : validMovesForSelected;
@@ -301,8 +308,8 @@ export default function Checkers({
         </button>
         <div className="text-center">
           <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Checkers Matrix</h1>
-          <span className={`text-[9px] font-bold uppercase tracking-widest ${playMode === "online" ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`}>
-            {playMode === "online" ? "● Live Network" : "Local Mode"}
+          <span className={`text-[9px] font-bold uppercase tracking-widest ${playMode === "online" ? "text-emerald-500 animate-pulse" : playMode === "host" || playMode === "join" ? "text-indigo-500 animate-pulse" : "text-neutral-400"}`}>
+            {playMode === "online" ? "● Live Network" : playMode === "host" || playMode === "join" ? "Connecting..." : "Local Mode"}
           </span>
         </div>
         
@@ -320,6 +327,40 @@ export default function Checkers({
           )}
         </div>
       </div>
+
+      {/* --- HOSTING / JOINING WAITING SCREEN --- */}
+      {(playMode === "host" || playMode === "join") && (
+        <div className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center p-6 relative">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 w-full shadow-2xl flex flex-col items-center text-center">
+            <div className="w-16 h-16 rounded-full border-4 border-indigo-100 dark:border-indigo-900/30 border-t-indigo-600 dark:border-t-indigo-500 animate-spin mb-6"></div>
+            <h2 className="text-xl font-black text-neutral-900 dark:text-white tracking-tight uppercase">
+              {playMode === "join" ? "Connecting..." : "Awaiting Opponent"}
+            </h2>
+            
+            {playMode === "host" && (
+              <div className="mt-6 w-full">
+                <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-bold uppercase tracking-widest mb-2">Share Room Code</p>
+                <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-3 rounded-2xl flex items-center justify-between">
+                  <span className="text-indigo-600 dark:text-indigo-400 font-mono text-2xl font-black tracking-[0.2em] pl-4">{roomCode}</span>
+                  <button 
+                    onClick={handleCopyCode}
+                    className={`h-10 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                      copied ? "bg-emerald-500 text-white" : "bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-700"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
+                    {copied ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            <button onClick={() => playMode === "host" ? setPlayMode("menu") : onClose()} className="w-full mt-8 py-3.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm">
+              Cancel Match
+            </button>
+          </div>
+        </div>
+      )}
 
       {(playMode === "local" || playMode === "online") && (
         <div className="flex-1 w-full max-w-md mx-auto flex flex-col justify-start min-h-0 relative">
@@ -363,7 +404,7 @@ export default function Checkers({
             </div>
           </div>
 
-          {/* 8x8 Flexible Board Container (Prevents Bottom Clipping) */}
+          {/* 8x8 Flexible Board Container */}
           <div className="flex-1 w-full flex items-center justify-center px-4 pb-6 min-h-0 relative">
             
             {/* FLOATING EMOJI LAYER */}
