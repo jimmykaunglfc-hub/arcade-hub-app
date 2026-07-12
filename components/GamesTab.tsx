@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 
-// 🎮 DYNAMIC CONFIGURATION: Clean registry matching your production game servers
+// 🎮 DYNAMIC CONFIGURATION: Local Asset Registry
 const GAME_CATEGORIES = [
   {
     id: "strategy-cards",
@@ -11,27 +11,27 @@ const GAME_CATEGORIES = [
     icon: "extension",
     games: [
       {
-        id: "glitch-deck",
-        title: "Glitch Deck",
-        genre: "Cyberpunk • TCG",
-        playersOnline: "1.4k",
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuDPlvQO6SLDrjZ1pmK6kLJEnsnrs7aKSTKqlqLfQHDl-OMO97S0w-zpqM-w0Awpe-wdkdnJi_lTYtMCuexKs7Yzxgre_HSRjzczg_xhlBTsfodl5tMCrA6UYKr7wKEbJJe4tbEK6QatAXDI07s7951P7-MPOVtzzMz5bbLZ0uWFaYa6zLg49qCGTCNLSKQL_ZErQhHvCxDPIE5tk23_7VVoP0QvGEaAMpm2V1OtqXUz3NYRbxN6ozUrUjtmv1SpVJud1dzla5FIg8w9", 
-        url: "native://glitch-deck"
-      },
-      {
         id: "checkers-matrix",
         title: "Neon Checkers",
         genre: "Board • Local PvP",
         playersOnline: "Local",
-        image: "https://images.unsplash.com/photo-1610893563969-1c9f4d2f0eb3?q=80&w=400&auto=format&fit=crop", 
-        url: "native://checkers" // This exact string triggers your interceptor
+        image: "/game-covers/checkers.jpg", // 📁 Loads from public/game-covers/
+        url: "native://checkers" 
+      },
+      {
+        id: "glitch-deck",
+        title: "Glitch Deck",
+        genre: "Cyberpunk • TCG",
+        playersOnline: "1.4k",
+        image: "/game-covers/glitch-deck.jpg",
+        url: "native://glitch-deck"
       },
       {
         id: "rune-masters",
         title: "Rune Masters",
         genre: "Strategy • TCG",
         playersOnline: "2.1k",
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuDPlvQO6SLDrjZ1pmK6kLJEnsnrs7aKSTKqlqLfQHDl-OMO97S0w-zpqM-w0Awpe-wdkdnJi_lTYtMCuexKs7Yzxgre_HSRjzczg_xhlBTsfodl5tMCrA6UYKr7wKEbJJe4tbEK6QatAXDI07s7951P7-MPOVtzzMz5bbLZ0uWFaYa6zLg49qCGTCNLSKQL_ZErQhHvCxDPIE5tk23_7VVoP0QvGEaAMpm2V1OtqXUz3NYRbxN6ozUrUjtmv1SpVJud1dzla5FIg8w9",
+        image: "/game-covers/rune-masters.jpg",
         url: "https://html5.gamedistribution.com/a42b9d8df2e245a4a5bb86524a806954/"
       }
     ]
@@ -46,7 +46,7 @@ const GAME_CATEGORIES = [
         title: "Neon Velocity",
         genre: "Racing • Action",
         playersOnline: "4.2k",
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuB-omzcpqP_nX1IVJuhTGouka2MtB2NRr-ZWjxmzqhKf0pPrt-t2BXpHBK5LBkuZaFbz-qAX9KlCcPrHUR7rDVD6c27UfI67olPWNil2ImUUGW5iOqoFYy_cU39bCMCUZ9EhuRnS9VH2MBH5ssat1v23rNe5Ciw0evZuxJ34lzsn0cR35AaJQ5VQmPiJuMNKPzvlFdSEeAt-wdnoCwCB6VmC1D1TmfO3D7XpSvCIuDYDkMx1WdYjwPBQvGuLOMLn5WHS9OzvYX4Bhv4",
+        image: "/game-covers/neon-velocity.jpg",
         url: "https://html5.gamedistribution.com/b5a5b54637ad4f7c80521e1cb04a23de/"
       },
       {
@@ -54,7 +54,7 @@ const GAME_CATEGORIES = [
         title: "Cyber Rush",
         genre: "Sci-Fi • Runner",
         playersOnline: "1.8k",
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuCDWi0vHBPdvrMvPsHSjIr4iGJaPgzsKFI5rkxmLiVWSV6c96FJfaN3qIpAORfJOEHz25UXVRs6rRAKS4DfAGSGnB65UjR-mxlovxsHu7zIPhMxrJEgQ-1exNCXgot5aPNdKufOQP3PgLef_aRzA_QucXho13idZG0TQtdrJUR3YQruGpLl-HGltKlMqC5YzV3opHuC5ed0tEnvW7CgOquChq5bJzp8kMB9-PhV9z3YAmEgnd5EI4us8zRxNna-19kQ5QJk5M3UpnkN",
+        image: "/game-covers/cyber-strike.jpg",
         url: "https://html5.gamedistribution.com/f255260a4f554032bfdf6f0813959b85/"
       }
     ]
@@ -126,8 +126,8 @@ export default function GamesTab({
       }`}>
         <div className="relative w-full h-[320px] rounded-[2rem] overflow-hidden group shadow-2xl border border-white/5 bg-surface-variant/20">
           <Image 
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDWi0vHBPdvrMvPsHSjIr4iGJaPgzsKFI5rkxmLiVWSV6c96FJfaN3qIpAORfJOEHz25UXVRs6rRAKS4DfAGSGnB65UjR-mxlovxsHu7zIPhMxrJEgQ-1exNCXgot5aPNdKufOQP3PgLef_aRzA_QucXho13idZG0TQtdrJUR3YQruGpLl-HGltKlMqC5YzV3opHuC5ed0tEnvW7CgOquChq5bJzp8kMB9-PhV9z3YAmEgnd5EI4us8zRxNna-19kQ5QJk5M3UpnkN" 
-            alt="8-Ball Pool Pro" 
+            src="/game-covers/checkers.jpg" // 📁 Updated to use local asset pipeline
+            alt="Neon Checkers Local Match" 
             fill 
             className="object-cover opacity-85 transition-transform duration-700 group-hover:scale-103" 
             unoptimized 
@@ -138,13 +138,13 @@ export default function GamesTab({
             <div className="space-y-1">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/20 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/30 backdrop-blur-md">
                 <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
-                Featured Classic
+                Featured Local Game
               </span>
-              <h2 className="text-2xl font-black text-white tracking-tight">8-Ball Pool Pro</h2>
+              <h2 className="text-2xl font-black text-white tracking-tight">Neon Checkers</h2>
             </div>
             
             <button 
-              onClick={() => onPlay("https://html5.gamedistribution.com/f9c8f2b3e4a2434ab4146a4897ab3979/")}
+              onClick={() => onPlay("native://checkers")}
               className="bg-primary text-on-primary w-full h-12 rounded-xl text-xs font-black tracking-widest uppercase shadow-[0_4px_20px_rgba(192,193,255,0.2)] hover:brightness-105 active:scale-[0.99] transition-all flex items-center justify-center gap-2"
             >
               <span className="material-symbols-outlined text-sm font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
