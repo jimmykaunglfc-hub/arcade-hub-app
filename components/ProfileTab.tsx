@@ -19,14 +19,18 @@ interface Friend {
   friendship_id: string;
 }
 
-export default function ProfileTab() {
+// 🌓 Define the explicit TypeScript types passed from app/page.tsx
+interface ProfileTabProps {
+  isDarkMode: boolean;
+  onToggleTheme: () => void;
+}
+
+export default function ProfileTab({ isDarkMode, onToggleTheme }: ProfileTabProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [searchTarget, setSearchTarget] = useState("");
   const [loadingAction, setLoadingAction] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
-  
-  // 🛡️ Added a fetch status to prevent infinite loading loops
   const [fetchStatus, setFetchStatus] = useState<"loading" | "found" | "missing">("loading");
 
   useEffect(() => {
@@ -37,8 +41,7 @@ export default function ProfileTab() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 1. Pull user's public profile row using .maybeSingle() to prevent 406 crashes
-    const { data: myProfile, error } = await supabase
+    const { data: myProfile } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", user.id)
@@ -49,10 +52,9 @@ export default function ProfileTab() {
       setFetchStatus("found");
     } else {
       setFetchStatus("missing");
-      return; // Stop fetching friends if profile doesn't exist
+      return;
     }
 
-    // 2. Pull all accepted friendships
     const { data: friendships } = await supabase
       .from("friendships")
       .select("*")
@@ -89,7 +91,7 @@ export default function ProfileTab() {
     setLoadingAction(true);
     setStatusMessage("");
 
-    const { data: targetProfile, error } = await supabase
+    const { data: targetProfile } = await supabase
       .from("profiles")
       .select("id, username")
       .or(`email.eq.${searchTarget.trim()},username.eq.${searchTarget.trim()}`)
@@ -133,14 +135,9 @@ export default function ProfileTab() {
       .insert({
         p1_id: profile.id,
         board: [
-          [0, 2, 0, 2, 0, 2, 0, 2],
-          [2, 0, 2, 0, 2, 0, 2, 0],
-          [0, 2, 0, 2, 0, 2, 0, 2],
-          [0, 0, 0, 0, 0, 0, 0, 0],
-          [0, 0, 0, 0, 0, 0, 0, 0],
-          [1, 0, 1, 0, 1, 0, 1, 0],
-          [0, 1, 0, 1, 0, 1, 0, 1],
-          [1, 0, 1, 0, 1, 0, 1, 0],
+          [0, 2, 0, 2, 0, 2, 0, 2], [2, 0, 2, 0, 2, 0, 2, 0], [0, 2, 0, 2, 0, 2, 0, 2],
+          [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0],
+          [1, 0, 1, 0, 1, 0, 1, 0], [0, 1, 0, 1, 0, 1, 0, 1], [1, 0, 1, 0, 1, 0, 1, 0],
         ],
         status: "waiting"
       })
@@ -170,126 +167,145 @@ export default function ProfileTab() {
     window.location.reload();
   };
 
-  // 🛡️ FALLBACK 1: Loading State
   if (fetchStatus === "loading") {
     return (
-      <div className="text-center p-6 text-xs font-black text-primary uppercase tracking-widest animate-pulse">
+      <div className="text-center p-6 text-xs font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest animate-pulse">
         Compiling User Node...
       </div>
     );
   }
 
-  // 🛡️ FALLBACK 2: Missing Profile Error Guard
   if (fetchStatus === "missing" || !profile) {
     return (
-      <div className="bg-surface-variant/30 border border-red-500/30 rounded-2xl p-6 text-center shadow-lg animate-fade-in w-full max-w-sm mx-auto mt-10">
-        <span className="material-symbols-outlined text-4xl text-red-400 mb-3">warning</span>
-        <h2 className="text-lg font-black text-white mb-2">Profile Matrix Missing</h2>
-        <p className="text-xs text-on-surface-variant/80 mb-6">
-          Your secure identity session exists, but your public profile row was not found in the database. Terminate the session and log back in to trigger the auto-generation script.
+      <div className="bg-white dark:bg-neutral-900 border border-red-200 dark:border-red-950/40 rounded-2xl p-6 text-center shadow-sm animate-fade-in w-full max-w-sm mx-auto mt-10">
+        <span className="material-symbols-outlined text-3xl text-red-500 mb-2">error</span>
+        <h2 className="text-base font-bold text-neutral-900 dark:text-white mb-1">Profile Not Synced</h2>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-6">
+          Your active session exists, but your public profile row was not found. Re-authenticate to trigger the profile setup pipeline.
         </p>
         <button 
           onClick={terminateSession}
-          className="w-full py-3 bg-red-500/20 text-red-400 border border-red-500/40 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-red-500/30 transition-all active:scale-95"
+          className="w-full py-2.5 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-red-100/60 dark:hover:bg-red-950/40 transition-all active:scale-98"
         >
-          Terminate Session
+          Sign Out
         </button>
       </div>
     );
   }
 
-  // 🛡️ SUCCESS: Render normal profile UI
   return (
-    <div className="space-y-6 animate-fade-in pb-12 w-full">
-      {/* 👤 SECTION 1: IDENTITY DISPLAY CARD */}
-      <div className="bg-gradient-to-b from-surface-variant/40 to-surface rounded-[2rem] border border-white/5 p-6 shadow-xl relative overflow-hidden flex flex-col items-center text-center">
-        <div className="w-20 h-20 rounded-full border-2 border-primary overflow-hidden relative bg-black/40 shadow-[0_0_25px_rgba(192,193,255,0.25)]">
-          <Image src={profile.avatar_url} alt="Profile Node" fill className="object-cover p-1.5" unoptimized />
+    <div className="space-y-6 animate-fade-in pb-12 w-full text-neutral-900 dark:text-neutral-100">
+      
+      {/* 👤 SECTION 1: IDENTITY PROFILE DISPLAY */}
+      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-900 rounded-3xl p-6 shadow-sm flex flex-col items-center text-center transition-colors">
+        <div className="w-20 h-20 rounded-full border border-neutral-200 dark:border-neutral-800 overflow-hidden relative bg-neutral-50 dark:bg-neutral-950">
+          <Image src={profile.avatar_url} alt="Profile Node" fill className="object-cover p-1" unoptimized />
         </div>
         
-        <div className="mt-4 space-y-1">
-          <h2 className="text-xl font-black text-white tracking-tight">{profile.username}</h2>
-          <p className="text-xs text-on-surface-variant/60 font-medium">{profile.email}</p>
+        <div className="mt-4 space-y-0.5">
+          <h2 className="text-lg font-black tracking-tight">{profile.username}</h2>
+          <p className="text-xs text-neutral-400 dark:text-neutral-500 font-medium">{profile.email}</p>
         </div>
 
-        <div className="flex gap-2 mt-4">
-          <span className="bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
-            Verified Player
-          </span>
-          <span className="bg-white/5 border border-white/10 text-on-surface-variant/80 text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
-            Supabase Auth
+        <div className="flex gap-2 mt-3.5">
+          <span className="bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 text-[9px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md">
+            Verified Account
           </span>
         </div>
-
-        <button 
-          onClick={terminateSession}
-          className="mt-6 text-[10px] font-black uppercase tracking-widest text-red-400/70 hover:text-red-400 transition-colors flex items-center gap-1.5"
-        >
-          <span className="material-symbols-outlined text-sm">logout</span>
-          Terminate Identity Session
-        </button>
       </div>
 
-      {/* 🤝 SECTION 2: SOCIAL CONNECTION PORTAL (ADD FRIENDS) */}
-      <div className="bg-surface-variant/20 rounded-2xl border border-white/5 p-4 space-y-3 shadow-md">
+      {/* 🌓 SECTION 2: APP PREFERENCES SETTINGS HUB */}
+      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-900 rounded-2xl p-4 shadow-sm transition-colors">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-3 px-1">
+          System Configuration
+        </h3>
+
+        <div className="flex items-center justify-between p-1">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-xl text-neutral-400 dark:text-neutral-500">
+              {isDarkMode ? "dark_mode" : "light_mode"}
+            </span>
+            <div>
+              <span className="text-xs font-bold block">Interface Appearance</span>
+              <span className="text-[10px] text-neutral-400 dark:text-neutral-500 block mt-0.5">
+                {isDarkMode ? "Obsidian Dark Layout" : "Minimal Light Layout"}
+              </span>
+            </div>
+          </div>
+
+          {/* Premium Switch Toggle Action */}
+          <button 
+            onClick={onToggleTheme}
+            className="h-7 px-3 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors border border-neutral-200/40 dark:border-neutral-800/60"
+          >
+            Switch Mode
+          </button>
+        </div>
+      </div>
+
+      {/* 🤝 SECTION 3: SOCIAL CONNECTION LINK GATEWAY */}
+      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-900 rounded-2xl p-4 space-y-3 shadow-sm transition-colors">
         <div>
-          <h3 className="text-xs font-black uppercase tracking-widest text-primary">Establish Connection Link</h3>
-          <p className="text-[10px] text-on-surface-variant/50 font-medium mt-0.5">Input a target network username or email address below.</p>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 px-1">
+            Network Connections
+          </h3>
+          <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-0.5 px-1">
+            Establish a peer-to-peer connection via public identity username.
+          </p>
         </div>
 
         <form onSubmit={handleAddFriend} className="flex gap-2">
           <input 
             type="text" 
-            placeholder="Username or email address..."
+            placeholder="Search username or email..."
             value={searchTarget}
             onChange={(e) => setSearchTarget(e.target.value)}
-            className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 text-xs text-white focus:outline-none focus:border-primary transition-colors"
+            className="flex-1 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 text-neutral-900 dark:text-white transition-colors"
           />
           <button 
             type="submit"
             disabled={loadingAction}
-            className="px-5 bg-white text-black font-black text-xs uppercase rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50"
+            className="px-4 bg-neutral-900 dark:bg-white text-white dark:text-black font-bold text-xs uppercase rounded-xl hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors disabled:opacity-50"
           >
             Connect
           </button>
         </form>
-        {statusMessage && <p className="text-[10px] text-primary font-bold px-1">{statusMessage}</p>}
+        {statusMessage && <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold px-1">{statusMessage}</p>}
       </div>
 
-      {/* ⚔️ SECTION 3: REAL-TIME FRIENDS ROSTER */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-black uppercase tracking-widest text-on-surface-variant/60 px-1">
-          Synchronized Network Friends ({friends.length})
+      {/* ⚔️ SECTION 4: NETWORK FRIENDS GRID */}
+      <div className="space-y-2.5">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 px-1">
+          Synchronized Friends ({friends.length})
         </h3>
 
         {friends.length === 0 ? (
-          <div className="border border-white/5 bg-surface-variant/5 rounded-2xl p-6 text-center text-xs text-on-surface-variant/40 font-medium">
-            No active peer-to-peer friend links found.
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-900 rounded-2xl p-6 text-center text-xs text-neutral-400 dark:text-neutral-500 font-medium transition-colors">
+            No active peer connections found.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-2.5">
+          <div className="grid grid-cols-1 gap-2">
             {friends.map((friend) => (
               <div 
                 key={friend.id}
-                className="bg-surface-variant/20 border border-white/5 rounded-2xl p-3 flex items-center justify-between shadow-sm group hover:border-white/10 transition-colors"
+                className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-900 rounded-2xl p-3 flex items-center justify-between shadow-sm group transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-black/40 border border-white/10 overflow-hidden relative">
-                    <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover p-1" unoptimized />
+                  <div className="w-10 h-10 rounded-full border border-neutral-200 dark:border-neutral-800 overflow-hidden relative bg-neutral-50 dark:bg-neutral-950">
+                    <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover p-0.5" unoptimized />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-white tracking-tight">{friend.username}</h4>
-                    <span className="text-[8px] text-green-400 font-black tracking-wider uppercase flex items-center gap-1 mt-0.5">
-                      <span className="w-1 h-1 rounded-full bg-green-400 animate-pulse"></span>
-                      Online Matrix
+                    <h4 className="text-xs font-black tracking-tight">{friend.username}</h4>
+                    <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold tracking-wide uppercase flex items-center gap-1 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
+                      Online
                     </span>
                   </div>
                 </div>
 
                 <button
                   onClick={() => sendGameChallenge(friend.id, "Neon Checkers")}
-                  className="h-8 px-3.5 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary text-primary hover:text-on-primary font-black text-[10px] uppercase tracking-wider transition-all duration-300 active:scale-95 flex items-center gap-1"
-                  style={{ filter: 'drop-shadow(0 0 4px rgba(192,193,255,0.15))' }}
+                  className="h-8 px-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-neutral-700 dark:text-neutral-300 hover:bg-indigo-600 dark:hover:bg-indigo-500 hover:text-white dark:hover:text-white font-bold text-[10px] uppercase tracking-wider transition-all active:scale-95 flex items-center gap-1"
                 >
                   <span className="material-symbols-outlined text-xs">swords</span>
                   Challenge
@@ -298,6 +314,17 @@ export default function ProfileTab() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* SYSTEM LOGOUT TERMINAL CARD */}
+      <div className="pt-4 border-t border-neutral-200 dark:border-neutral-900 flex justify-center">
+        <button 
+          onClick={terminateSession}
+          className="text-[10px] font-black uppercase tracking-wider text-neutral-400 dark:text-neutral-500 hover:text-red-500 dark:hover:text-red-400 transition-colors flex items-center gap-1.5"
+        >
+          <span className="material-symbols-outlined text-sm">logout</span>
+          Terminate Identity Session
+        </button>
       </div>
 
     </div>
