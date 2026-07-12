@@ -12,6 +12,7 @@ import ProfileTab from "../components/ProfileTab";
 
 import GamePlayer from "../components/GamePlayer";
 import GlitchDeck from "../components/games/GlitchDeck";
+import Checkers from "../components/games/Checkers";
 import AuthView from "../components/AuthView"; // 🛡️ Identity validation portal
 
 export default function Home() {
@@ -46,11 +47,13 @@ export default function Home() {
   return (
     <>
       {/* 🚀 NATIVE RUNTIME FRAME INTERCEPTOR */}
-      {playingGame === "native://glitch-deck" ? (
+        {playingGame === "native://glitch-deck" ? (
         <GlitchDeck onClose={() => setPlayingGame(null)} />
-      ) : playingGame ? (
+        ) : playingGame === "native://checkers" ? (
+        <Checkers onClose={() => setPlayingGame(null)} />
+        ) : playingGame ? (
         <GamePlayer gameUrl={playingGame} onClose={() => setPlayingGame(null)} />
-      ) : null}
+        ) : null}
 
       {/* Primary Workspace Viewport Container */}
       <div className={playingGame ? "hidden" : "block"}>

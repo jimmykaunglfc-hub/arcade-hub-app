@@ -19,6 +19,14 @@ const GAME_CATEGORIES = [
         url: "native://glitch-deck"
       },
       {
+        id: "checkers-matrix",
+        title: "Neon Checkers",
+        genre: "Board • Local PvP",
+        playersOnline: "Local",
+        image: "https://images.unsplash.com/photo-1610893563969-1c9f4d2f0eb3?q=80&w=400&auto=format&fit=crop", 
+        url: "native://checkers" // This exact string triggers your interceptor
+      },
+      {
         id: "rune-masters",
         title: "Rune Masters",
         genre: "Strategy • TCG",
