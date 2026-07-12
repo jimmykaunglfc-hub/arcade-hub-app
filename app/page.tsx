@@ -103,7 +103,15 @@ export default function Home() {
                 />
               )}
               {activeTab === "Ranks" && <LeaderboardTab />}
-              {activeTab === "Chat" && <ChatTab />}
+              
+              {/* 💬 Chat Tab now receives the teleport hook to launch games from DMs */}
+              {activeTab === "Chat" && (
+                <ChatTab onPlay={(url, matchId) => {
+                  setActiveMatchId(matchId);
+                  setPlayingGame(url);
+                }} />
+              )}
+              
               {activeTab === "Shop" && <ShopTab />}
               {activeTab === "Profile" && <ProfileTab />}
             </>

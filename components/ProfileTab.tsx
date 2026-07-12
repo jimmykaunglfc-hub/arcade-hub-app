@@ -25,24 +25,32 @@ export default function ProfileTab() {
   const [searchTarget, setSearchTarget] = useState("");
   const [loadingAction, setLoadingAction] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  
+  // 🛡️ Added a fetch status to prevent infinite loading loops
+  const [fetchStatus, setFetchStatus] = useState<"loading" | "found" | "missing">("loading");
 
   useEffect(() => {
     fetchProfileAndFriends();
   }, []);
 
-  // 📡 Sync user profile metadata and real-time social graph
   const fetchProfileAndFriends = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 1. Pull user's public profile row
-    const { data: myProfile } = await supabase
+    // 1. Pull user's public profile row using .maybeSingle() to prevent 406 crashes
+    const { data: myProfile, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", user.id)
-      .single();
+      .maybeSingle(); 
     
-    if (myProfile) setProfile(myProfile);
+    if (myProfile) {
+      setProfile(myProfile);
+      setFetchStatus("found");
+    } else {
+      setFetchStatus("missing");
+      return; // Stop fetching friends if profile doesn't exist
+    }
 
     // 2. Pull all accepted friendships
     const { data: friendships } = await supabase
@@ -75,14 +83,12 @@ export default function ProfileTab() {
     }
   };
 
-  // 🤝 SEND FRIEND REQUEST LOGIC
   const handleAddFriend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile || !searchTarget.trim()) return;
     setLoadingAction(true);
     setStatusMessage("");
 
-    // Find the target user by checking both email and username columns
     const { data: targetProfile, error } = await supabase
       .from("profiles")
       .select("id, username")
@@ -101,13 +107,12 @@ export default function ProfileTab() {
       return;
     }
 
-    // Insert a fresh pending friendship row
     const { error: inviteError } = await supabase
       .from("friendships")
       .insert({
         requester_id: profile.id,
         receiver_id: targetProfile.id,
-        status: "accepted" // Automatically accept for now to streamline testing experience!
+        status: "accepted" 
       });
 
     if (inviteError) {
@@ -120,11 +125,9 @@ export default function ProfileTab() {
     setLoadingAction(false);
   };
 
-  // ⚔️ 1-TAP MULTIPLAYER CHALLENGE ENGINE
   const sendGameChallenge = async (friendId: string, gameName: string) => {
     if (!profile) return;
     
-    // 1. Create a live checkers room instance in the background database
     const { data: match } = await supabase
       .from("checkers_matches")
       .insert({
@@ -146,7 +149,6 @@ export default function ProfileTab() {
 
     if (!match) return alert("Failed to initialize match framework.");
 
-    // 2. Fire the real-time invite payload straight to their active screen
     const { error } = await supabase
       .from("game_invites")
       .insert({
@@ -159,7 +161,6 @@ export default function ProfileTab() {
 
     if (!error) {
       alert(`Challenge broadcasted! Opening room lobby...`);
-      // Simulates hitting "Host Online Room" manually by forcing app/page.tsx routing logic
       window.location.reload(); 
     }
   };
@@ -169,17 +170,37 @@ export default function ProfileTab() {
     window.location.reload();
   };
 
-  if (!profile) {
+  // 🛡️ FALLBACK 1: Loading State
+  if (fetchStatus === "loading") {
     return (
-      <div className="text-center p-6 text-xs font-black text-on-surface-variant uppercase tracking-widest animate-pulse">
+      <div className="text-center p-6 text-xs font-black text-primary uppercase tracking-widest animate-pulse">
         Compiling User Node...
       </div>
     );
   }
 
+  // 🛡️ FALLBACK 2: Missing Profile Error Guard
+  if (fetchStatus === "missing" || !profile) {
+    return (
+      <div className="bg-surface-variant/30 border border-red-500/30 rounded-2xl p-6 text-center shadow-lg animate-fade-in w-full max-w-sm mx-auto mt-10">
+        <span className="material-symbols-outlined text-4xl text-red-400 mb-3">warning</span>
+        <h2 className="text-lg font-black text-white mb-2">Profile Matrix Missing</h2>
+        <p className="text-xs text-on-surface-variant/80 mb-6">
+          Your secure identity session exists, but your public profile row was not found in the database. Terminate the session and log back in to trigger the auto-generation script.
+        </p>
+        <button 
+          onClick={terminateSession}
+          className="w-full py-3 bg-red-500/20 text-red-400 border border-red-500/40 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-red-500/30 transition-all active:scale-95"
+        >
+          Terminate Session
+        </button>
+      </div>
+    );
+  }
+
+  // 🛡️ SUCCESS: Render normal profile UI
   return (
     <div className="space-y-6 animate-fade-in pb-12 w-full">
-      
       {/* 👤 SECTION 1: IDENTITY DISPLAY CARD */}
       <div className="bg-gradient-to-b from-surface-variant/40 to-surface rounded-[2rem] border border-white/5 p-6 shadow-xl relative overflow-hidden flex flex-col items-center text-center">
         <div className="w-20 h-20 rounded-full border-2 border-primary overflow-hidden relative bg-black/40 shadow-[0_0_25px_rgba(192,193,255,0.25)]">

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
-// --- GAME CONSTANTS ---
 const EMPTY = 0, P1 = 1, P2 = 2, P1_KING = 3, P2_KING = 4;
 const INITIAL_BOARD = [
   [EMPTY, P2, EMPTY, P2, EMPTY, P2, EMPTY, P2],
@@ -23,16 +22,17 @@ export default function Checkers({
   onClose: () => void;
   preloadedMatchId?: string | null;
 }) {
-  // --- MULTIPLAYER STATES ---
   const [playMode, setPlayMode] = useState<"menu" | "local" | "host" | "join" | "online">(
     preloadedMatchId ? "join" : "menu"
   );
+  
   const [matchId, setMatchId] = useState<string>("");
+  const [roomCode, setRoomCode] = useState<string>(""); // 👈 Tracks the new 6-digit short code
   const [joinCode, setJoinCode] = useState<string>("");
+  const [copied, setCopied] = useState(false); // 👈 Tracks the copy button state
+  
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myPlayerRole, setMyPlayerRole] = useState<number>(P1);
-
-  // --- ENGINE STATES ---
   const [board, setBoard] = useState<number[][]>(INITIAL_BOARD);
   const [turn, setTurn] = useState<number>(P1);
   const [selected, setSelected] = useState<{ r: number; c: number } | null>(null);
@@ -40,12 +40,10 @@ export default function Checkers({
   const [p2Captures, setP2Captures] = useState(0);
   const [winner, setWinner] = useState<number | null>(null);
 
-  // 1. Fetch current user on mount
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
 
-  // 2. Realtime WebSocket Listener
   useEffect(() => {
     if (playMode !== "online" && playMode !== "host") return;
     if (!matchId) return;
@@ -64,28 +62,34 @@ export default function Checkers({
     return () => { supabase.removeChannel(channel); };
   }, [matchId, playMode]);
 
-  // --- MULTIPLAYER LOBBY HANDLERS ---
   const hostMatch = async () => {
     if (!myUserId) return alert("Must be logged in to play online.");
+    
+    // 🎲 Generate a random 6-character alphanumeric code
+    const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
     const { data, error } = await supabase.from('checkers_matches').insert({
       p1_id: myUserId,
-      board: INITIAL_BOARD
+      board: INITIAL_BOARD,
+      room_code: generatedCode
     }).select().single();
 
     if (data) {
       setMatchId(data.id);
+      setRoomCode(generatedCode);
       setMyPlayerRole(P1);
       setPlayMode("host");
     }
   };
 
   const joinMatch = async (overrideCode?: string) => {
-    const codeToJoin = typeof overrideCode === 'string' ? overrideCode : joinCode;
+    const codeToJoin = typeof overrideCode === 'string' ? overrideCode : joinCode.toUpperCase();
     if (!myUserId || !codeToJoin) return;
     
     const { data, error } = await supabase.from('checkers_matches')
       .update({ p2_id: myUserId, status: 'playing' })
-      .eq('id', codeToJoin).select().single();
+      .eq('room_code', codeToJoin) // 👈 Search by the short code instead of the UUID
+      .select().single();
 
     if (data) {
       setMatchId(data.id);
@@ -99,12 +103,33 @@ export default function Checkers({
     }
   };
 
-  // 3. Auto-Join interceptor (Triggers when entering from an Invite)
   useEffect(() => {
+    // If the interceptor passes a UUID (from a direct chat invite), bypass the shortcode and join directly
     if (preloadedMatchId && myUserId) {
-      joinMatch(preloadedMatchId);
+      joinDirectlyByUUID(preloadedMatchId);
     }
   }, [preloadedMatchId, myUserId]);
+
+  const joinDirectlyByUUID = async (uuid: string) => {
+    const { data } = await supabase.from('checkers_matches')
+      .update({ p2_id: myUserId, status: 'playing' })
+      .eq('id', uuid)
+      .select().single();
+
+    if (data) {
+      setMatchId(data.id);
+      setMyPlayerRole(P2);
+      setBoard(data.board);
+      setTurn(data.turn);
+      setPlayMode("online");
+    }
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(roomCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   // --- CORE INTELLIGENCE ---
   const getValidMovesForPiece = (r: number, c: number, piece: number, currentBoard: number[][]) => {
@@ -146,11 +171,8 @@ export default function Checkers({
     return allMoves;
   };
 
-  // --- GAMEPLAY HANDLERS ---
   const handleSquareClick = async (r: number, c: number) => {
     if (winner || playMode === "menu" || playMode === "host" || playMode === "join") return;
-    
-    // 🌐 MULTIPLAYER LOCK: Prevent playing out of turn
     if (playMode === "online" && turn !== myPlayerRole) return;
 
     const piece = board[r][c];
@@ -205,7 +227,6 @@ export default function Checkers({
     }
   };
 
-  // --- RENDERING VARS ---
   const isPlayableSquare = (r: number, c: number) => (r + c) % 2 === 1;
   const validMovesForSelected = selected ? getValidMovesForPiece(selected.r, selected.c, board[selected.r][selected.c], board) : [];
   const activeMoveTargets = getAllValidMoves(turn, board).some(m => m.move.jump) ? validMovesForSelected.filter(m => m.jump) : validMovesForSelected;
@@ -230,12 +251,13 @@ export default function Checkers({
               <div className="flex gap-2">
                 <input 
                   type="text" 
-                  placeholder="Paste Room Code..." 
+                  maxLength={6}
+                  placeholder="6-Digit Code" 
                   value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value)}
-                  className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-blue-400"
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 text-xs font-black tracking-widest text-white placeholder:text-white/30 focus:outline-none focus:border-blue-400 uppercase"
                 />
-                <button onClick={() => joinMatch()} className="px-4 bg-surface-variant text-white font-black text-xs uppercase rounded-xl hover:bg-white/10 transition-all active:scale-95 border border-white/10">Join</button>
+                <button onClick={() => joinMatch()} className="px-5 bg-surface-variant text-white font-black text-xs uppercase rounded-xl hover:bg-white/10 transition-all active:scale-95 border border-white/10">Join</button>
               </div>
             </div>
             <button onClick={onClose} className="w-full text-xs text-on-surface-variant/60 font-bold uppercase tracking-widest mt-4">Exit Lobby</button>
@@ -246,7 +268,7 @@ export default function Checkers({
       {/* ⏳ HOSTING / JOINING WAITING SCREEN */}
       {(playMode === "host" || playMode === "join") && (
         <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-6 text-center">
-          <div className="space-y-6">
+          <div className="space-y-6 w-full max-w-sm">
             <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
             <div>
               <h2 className="text-xl font-black text-white">
@@ -254,14 +276,25 @@ export default function Checkers({
               </h2>
               {playMode === "host" && (
                 <>
-                  <p className="text-xs text-on-surface-variant mt-2 mb-4">Share this matrix code with your opponent:</p>
-                  <div className="bg-black border border-blue-400/30 p-4 rounded-xl">
-                    <code className="text-blue-400 font-mono text-sm break-all select-all">{matchId}</code>
+                  <p className="text-xs text-on-surface-variant mt-2 mb-4">Share this shortcode with your opponent:</p>
+                  
+                  {/* 📋 THE NEW COPY BUTTON COMPONENT */}
+                  <div className="bg-black/50 border border-blue-400/30 p-2 rounded-xl flex items-center justify-between">
+                    <span className="text-blue-400 font-mono text-2xl font-black tracking-[0.2em] pl-4">{roomCode}</span>
+                    <button 
+                      onClick={handleCopyCode}
+                      className={`h-10 px-4 rounded-lg font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                        copied ? "bg-green-500/20 text-green-400" : "bg-surface-variant hover:bg-white/10 text-white"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
+                      {copied ? "Copied" : "Copy"}
+                    </button>
                   </div>
                 </>
               )}
             </div>
-            <button onClick={() => playMode === "host" ? setPlayMode("menu") : onClose()} className="px-6 py-3 bg-surface-variant text-white font-black uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-white/10">Cancel</button>
+            <button onClick={() => playMode === "host" ? setPlayMode("menu") : onClose()} className="px-6 py-3 w-full bg-surface-variant text-white font-black uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-white/10">Cancel Match</button>
           </div>
         </div>
       )}
