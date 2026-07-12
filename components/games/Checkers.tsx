@@ -121,7 +121,6 @@ export default function Checkers({
     }
 
     if (match.p1_id === myUserId) {
-      // 🏠 CURRENT USER IS THE HOST (Player 1)
       setMatchId(match.id);
       setRoomCode(match.room_code || "");
       setMyPlayerRole(P1); 
@@ -132,7 +131,6 @@ export default function Checkers({
       setWinner(match.winner);
       setPlayMode(match.status === 'playing' ? "online" : "host");
     } else {
-      // 🚪 CURRENT USER IS THE GUEST (Player 2) -> Fixed the comment syntax issue here
       const { data: updatedMatch, error: updateError } = await supabase
         .from('checkers_matches')
         .update({ p2_id: myUserId, status: 'playing' })
@@ -262,6 +260,10 @@ export default function Checkers({
   const validMovesForSelected = selected ? getValidMovesForPiece(selected.r, selected.c, board[selected.r][selected.c], board) : [];
   const activeMoveTargets = getAllValidMoves(turn, board).some(m => m.move.jump) ? validMovesForSelected.filter(m => m.jump) : validMovesForSelected;
 
+  // 🗺️ PERSPECTIVE ROTATOR GRID GENERATOR
+  const viewIndices = [0, 1, 2, 3, 4, 5, 6, 7];
+  const shouldFlipBoard = playMode === "online" && myPlayerRole === P2;
+
   return (
     <div className="fixed inset-0 z-[100] bg-surface flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden">
       
@@ -346,11 +348,16 @@ export default function Checkers({
       {(playMode === "local" || playMode === "online") && (
         <>
           <div className="w-full max-w-md px-6 py-6 flex justify-between items-center relative">
-            <div className={`flex flex-col items-center transition-all ${turn === P2 ? "scale-110 opacity-100" : "opacity-40"}`}>
-              <div className="w-12 h-12 rounded-full border-2 border-secondary bg-secondary/20 flex items-center justify-center shadow-[0_0_15px_rgba(74,225,118,0.3)]">
-                <span className="text-secondary font-black">P2</span>
+            {/* Left Box HUD (Swaps display alignment dynamically depending on role perspective) */}
+            <div className={`flex flex-col items-center transition-all ${turn === (shouldFlipBoard ? P1 : P2) ? "scale-110 opacity-100" : "opacity-40"}`}>
+              <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center shadow-lg ${
+                shouldFlipBoard 
+                  ? "border-blue-400 bg-blue-500/20 text-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.3)]" 
+                  : "border-secondary bg-secondary/20 text-secondary shadow-[0_0_15px_rgba(74,225,118,0.3)]"
+              }`}>
+                <span className="font-black">{shouldFlipBoard ? "P1" : "P2"}</span>
               </div>
-              <span className="text-[10px] font-bold mt-2">Captures: {p2Captures}</span>
+              <span className="text-[10px] font-bold mt-2">Captures: {shouldFlipBoard ? p1Captures : p2Captures}</span>
             </div>
             
             <span className="text-xs font-black text-on-surface-variant uppercase tracking-widest bg-surface-variant/30 px-3 py-1 rounded-full border border-white/5">
@@ -359,11 +366,16 @@ export default function Checkers({
                 : (turn === P1 ? "Player 1 Turn" : "Player 2 Turn")}
             </span>
 
-            <div className={`flex flex-col items-center transition-all ${turn === P1 ? "scale-110 opacity-100" : "opacity-40"}`}>
-              <div className="w-12 h-12 rounded-full border-2 border-blue-400 bg-blue-500/20 flex items-center justify-center shadow-[0_0_15px_rgba(96,165,250,0.3)]">
-                <span className="text-blue-400 font-black">P1</span>
+            {/* Right Box HUD */}
+            <div className={`flex flex-col items-center transition-all ${turn === (shouldFlipBoard ? P2 : P1) ? "scale-110 opacity-100" : "opacity-40"}`}>
+              <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center shadow-lg ${
+                shouldFlipBoard 
+                  ? "border-secondary bg-secondary/20 text-secondary shadow-[0_0_15px_rgba(74,225,118,0.3)]"
+                  : "border-blue-400 bg-blue-500/20 text-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.3)]"
+              }`}>
+                <span className="font-black">{shouldFlipBoard ? "P2" : "P1"}</span>
               </div>
-              <span className="text-[10px] font-bold mt-2">Captures: {p1Captures}</span>
+              <span className="text-[10px] font-bold mt-2">Captures: {shouldFlipBoard ? p2Captures : p1Captures}</span>
             </div>
           </div>
 
@@ -371,16 +383,21 @@ export default function Checkers({
           <div className="w-full max-w-md px-4 mt-2">
             <div className="w-full aspect-square bg-surface-variant/20 rounded-2xl border border-white/10 p-2 shadow-2xl">
               <div className="w-full h-full grid grid-cols-8 grid-rows-8 rounded-xl overflow-hidden border border-white/5 bg-black">
-                {board.map((row, r) => 
-                  row.map((piece, c) => {
-                    const playable = isPlayableSquare(r, c);
-                    const isSelected = selected?.r === r && selected?.c === c;
-                    const isTarget = activeMoveTargets.some((m) => m.r === r && m.c === c);
+                {viewIndices.map((r) => 
+                  viewIndices.map((c) => {
+                    // 🔄 PERSPECTIVE INTERCEPTOR LAYER: Flips index view parameters cleanly for Player 2
+                    const actualR = shouldFlipBoard ? 7 - r : r;
+                    const actualC = shouldFlipBoard ? 7 - c : c;
+
+                    const playable = isPlayableSquare(actualR, actualC);
+                    const isSelected = selected?.r === actualR && selected?.c === actualC;
+                    const isTarget = activeMoveTargets.some((m) => m.r === actualR && m.c === actualC);
+                    const piece = board[actualR][actualC];
                     
                     return (
                       <div 
                         key={`${r}-${c}`}
-                        onClick={() => playable && handleSquareClick(r, c)}
+                        onClick={() => playable && handleSquareClick(actualR, actualC)}
                         className={`relative w-full h-full flex items-center justify-center transition-colors ${
                           playable ? "bg-surface-variant/40 hover:bg-surface-variant/60 cursor-pointer" : "bg-black/60"
                         } ${isSelected ? "ring-2 ring-inset ring-white bg-surface-variant" : ""} ${isTarget ? "bg-blue-500/20 cursor-pointer" : ""}`}
