@@ -272,31 +272,94 @@ export default function Checkers({
   return (
     <div className="fixed inset-0 z-[100] bg-neutral-100 dark:bg-neutral-950 flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors">
       
-      {/* --- LOBBY WAITING SCREENS --- */}
+      {/* =========================================
+          LOBBY MENU: PREMIUM ARENA HUB OVERHAUL 
+          ========================================= */}
       {playMode === "menu" && (
-        <div className="absolute inset-0 z-50 bg-neutral-100/90 dark:bg-neutral-950/90 backdrop-blur-md flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2rem] p-8 w-full max-w-sm shadow-xl space-y-6">
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 mx-auto bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center border border-indigo-100 dark:border-indigo-800 mb-4 shadow-[0_4px_10px_rgba(79,70,229,0.1)]">
-                <span className="material-symbols-outlined text-4xl">grid_4x4</span>
+        <div className="absolute inset-0 z-50 bg-neutral-100/90 dark:bg-neutral-950/90 backdrop-blur-xl flex items-center justify-center p-6">
+          
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800/60 rounded-[2.5rem] p-6 w-full max-w-sm shadow-[0_20px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] flex flex-col gap-6 relative overflow-hidden">
+            
+            {/* Subtle Top Gradient Glow */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl rounded-full pointer-events-none"></div>
+
+            {/* Header */}
+            <div className="text-center pt-2 relative z-10">
+              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/40 dark:to-indigo-800/20 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center border border-indigo-200/50 dark:border-indigo-700/50 mb-3 shadow-[0_8px_16px_rgba(79,70,229,0.15)]">
+                <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>grid_4x4</span>
               </div>
-              <h2 className="text-xl font-black text-neutral-900 dark:text-white tracking-tight">Checkers Arena</h2>
+              <h2 className="text-2xl font-black text-neutral-900 dark:text-white tracking-tight">Checkers Arena</h2>
+              <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest mt-1">Select Engagement Mode</p>
             </div>
             
-            <div className="space-y-3">
-              <button onClick={() => setPlayMode("local")} className="w-full h-12 bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-bold uppercase tracking-wider rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all active:scale-95 shadow-sm border border-neutral-200 dark:border-neutral-700">Local Pass & Play</button>
-              <div className="h-px w-full bg-neutral-200 dark:bg-neutral-800 my-4"></div>
-              <button onClick={hostMatch} className="w-full h-12 bg-indigo-600 text-white font-bold uppercase tracking-wider rounded-xl hover:bg-indigo-700 transition-all active:scale-95 shadow-md">Host Network Match</button>
+            {/* Primary Action Buttons */}
+            <div className="space-y-3 relative z-10">
               
-              <div className="flex gap-2">
-                <input 
-                  type="text" maxLength={6} placeholder="6-Digit Code" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  className="flex-1 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl px-4 text-xs font-black tracking-widest text-neutral-900 dark:text-white focus:outline-none focus:border-indigo-500 uppercase transition-colors"
-                />
-                <button onClick={() => joinMatch()} className="px-5 bg-neutral-900 dark:bg-white text-white dark:text-black font-bold text-xs uppercase rounded-xl hover:opacity-90 transition-all active:scale-95 shadow-sm">Join</button>
-              </div>
+              <button 
+                onClick={hostMatch} 
+                className="group w-full h-14 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white flex items-center justify-between px-5 rounded-2xl hover:opacity-90 transition-all active:scale-[0.98] shadow-[0_8px_20px_rgba(79,70,229,0.25)] border border-indigo-400/50 dark:border-indigo-400/20"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-indigo-100">language</span>
+                  <span className="font-bold text-xs uppercase tracking-wider text-white">Host Network Match</span>
+                </div>
+                <span className="material-symbols-outlined text-indigo-200 group-hover:translate-x-1 transition-transform">chevron_right</span>
+              </button>
+
+              <button 
+                onClick={() => setPlayMode("local")} 
+                className="group w-full h-14 bg-neutral-50 dark:bg-neutral-800 flex items-center justify-between px-5 rounded-2xl border border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all active:scale-[0.98] shadow-sm text-neutral-800 dark:text-neutral-200"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-neutral-400 dark:text-neutral-500">group</span>
+                  <span className="font-bold text-xs uppercase tracking-wider">Local Pass & Play</span>
+                </div>
+                <span className="material-symbols-outlined text-neutral-400 dark:text-neutral-500 group-hover:translate-x-1 transition-transform">chevron_right</span>
+              </button>
+
             </div>
-            <button onClick={onClose} className="w-full text-[10px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-widest mt-4">Exit Arena</button>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800"></div>
+              <span className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest">Or Join Room</span>
+              <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800"></div>
+            </div>
+            
+            {/* Join Console Container */}
+            <div className="bg-neutral-50 dark:bg-neutral-950 p-2 rounded-[1.25rem] border border-neutral-200 dark:border-neutral-800 flex items-center shadow-inner relative z-10">
+              <input 
+                type="text" 
+                maxLength={6} 
+                placeholder="CODE" 
+                value={joinCode} 
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                className="flex-1 bg-transparent text-center text-lg font-black tracking-[0.3em] placeholder-neutral-300 dark:placeholder-neutral-700 text-neutral-900 dark:text-white focus:outline-none uppercase"
+              />
+              <button 
+                onClick={() => joinMatch()} 
+                disabled={joinCode.length < 6}
+                className={`h-11 px-6 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm ${
+                  joinCode.length === 6 
+                    ? "bg-neutral-900 dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 cursor-pointer" 
+                    : "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed border border-transparent"
+                }`}
+              >
+                Join
+              </button>
+            </div>
+
+            {/* Exit Action */}
+            <div className="pt-2 relative z-10">
+              <button 
+                onClick={onClose} 
+                className="w-full flex items-center justify-center gap-2 text-[10px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-widest hover:text-neutral-900 dark:hover:text-white transition-colors py-2"
+              >
+                <span className="material-symbols-outlined text-sm">exit_to_app</span>
+                Exit Arena
+              </button>
+            </div>
+
           </div>
         </div>
       )}
@@ -308,8 +371,9 @@ export default function Checkers({
         </button>
         <div className="text-center">
           <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Checkers Matrix</h1>
-          <span className={`text-[9px] font-bold uppercase tracking-widest ${playMode === "online" ? "text-emerald-500 animate-pulse" : playMode === "host" || playMode === "join" ? "text-indigo-500 animate-pulse" : "text-neutral-400"}`}>
-            {playMode === "online" ? "● Live Network" : playMode === "host" || playMode === "join" ? "Connecting..." : "Local Mode"}
+          <span className={`text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 mt-0.5 ${playMode === "online" ? "text-emerald-500" : playMode === "host" || playMode === "join" ? "text-indigo-500" : "text-neutral-400"}`}>
+            {(playMode === "online" || playMode === "host" || playMode === "join") && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>}
+            {playMode === "online" ? "Live Network" : playMode === "host" || playMode === "join" ? "Connecting..." : "Local Mode"}
           </span>
         </div>
         
@@ -328,24 +392,30 @@ export default function Checkers({
         </div>
       </div>
 
-      {/* --- HOSTING / JOINING WAITING SCREEN --- */}
+      {/* --- HOSTING / JOINING WAITING SCREEN (Premium Upgrade) --- */}
       {(playMode === "host" || playMode === "join") && (
         <div className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center p-6 relative">
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 w-full shadow-2xl flex flex-col items-center text-center">
-            <div className="w-16 h-16 rounded-full border-4 border-indigo-100 dark:border-indigo-900/30 border-t-indigo-600 dark:border-t-indigo-500 animate-spin mb-6"></div>
-            <h2 className="text-xl font-black text-neutral-900 dark:text-white tracking-tight uppercase">
-              {playMode === "join" ? "Connecting..." : "Awaiting Opponent"}
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] p-8 w-full shadow-[0_20px_40px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.3)] flex flex-col items-center text-center relative overflow-hidden">
+            
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-indigo-500/10 dark:bg-indigo-500/20 blur-3xl rounded-full pointer-events-none"></div>
+
+            <div className="w-16 h-16 rounded-full border-[3px] border-indigo-100 dark:border-indigo-900/30 border-t-indigo-600 dark:border-t-indigo-500 animate-spin mb-6 relative z-10"></div>
+            
+            <h2 className="text-xl font-black text-neutral-900 dark:text-white tracking-tight uppercase relative z-10">
+              {playMode === "join" ? "Syncing Matrix..." : "Awaiting Opponent"}
             </h2>
             
             {playMode === "host" && (
-              <div className="mt-6 w-full">
-                <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-bold uppercase tracking-widest mb-2">Share Room Code</p>
-                <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-3 rounded-2xl flex items-center justify-between">
-                  <span className="text-indigo-600 dark:text-indigo-400 font-mono text-2xl font-black tracking-[0.2em] pl-4">{roomCode}</span>
+              <div className="mt-8 w-full relative z-10">
+                <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-bold uppercase tracking-widest mb-2">Share This Room Code</p>
+                <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-2.5 rounded-2xl flex items-center justify-between shadow-inner">
+                  <span className="text-indigo-600 dark:text-indigo-400 font-mono text-2xl font-black tracking-[0.25em] pl-4 pt-1">{roomCode}</span>
                   <button 
                     onClick={handleCopyCode}
-                    className={`h-10 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all ${
-                      copied ? "bg-emerald-500 text-white" : "bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-700"
+                    className={`h-11 px-5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm ${
+                      copied 
+                        ? "bg-emerald-500 text-white" 
+                        : "bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 hover:scale-[1.02] active:scale-95"
                     }`}
                   >
                     <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
@@ -355,7 +425,7 @@ export default function Checkers({
               </div>
             )}
             
-            <button onClick={() => playMode === "host" ? setPlayMode("menu") : onClose()} className="w-full mt-8 py-3.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm">
+            <button onClick={() => playMode === "host" ? setPlayMode("menu") : onClose()} className="w-full mt-8 py-3.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700 relative z-10">
               Cancel Match
             </button>
           </div>
@@ -404,7 +474,7 @@ export default function Checkers({
             </div>
           </div>
 
-          {/* 8x8 Flexible Board Container */}
+          {/* 8x8 Flexible Board Container (Prevents Bottom Clipping) */}
           <div className="flex-1 w-full flex items-center justify-center px-4 pb-6 min-h-0 relative">
             
             {/* FLOATING EMOJI LAYER */}
