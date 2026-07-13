@@ -5,16 +5,16 @@ import { supabase } from "../../lib/supabaseClient";
 
 // --- HYPER-REALISTIC ENGINE CONSTANTS ---
 const BOARD_SIZE = 1000;
-const FRAME_THICKNESS = 35;   // True thickness of the wooden bumper
+const FRAME_THICKNESS = 35;   
 const BOUND_MIN = FRAME_THICKNESS;
 const BOUND_MAX = BOARD_SIZE - FRAME_THICKNESS;
-const HOLE_POS = 42;          // Perfectly aligned for mathematical drops
-const HOLE_RADIUS = 46;       // Reduced visually for authentic board proportions
-const POCKET_TRIGGER = 44;    // Distance threshold to trigger the pocket
+const HOLE_POS = 42;          
+const HOLE_RADIUS = 46;       
+const POCKET_TRIGGER = 44;    
 const STRIKER_RADIUS = 34;    
 const COIN_RADIUS = 22;       
 const FRICTION = 0.985;       
-const RESTITUTION = 0.85;     // High quality hardwood bounce
+const RESTITUTION = 0.85;     
 const MAX_POWER = 260;        
 
 const EMOJIS = ["👍", "😂", "🔥", "😡", "😭", "🤯"];
@@ -109,7 +109,6 @@ const generateInitialCoins = (): Coin[] => {
   return coins;
 };
 
-// 🎨 AUTHENTIC CARROM DOUBLE-LINE BASELINES
 const Baseline = ({ transform }: { transform?: string }) => (
   <g transform={transform} stroke="#70411d" strokeWidth="4" fill="none">
     <path d="M 220 800 L 780 800" />
@@ -121,7 +120,6 @@ const Baseline = ({ transform }: { transform?: string }) => (
   </g>
 );
 
-// 🕳️ REALISTIC WOODEN POCKETS
 const renderRealisticHole = (cx: number, cy: number) => (
   <g>
     <circle cx={cx} cy={cy} r={HOLE_RADIUS} fill="#0a0502" />
@@ -176,6 +174,9 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const gameRuleModeRef = useRef(gameRuleMode);
   const matchIdRef = useRef(matchId);
 
+  // 🧭 PERSPECTIVE LOGIC: Rotates the board 180 degrees ONLY for P2 in Online Mode
+  const shouldFlipBoard = playMode === "online" && myPlayerRole === 2;
+
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { turnRef.current = turn; }, [turn]);
   useEffect(() => { myPlayerRoleRef.current = myPlayerRole; }, [myPlayerRole]);
@@ -193,7 +194,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
 
-  // 🤝 AUTO-CONNECT FROM CHAT INVITATION
   useEffect(() => {
     if (preloadedMatchId && myUserId) {
       const connectFromChat = async () => {
@@ -227,19 +227,27 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     }
   }, [playMode, isMuted]);
 
+  // 🎚️ DYNAMIC SLIDER SYNC WITH FLIP CORRECTION
   useEffect(() => {
     if (isMovingRef.current) return;
-    const striker = coinsRef.current.find(c => c.type === "striker");
-    if (striker && striker.active && !striker.falling) {
-      striker.x = turn === 1 ? p1Slider : p2Slider;
-      striker.y = turn === 1 ? 840 : 160;
+    const strikerObj = coinsRef.current.find(c => c.type === "striker");
+    if (strikerObj && strikerObj.active && !strikerObj.falling) {
+      strikerObj.y = turn === 1 ? 840 : 160;
+      let rawX = turn === 1 ? p1Slider : p2Slider;
+      
+      // If the board is flipped visually, flip the X coordinate mappings
+      if (shouldFlipBoard) {
+        rawX = 1000 - rawX;
+      }
+      
+      strikerObj.x = rawX;
       setRenderTrigger(prev => prev + 1);
     }
-  }, [p1Slider, p2Slider, turn]);
+  }, [p1Slider, p2Slider, turn, shouldFlipBoard]);
 
-  // 📡 MULTIPLAYER CONTINUOUS PING RESOLVER
+  // 📡 MULTIPLAYER REAL-TIME SYNC
   useEffect(() => {
-    if (!matchId) return;
+    if (!matchId || (playMode !== "host" && playMode !== "join" && playMode !== "online")) return;
 
     const channel = supabase.channel(`carrom_${matchId}`, { config: { broadcast: { self: false } } });
 
@@ -265,13 +273,13 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       })
       .on('broadcast', { event: 'shot_fired' }, (payload) => {
         const { vx, vy, startX } = payload.payload;
-        const striker = coinsRef.current.find(c => c.type === "striker");
-        if (striker) {
+        const strikerObj = coinsRef.current.find(c => c.type === "striker");
+        if (strikerObj) {
           if(!isMutedRef.current) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
-          striker.x = startX;
-          striker.y = turnRef.current === 1 ? 840 : 160;
-          striker.vx = vx;
-          striker.vy = vy;
+          strikerObj.x = startX;
+          strikerObj.y = turnRef.current === 1 ? 840 : 160;
+          strikerObj.vx = vx;
+          strikerObj.vy = vy;
           isMovingRef.current = true;
           turnSnapshotRef.current = JSON.parse(JSON.stringify(coinsRef.current));
           requestAnimationFrame(physicsLoop);
@@ -306,7 +314,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       clearInterval(pingInterval);
       supabase.removeChannel(channel); 
     };
-  }, [matchId]);
+  }, [matchId, playMode]);
 
   const hostMatch = () => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -317,7 +325,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     setMatchId(joinCode.toUpperCase()); setMyPlayerRole(2); setPlayMode("join");
   };
 
-  // --- PERFECTED PHYSICS ENGINE ---
   const physicsLoop = () => {
     let moving = false;
     const coins = coinsRef.current;
@@ -326,11 +333,9 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       let c1 = coins[i];
       if (!c1.active) continue;
 
-      // 🌪️ 3D VACUUM DROP ANIMATION
       if (c1.falling) {
         c1.scale = (c1.scale || 1) * 0.85;
         
-        // Find nearest pocket to get sucked towards
         const pockets = [
           {x: HOLE_POS, y: HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: HOLE_POS}, 
           {x: HOLE_POS, y: BOARD_SIZE - HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: BOARD_SIZE - HOLE_POS}
@@ -343,9 +348,8 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         }
 
         c1.vx *= 0.5; c1.vy *= 0.5;
-        c1.x += (nearestP.x - c1.x) * 0.3; // Visually drag into the hole center
+        c1.x += (nearestP.x - c1.x) * 0.3; 
         c1.y += (nearestP.y - c1.y) * 0.3;
-        
         moving = true;
 
         if (c1.scale < 0.1) {
@@ -356,7 +360,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
             c1.active = false;
           }
         }
-        continue; // Skip wall bounds and collisions while falling!
+        continue; 
       }
 
       c1.x += c1.vx;
@@ -367,7 +371,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       if (Math.abs(c1.vx) > 0.08 || Math.abs(c1.vy) > 0.08) moving = true;
       else { c1.vx = 0; c1.vy = 0; }
 
-      // 🪵 MATHEMATICAL WOODEN FRAME BOUNDARIES
       let hitWall = false;
       if (c1.x - c1.radius < BOUND_MIN) { c1.x = BOUND_MIN + c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
       if (c1.x + c1.radius > BOUND_MAX) { c1.x = BOUND_MAX - c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
@@ -375,7 +378,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       if (c1.y + c1.radius > BOUND_MAX) { c1.y = BOUND_MAX - c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
       if (hitWall && !isMutedRef.current && Math.hypot(c1.vx, c1.vy) > 2) playSound('bounce', 0.5);
 
-      // 🕳️ TRUE CORNER POCKET DETECTION
       const pockets = [
         {x: HOLE_POS, y: HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: HOLE_POS}, 
         {x: HOLE_POS, y: BOARD_SIZE - HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: BOARD_SIZE - HOLE_POS}
@@ -389,7 +391,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         }
       }
 
-      // If it just triggered a fall this frame, skip hitting other coins
       if (c1.falling) continue;
 
       for (let j = i + 1; j < coins.length; j++) {
@@ -487,10 +488,10 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       }
     }
 
-    const striker = currentCoins.find(c => c.type === "striker");
-    if (striker) {
-      striker.active = true; striker.vx = 0; striker.vy = 0;
-      striker.x = 500; striker.y = nextTurn === 1 ? 840 : 160;
+    const strikerObj = currentCoins.find(c => c.type === "striker");
+    if (strikerObj) {
+      strikerObj.active = true; strikerObj.vx = 0; strikerObj.vy = 0;
+      strikerObj.x = 500; strikerObj.y = nextTurn === 1 ? 840 : 160;
     }
     setP1Slider(500); setP2Slider(500);
 
@@ -528,16 +529,27 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isAiming || !boardRef.current) return;
-    const pt = boardRef.current.createSVGPoint();
-    pt.x = e.clientX; pt.y = e.clientY;
-    const svgP = pt.matrixTransform(boardRef.current.getScreenCTM()?.inverse());
     
-    const striker = coinsRef.current.find(c => c.type === "striker")!;
-    let dx = striker.x - svgP.x; let dy = striker.y - svgP.y;
+    const rect = boardRef.current.getBoundingClientRect();
+    let percentX = (e.clientX - rect.left) / rect.width;
+    let percentY = (e.clientY - rect.top) / rect.height;
+    
+    let svgX = percentX * BOARD_SIZE;
+    let svgY = percentY * BOARD_SIZE;
+
+    if (shouldFlipBoard) {
+      svgX = BOARD_SIZE - svgX;
+      svgY = BOARD_SIZE - svgY;
+    }
+
+    const strikerObj = coinsRef.current.find(c => c.type === "striker")!;
+    let dx = strikerObj.x - svgX; 
+    let dy = strikerObj.y - svgY;
     
     const distance = Math.hypot(dx, dy);
     if (distance > MAX_POWER) {
-      dx = (dx / distance) * MAX_POWER; dy = (dy / distance) * MAX_POWER;
+      dx = (dx / distance) * MAX_POWER; 
+      dy = (dy / distance) * MAX_POWER;
     }
     setAimVector({ x: dx, y: dy });
   };
@@ -552,16 +564,16 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     
     if (Math.hypot(vx, vy) < 1.5) return;
 
-    const striker = coinsRef.current.find(c => c.type === "striker");
-    if (striker) {
+    const strikerObj = coinsRef.current.find(c => c.type === "striker");
+    if (strikerObj) {
       turnSnapshotRef.current = JSON.parse(JSON.stringify(coinsRef.current));
-      striker.vx = vx; striker.vy = vy;
+      strikerObj.vx = vx; strikerObj.vy = vy;
       isMovingRef.current = true;
       if(!isMutedRef.current) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
       
       if (playMode === "online") {
         supabase.channel(`carrom_${matchIdRef.current}`).send({
-          type: 'broadcast', event: 'shot_fired', payload: { vx, vy, startX: striker.x }
+          type: 'broadcast', event: 'shot_fired', payload: { vx, vy, startX: strikerObj.x }
         });
       }
       requestAnimationFrame(physicsLoop);
@@ -595,7 +607,57 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const shouldFlipBoard = playMode === "online" && myPlayerRole === 2;
+  // --- DYNAMIC HUD CONFIGURATION ---
+  const topRole = playMode === 'local' ? 2 : (myPlayerRole === 1 ? 2 : 1);
+  const bottomRole = playMode === 'local' ? 1 : myPlayerRole;
+
+  const renderPlayerHUD = (role: 1 | 2, position: 'top' | 'bottom') => {
+    const isMyTurn = turn === role;
+    const canUseSlider = isMyTurn && !winner && (playMode === 'local' || myPlayerRole === role);
+    const currentSlider = role === 1 ? p1Slider : p2Slider;
+    const setCurrentSlider = role === 1 ? setP1Slider : setP2Slider;
+    const roleScore = role === 1 ? p1Score : p2Score;
+    const roleColor = role === 1 ? p1Color : p2Color;
+
+    let turnText = `Player ${turn} Turn`;
+    if (playMode === "online") {
+      if (isMyTurn) turnText = myPlayerRole === role ? "Your Shot" : "Opponent Aiming";
+      else turnText = myPlayerRole === role ? "Wait" : "Opponent Aiming";
+    }
+
+    const headerContent = (
+      <div className="w-full flex justify-between items-end px-2">
+         <div className={`flex flex-col items-start transition-all ${isMyTurn ? "opacity-100" : "opacity-40 grayscale"}`}>
+           <span className="text-sm font-black text-neutral-900 dark:text-white">{roleScore} PTS</span>
+           <div className="flex items-center gap-2 mt-1">
+             {role === 1 ? (
+               <div className="w-8 h-8 rounded-full bg-[#f4ebd4] border-2 border-[#d6c7b0] flex items-center justify-center text-[#6b5f4c] text-[10px] font-bold shadow-md">P1</div>
+             ) : (
+               <div className="w-8 h-8 rounded-full bg-neutral-950 border-2 border-neutral-800 flex items-center justify-center text-white text-[10px] font-bold shadow-md">P2</div>
+             )}
+             {roleColor && <div className={`w-4 h-4 rounded-full border border-neutral-400 ${roleColor === 'white' ? 'bg-[#f3ead3]' : 'bg-[#141414]'}`}></div>}
+           </div>
+         </div>
+         <div className="px-4 py-1.5 bg-white dark:bg-neutral-900 rounded-full shadow-sm border border-neutral-200 dark:border-neutral-800 text-[9px] font-black uppercase tracking-widest text-neutral-800 dark:text-neutral-200">
+           {turnText}
+         </div>
+      </div>
+    );
+
+    const sliderContent = (
+      <div className={`w-full max-w-[280px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-2.5 rounded-xl shadow-sm transition-opacity ${canUseSlider ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+         <input type="range" min={220} max={780} step={2} value={currentSlider} onChange={(e) => setCurrentSlider(Number(e.target.value))} disabled={isMovingRef.current || !canUseSlider} className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+      </div>
+    );
+
+    return (
+      <div className="w-full flex flex-col items-center px-4 gap-2 shrink-0">
+        {position === 'top' ? <>{headerContent}{sliderContent}</> : <>{sliderContent}{headerContent}</>}
+      </div>
+    );
+  };
+
+  // Necessary variable recalculations for rendering
   const striker = coinsRef.current.find(c=>c.type==="striker");
   const aimDist = Math.hypot(aimVector.x, aimVector.y);
   const isMaxPower = aimDist >= MAX_POWER - 2;
@@ -695,9 +757,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                   <button 
                     onClick={handleCopyCode}
                     className={`h-11 px-5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm ${
-                      copied 
-                        ? "bg-emerald-500 text-white" 
-                        : "bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 hover:scale-[1.02] active:scale-95"
+                      copied ? "bg-emerald-500 text-white" : "bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 hover:scale-[1.02] active:scale-95"
                     }`}
                   >
                     <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
@@ -742,27 +802,8 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       {(playMode === "local" || playMode === "online") && (
         <div className="flex-1 w-full flex flex-col justify-between min-h-0 relative z-10 py-4">
           
-          {/* P2 HUD */}
-          <div className="w-full flex flex-col items-center px-4 gap-2 shrink-0">
-             <div className="w-full flex justify-between items-end px-2">
-                <div className={`flex flex-col items-start transition-all ${turn === 2 ? "opacity-100" : "opacity-40 grayscale"}`}>
-                  <span className="text-sm font-black text-neutral-900 dark:text-white">{p2Score} PTS</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="w-8 h-8 rounded-full bg-neutral-950 border-2 border-neutral-800 flex items-center justify-center text-white text-[10px] font-bold shadow-md">P2</div>
-                    {p2Color && <div className={`w-4 h-4 rounded-full border border-neutral-400 ${p2Color === 'white' ? 'bg-[#f3ead3]' : 'bg-[#141414]'}`}></div>}
-                  </div>
-                </div>
-                <div className="px-4 py-1.5 bg-white dark:bg-neutral-900 rounded-full shadow-sm border border-neutral-200 dark:border-neutral-800 text-[9px] font-black uppercase tracking-widest text-neutral-800 dark:text-neutral-200">
-                  {playMode === "online" ? (turn === myPlayerRole ? "Your Shot" : "Opponent Aiming") : `Player ${turn} Turn`}
-                </div>
-             </div>
+          {renderPlayerHUD(topRole, 'top')}
 
-             <div className={`w-full max-w-[280px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-2.5 rounded-xl shadow-sm transition-opacity ${playMode === 'local' && turn === 2 && !winner ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                <input type="range" min={220} max={780} step={2} value={p2Slider} onChange={(e) => setP2Slider(Number(e.target.value))} disabled={isMovingRef.current || turn !== 2} className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-             </div>
-          </div>
-
-          {/* BOARD */}
           <div className="flex-1 w-full flex items-center justify-center min-h-0 relative">
             
             {floatingEmojis.map((em) => {
@@ -811,10 +852,8 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                     <radialGradient id="vStriker" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#f7f9fa" /><stop offset="70%" stopColor="#e1e6eb" /><stop offset="100%" stopColor="#b5bec4" /></radialGradient>
                   </defs>
 
-                  {/* 1. Full Wooden Internal Overlay Bumper Frame */}
                   <rect x="0" y="0" width={BOARD_SIZE} height={BOARD_SIZE} fill="none" stroke="#2d1606" strokeWidth={FRAME_THICKNESS * 2} />
 
-                  {/* 2. MATHEMATICALLY PERFECT & REALISTIC WOODEN POCKETS */}
                   {renderRealisticHole(HOLE_POS, HOLE_POS)}
                   {renderRealisticHole(BOARD_SIZE - HOLE_POS, HOLE_POS)}
                   {renderRealisticHole(HOLE_POS, BOARD_SIZE - HOLE_POS)}
@@ -858,22 +897,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
             </div>
           </div>
 
-          {/* P1 HUD */}
-          <div className="w-full flex flex-col items-center px-4 gap-2 shrink-0">
-             <div className={`w-full max-w-[280px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-2.5 rounded-xl shadow-sm transition-opacity ${turn === 1 && !winner ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                <input type="range" min={220} max={780} step={2} value={p1Slider} onChange={(e) => setP1Slider(Number(e.target.value))} disabled={isMovingRef.current || turn !== 1 || (playMode === "online" && myPlayerRole !== 1)} className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-             </div>
-
-             <div className="w-full flex justify-between items-start px-2">
-                <div className={`flex flex-col items-start transition-all ${turn === 1 ? "opacity-100" : "opacity-40 grayscale"}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-8 h-8 rounded-full bg-[#f4ebd4] border-2 border-[#d6c7b0] flex items-center justify-center text-[#6b5f4c] text-[10px] font-bold shadow-md">P1</div>
-                    {p1Color && <div className={`w-4 h-4 rounded-full border border-neutral-400 ${p1Color === 'white' ? 'bg-[#f3ead3]' : 'bg-[#141414]'}`}></div>}
-                  </div>
-                  <span className="text-sm font-black text-neutral-900 dark:text-white">{p1Score} PTS</span>
-                </div>
-             </div>
-          </div>
+          {renderPlayerHUD(bottomRole, 'bottom')}
 
         </div>
       )}
