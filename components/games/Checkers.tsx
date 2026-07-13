@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
 const EMPTY = 0, P1 = 1, P2 = 2, P1_KING = 3, P2_KING = 4;
@@ -50,6 +50,18 @@ export default function Checkers({
   // 🤩 Live Emojis
   const [floatingEmojis, setFloatingEmojis] = useState<{id: number, emoji: string, role: number}[]>([]);
   const [showEmojiMenu, setShowEmojiMenu] = useState(false);
+
+  // 🎉 Celebration Confetti Generator
+  const confettiPieces = useMemo(() => {
+    const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6'];
+    return Array.from({ length: 60 }).map((_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      animDuration: `${2 + Math.random() * 3}s`,
+      animDelay: `${Math.random() * 1.5}s`,
+      color: colors[Math.floor(Math.random() * colors.length)],
+    }));
+  }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
@@ -265,15 +277,23 @@ export default function Checkers({
   const isPlayableSquare = (r: number, c: number) => (r + c) % 2 === 1;
   const viewIndices = [0, 1, 2, 3, 4, 5, 6, 7];
   
-  // 🧭 P2 Reverse Setup FIX: In local mode, board spins for each player's turn automatically!
-  const shouldFlipBoard = playMode === "local" ? turn === P2 : myPlayerRole === P2;
+  // 🧭 FIXED: Board ONLY flips in Online Mode when you are Player 2. Local mode stays locked!
+  const shouldFlipBoard = playMode === "online" && myPlayerRole === P2;
+  
   const validMovesForSelected = selected ? getValidMovesForPiece(selected.r, selected.c, board[selected.r][selected.c], board) : [];
   const activeMoveTargets = getAllValidMoves(turn, board).some(m => m.move.jump) ? validMovesForSelected.filter(m => m.jump) : validMovesForSelected;
-
 
   return (
     <div className="fixed inset-0 z-[100] bg-neutral-100 dark:bg-neutral-950 flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors">
       
+      {/* 🎊 INLINE STYLES FOR CELEBRATION CONFETTI */}
+      <style>{`
+        @keyframes confetti-fall {
+          0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; }
+          100% { transform: translateY(110vh) rotate(720deg) scale(0.8); opacity: 0; }
+        }
+      `}</style>
+
       {/* =========================================
           LOBBY MENU: PREMIUM ARENA HUB
           ========================================= */}
@@ -394,20 +414,20 @@ export default function Checkers({
       )}
 
       {(playMode === "local" || playMode === "online") && (
-        <div className="flex-1 w-full max-w-md mx-auto flex flex-col justify-start min-h-0 relative">
+        <div className="flex-1 w-full max-w-md mx-auto flex flex-col justify-start min-h-0 relative z-10">
           
           {/* Scoreboard HUD */}
           <div className="px-6 py-4 flex justify-between items-center shrink-0">
-            <div className={`flex flex-col items-center transition-all duration-300 ${turn === (shouldFlipBoard ? P1 : P2) ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
+            <div className={`flex flex-col items-center transition-all duration-300 ${turn === P2 ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
               <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-xs font-black text-[#5c3a21] dark:text-[#cfaa75]">{shouldFlipBoard ? p1Score : p2Score}</span>
+                <span className="text-xs font-black text-[#5c3a21] dark:text-[#cfaa75]">{p2Score}</span>
                 <span className="text-[8px] text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">Wins</span>
               </div>
               <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-[#4d2f1d] border-[#362114] text-white`}>
-                <span className="font-black text-sm">{shouldFlipBoard ? "P1" : "P2"}</span>
+                <span className="font-black text-sm">P2</span>
               </div>
               <span className="text-[9px] font-bold text-neutral-500 dark:text-neutral-400 mt-2 uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 rounded-md border border-neutral-300 dark:border-neutral-700">
-                Cap: {shouldFlipBoard ? p1Captures : p2Captures}
+                Cap: {p2Captures}
               </span>
             </div>
             
@@ -417,16 +437,16 @@ export default function Checkers({
               </span>
             </div>
 
-            <div className={`flex flex-col items-center transition-all duration-300 ${turn === (shouldFlipBoard ? P2 : P1) ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
+            <div className={`flex flex-col items-center transition-all duration-300 ${turn === P1 ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="text-[8px] text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">Wins</span>
-                <span className="text-xs font-black text-[#f3ead3] dark:text-white">{shouldFlipBoard ? p2Score : p1Score}</span>
+                <span className="text-xs font-black text-[#f3ead3] dark:text-white">{p1Score}</span>
               </div>
               <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-[#f3ead3] border-[#dccfb4] text-[#8a7f6b]`}>
-                <span className="font-black text-sm">{shouldFlipBoard ? "P2" : "P1"}</span>
+                <span className="font-black text-sm">P1</span>
               </div>
               <span className="text-[9px] font-bold text-neutral-500 dark:text-neutral-400 mt-2 uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 rounded-md border border-neutral-300 dark:border-neutral-700">
-                Cap: {shouldFlipBoard ? p2Captures : p1Captures}
+                Cap: {p1Captures}
               </span>
             </div>
           </div>
@@ -446,26 +466,47 @@ export default function Checkers({
               );
             })}
 
-            {/* VICTORY DIALOG */}
+            {/* 🎉 VICTORY CELEBRATION DIALOG */}
             {winner && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-in">
-                <div className="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-md rounded-[2.5rem]"></div>
-                <div className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 w-full shadow-2xl flex flex-col items-center text-center">
-                  <div className="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4 border border-indigo-100 dark:border-indigo-800 shadow-[0_4px_15px_rgba(79,70,229,0.15)]">
-                    <span className="material-symbols-outlined text-4xl">emoji_events</span>
+              <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-in overflow-hidden">
+                
+                {/* Darken Background */}
+                <div className="absolute inset-0 bg-white/60 dark:bg-black/60 backdrop-blur-md rounded-[2.5rem]"></div>
+                
+                {/* 🎊 RENDER CONFETTI PARTICLES */}
+                {confettiPieces.map(p => (
+                  <div key={p.id} className="absolute top-0 z-[60] pointer-events-none" style={{
+                    left: p.left,
+                    width: '6px',
+                    height: '14px',
+                    backgroundColor: p.color,
+                    borderRadius: '4px',
+                    animation: `confetti-fall ${p.animDuration} linear ${p.animDelay} infinite`,
+                  }} />
+                ))}
+
+                <div className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 w-full shadow-[0_20px_40px_rgba(0,0,0,0.2)] flex flex-col items-center text-center z-50">
+                  <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/5 to-transparent rounded-3xl pointer-events-none"></div>
+
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 text-white flex items-center justify-center mb-5 shadow-[0_4px_20px_rgba(250,204,21,0.4)] border-4 border-yellow-200 dark:border-yellow-900 animate-bounce">
+                    <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>emoji_events</span>
                   </div>
-                  <h2 className="text-2xl font-black text-neutral-900 dark:text-white tracking-tight uppercase">
-                    {playMode === "online" 
-                      ? (winner === myPlayerRole ? "You Win!" : "Opponent Wins!")
-                      : `Player ${winner} Wins!`}
+                  
+                  <h3 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 tracking-widest uppercase mb-1">
+                    Match Concluded
+                  </h3>
+                  <h2 className="text-3xl font-black text-neutral-900 dark:text-white tracking-tight uppercase">
+                    Congratulations!
                   </h2>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium mt-2">
-                    {winner === P1 ? "Player 1" : "Player 2"} trapped all pieces.
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400 font-medium mt-3">
+                    {playMode === "online" 
+                      ? (winner === myPlayerRole ? "You outsmarted your opponent and claimed victory." : "Your opponent won this round.")
+                      : `Player ${winner} has completely dominated the board.`}
                   </p>
                   
                   <div className="w-full flex gap-3 mt-8">
-                    <button onClick={onClose} className="flex-1 py-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm">Exit</button>
-                    <button onClick={handleRematch} className="flex-1 py-3 bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-md">Play Next Round</button>
+                    <button onClick={onClose} className="flex-1 py-3.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm">Exit Arena</button>
+                    <button onClick={handleRematch} className="flex-1 py-3.5 bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-[0_4px_15px_rgba(79,70,229,0.3)] hover:bg-indigo-700">Play Again</button>
                   </div>
                 </div>
               </div>
@@ -478,14 +519,11 @@ export default function Checkers({
               }`}>
                 {viewIndices.map((r) => 
                   viewIndices.map((c) => {
-                    // Logic fix: No actualR/actualC coordinate manipulation here. 
-                    // The CSS "rotate-180" on the container handles the flip natively!
                     const playable = isPlayableSquare(r, c);
                     
-                    // High Contrast Checkers Squares
                     const squareClass = playable 
                       ? "bg-[#1a1a1a] shadow-[inset_0_2px_6px_rgba(0,0,0,0.5)] cursor-pointer" 
-                      : "bg-[#e6c48f]"; // Matches the frame
+                      : "bg-[#e6c48f]";
                     
                     const isSelected = selected?.r === r && selected?.c === c;
                     const isTarget = activeMoveTargets.some((m) => m.r === r && m.c === c);
@@ -515,10 +553,8 @@ export default function Checkers({
                         onClick={() => playable && handleSquareClick(r, c)}
                         className={`relative w-full h-full flex items-center justify-center transition-colors ${squareClass} ${isSelected ? "ring-inset ring-2 ring-[#4f46e5] bg-indigo-900/40" : ""} ${isTarget ? "bg-indigo-500/30" : ""}`}
                       >
-                        {/* Glowing move target indicator */}
                         {isTarget && <div className="w-3 h-3 rounded-full bg-[#4f46e5] shadow-[0_0_10px_rgba(79,70,229,0.8)] animate-pulse"></div>}
 
-                        {/* Rendering the carved piece */}
                         {piece !== EMPTY && (
                           <div className={`w-[85%] h-[85%] rounded-full flex items-center justify-center transition-all duration-300 ${pieceOuter} ${shouldFlipBoard ? "rotate-180" : "rotate-0"} ${isSelected ? "scale-110 ring-4 ring-[#4f46e5]" : ""}`}>
                              <div className={`w-[75%] h-[75%] rounded-full border-[1.5px] flex items-center justify-center ${pieceRing}`}>
