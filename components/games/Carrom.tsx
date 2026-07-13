@@ -194,6 +194,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
 
+  // 🤝 AUTO-CONNECT FROM CHAT INVITATION
   useEffect(() => {
     if (preloadedMatchId && myUserId) {
       const connectFromChat = async () => {
@@ -235,7 +236,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       strikerObj.y = turn === 1 ? 840 : 160;
       let rawX = turn === 1 ? p1Slider : p2Slider;
       
-      // If the board is flipped visually, flip the X coordinate mappings
+      // Mirror the coordinate so slider visually maps correctly when rotated
       if (shouldFlipBoard) {
         rawX = 1000 - rawX;
       }
@@ -259,7 +260,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
               setToast({ msg: "Opponent joined the Arena!", type: "success" });
               channel.send({
                 type: 'broadcast', event: 'turn_sync', 
-                payload: { coins: coinsRef.current, nextTurn: 1, p1S: 0, p2S: 0, win: null, p1C: null, p2C: null, msg: "", msgType: "info" }
+                payload: { coins: coinsRef.current, nextTurn: 1, p1S: 0, p2S: 0, win: null, p1C: null, p2C: null, msg: "", msgType: "info", rulesMode: gameRuleModeRef.current }
               });
               return "online";
             }
@@ -286,10 +287,11 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         }
       })
       .on('broadcast', { event: 'turn_sync' }, (payload) => {
-        const { coins, nextTurn, p1S, p2S, win, p1C, p2C, msg, msgType } = payload.payload;
+        const { coins, nextTurn, p1S, p2S, win, p1C, p2C, msg, msgType, rulesMode } = payload.payload;
         coinsRef.current = coins;
         setTurn(nextTurn); setP1Score(p1S); setP2Score(p2S); setWinner(win);
         setP1Color(p1C); setP2Color(p2C);
+        if (rulesMode) setGameRuleMode(rulesMode);
         setP1Slider(500); setP2Slider(500);
         if (msg) setToast({ msg, type: msgType });
         setRenderTrigger(prev => prev + 1);
@@ -427,7 +429,10 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       requestAnimationFrame(physicsLoop);
     } else {
       isMovingRef.current = false;
-      evaluateTurnEnd();
+      // 🛡️ AUTHORITATIVE TURN CALCULATION (Only the shooter evaluates rules)
+      if (playMode !== "online" || turnRef.current === myPlayerRoleRef.current) {
+        evaluateTurnEnd();
+      }
     }
   };
 
@@ -440,52 +445,60 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     
     let newP1Score = p1Score; let newP2Score = p2Score;
     let newP1Color = p1Color; let newP2Color = p2Color;
-    let nextTurn = turnRef.current; let earnedExtraTurn = false;
+    let nextTurn = turnRef.current; 
+    let fouled = false;
+    let validPocket = false;
     let turnMsg = ""; let msgType: 'foul' | 'info' | 'success' = 'info';
 
+    // Rule Resolution Engine
     if (strikerFoul) {
-      turnMsg = "Foul! Striker Pocketed (-5 PTS).";
-      msgType = "foul";
-      nextTurn = turnRef.current === 1 ? 2 : 1; 
+      fouled = true;
       if (turnRef.current === 1) newP1Score = Math.max(0, newP1Score - 5);
       else newP2Score = Math.max(0, newP2Score - 5);
-    } 
-    else {
-      pocketedThisTurn.forEach(c => {
-        if (c.type === "queen") {
-          earnedExtraTurn = true; turnMsg = "Red Queen Secured (+5 PTS)!"; msgType = "success";
-          if (turnRef.current === 1) newP1Score += 5; else newP2Score += 5;
+    }
+
+    pocketedThisTurn.forEach(c => {
+      if (c.type === "queen") {
+        validPocket = true;
+        if (turnRef.current === 1) newP1Score += 5; else newP2Score += 5;
+      } 
+      else if (c.type === "white" || c.type === "black") {
+        const pts = c.type === "white" ? 3 : 2;
+        
+        if (gameRuleModeRef.current === "freestyle") {
+          validPocket = true;
+          if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
         } 
-        else if (c.type === "white" || c.type === "black") {
-          if (gameRuleModeRef.current === "freestyle") {
-            earnedExtraTurn = true; turnMsg = "Good Shot! Go Again."; msgType = "success";
-            const pts = c.type === "white" ? 3 : 2;
+        else if (gameRuleModeRef.current === "classic") {
+          if (!newP1Color) {
+            validPocket = true;
+            newP1Color = turnRef.current === 1 ? c.type : (c.type === "white" ? "black" : "white");
+            newP2Color = newP1Color === "white" ? "black" : "white";
             if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
-          } 
-          else if (gameRuleModeRef.current === "classic") {
-            if (!newP1Color) {
-              newP1Color = turnRef.current === 1 ? c.type : (c.type === "white" ? "black" : "white");
-              newP2Color = newP1Color === "white" ? "black" : "white";
-              earnedExtraTurn = true; turnMsg = `Player ${turnRef.current} Claims ${c.type.toUpperCase()}`; msgType = "success";
-              if (turnRef.current === 1) newP1Score += 10; else newP2Score += 10;
+          } else {
+            const myColor = turnRef.current === 1 ? newP1Color : newP2Color;
+            if (c.type === myColor) {
+              validPocket = true;
+              if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
             } else {
-              const myColor = turnRef.current === 1 ? newP1Color : newP2Color;
-              if (c.type === myColor) {
-                earnedExtraTurn = true; turnMsg = "Good Shot! Go Again."; msgType = "success";
-                if (turnRef.current === 1) newP1Score += 10; else newP2Score += 10;
-              } else {
-                turnMsg = "Foul! Pocketed Opponent's Coin."; msgType = "foul";
-                earnedExtraTurn = false; nextTurn = turnRef.current === 1 ? 2 : 1; 
-                if (turnRef.current === 1) newP2Score += 10; else newP1Score += 10;
-              }
+              fouled = true; // Sunk opponent coin
+              if (turnRef.current === 1) newP2Score += pts; else newP1Score += pts;
             }
           }
         }
-      });
-
-      if (!earnedExtraTurn && pocketedThisTurn.length === 0) {
-        nextTurn = turnRef.current === 1 ? 2 : 1;
       }
+    });
+
+    if (fouled) {
+      turnMsg = "Foul! Turn Lost.";
+      msgType = "foul";
+      nextTurn = turnRef.current === 1 ? 2 : 1;
+    } else if (validPocket) {
+      turnMsg = "Good Shot! Go Again.";
+      msgType = "success";
+      nextTurn = turnRef.current;
+    } else {
+      nextTurn = turnRef.current === 1 ? 2 : 1;
     }
 
     const strikerObj = currentCoins.find(c => c.type === "striker");
@@ -513,7 +526,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     if (playMode === "online" && turnRef.current === myPlayerRoleRef.current) {
        supabase.channel(`carrom_${matchIdRef.current}`).send({
           type: 'broadcast', event: 'turn_sync', 
-          payload: { coins: currentCoins, nextTurn, p1S: newP1Score, p2S: newP2Score, win, p1C: newP1Color, p2C: newP2Color, msg: turnMsg, msgType }
+          payload: { coins: currentCoins, nextTurn, p1S: newP1Score, p2S: newP2Score, win, p1C: newP1Color, p2C: newP2Color, msg: turnMsg, msgType, rulesMode: gameRuleModeRef.current }
        });
     }
 
@@ -527,24 +540,21 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     setIsAiming(true);
   };
 
+  // 🎯 PERFECTED AIMING VECTOR RESOLVER (Matrix Transform safely bypasses CSS rotation bugs)
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isAiming || !boardRef.current) return;
     
-    const rect = boardRef.current.getBoundingClientRect();
-    let percentX = (e.clientX - rect.left) / rect.width;
-    let percentY = (e.clientY - rect.top) / rect.height;
+    const pt = boardRef.current.createSVGPoint();
+    pt.x = e.clientX; 
+    pt.y = e.clientY;
     
-    let svgX = percentX * BOARD_SIZE;
-    let svgY = percentY * BOARD_SIZE;
-
-    if (shouldFlipBoard) {
-      svgX = BOARD_SIZE - svgX;
-      svgY = BOARD_SIZE - svgY;
-    }
-
+    const ctm = boardRef.current.getScreenCTM();
+    if (!ctm) return;
+    const svgP = pt.matrixTransform(ctm.inverse());
+    
     const strikerObj = coinsRef.current.find(c => c.type === "striker")!;
-    let dx = strikerObj.x - svgX; 
-    let dy = strikerObj.y - svgY;
+    let dx = strikerObj.x - svgP.x; 
+    let dy = strikerObj.y - svgP.y;
     
     const distance = Math.hypot(dx, dy);
     if (distance > MAX_POWER) {
@@ -657,7 +667,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     );
   };
 
-  // Necessary variable recalculations for rendering
   const striker = coinsRef.current.find(c=>c.type==="striker");
   const aimDist = Math.hypot(aimVector.x, aimVector.y);
   const isMaxPower = aimDist >= MAX_POWER - 2;
