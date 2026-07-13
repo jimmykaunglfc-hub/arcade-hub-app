@@ -31,6 +31,18 @@ const GAME_CATEGORIES = [
         shadow: "shadow-[0_8px_20px_rgba(245,158,11,0.3)]",
         url: "native://carrom" 
       },
+      // 🚨 NEW GAME INJECTED HERE: Nexus Breach!
+      {
+        id: "nexus-breach",
+        title: "Nexus Breach",
+        genre: "Luck • Penalties",
+        playersOnline: "Local Party",
+        iconName: "hexagon",
+        themeFrom: "from-red-500",
+        themeTo: "to-rose-700",
+        shadow: "shadow-[0_8px_20px_rgba(239,68,68,0.3)]",
+        url: "native://nexus-breach" 
+      },
       {
         id: "glitch-deck",
         title: "Glitch Deck",
@@ -240,7 +252,7 @@ export default function GamesTab({
                       
                       <div className="absolute top-2 right-2 bg-white/90 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800 px-1.5 py-0.5 rounded-md backdrop-blur-sm shadow-sm z-20">
                         <span className="text-[8px] text-neutral-600 dark:text-neutral-300 font-bold flex items-center gap-1.5 uppercase tracking-wider">
-                          <span className={`w-1 h-1 rounded-full ${game.playersOnline === "Local" ? "bg-neutral-400" : "bg-emerald-500 animate-pulse"}`}></span>
+                          <span className={`w-1 h-1 rounded-full ${game.playersOnline === "Local Party" ? "bg-amber-500" : "bg-emerald-500 animate-pulse"}`}></span>
                           {game.playersOnline}
                         </span>
                       </div>

@@ -14,7 +14,8 @@ import GlobalInviteListener from "../components/GlobalInviteListener";
 import GamePlayer from "../components/GamePlayer";
 import GlitchDeck from "../components/games/GlitchDeck";
 import Checkers from "../components/games/Checkers";
-import Carrom from "../components/games/Carrom"; // 👈 Added Carrom Import
+import Carrom from "../components/games/Carrom";
+import NexusBreach from "../components/games/NexusBreach"; // 👈 New Game Imported!
 import AuthView from "../components/AuthView";
 
 export default function Home() {
@@ -95,6 +96,10 @@ export default function Home() {
         <Carrom 
           onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} 
           preloadedMatchId={activeMatchId} 
+        />
+      ) : playingGame === "native://nexus-breach" ? (
+        <NexusBreach 
+          onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} 
         />
       ) : playingGame ? (
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
