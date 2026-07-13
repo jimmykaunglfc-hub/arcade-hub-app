@@ -8,9 +8,9 @@ const BOARD_SIZE = 1000;
 const FRAME_THICKNESS = 35;   // True thickness of the wooden bumper
 const BOUND_MIN = FRAME_THICKNESS;
 const BOUND_MAX = BOARD_SIZE - FRAME_THICKNESS;
-const HOLE_POS = 45;          // Pockets perfectly nestled into the corners
-const HOLE_RADIUS = 55;       
-const POCKET_TRIGGER = 35;    // Coin must fall deeply over the hole to drop
+const HOLE_POS = 42;          // Perfectly aligned for mathematical drops
+const HOLE_RADIUS = 46;       // Reduced visually for authentic board proportions
+const POCKET_TRIGGER = 44;    // Distance threshold to trigger the pocket
 const STRIKER_RADIUS = 34;    
 const COIN_RADIUS = 22;       
 const FRICTION = 0.985;       
@@ -109,25 +109,24 @@ const generateInitialCoins = (): Coin[] => {
   return coins;
 };
 
+// 🎨 AUTHENTIC CARROM DOUBLE-LINE BASELINES
 const Baseline = ({ transform }: { transform?: string }) => (
   <g transform={transform} stroke="#70411d" strokeWidth="4" fill="none">
-    <path d="M 220 820 L 780 820 A 20 20 0 0 1 780 860 L 220 860 A 20 20 0 0 1 220 820 Z" />
-    <circle cx="220" cy="840" r="16" fill="#ebd097" />
-    <circle cx="780" cy="840" r="16" fill="#ebd097" />
-    <circle cx="220" cy="840" r="8" fill="#70411d" />
-    <circle cx="780" cy="840" r="8" fill="#70411d" />
+    <path d="M 220 800 L 780 800" />
+    <path d="M 220 840 L 780 840" />
+    <circle cx="220" cy="820" r="16" fill="#ebd097" />
+    <circle cx="780" cy="820" r="16" fill="#ebd097" />
+    <circle cx="220" cy="820" r="8" fill="#70411d" />
+    <circle cx="780" cy="820" r="8" fill="#70411d" />
   </g>
 );
 
-// 🎨 REALISTIC HOLE RENDERER
+// 🕳️ REALISTIC WOODEN POCKETS
 const renderRealisticHole = (cx: number, cy: number) => (
   <g>
-    {/* Deep Dark Pocket */}
     <circle cx={cx} cy={cy} r={HOLE_RADIUS} fill="#0a0502" />
-    {/* Wooden Rim Cutout */}
-    <circle cx={cx} cy={cy} r={HOLE_RADIUS} fill="none" stroke="#4a2511" strokeWidth="4" />
-    {/* Inner Drop Shadow for Depth */}
-    <circle cx={cx} cy={cy} r={HOLE_RADIUS - 2} fill="none" stroke="#000000" strokeWidth="6" opacity="0.6" />
+    <circle cx={cx} cy={cy} r={HOLE_RADIUS} fill="none" stroke="#2d1606" strokeWidth="4" />
+    <circle cx={cx} cy={cy} r={HOLE_RADIUS - 2} fill="none" stroke="#000000" strokeWidth="4" opacity="0.5" />
   </g>
 );
 
@@ -194,7 +193,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
 
-  // 🤝 AUTO-CONNECT FROM CHAT
+  // 🤝 AUTO-CONNECT FROM CHAT INVITATION
   useEffect(() => {
     if (preloadedMatchId && myUserId) {
       const connectFromChat = async () => {
@@ -238,9 +237,9 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     }
   }, [p1Slider, p2Slider, turn]);
 
-  // 📡 MULTIPLAYER PING RESOLVER
+  // 📡 MULTIPLAYER CONTINUOUS PING RESOLVER
   useEffect(() => {
-    if (!matchId || (playMode !== "host" && playMode !== "join" && playMode !== "online")) return;
+    if (!matchId) return;
 
     const channel = supabase.channel(`carrom_${matchId}`, { config: { broadcast: { self: false } } });
 
@@ -307,7 +306,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       clearInterval(pingInterval);
       supabase.removeChannel(channel); 
     };
-  }, [matchId, playMode]);
+  }, [matchId]);
 
   const hostMatch = () => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -327,12 +326,26 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       let c1 = coins[i];
       if (!c1.active) continue;
 
+      // 🌪️ 3D VACUUM DROP ANIMATION
       if (c1.falling) {
         c1.scale = (c1.scale || 1) * 0.85;
-        c1.vx *= 0.5; 
-        c1.vy *= 0.5;
-        c1.x += c1.vx;
-        c1.y += c1.vy;
+        
+        // Find nearest pocket to get sucked towards
+        const pockets = [
+          {x: HOLE_POS, y: HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: HOLE_POS}, 
+          {x: HOLE_POS, y: BOARD_SIZE - HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: BOARD_SIZE - HOLE_POS}
+        ];
+        let nearestP = pockets[0];
+        let minDist = Infinity;
+        for(let p of pockets) {
+            let d = Math.hypot(c1.x - p.x, c1.y - p.y);
+            if(d < minDist) { minDist = d; nearestP = p; }
+        }
+
+        c1.vx *= 0.5; c1.vy *= 0.5;
+        c1.x += (nearestP.x - c1.x) * 0.3; // Visually drag into the hole center
+        c1.y += (nearestP.y - c1.y) * 0.3;
+        
         moving = true;
 
         if (c1.scale < 0.1) {
@@ -343,7 +356,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
             c1.active = false;
           }
         }
-        continue; 
+        continue; // Skip wall bounds and collisions while falling!
       }
 
       c1.x += c1.vx;
@@ -375,6 +388,9 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
           if(!isMutedRef.current) playSound(c1.type === "striker" ? 'foul' : 'pocket');
         }
       }
+
+      // If it just triggered a fall this frame, skip hitting other coins
+      if (c1.falling) continue;
 
       for (let j = i + 1; j < coins.length; j++) {
         let c2 = coins[j];
@@ -779,7 +795,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
               </div>
             )}
 
-            {/* PRECISION SVG CONTAINMENT (Prevents Corner Clipping) */}
+            {/* PRECISION SVG CONTAINMENT */}
             <div className="relative w-full max-w-[95vw] aspect-square rounded-[2rem] bg-[#3e1f0e] shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-3 flex items-center justify-center">
               
               <div 
