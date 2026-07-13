@@ -44,10 +44,11 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 🤝 INVITATION STATES
+  // 🤝 INVITATION & GAME SELECTOR STATES
   const [searchTarget, setSearchTarget] = useState("");
   const [inviteStatus, setInviteStatus] = useState("");
   const [copied, setCopied] = useState(false);
+  const [showGameSelector, setShowGameSelector] = useState(false);
 
   // 1. INITIALIZE IDENTITY & NETWORK
   useEffect(() => {
@@ -132,17 +133,30 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     await supabase.from("direct_messages").insert([payload]);
   };
 
-  const handleSendGameInvite = async () => {
+  const handleSendGameInvite = async (gameType: "checkers" | "carrom") => {
+    setShowGameSelector(false);
     if (!myUserId || !activeChat) return;
+    
     const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const gameName = gameType === "checkers" ? "Neon Checkers" : "Carrom Matrix";
+    
+    // Create match room
     const { data: match } = await supabase.from('checkers_matches').insert({
-      p1_id: myUserId, board: INITIAL_BOARD, room_code: generatedCode, status: 'waiting'
+      p1_id: myUserId, 
+      board: INITIAL_BOARD, 
+      room_code: generatedCode, 
+      status: 'waiting'
     }).select().single();
 
     if (match) {
       await supabase.from("direct_messages").insert([{
-        sender_id: myUserId, receiver_id: activeChat.id, content: "Challenged you to a game",
-        message_type: 'game_invite', match_id: match.id, game_name: "Neon Checkers", invite_status: "pending"
+        sender_id: myUserId, 
+        receiver_id: activeChat.id, 
+        content: `Challenged you to ${gameName}`,
+        message_type: 'game_invite', 
+        match_id: match.id, 
+        game_name: gameName, 
+        invite_status: "pending"
       }]);
     }
   };
@@ -338,20 +352,79 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
               </form>
               {inviteStatus && <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mt-2.5 px-1">{inviteStatus}</p>}
             </div>
+
+            {/* Current Friends List */}
+            <div className="flex flex-col gap-2">
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 dark:text-neutral-500 px-1 mb-1">My Network Roster</h3>
+              {friends.length === 0 ? (
+                <p className="text-xs text-neutral-400 dark:text-neutral-500 px-1">No connections yet.</p>
+              ) : (
+                friends.map(friend => (
+                  <div key={friend.id} className="flex items-center justify-between p-3 bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-xl shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800 relative">
+                        <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover p-0.5" unoptimized />
+                      </div>
+                      <span className="text-sm font-bold tracking-tight">{friend.username}</span>
+                    </div>
+                    <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest">Connected</span>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
       </div>
     );
   }
 
-
   // ============================================================================
-  // RENDER VIEW 2: FULL-SCREEN OVERLAY CHAT MODAL (Solves the scroll jump completely)
+  // RENDER VIEW 2: FULL-SCREEN OVERLAY CHAT MODAL 
   // ============================================================================
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden animate-fade-in text-neutral-900 dark:text-neutral-100">
       
-      {/* 📞 THREAD HEADER: Glued to absolute top, accounts for iOS safe area notch */}
+      {/* 🎮 GAME SELECTOR MODAL */}
+      {showGameSelector && (
+        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-end justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl flex flex-col gap-4">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-base font-black tracking-tight uppercase">Select Arena</h3>
+              <button onClick={() => setShowGameSelector(false)} className="w-8 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-neutral-500 transition-all active:scale-90">
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+            
+            <button onClick={() => handleSendGameInvite("carrom")} className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm">
+               <div className="flex items-center gap-4">
+                 <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md">
+                   <span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>radio_button_checked</span>
+                 </div>
+                 <div className="text-left">
+                   <h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Carrom Matrix</h4>
+                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Physics • Strategy</p>
+                 </div>
+               </div>
+               <span className="material-symbols-outlined text-amber-500">chevron_right</span>
+            </button>
+
+            <button onClick={() => handleSendGameInvite("checkers")} className="w-full flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm">
+               <div className="flex items-center gap-4">
+                 <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md">
+                   <span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>grid_4x4</span>
+                 </div>
+                 <div className="text-left">
+                   <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100">Neon Checkers</h4>
+                   <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-500 uppercase tracking-widest mt-0.5">Grid • Strategy</p>
+                 </div>
+               </div>
+               <span className="material-symbols-outlined text-indigo-500">chevron_right</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 📞 THREAD HEADER */}
       <header className="shrink-0 w-full bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 z-20 shadow-sm" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -379,10 +452,31 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         </div>
       </header>
 
-      {/* 💬 MESSAGE SCROLL AREA: Only this box scrolls, protecting the rest of the layout */}
+      {/* 💬 MESSAGE SCROLL AREA */}
       <div className="flex-1 w-full overflow-y-auto px-4 py-6 space-y-6 no-scrollbar relative">
         {messages.map((msg) => {
           const isMe = msg.sender_id === myUserId;
+          const isCarrom = msg.game_name === "Carrom Matrix";
+          
+          // Theme classes mapped properly to prevent PurgeCSS dropping
+          const themeCard = isCarrom 
+            ? "bg-amber-50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/50" 
+            : "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/50";
+            
+          const themeIconBox = isCarrom 
+            ? "bg-amber-100 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400"
+            : "bg-indigo-100 dark:bg-indigo-900/40 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400";
+            
+          const themeBadge = isCarrom
+            ? "text-amber-500 dark:text-amber-400 bg-white/50 dark:bg-black/20 border-amber-200/50 dark:border-amber-900/50"
+            : "text-indigo-500 dark:text-indigo-400 bg-white/50 dark:bg-black/20 border-indigo-200/50 dark:border-indigo-900/50";
+            
+          const themeAcceptBtn = isCarrom
+            ? "bg-amber-500 hover:bg-amber-600"
+            : "bg-indigo-600 hover:bg-indigo-700";
+            
+          const gameIcon = isCarrom ? "radio_button_checked" : "grid_4x4";
+          const targetUrl = isCarrom ? "native://carrom" : "native://checkers";
 
           return (
             <div key={msg.id} className={`flex items-start w-full ${isMe ? "justify-end" : "justify-start"}`}>
@@ -403,11 +497,11 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                 {msg.message_type === 'game_invite' && (
                   <div className={`w-64 rounded-3xl overflow-hidden border shadow-sm p-5 flex flex-col items-center gap-3 text-center ${
                     isMe 
-                      ? "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/50 rounded-tr-sm" 
+                      ? `${themeCard} rounded-tr-sm` 
                       : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-tl-sm"
                   }`}>
-                    <div className="w-14 h-14 rounded-[1.25rem] bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-1 shadow-inner">
-                      <span className="material-symbols-outlined text-3xl">swords</span>
+                    <div className={`w-14 h-14 rounded-[1.25rem] flex items-center justify-center mb-1 shadow-inner border ${themeIconBox}`}>
+                      <span className="material-symbols-outlined text-3xl" style={{fontVariationSettings:"'FILL' 1"}}>{gameIcon}</span>
                     </div>
                     <div>
                       <h4 className="text-sm font-black tracking-tight text-neutral-900 dark:text-white">{msg.game_name}</h4>
@@ -417,11 +511,11 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                     <div className="w-full mt-3">
                       {msg.invite_status === 'pending' && (
                         isMe ? (
-                          <div className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase py-2.5 bg-white/50 dark:bg-black/20 rounded-xl border border-indigo-200/50 dark:border-indigo-900/50">Awaiting...</div>
+                          <div className={`text-[10px] font-bold uppercase py-2.5 rounded-xl border ${themeBadge}`}>Awaiting...</div>
                         ) : (
                           <div className="flex gap-2">
                             <button onClick={() => updateInviteStatus(msg.id, 'declined')} className="flex-1 py-2.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all">Decline</button>
-                            <button onClick={() => updateInviteStatus(msg.id, 'accepted')} className="flex-1 py-2.5 bg-indigo-600 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-md hover:bg-indigo-700">Accept</button>
+                            <button onClick={() => updateInviteStatus(msg.id, 'accepted')} className={`flex-1 py-2.5 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-md ${themeAcceptBtn}`}>Accept</button>
                           </div>
                         )
                       )}
@@ -430,7 +524,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                       )}
                       {msg.invite_status === 'accepted' && (
                         <button 
-                          onClick={() => onPlay?.("native://checkers", msg.match_id!)}
+                          onClick={() => onPlay?.(targetUrl, msg.match_id!)}
                           className="w-full py-3 bg-neutral-900 dark:bg-white text-white dark:text-black font-black text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-md hover:opacity-90"
                         >
                           <span className="material-symbols-outlined text-[14px]">play_arrow</span>
@@ -450,12 +544,12 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 📥 CHAT INPUT: Glued to Absolute Bottom, accounts for iOS home indicator area */}
+      {/* 📥 CHAT INPUT */}
       <footer className="shrink-0 w-full bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 z-20" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
         <form onSubmit={handleSendText} className="px-4 py-3 flex items-center gap-3">
           <button
             type="button"
-            onClick={handleSendGameInvite}
+            onClick={() => setShowGameSelector(true)}
             className="w-11 h-11 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-sm shrink-0"
           >
             <span className="material-symbols-outlined text-[20px]">swords</span>
