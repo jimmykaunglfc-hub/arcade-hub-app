@@ -227,38 +227,48 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
         .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
       `}</style>
 
-      {/* 1. TOP HEADER */}
-      <div className="w-full flex justify-between items-center px-6 py-4 relative z-50 pt-[env(safe-area-inset-top)]">
-        <button 
-          onClick={onClose} 
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors uppercase tracking-widest active:scale-95"
-        >
-          <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> Exit
-        </button>
-        
-        <div className="flex flex-col items-center absolute left-1/2 -translate-x-1/2">
-          <span className="text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-widest font-bold mb-1">Dice Count</span>
-          <button 
-            onClick={handleDiceCountChange} 
-            className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm active:scale-95 transition-all"
-          >
-            {diceCount} <span className="material-symbols-outlined text-sm text-slate-400 dark:text-zinc-500">expand_more</span>
-          </button>
-        </div>
+      {/* 1. TOP HEADER (Bulletproof Layout Fix) */}
+      <header className="shrink-0 w-full z-50 px-6 pb-2" style={{ paddingTop: 'max(env(safe-area-inset-top), 1.5rem)' }}>
+        <div className="flex justify-between items-start">
+          
+          {/* Left: Exit */}
+          <div className="w-1/3 flex justify-start pt-2">
+            <button 
+              onClick={onClose} 
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors uppercase tracking-widest active:scale-95"
+            >
+              <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> Exit
+            </button>
+          </div>
+          
+          {/* Center: Dice Count */}
+          <div className="w-1/3 flex flex-col items-center">
+            <span className="text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-widest font-bold mb-1">
+              Dice Count
+            </span>
+            <button 
+              onClick={handleDiceCountChange} 
+              className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm active:scale-95 transition-all"
+            >
+              {diceCount} <span className="material-symbols-outlined text-sm text-slate-400 dark:text-zinc-500">expand_more</span>
+            </button>
+          </div>
 
-        <div className="flex items-center gap-4">
-          <button onClick={() => setIsRulesOpen(true)} className="text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
-            <span className="material-symbols-outlined">info</span>
-          </button>
-          <button onClick={() => setSoundEnabled(!soundEnabled)} className="text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
-            {soundEnabled ? (
-               <span className="material-symbols-outlined">volume_up</span>
-            ) : (
-               <span className="material-symbols-outlined text-slate-300 dark:text-zinc-600">volume_off</span>
-            )}
-          </button>
+          {/* Right: Controls */}
+          <div className="w-1/3 flex justify-end items-center gap-4 pt-1">
+            <button onClick={() => setIsRulesOpen(true)} className="text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
+              <span className="material-symbols-outlined">info</span>
+            </button>
+            <button onClick={() => setSoundEnabled(!soundEnabled)} className="text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
+              {soundEnabled ? (
+                 <span className="material-symbols-outlined">volume_up</span>
+              ) : (
+                 <span className="material-symbols-outlined text-slate-300 dark:text-zinc-600">volume_off</span>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
       {/* 2. THE GAME STAGE */}
       <div className="flex-1 w-full relative flex items-center justify-center -mt-10">
