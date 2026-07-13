@@ -38,6 +38,7 @@ interface Coin {
 
 // 🔊 ZERO-LATENCY PROCEDURAL AUDIO ENGINE
 const playSound = (type: 'strike' | 'pocket' | 'foul' | 'bounce', intensity = 1) => {
+  if (typeof window === 'undefined') return;
   try {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContext) return;
@@ -166,7 +167,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const [isAiming, setIsAiming] = useState(false);
   const [aimVector, setAimVector] = useState({ x: 0, y: 0 });
   const boardRef = useRef<SVGSVGElement>(null);
-  const bgmRef = useRef<HTMLAudioElement>(null);
 
   const isMutedRef = useRef(isMuted);
   const turnRef = useRef(turn);
@@ -220,12 +220,32 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     }
   }, [toast]);
 
+  // 🎶 ATMOSPHERIC LOW-TONE BGM ENGINE (Zero Dependency)
   useEffect(() => {
-    if (bgmRef.current && (playMode === "local" || playMode === "online")) {
-      bgmRef.current.volume = 0.15;
-      if (!isMuted) bgmRef.current.play().catch(() => console.log("Audio autoplay blocked"));
-      else bgmRef.current.pause();
-    }
+    if (isMuted || playMode === "menu" || typeof window === 'undefined') return;
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      osc1.type = 'sine'; osc1.frequency.value = 65.41; // C2 Low Hum
+      osc2.type = 'sine'; osc2.frequency.value = 98.00; // G2 Fifth
+      
+      gainNode.gain.value = 0.05; // Extremely subtle background drone
+      
+      osc1.connect(gainNode); osc2.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      osc1.start(); osc2.start();
+      
+      return () => {
+        osc1.stop(); osc2.stop(); ctx.close();
+      };
+    } catch (e) { console.error("BGM Audio context failed"); }
   }, [playMode, isMuted]);
 
   // 🎚️ DYNAMIC SLIDER SYNC WITH FLIP CORRECTION
@@ -235,12 +255,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     if (strikerObj && strikerObj.active && !strikerObj.falling) {
       strikerObj.y = turn === 1 ? 840 : 160;
       let rawX = turn === 1 ? p1Slider : p2Slider;
-      
-      // Mirror the coordinate so slider visually maps correctly when rotated
-      if (shouldFlipBoard) {
-        rawX = 1000 - rawX;
-      }
-      
+      if (shouldFlipBoard) rawX = 1000 - rawX;
       strikerObj.x = rawX;
       setRenderTrigger(prev => prev + 1);
     }
@@ -337,7 +352,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
 
       if (c1.falling) {
         c1.scale = (c1.scale || 1) * 0.85;
-        
         const pockets = [
           {x: HOLE_POS, y: HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: HOLE_POS}, 
           {x: HOLE_POS, y: BOARD_SIZE - HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: BOARD_SIZE - HOLE_POS}
@@ -429,7 +443,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       requestAnimationFrame(physicsLoop);
     } else {
       isMovingRef.current = false;
-      // 🛡️ AUTHORITATIVE TURN CALCULATION (Only the shooter evaluates rules)
       if (playMode !== "online" || turnRef.current === myPlayerRoleRef.current) {
         evaluateTurnEnd();
       }
@@ -445,60 +458,52 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     
     let newP1Score = p1Score; let newP2Score = p2Score;
     let newP1Color = p1Color; let newP2Color = p2Color;
-    let nextTurn = turnRef.current; 
-    let fouled = false;
-    let validPocket = false;
+    let nextTurn = turnRef.current; let earnedExtraTurn = false;
     let turnMsg = ""; let msgType: 'foul' | 'info' | 'success' = 'info';
 
-    // Rule Resolution Engine
     if (strikerFoul) {
-      fouled = true;
+      turnMsg = "Foul! Striker Pocketed (-5 PTS).";
+      msgType = "foul";
+      nextTurn = turnRef.current === 1 ? 2 : 1; 
       if (turnRef.current === 1) newP1Score = Math.max(0, newP1Score - 5);
       else newP2Score = Math.max(0, newP2Score - 5);
-    }
-
-    pocketedThisTurn.forEach(c => {
-      if (c.type === "queen") {
-        validPocket = true;
-        if (turnRef.current === 1) newP1Score += 5; else newP2Score += 5;
-      } 
-      else if (c.type === "white" || c.type === "black") {
-        const pts = c.type === "white" ? 3 : 2;
-        
-        if (gameRuleModeRef.current === "freestyle") {
-          validPocket = true;
-          if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
+    } 
+    else {
+      pocketedThisTurn.forEach(c => {
+        if (c.type === "queen") {
+          earnedExtraTurn = true; turnMsg = "Red Queen Secured (+5 PTS)!"; msgType = "success";
+          if (turnRef.current === 1) newP1Score += 5; else newP2Score += 5;
         } 
-        else if (gameRuleModeRef.current === "classic") {
-          if (!newP1Color) {
-            validPocket = true;
-            newP1Color = turnRef.current === 1 ? c.type : (c.type === "white" ? "black" : "white");
-            newP2Color = newP1Color === "white" ? "black" : "white";
+        else if (c.type === "white" || c.type === "black") {
+          if (gameRuleModeRef.current === "freestyle") {
+            earnedExtraTurn = true; turnMsg = "Good Shot! Go Again."; msgType = "success";
+            const pts = c.type === "white" ? 3 : 2;
             if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
-          } else {
-            const myColor = turnRef.current === 1 ? newP1Color : newP2Color;
-            if (c.type === myColor) {
-              validPocket = true;
-              if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
+          } 
+          else if (gameRuleModeRef.current === "classic") {
+            if (!newP1Color) {
+              newP1Color = turnRef.current === 1 ? c.type : (c.type === "white" ? "black" : "white");
+              newP2Color = newP1Color === "white" ? "black" : "white";
+              earnedExtraTurn = true; turnMsg = `Player ${turnRef.current} Claims ${c.type.toUpperCase()}`; msgType = "success";
+              if (turnRef.current === 1) newP1Score += 10; else newP2Score += 10;
             } else {
-              fouled = true; // Sunk opponent coin
-              if (turnRef.current === 1) newP2Score += pts; else newP1Score += pts;
+              const myColor = turnRef.current === 1 ? newP1Color : newP2Color;
+              if (c.type === myColor) {
+                earnedExtraTurn = true; turnMsg = "Good Shot! Go Again."; msgType = "success";
+                if (turnRef.current === 1) newP1Score += 10; else newP2Score += 10;
+              } else {
+                turnMsg = "Foul! Pocketed Opponent's Coin."; msgType = "foul";
+                earnedExtraTurn = false; nextTurn = turnRef.current === 1 ? 2 : 1; 
+                if (turnRef.current === 1) newP2Score += 10; else newP1Score += 10;
+              }
             }
           }
         }
-      }
-    });
+      });
 
-    if (fouled) {
-      turnMsg = "Foul! Turn Lost.";
-      msgType = "foul";
-      nextTurn = turnRef.current === 1 ? 2 : 1;
-    } else if (validPocket) {
-      turnMsg = "Good Shot! Go Again.";
-      msgType = "success";
-      nextTurn = turnRef.current;
-    } else {
-      nextTurn = turnRef.current === 1 ? 2 : 1;
+      if (!earnedExtraTurn && pocketedThisTurn.length === 0) {
+        nextTurn = turnRef.current === 1 ? 2 : 1;
+      }
     }
 
     const strikerObj = currentCoins.find(c => c.type === "striker");
@@ -540,7 +545,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     setIsAiming(true);
   };
 
-  // 🎯 PERFECTED AIMING VECTOR RESOLVER (Matrix Transform safely bypasses CSS rotation bugs)
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isAiming || !boardRef.current) return;
     
@@ -617,7 +621,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // --- DYNAMIC HUD CONFIGURATION ---
   const topRole = playMode === 'local' ? 2 : (myPlayerRole === 1 ? 2 : 1);
   const bottomRole = playMode === 'local' ? 1 : myPlayerRole;
 
@@ -667,15 +670,13 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     );
   };
 
-  const striker = coinsRef.current.find(c=>c.type==="striker");
+  const activeStriker = coinsRef.current.find(c=>c.type==="striker");
   const aimDist = Math.hypot(aimVector.x, aimVector.y);
   const isMaxPower = aimDist >= MAX_POWER - 2;
 
   return (
     <div className="fixed inset-0 z-[100] bg-neutral-100 dark:bg-neutral-950 flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors select-none">
       
-      <audio ref={bgmRef} src="/sounds/ambient-low.mp3" loop />
-
       <style>{`
         @keyframes confetti-fall { 0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg) scale(0.7); opacity: 0; } }
         @keyframes slide-down { 0% { transform: translateY(-20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
@@ -877,10 +878,10 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                   <Baseline transform={`rotate(180 ${BOARD_SIZE/2} ${BOARD_SIZE/2})`} />
                   <Baseline transform={`rotate(270 ${BOARD_SIZE/2} ${BOARD_SIZE/2})`} />
 
-                  {isAiming && striker && !striker.falling && (
+                  {isAiming && activeStriker && !activeStriker.falling && (
                     <>
-                      <line x1={striker.x} y1={striker.y} x2={striker.x + aimVector.x} y2={striker.y + aimVector.y} stroke={isMaxPower ? "#ef4444" : "#4f46e5"} strokeWidth="8" strokeDasharray="12 12" strokeLinecap="round" opacity="0.8" />
-                      <circle cx={striker.x + aimVector.x} cy={striker.y + aimVector.y} r={striker.radius} fill={isMaxPower ? "#ef4444" : "#4f46e5"} opacity="0.2" />
+                      <line x1={activeStriker.x} y1={activeStriker.y} x2={activeStriker.x + aimVector.x} y2={activeStriker.y + aimVector.y} stroke={isMaxPower ? "#ef4444" : "#4f46e5"} strokeWidth="8" strokeDasharray="12 12" strokeLinecap="round" opacity="0.8" />
+                      <circle cx={activeStriker.x + aimVector.x} cy={activeStriker.y + aimVector.y} r={activeStriker.radius} fill={isMaxPower ? "#ef4444" : "#4f46e5"} opacity="0.2" />
                     </>
                   )}
 
