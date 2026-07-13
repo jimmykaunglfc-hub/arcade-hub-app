@@ -152,16 +152,14 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     await supabase.from("direct_messages").insert([payload]);
   };
 
-  // 🕹️ DYNAMIC INVITE HANDLER (Handles Game Rules safely!)
+  // 🕹️ DATABASE-SAFE GAME INVITER
   const handleSendGameInvite = async (gameType: "checkers" | "carrom", mode?: "freestyle" | "classic") => {
     setShowGameSelector(false);
     setInviteStep("game");
     if (!myUserId || !activeChat) return;
     
-    // We use a pure 6-character code to prevent DB constraints from failing
-    const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
     if (gameType === "checkers") {
+      const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       const { data: match } = await supabase.from('checkers_matches').insert({
         p1_id: myUserId, 
         board: INITIAL_BOARD, 
@@ -181,17 +179,21 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         }]);
       }
     } else if (gameType === "carrom" && mode) {
-      // Package the rule mode directly into the Game Name for the UI
+      // 🛡️ CRITICAL FIX: Generate a strict UUID to satisfy DB Column constraints
+      const generatedUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+      
+      // Store the mode in the free-text 'game_name' column instead to prevent UUID format crashes
       const gameName = mode === "classic" ? "Carrom (Classic)" : "Carrom (Freestyle)";
-      // Bundle the code for the engine to read: "CODE_mode"
-      const bundledPayload = `${generatedCode}_${mode}`;
 
       await supabase.from("direct_messages").insert([{
         sender_id: myUserId, 
         receiver_id: activeChat.id, 
         content: `Challenged you to ${gameName}`,
         message_type: 'game_invite', 
-        match_id: bundledPayload, 
+        match_id: generatedUUID, // Only pure UUID gets passed!
         game_name: gameName, 
         invite_status: "pending"
       }]);
@@ -260,7 +262,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     return (
       <div className="w-full animate-fade-in text-neutral-900 dark:text-neutral-100 flex flex-col gap-6 pb-6">
         
-        {/* 🎛️ SEGMENTED HUB NAVIGATION (iOS Style) */}
+        {/* 🎛️ SEGMENTED HUB NAVIGATION */}
         <div className="bg-neutral-200/60 dark:bg-neutral-800/60 p-1.5 rounded-xl flex items-center shadow-sm">
           {[
             { id: "dms", label: "Messages" },
@@ -568,6 +570,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
           const isMe = msg.sender_id === myUserId;
           const isCarrom = msg.game_name?.includes("Carrom");
           
+          // Theme classes mapped properly to prevent PurgeCSS dropping
           const themeCard = isCarrom 
             ? "bg-amber-50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/50" 
             : "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/50";
