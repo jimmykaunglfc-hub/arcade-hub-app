@@ -55,27 +55,31 @@ const playSound = (type: 'strike' | 'pocket' | 'foul' | 'bounce', intensity = 1)
       osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.1);
       gain.gain.setValueAtTime(intensity * 0.6, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-      osc.start(); osc.stop(ctx.currentTime + 0.1);
+      osc.start(); 
+      osc.stop(ctx.currentTime + 0.1);
     } else if (type === 'bounce') {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(250, ctx.currentTime);
       gain.gain.setValueAtTime(intensity * 0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
-      osc.start(); osc.stop(ctx.currentTime + 0.05);
+      osc.start(); 
+      osc.stop(ctx.currentTime + 0.05);
     } else if (type === 'pocket') {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(300, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
       gain.gain.setValueAtTime(0.5, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-      osc.start(); osc.stop(ctx.currentTime + 0.2);
+      osc.start(); 
+      osc.stop(ctx.currentTime + 0.2);
     } else if (type === 'foul') {
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(90, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.4);
       gain.gain.setValueAtTime(0.4, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-      osc.start(); osc.stop(ctx.currentTime + 0.4);
+      osc.start(); 
+      osc.stop(ctx.currentTime + 0.4);
     }
   } catch(e) { console.error("Audio engine context blocked by browser"); }
 };
@@ -86,14 +90,23 @@ const generateInitialCoins = (): Coin[] => {
   const cy = BOARD_SIZE / 2;
   const R = COIN_RADIUS * 2 + 1; 
   
-  coins.push({ id: "striker", type: "striker", x: cx, y: 840, vx: 0, vy: 0, mass: 3, radius: STRIKER_RADIUS, active: true, scale: 1 });
-  coins.push({ id: "queen", type: "queen", x: cx, y: cy, vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true, scale: 1 });
+  coins.push({ 
+    id: "striker", type: "striker", x: cx, y: 840, vx: 0, vy: 0, 
+    mass: 3, radius: STRIKER_RADIUS, active: true, scale: 1 
+  });
+  
+  coins.push({ 
+    id: "queen", type: "queen", x: cx, y: cy, vx: 0, vy: 0, 
+    mass: 1, radius: COIN_RADIUS, active: true, scale: 1 
+  });
 
   for (let i = 0; i < 6; i++) {
     const angle = i * (Math.PI / 3);
     coins.push({
-      id: `inner_${i}`, type: i % 2 === 0 ? "white" : "black",
-      x: cx + R * Math.cos(angle), y: cy + R * Math.sin(angle),
+      id: `inner_${i}`, 
+      type: i % 2 === 0 ? "white" : "black",
+      x: cx + R * Math.cos(angle), 
+      y: cy + R * Math.sin(angle),
       vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true, scale: 1
     });
   }
@@ -101,8 +114,10 @@ const generateInitialCoins = (): Coin[] => {
   for (let i = 0; i < 12; i++) {
     const angle = i * (Math.PI / 6);
     coins.push({
-      id: `outer_${i}`, type: i % 2 === 0 ? "black" : "white",
-      x: cx + (R * 1.9) * Math.cos(angle), y: cy + (R * 1.9) * Math.sin(angle),
+      id: `outer_${i}`, 
+      type: i % 2 === 0 ? "black" : "white",
+      x: cx + (R * 1.9) * Math.cos(angle), 
+      y: cy + (R * 1.9) * Math.sin(angle),
       vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true, scale: 1
     });
   }
@@ -188,7 +203,11 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const confettiPieces = useMemo(() => {
     const colors = ['#f59e0b', '#10b981', '#4f46e5', '#ec4899', '#3b82f6'];
     return Array.from({ length: 50 }).map((_, i) => ({
-      id: i, left: `${Math.random() * 100}%`, duration: `${1.8 + Math.random() * 2}s`, delay: `${Math.random() * 1}s`, color: colors[Math.floor(Math.random() * colors.length)]
+      id: i, 
+      left: `${Math.random() * 100}%`, 
+      duration: `${1.8 + Math.random() * 2}s`, 
+      delay: `${Math.random() * 1}s`, 
+      color: colors[Math.floor(Math.random() * colors.length)]
     }));
   }, []);
 
@@ -196,14 +215,13 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
 
-  // 🤝 AUTO-CONNECT FROM CHAT INVITATION (With Rule Parsing)
+  // 🤝 SAFE RULE PARSER: Pulls game mode strictly from the match_id payload
   useEffect(() => {
     if (preloadedMatchId && myUserId) {
       const connectFromChat = async () => {
         let code = preloadedMatchId;
         let mode = "freestyle";
         
-        // Extract the bundled rules if present
         if (preloadedMatchId.includes("_")) {
            const parts = preloadedMatchId.split("_");
            code = parts[0];
@@ -212,15 +230,27 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         
         setGameRuleMode(mode as GameMode);
 
-        const { data: msg } = await supabase.from('direct_messages').select('*').eq('match_id', preloadedMatchId).maybeSingle();
+        const { data: msg } = await supabase
+          .from('direct_messages')
+          .select('*')
+          .eq('match_id', preloadedMatchId)
+          .maybeSingle();
+
         if (msg) {
            if (msg.sender_id === myUserId) {
-              setMatchId(code); setRoomCode(code); setMyPlayerRole(1); setPlayMode("host");
+              setMatchId(code); 
+              setRoomCode(code); 
+              setMyPlayerRole(1); 
+              setPlayMode("host");
            } else {
-              setMatchId(code); setMyPlayerRole(2); setPlayMode("join");
+              setMatchId(code); 
+              setMyPlayerRole(2); 
+              setPlayMode("join");
            }
         } else {
-           setMatchId(code); setMyPlayerRole(2); setPlayMode("join");
+           setMatchId(code); 
+           setMyPlayerRole(2); 
+           setPlayMode("join");
         }
       };
       connectFromChat();
@@ -234,7 +264,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     }
   }, [toast]);
 
-  // 🎶 ATMOSPHERIC LOW-TONE BGM ENGINE
+  // 🎶 ATMOSPHERIC LOW-TONE BGM ENGINE (Zero Dependency)
   useEffect(() => {
     if (isMuted || playMode === "menu" || typeof window === 'undefined') return;
     try {
@@ -246,18 +276,24 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       const osc2 = ctx.createOscillator();
       const gainNode = ctx.createGain();
       
-      osc1.type = 'sine'; osc1.frequency.value = 65.41; 
-      osc2.type = 'sine'; osc2.frequency.value = 98.00; 
+      osc1.type = 'sine'; 
+      osc1.frequency.value = 65.41; // C2 Low Hum
+      osc2.type = 'sine'; 
+      osc2.frequency.value = 98.00; // G2 Fifth
       
       gainNode.gain.value = 0.04; 
       
-      osc1.connect(gainNode); osc2.connect(gainNode);
+      osc1.connect(gainNode); 
+      osc2.connect(gainNode);
       gainNode.connect(ctx.destination);
       
-      osc1.start(); osc2.start();
+      osc1.start(); 
+      osc2.start();
       
       return () => {
-        osc1.stop(); osc2.stop(); ctx.close();
+        osc1.stop(); 
+        osc2.stop(); 
+        ctx.close();
       };
     } catch (e) { console.error("BGM Audio context failed"); }
   }, [playMode, isMuted]);
@@ -270,7 +306,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       strikerObj.y = turn === 1 ? 840 : 160;
       let rawX = turn === 1 ? p1Slider : p2Slider;
       
-      // Mirror the coordinate so slider visually maps correctly when rotated
       if (shouldFlipBoard) {
         rawX = 1000 - rawX;
       }
@@ -294,8 +329,20 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
             if (prev === "host") {
               setToast({ msg: "Opponent joined the Arena!", type: "success" });
               channel.send({
-                type: 'broadcast', event: 'turn_sync', 
-                payload: { coins: coinsRef.current, nextTurn: 1, p1S: 0, p2S: 0, win: null, p1C: null, p2C: null, msg: "", msgType: "info", rulesMode: gameRuleModeRef.current }
+                type: 'broadcast', 
+                event: 'turn_sync', 
+                payload: { 
+                  coins: coinsRef.current, 
+                  nextTurn: 1, 
+                  p1S: 0, 
+                  p2S: 0, 
+                  win: null, 
+                  p1C: null, 
+                  p2C: null, 
+                  msg: "", 
+                  msgType: "info", 
+                  rulesMode: gameRuleModeRef.current 
+                }
               });
               return "online";
             }
@@ -328,10 +375,17 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       .on('broadcast', { event: 'turn_sync' }, (payload) => {
         const { coins, nextTurn, p1S, p2S, win, p1C, p2C, msg, msgType, rulesMode } = payload.payload;
         coinsRef.current = coins;
-        setTurn(nextTurn); setP1Score(p1S); setP2Score(p2S); setWinner(win);
-        setP1Color(p1C); setP2Color(p2C);
+        setTurn(nextTurn); 
+        setP1Score(p1S); 
+        setP2Score(p2S); 
+        setWinner(win);
+        setP1Color(p1C); 
+        setP2Color(p2C);
+        
         if (rulesMode) setGameRuleMode(rulesMode);
-        setP1Slider(500); setP2Slider(500);
+        
+        setP1Slider(500); 
+        setP2Slider(500);
         if (msg) setToast({ msg, type: msgType });
         setRenderTrigger(prev => prev + 1);
       })
@@ -367,11 +421,16 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
 
   const hostMatch = () => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    setMatchId(code); setRoomCode(code); setMyPlayerRole(1); setPlayMode("host");
+    setMatchId(code); 
+    setRoomCode(code); 
+    setMyPlayerRole(1); 
+    setPlayMode("host");
   };
 
   const joinMatch = () => {
-    setMatchId(joinCode.toUpperCase()); setMyPlayerRole(2); setPlayMode("join");
+    setMatchId(joinCode.toUpperCase()); 
+    setMyPlayerRole(2); 
+    setPlayMode("join");
   };
 
   const physicsLoop = () => {
@@ -385,8 +444,10 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       if (c1.falling) {
         c1.scale = (c1.scale || 1) * 0.85;
         const pockets = [
-          {x: HOLE_POS, y: HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: HOLE_POS}, 
-          {x: HOLE_POS, y: BOARD_SIZE - HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: BOARD_SIZE - HOLE_POS}
+          {x: HOLE_POS, y: HOLE_POS}, 
+          {x: BOARD_SIZE - HOLE_POS, y: HOLE_POS}, 
+          {x: HOLE_POS, y: BOARD_SIZE - HOLE_POS}, 
+          {x: BOARD_SIZE - HOLE_POS, y: BOARD_SIZE - HOLE_POS}
         ];
         let nearestP = pockets[0];
         let minDist = Infinity;
@@ -395,15 +456,20 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
             if(d < minDist) { minDist = d; nearestP = p; }
         }
 
-        c1.vx *= 0.5; c1.vy *= 0.5;
+        c1.vx *= 0.5; 
+        c1.vy *= 0.5;
         c1.x += (nearestP.x - c1.x) * 0.3; 
         c1.y += (nearestP.y - c1.y) * 0.3;
         moving = true;
 
         if (c1.scale < 0.1) {
           if (c1.type === "striker") {
-            c1.falling = false; c1.scale = 1; c1.vx = 0; c1.vy = 0;
-            c1.x = 500; c1.y = turnRef.current === 1 ? 840 : 160;
+            c1.falling = false; 
+            c1.scale = 1; 
+            c1.vx = 0; 
+            c1.vy = 0;
+            c1.x = 500; 
+            c1.y = turnRef.current === 1 ? 840 : 160;
           } else {
             c1.active = false;
           }
@@ -427,8 +493,10 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       if (hitWall && !isMutedRef.current && Math.hypot(c1.vx, c1.vy) > 2) playSound('bounce', 0.5);
 
       const pockets = [
-        {x: HOLE_POS, y: HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: HOLE_POS}, 
-        {x: HOLE_POS, y: BOARD_SIZE - HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: BOARD_SIZE - HOLE_POS}
+        {x: HOLE_POS, y: HOLE_POS}, 
+        {x: BOARD_SIZE - HOLE_POS, y: HOLE_POS}, 
+        {x: HOLE_POS, y: BOARD_SIZE - HOLE_POS}, 
+        {x: BOARD_SIZE - HOLE_POS, y: BOARD_SIZE - HOLE_POS}
       ];
       
       for (const p of pockets) {
@@ -454,15 +522,19 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
           const overlap = minDist - dist;
           const nx = dx / dist;
           const ny = dy / dist;
-          c1.x -= nx * (overlap / 2); c1.y -= ny * (overlap / 2);
-          c2.x += nx * (overlap / 2); c2.y += ny * (overlap / 2);
+          c1.x -= nx * (overlap / 2); 
+          c1.y -= ny * (overlap / 2);
+          c2.x += nx * (overlap / 2); 
+          c2.y += ny * (overlap / 2);
 
           const kx = c1.vx - c2.vx;
           const ky = c1.vy - c2.vy;
           const p = 2 * (nx * kx + ny * ky) / (c1.mass + c2.mass);
           
-          c1.vx -= p * c2.mass * nx * RESTITUTION; c1.vy -= p * c2.mass * ny * RESTITUTION;
-          c2.vx += p * c1.mass * nx * RESTITUTION; c2.vy += p * c1.mass * ny * RESTITUTION;
+          c1.vx -= p * c2.mass * nx * RESTITUTION; 
+          c1.vy -= p * c2.mass * ny * RESTITUTION;
+          c2.vx += p * c1.mass * nx * RESTITUTION; 
+          c2.vy += p * c1.mass * ny * RESTITUTION;
           
           if (!isMutedRef.current && Math.abs(p) > 1) playSound('bounce', Math.min(Math.abs(p) / 10, 1));
         }
@@ -489,12 +561,15 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     const pocketedThisTurn = currentCoins.filter(c => !c.active && prevCoins.find(p => p.id === c.id)?.active);
     const strikerFoul = pocketedThisTurn.some(c => c.type === "striker");
     
-    let newP1Score = p1Score; let newP2Score = p2Score;
-    let newP1Color = p1Color; let newP2Color = p2Color;
+    let newP1Score = p1Score; 
+    let newP2Score = p2Score;
+    let newP1Color = p1Color; 
+    let newP2Color = p2Color;
     let nextTurn = turnRef.current; 
     let fouled = false;
     let validPocket = false;
-    let turnMsg = ""; let msgType: 'foul' | 'info' | 'success' = 'info';
+    let turnMsg = ""; 
+    let msgType: 'foul' | 'info' | 'success' = 'info';
 
     // Rule Resolution Engine
     if (strikerFoul) {
@@ -527,7 +602,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
               validPocket = true;
               if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
             } else {
-              fouled = true; // Sunk opponent coin
+              fouled = true; 
               if (turnRef.current === 1) newP2Score += pts; else newP1Score += pts;
             }
           }
@@ -549,10 +624,14 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
 
     const strikerObj = currentCoins.find(c => c.type === "striker");
     if (strikerObj) {
-      strikerObj.active = true; strikerObj.vx = 0; strikerObj.vy = 0;
-      strikerObj.x = 500; strikerObj.y = nextTurn === 1 ? 840 : 160;
+      strikerObj.active = true; 
+      strikerObj.vx = 0; 
+      strikerObj.vy = 0;
+      strikerObj.x = 500; 
+      strikerObj.y = nextTurn === 1 ? 840 : 160;
     }
-    setP1Slider(500); setP2Slider(500);
+    setP1Slider(500); 
+    setP2Slider(500);
 
     let win: 1 | 2 | null = null;
     const whitesLeft = currentCoins.filter(c => c.type === "white" && c.active).length;
@@ -571,13 +650,29 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
 
     if (playMode === "online" && channelRef.current) {
        channelRef.current.send({
-          type: 'broadcast', event: 'turn_sync', 
-          payload: { coins: currentCoins, nextTurn, p1S: newP1Score, p2S: newP2Score, win, p1C: newP1Color, p2C: newP2Color, msg: turnMsg, msgType, rulesMode: gameRuleModeRef.current }
+          type: 'broadcast', 
+          event: 'turn_sync', 
+          payload: { 
+            coins: currentCoins, 
+            nextTurn, 
+            p1S: newP1Score, 
+            p2S: newP2Score, 
+            win, 
+            p1C: newP1Color, 
+            p2C: newP2Color, 
+            msg: turnMsg, 
+            msgType, 
+            rulesMode: gameRuleModeRef.current 
+          }
        });
     }
 
-    setTurn(nextTurn); setP1Score(newP1Score); setP2Score(newP2Score);
-    setP1Color(newP1Color); setP2Color(newP2Color); setWinner(win);
+    setTurn(nextTurn); 
+    setP1Score(newP1Score); 
+    setP2Score(newP2Score);
+    setP1Color(newP1Color); 
+    setP2Color(newP2Color); 
+    setWinner(win);
   };
 
   const handlePointerDown = (e: React.PointerEvent, coinId: string) => {
@@ -590,17 +685,21 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isAiming || !boardRef.current) return;
     
-    const pt = boardRef.current.createSVGPoint();
-    pt.x = e.clientX; 
-    pt.y = e.clientY;
+    const rect = boardRef.current.getBoundingClientRect();
+    let percentX = (e.clientX - rect.left) / rect.width;
+    let percentY = (e.clientY - rect.top) / rect.height;
     
-    const ctm = boardRef.current.getScreenCTM();
-    if (!ctm) return;
-    const svgP = pt.matrixTransform(ctm.inverse());
-    
+    let svgX = percentX * BOARD_SIZE;
+    let svgY = percentY * BOARD_SIZE;
+
+    if (shouldFlipBoard) {
+      svgX = BOARD_SIZE - svgX;
+      svgY = BOARD_SIZE - svgY;
+    }
+
     const strikerObj = coinsRef.current.find(c => c.type === "striker")!;
-    let dx = strikerObj.x - svgP.x; 
-    let dy = strikerObj.y - svgP.y;
+    let dx = strikerObj.x - svgX; 
+    let dy = strikerObj.y - svgY;
     
     const distance = Math.hypot(dx, dy);
     if (distance > MAX_POWER) {
@@ -623,13 +722,16 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     const strikerObj = coinsRef.current.find(c => c.type === "striker");
     if (strikerObj) {
       turnSnapshotRef.current = JSON.parse(JSON.stringify(coinsRef.current));
-      strikerObj.vx = vx; strikerObj.vy = vy;
+      strikerObj.vx = vx; 
+      strikerObj.vy = vy;
       isMovingRef.current = true;
       if(!isMutedRef.current) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
       
       if (playMode === "online" && channelRef.current) {
         channelRef.current.send({
-          type: 'broadcast', event: 'shot_fired', payload: { vx, vy, startX: strikerObj.x }
+          type: 'broadcast', 
+          event: 'shot_fired', 
+          payload: { vx, vy, startX: strikerObj.x }
         });
       }
       requestAnimationFrame(physicsLoop);
@@ -639,10 +741,14 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
 
   const handleRematch = () => {
     coinsRef.current = generateInitialCoins();
-    setWinner(null); setTurn(1);
-    setP1Slider(500); setP2Slider(500);
-    setP1Score(0); setP2Score(0);
-    setP1Color(null); setP2Color(null);
+    setWinner(null); 
+    setTurn(1);
+    setP1Slider(500); 
+    setP2Slider(500);
+    setP1Score(0); 
+    setP2Score(0);
+    setP1Color(null); 
+    setP2Color(null);
     setRenderTrigger(prev => prev + 1);
   };
 
@@ -720,8 +826,14 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     <div className="fixed inset-0 z-[100] bg-neutral-100 dark:bg-neutral-950 flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors select-none">
       
       <style>{`
-        @keyframes confetti-fall { 0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg) scale(0.7); opacity: 0; } }
-        @keyframes slide-down { 0% { transform: translateY(-20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        @keyframes confetti-fall { 
+          0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; } 
+          100% { transform: translateY(110vh) rotate(720deg) scale(0.7); opacity: 0; } 
+        }
+        @keyframes slide-down { 
+          0% { transform: translateY(-20px); opacity: 0; } 
+          100% { transform: translateY(0); opacity: 1; } 
+        }
         .animate-slide-down { animation: slide-down 0.3s ease-out forwards; }
       `}</style>
 
@@ -739,21 +851,61 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
             </div>
             
             <div className="bg-neutral-100 dark:bg-neutral-800 p-1.5 rounded-xl flex items-center relative z-10">
-              <button onClick={() => setGameRuleMode("freestyle")} className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${gameRuleMode === "freestyle" ? "bg-white dark:bg-neutral-900 text-amber-600 dark:text-amber-500 shadow-sm" : "text-neutral-500"}`}>Freestyle</button>
-              <button onClick={() => setGameRuleMode("classic")} className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${gameRuleMode === "classic" ? "bg-white dark:bg-neutral-900 text-amber-600 dark:text-amber-500 shadow-sm" : "text-neutral-500"}`}>Classic</button>
+              <button 
+                onClick={() => setGameRuleMode("freestyle")} 
+                className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${gameRuleMode === "freestyle" ? "bg-white dark:bg-neutral-900 text-amber-600 dark:text-amber-500 shadow-sm" : "text-neutral-500"}`}
+              >
+                Freestyle
+              </button>
+              <button 
+                onClick={() => setGameRuleMode("classic")} 
+                className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${gameRuleMode === "classic" ? "bg-white dark:bg-neutral-900 text-amber-600 dark:text-amber-500 shadow-sm" : "text-neutral-500"}`}
+              >
+                Classic
+              </button>
             </div>
 
             <div className="space-y-3 relative z-10">
-              <button onClick={hostMatch} className="group w-full h-14 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs uppercase tracking-wider rounded-2xl active:scale-95 shadow-md flex items-center justify-center gap-2"><span className="material-symbols-outlined">language</span> Host Network Match</button>
-              <button onClick={() => setPlayMode("local")} className="group w-full h-14 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 font-bold text-xs uppercase tracking-wider rounded-2xl border border-neutral-200 dark:border-neutral-700 active:scale-95 flex items-center justify-center gap-2"><span className="material-symbols-outlined">group</span> Local Pass & Play</button>
+              <button 
+                onClick={hostMatch} 
+                className="group w-full h-14 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs uppercase tracking-wider rounded-2xl active:scale-95 shadow-md flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined">language</span> 
+                Host Network Match
+              </button>
+              <button 
+                onClick={() => setPlayMode("local")} 
+                className="group w-full h-14 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 font-bold text-xs uppercase tracking-wider rounded-2xl border border-neutral-200 dark:border-neutral-700 active:scale-95 flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined">group</span> 
+                Local Pass & Play
+              </button>
             </div>
 
             <div className="bg-neutral-50 dark:bg-neutral-950 p-2 rounded-[1.25rem] border border-neutral-200 dark:border-neutral-800 flex items-center relative z-10">
-              <input type="text" maxLength={6} placeholder="CODE" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} className="flex-1 bg-transparent text-center text-lg font-black tracking-widest focus:outline-none uppercase"/>
-              <button onClick={joinMatch} disabled={joinCode.length < 6} className="h-11 px-6 bg-neutral-900 dark:bg-white text-white dark:text-black font-black text-xs uppercase rounded-xl disabled:opacity-50">Join</button>
+              <input 
+                type="text" 
+                maxLength={6} 
+                placeholder="CODE" 
+                value={joinCode} 
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())} 
+                className="flex-1 bg-transparent text-center text-lg font-black tracking-widest focus:outline-none uppercase"
+              />
+              <button 
+                onClick={joinMatch} 
+                disabled={joinCode.length < 6} 
+                className="h-11 px-6 bg-neutral-900 dark:bg-white text-white dark:text-black font-black text-xs uppercase rounded-xl disabled:opacity-50"
+              >
+                Join
+              </button>
             </div>
 
-            <button onClick={onClose} className="w-full py-2 text-[10px] font-bold text-neutral-500 uppercase tracking-widest relative z-10">Exit Arena</button>
+            <button 
+              onClick={onClose} 
+              className="w-full py-2 text-[10px] font-bold text-neutral-500 uppercase tracking-widest relative z-10"
+            >
+              Exit Arena
+            </button>
           </div>
         </div>
       )}
@@ -761,17 +913,31 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       {/* ⚔️ HEADER HUB */}
       {playMode !== "menu" && (
         <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
-          <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:scale-90 shadow-sm">
+          <button 
+            onClick={onClose} 
+            className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:scale-90 shadow-sm"
+          >
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
+          
           <div className="text-center flex flex-col items-center">
             <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Carrom Matrix</h1>
             
             {/* Live Room Rule selector for the Host */}
             {playMode === "online" && myPlayerRole === 1 ? (
                <div className="flex bg-neutral-200 dark:bg-neutral-800 p-0.5 rounded-md mt-1 scale-90 border border-neutral-300 dark:border-neutral-700">
-                  <button onClick={() => updateOnlineRules("freestyle")} className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'freestyle' ? 'bg-white dark:bg-neutral-900 text-amber-500 shadow-sm' : 'text-neutral-400'}`}>Freestyle</button>
-                  <button onClick={() => updateOnlineRules("classic")} className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'classic' ? 'bg-white dark:bg-neutral-900 text-amber-500 shadow-sm' : 'text-neutral-400'}`}>Classic</button>
+                  <button 
+                    onClick={() => updateOnlineRules("freestyle")} 
+                    className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'freestyle' ? 'bg-white dark:bg-neutral-900 text-amber-500 shadow-sm' : 'text-neutral-400'}`}
+                  >
+                    Freestyle
+                  </button>
+                  <button 
+                    onClick={() => updateOnlineRules("classic")} 
+                    className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'classic' ? 'bg-white dark:bg-neutral-900 text-amber-500 shadow-sm' : 'text-neutral-400'}`}
+                  >
+                    Classic
+                  </button>
                </div>
             ) : (
                <span className={`text-[9px] font-bold uppercase tracking-widest mt-1 ${playMode === "online" ? "text-emerald-500 animate-pulse" : (playMode === "host" || playMode === "join") ? "text-amber-500 animate-pulse" : "text-neutral-400"}`}>
@@ -779,21 +945,39 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                </span>
             )}
           </div>
+          
           <div className="flex gap-2 relative">
-            <button onClick={() => setIsMuted(!isMuted)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90">
+            <button 
+              onClick={() => setIsMuted(!isMuted)} 
+              className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90"
+            >
               <span className="material-symbols-outlined text-lg">{isMuted ? "volume_off" : "volume_up"}</span>
             </button>
-            <button onClick={() => setShowEmojiMenu(!showEmojiMenu)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90">
+            <button 
+              onClick={() => setShowEmojiMenu(!showEmojiMenu)} 
+              className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90"
+            >
               <span className="material-symbols-outlined text-lg">add_reaction</span>
             </button>
+            
             {showEmojiMenu && (
               <div className="absolute top-12 right-0 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
                 {EMOJIS.map(em => (
-                  <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1">{em}</button>
+                  <button 
+                    key={em} 
+                    onClick={() => sendEmoji(em)} 
+                    className="text-xl hover:scale-125 transition-transform p-1"
+                  >
+                    {em}
+                  </button>
                 ))}
               </div>
             )}
-            <button onClick={() => setShowRules(true)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 shadow-sm">
+            
+            <button 
+              onClick={() => setShowRules(true)} 
+              className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 shadow-sm"
+            >
               <span className="material-symbols-outlined text-lg">info</span>
             </button>
           </div>
@@ -827,7 +1011,10 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                 </div>
               </div>
             )}
-            <button onClick={() => playMode === "host" ? setPlayMode("menu") : onClose()} className="w-full mt-8 py-3.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all relative z-10">
+            <button 
+              onClick={() => playMode === "host" ? setPlayMode("menu") : onClose()} 
+              className="w-full mt-8 py-3.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all relative z-10"
+            >
               Cancel Match
             </button>
           </div>
@@ -840,13 +1027,25 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
             <h3 className="text-base font-black uppercase tracking-wider text-neutral-900 dark:text-white">Carrom Guidelines</h3>
             <ul className="text-left text-xs space-y-3 text-neutral-600 dark:text-neutral-400 font-medium">
               {gameRuleMode === "freestyle" ? (
-                <><li>🔸 <strong className="text-amber-500">Freestyle Points:</strong> White = 3, Black = 2, Queen = 5.</li><li>🔸 Potting ANY coin grants an extra turn.</li></>
+                <>
+                  <li>🔸 <strong className="text-amber-500">Freestyle Points:</strong> White = 3, Black = 2, Queen = 5.</li>
+                  <li>🔸 Potting ANY coin grants an extra turn.</li>
+                </>
               ) : (
-                <><li>🔸 <strong className="text-amber-500">Classic Colors:</strong> The first coin potted dictates your color.</li><li>🔸 Potting YOUR color grants an extra turn.</li><li>🔸 Potting OPPONENT color is a foul.</li></>
+                <>
+                  <li>🔸 <strong className="text-amber-500">Classic Colors:</strong> The first coin potted dictates your color.</li>
+                  <li>🔸 Potting YOUR color grants an extra turn.</li>
+                  <li>🔸 Potting OPPONENT color is a foul.</li>
+                </>
               )}
               <li>🔸 Sinking the striker is a foul (-5 PTS) and ends your turn.</li>
             </ul>
-            <button onClick={() => setShowRules(false)} className="w-full mt-2 py-3 bg-neutral-900 dark:bg-white text-white dark:text-black font-bold text-xs uppercase tracking-wider rounded-xl">Got It</button>
+            <button 
+              onClick={() => setShowRules(false)} 
+              className="w-full mt-2 py-3 bg-neutral-900 dark:bg-white text-white dark:text-black font-bold text-xs uppercase tracking-wider rounded-xl"
+            >
+              Got It
+            </button>
           </div>
         </div>
       )}
@@ -879,7 +1078,13 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
             {winner && (
               <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-in">
                 <div className="absolute inset-0 bg-black/50 backdrop-blur-md rounded-[2rem]"></div>
-                {confettiPieces.map(p => (<div key={p.id} className="absolute top-0 z-[60]" style={{ left: p.left, width: '7px', height: '15px', backgroundColor: p.color, borderRadius: '3px', animation: `confetti-fall ${p.duration} linear ${p.delay} infinite`}} />))}
+                {confettiPieces.map(p => (
+                  <div 
+                    key={p.id} 
+                    className="absolute top-0 z-[60]" 
+                    style={{ left: p.left, width: '7px', height: '15px', backgroundColor: p.color, borderRadius: '3px', animation: `confetti-fall ${p.duration} linear ${p.delay} infinite`}} 
+                  />
+                ))}
                 <div className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl flex flex-col items-center text-center z-50 animate-scale-up">
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-yellow-600 text-white flex items-center justify-center mb-4 shadow-lg border-4 border-amber-200 dark:border-yellow-900 animate-bounce">
                     <span className="material-symbols-outlined text-3xl">emoji_events</span>
@@ -890,8 +1095,18 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                     {playMode === "online" ? (winner === myPlayerRole ? "Incredible skill! You claimed complete server victory." : "The opponent cleared the board.") : `Player ${winner} has completely pocketed their target roster!`}
                   </p>
                   <div className="w-full flex gap-3 mt-8">
-                    <button onClick={onClose} className="flex-1 py-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-sm">Exit</button>
-                    <button onClick={handleRematch} className="flex-1 py-3 bg-amber-500 text-white font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-md hover:bg-amber-600">Play Next</button>
+                    <button 
+                      onClick={onClose} 
+                      className="flex-1 py-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-sm"
+                    >
+                      Exit
+                    </button>
+                    <button 
+                      onClick={handleRematch} 
+                      className="flex-1 py-3 bg-amber-500 text-white font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-md hover:bg-amber-600"
+                    >
+                      Play Next
+                    </button>
                   </div>
                 </div>
               </div>
@@ -902,9 +1117,16 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
               
               <div 
                 className="relative w-full h-full bg-[#ebd097] rounded-[1rem] overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] border-[4px] border-[#2d1606] touch-none select-none"
-                onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp}
+                onPointerMove={handlePointerMove} 
+                onPointerUp={handlePointerUp} 
+                onPointerLeave={handlePointerUp}
               >
-                <svg ref={boardRef} viewBox={`0 0 ${BOARD_SIZE} ${BOARD_SIZE}`} className={`w-full h-full transition-transform duration-500 ${shouldFlipBoard ? "rotate-180" : "rotate-0"}`} style={{ display: 'block' }}>
+                <svg 
+                  ref={boardRef} 
+                  viewBox={`0 0 ${BOARD_SIZE} ${BOARD_SIZE}`} 
+                  className={`w-full h-full transition-transform duration-500 ${shouldFlipBoard ? "rotate-180" : "rotate-0"}`} 
+                  style={{ display: 'block' }}
+                >
                   <defs>
                     <filter id="c-shadow"><feDropShadow dx="3" dy="5" stdDeviation="4" floodOpacity="0.4" /></filter>
                     <radialGradient id="vWhite" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#ffffff" /><stop offset="100%" stopColor="#dfd0bd" /></radialGradient>
@@ -931,14 +1153,33 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
 
                   {isAiming && activeStriker && !activeStriker.falling && (
                     <>
-                      <line x1={activeStriker.x} y1={activeStriker.y} x2={activeStriker.x + aimVector.x} y2={activeStriker.y + aimVector.y} stroke={isMaxPower ? "#ef4444" : "#4f46e5"} strokeWidth="8" strokeDasharray="12 12" strokeLinecap="round" opacity="0.8" />
-                      <circle cx={activeStriker.x + aimVector.x} cy={activeStriker.y + aimVector.y} r={activeStriker.radius} fill={isMaxPower ? "#ef4444" : "#4f46e5"} opacity="0.2" />
+                      <line 
+                        x1={activeStriker.x} 
+                        y1={activeStriker.y} 
+                        x2={activeStriker.x + aimVector.x} 
+                        y2={activeStriker.y + aimVector.y} 
+                        stroke={isMaxPower ? "#ef4444" : "#4f46e5"} 
+                        strokeWidth="8" 
+                        strokeDasharray="12 12" 
+                        strokeLinecap="round" 
+                        opacity="0.8" 
+                      />
+                      <circle 
+                        cx={activeStriker.x + aimVector.x} 
+                        cy={activeStriker.y + aimVector.y} 
+                        r={activeStriker.radius} 
+                        fill={isMaxPower ? "#ef4444" : "#4f46e5"} 
+                        opacity="0.2" 
+                      />
                     </>
                   )}
 
                   {coinsRef.current.map(coin => {
                     if (!coin.active) return null;
-                    let fillMat = ""; let edgeStroke = ""; let interiorRing = "";
+                    let fillMat = ""; 
+                    let edgeStroke = ""; 
+                    let interiorRing = "";
+                    
                     if (coin.type === "striker") { fillMat = "url(#vStriker)"; edgeStroke = "#8695a0"; interiorRing = "#61737e"; }
                     if (coin.type === "queen") { fillMat = "url(#vRed)"; edgeStroke = "#801515"; interiorRing = "#5c0b0b"; }
                     if (coin.type === "white") { fillMat = "url(#vWhite)"; edgeStroke = "#bdae98"; interiorRing = "#968875"; }
@@ -946,7 +1187,14 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
 
                     return (
                       <g key={coin.id} transform={`translate(${coin.x}, ${coin.y}) scale(${coin.scale || 1})`} filter={coin.falling ? "" : "url(#c-shadow)"}>
-                        <circle r={coin.radius} fill={fillMat} stroke={edgeStroke} strokeWidth="1.5" onPointerDown={(e) => handlePointerDown(e, coin.id)} className={coin.type === "striker" && !isMovingRef.current && ((playMode === "online" && turn === myPlayerRole) || (playMode === "local" && turn === 1) || (playMode === "local" && turn === 2)) ? "cursor-grab active:cursor-grabbing" : ""} />
+                        <circle 
+                          r={coin.radius} 
+                          fill={fillMat} 
+                          stroke={edgeStroke} 
+                          strokeWidth="1.5" 
+                          onPointerDown={(e) => handlePointerDown(e, coin.id)} 
+                          className={coin.type === "striker" && !isMovingRef.current && ((playMode === "online" && turn === myPlayerRole) || (playMode === "local" && turn === 1) || (playMode === "local" && turn === 2)) ? "cursor-grab active:cursor-grabbing" : ""} 
+                        />
                         <circle r={coin.radius * 0.68} fill="none" stroke={interiorRing} strokeWidth="1.5" opacity="0.6" pointerEvents="none" />
                         <circle r={coin.radius * 0.36} fill="none" stroke={interiorRing} strokeWidth="1" opacity="0.5" pointerEvents="none" />
                         {coin.type === "striker" && <circle r="6" fill="#ef4444" opacity="0.7" pointerEvents="none"/>}

@@ -23,9 +23,14 @@ interface DirectMessage {
 }
 
 const INITIAL_BOARD = [
-  [0, 2, 0, 2, 0, 2, 0, 2], [2, 0, 2, 0, 2, 0, 2, 0], [0, 2, 0, 2, 0, 2, 0, 2],
-  [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0],
-  [1, 0, 1, 0, 1, 0, 1, 0], [0, 1, 0, 1, 0, 1, 0, 1], [1, 0, 1, 0, 1, 0, 1, 0]
+  [0, 2, 0, 2, 0, 2, 0, 2], 
+  [2, 0, 2, 0, 2, 0, 2, 0], 
+  [0, 2, 0, 2, 0, 2, 0, 2],
+  [0, 0, 0, 0, 0, 0, 0, 0], 
+  [0, 0, 0, 0, 0, 0, 0, 0],
+  [1, 0, 1, 0, 1, 0, 1, 0], 
+  [0, 1, 0, 1, 0, 1, 0, 1], 
+  [1, 0, 1, 0, 1, 0, 1, 0]
 ];
 
 export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: string) => void }) {
@@ -60,7 +65,12 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
       if (!user) return;
       setMyUserId(user.id);
 
-      const { data: myProfile } = await supabase.from("profiles").select("username").eq("id", user.id).single();
+      const { data: myProfile } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .single();
+        
       if (myProfile) setMyUsername(myProfile.username);
 
       const { data: friendships } = await supabase
@@ -70,7 +80,9 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`);
 
       if (friendships && friendships.length > 0) {
-        const friendIds = friendships.map(f => f.requester_id === user.id ? f.receiver_id : f.requester_id);
+        const friendIds = friendships.map(f => 
+          f.requester_id === user.id ? f.receiver_id : f.requester_id
+        );
         const { data: friendProfiles } = await supabase
           .from("profiles")
           .select("id, username, avatar_url")
@@ -93,6 +105,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         .or(`and(sender_id.eq.${myUserId},receiver_id.eq.${activeChat.id}),and(sender_id.eq.${activeChat.id},receiver_id.eq.${myUserId})`)
         .order("created_at", { ascending: true })
         .limit(50);
+        
       if (data) setMessages(data);
     };
 
@@ -102,7 +115,10 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
       .on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages' }, (payload) => {
         if (payload.eventType === 'INSERT') {
           const newMsg = payload.new as DirectMessage;
-          if ((newMsg.sender_id === myUserId && newMsg.receiver_id === activeChat.id) || (newMsg.sender_id === activeChat.id && newMsg.receiver_id === myUserId)) {
+          if (
+            (newMsg.sender_id === myUserId && newMsg.receiver_id === activeChat.id) || 
+            (newMsg.sender_id === activeChat.id && newMsg.receiver_id === myUserId)
+          ) {
             setMessages((prev) => [...prev, newMsg]);
           }
         } else if (payload.eventType === 'UPDATE') {
@@ -136,33 +152,48 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     await supabase.from("direct_messages").insert([payload]);
   };
 
-  // 🕹️ DYNAMIC INVITE HANDLER (Now processes rules!)
+  // 🕹️ DYNAMIC INVITE HANDLER (Handles Game Rules safely!)
   const handleSendGameInvite = async (gameType: "checkers" | "carrom", mode?: "freestyle" | "classic") => {
     setShowGameSelector(false);
     setInviteStep("game");
     if (!myUserId || !activeChat) return;
     
+    // We use a pure 6-character code to prevent DB constraints from failing
     const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
     if (gameType === "checkers") {
       const { data: match } = await supabase.from('checkers_matches').insert({
-        p1_id: myUserId, board: INITIAL_BOARD, room_code: generatedCode, status: 'waiting'
+        p1_id: myUserId, 
+        board: INITIAL_BOARD, 
+        room_code: generatedCode, 
+        status: 'waiting'
       }).select().single();
       
       if (match) {
         await supabase.from("direct_messages").insert([{
-          sender_id: myUserId, receiver_id: activeChat.id, content: `Challenged you to Neon Checkers`,
-          message_type: 'game_invite', match_id: match.id, game_name: "Neon Checkers", invite_status: "pending"
+          sender_id: myUserId, 
+          receiver_id: activeChat.id, 
+          content: `Challenged you to Neon Checkers`,
+          message_type: 'game_invite', 
+          match_id: match.id, 
+          game_name: "Neon Checkers", 
+          invite_status: "pending"
         }]);
       }
     } else if (gameType === "carrom" && mode) {
-      // Package the rule mode directly into the Match ID for seamless host syncing
+      // Package the rule mode directly into the Game Name for the UI
       const gameName = mode === "classic" ? "Carrom (Classic)" : "Carrom (Freestyle)";
+      // Bundle the code for the engine to read: "CODE_mode"
       const bundledPayload = `${generatedCode}_${mode}`;
 
       await supabase.from("direct_messages").insert([{
-        sender_id: myUserId, receiver_id: activeChat.id, content: `Challenged you to ${gameName}`,
-        message_type: 'game_invite', match_id: bundledPayload, game_name: gameName, invite_status: "pending"
+        sender_id: myUserId, 
+        receiver_id: activeChat.id, 
+        content: `Challenged you to ${gameName}`,
+        message_type: 'game_invite', 
+        match_id: bundledPayload, 
+        game_name: gameName, 
+        invite_status: "pending"
       }]);
     }
   };
@@ -192,7 +223,9 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     }
 
     const { error } = await supabase.from("friendships").insert({
-      requester_id: myUserId, receiver_id: targetProfile.id, status: "accepted" 
+      requester_id: myUserId, 
+      receiver_id: targetProfile.id, 
+      status: "accepted" 
     });
 
     if (error) {
@@ -257,7 +290,9 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
             {friends.length === 0 ? (
               <div className="p-8 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-sm">
                 <span className="material-symbols-outlined text-4xl text-neutral-300 dark:text-neutral-700 mb-3">chat_bubble</span>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium leading-relaxed">Your inbox is empty.<br/>Head to the Network tab to connect.</p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium leading-relaxed">
+                  Your inbox is empty.<br/>Head to the Network tab to connect.
+                </p>
               </div>
             ) : (
               <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl overflow-hidden shadow-sm">
@@ -399,21 +434,42 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
               <>
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="text-base font-black tracking-tight uppercase">Select Arena</h3>
-                  <button onClick={() => setShowGameSelector(false)} className="w-8 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-neutral-500 transition-all active:scale-90"><span className="material-symbols-outlined text-sm">close</span></button>
+                  <button 
+                    onClick={() => setShowGameSelector(false)} 
+                    className="w-8 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-neutral-500 transition-all active:scale-90"
+                  >
+                    <span className="material-symbols-outlined text-sm">close</span>
+                  </button>
                 </div>
                 
-                <button onClick={() => setInviteStep("carrom_mode")} className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm">
+                <button 
+                  onClick={() => setInviteStep("carrom_mode")} 
+                  className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
+                >
                    <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md"><span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>radio_button_checked</span></div>
-                     <div className="text-left"><h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Carrom Matrix</h4><p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Physics • Strategy</p></div>
+                     <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md">
+                        <span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>radio_button_checked</span>
+                     </div>
+                     <div className="text-left">
+                        <h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Carrom Matrix</h4>
+                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Physics • Strategy</p>
+                     </div>
                    </div>
                    <span className="material-symbols-outlined text-amber-500">chevron_right</span>
                 </button>
 
-                <button onClick={() => handleSendGameInvite("checkers")} className="w-full flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm">
+                <button 
+                  onClick={() => handleSendGameInvite("checkers")} 
+                  className="w-full flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
+                >
                    <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md"><span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>grid_4x4</span></div>
-                     <div className="text-left"><h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100">Neon Checkers</h4><p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-500 uppercase tracking-widest mt-0.5">Grid • Strategy</p></div>
+                     <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md">
+                        <span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>grid_4x4</span>
+                     </div>
+                     <div className="text-left">
+                        <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100">Neon Checkers</h4>
+                        <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-500 uppercase tracking-widest mt-0.5">Grid • Strategy</p>
+                     </div>
                    </div>
                    <span className="material-symbols-outlined text-indigo-500">chevron_right</span>
                 </button>
@@ -424,24 +480,50 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
               <>
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-2">
-                    <button onClick={() => setInviteStep("game")} className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"><span className="material-symbols-outlined text-sm">arrow_back_ios_new</span></button>
+                    <button 
+                      onClick={() => setInviteStep("game")} 
+                      className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span>
+                    </button>
                     <h3 className="text-base font-black tracking-tight uppercase">Select Rule Mode</h3>
                   </div>
-                  <button onClick={() => {setShowGameSelector(false); setInviteStep("game");}} className="w-8 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-neutral-500 transition-all active:scale-90"><span className="material-symbols-outlined text-sm">close</span></button>
+                  <button 
+                    onClick={() => { setShowGameSelector(false); setInviteStep("game"); }} 
+                    className="w-8 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-neutral-500 transition-all active:scale-90"
+                  >
+                    <span className="material-symbols-outlined text-sm">close</span>
+                  </button>
                 </div>
 
-                <button onClick={() => handleSendGameInvite("carrom", "freestyle")} className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm">
+                <button 
+                  onClick={() => handleSendGameInvite("carrom", "freestyle")} 
+                  className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
+                >
                    <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 bg-white dark:bg-neutral-900 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-500 rounded-xl flex items-center justify-center shadow-md"><span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>sports_score</span></div>
-                     <div className="text-left"><h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Freestyle</h4><p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Score Based • Fast</p></div>
+                     <div className="w-12 h-12 bg-white dark:bg-neutral-900 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-500 rounded-xl flex items-center justify-center shadow-md">
+                        <span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>sports_score</span>
+                     </div>
+                     <div className="text-left">
+                        <h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Freestyle</h4>
+                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Score Based • Fast</p>
+                     </div>
                    </div>
                    <span className="material-symbols-outlined text-amber-500">send</span>
                 </button>
 
-                <button onClick={() => handleSendGameInvite("carrom", "classic")} className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm">
+                <button 
+                  onClick={() => handleSendGameInvite("carrom", "classic")} 
+                  className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
+                >
                    <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 bg-white dark:bg-neutral-900 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-500 rounded-xl flex items-center justify-center shadow-md"><span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>palette</span></div>
-                     <div className="text-left"><h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Classic Colors</h4><p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Claim Colors • Tactical</p></div>
+                     <div className="w-12 h-12 bg-white dark:bg-neutral-900 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-500 rounded-xl flex items-center justify-center shadow-md">
+                        <span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>palette</span>
+                     </div>
+                     <div className="text-left">
+                        <h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Classic Colors</h4>
+                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Claim Colors • Tactical</p>
+                     </div>
                    </div>
                    <span className="material-symbols-outlined text-amber-500">send</span>
                 </button>
@@ -486,7 +568,6 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
           const isMe = msg.sender_id === myUserId;
           const isCarrom = msg.game_name?.includes("Carrom");
           
-          // Theme classes mapped properly to prevent PurgeCSS dropping
           const themeCard = isCarrom 
             ? "bg-amber-50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/50" 
             : "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/50";
@@ -542,13 +623,25 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                           <div className={`text-[10px] font-bold uppercase py-2.5 rounded-xl border ${themeBadge}`}>Awaiting...</div>
                         ) : (
                           <div className="flex gap-2">
-                            <button onClick={() => updateInviteStatus(msg.id, 'declined')} className="flex-1 py-2.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all">Decline</button>
-                            <button onClick={() => updateInviteStatus(msg.id, 'accepted')} className={`flex-1 py-2.5 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-md ${themeAcceptBtn}`}>Accept</button>
+                            <button 
+                              onClick={() => updateInviteStatus(msg.id, 'declined')} 
+                              className="flex-1 py-2.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all"
+                            >
+                              Decline
+                            </button>
+                            <button 
+                              onClick={() => updateInviteStatus(msg.id, 'accepted')} 
+                              className={`flex-1 py-2.5 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-md ${themeAcceptBtn}`}
+                            >
+                              Accept
+                            </button>
                           </div>
                         )
                       )}
                       {msg.invite_status === 'declined' && (
-                        <div className="text-[10px] text-red-500 font-bold uppercase py-2.5 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-100 dark:border-red-900/40">Declined</div>
+                        <div className="text-[10px] text-red-500 font-bold uppercase py-2.5 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-100 dark:border-red-900/40">
+                          Declined
+                        </div>
                       )}
                       {msg.invite_status === 'accepted' && (
                         <button 
