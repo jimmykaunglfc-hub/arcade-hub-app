@@ -6,7 +6,7 @@ import { useState } from "react";
 const GAME_CATEGORIES = [
   {
     id: "strategy-cards",
-    name: "Strategy & Mind Games",
+    name: "Strategy & Board Games",
     icon: "extension",
     games: [
       {
@@ -19,6 +19,17 @@ const GAME_CATEGORIES = [
         themeTo: "to-blue-600",
         shadow: "shadow-[0_8px_20px_rgba(59,130,246,0.3)]",
         url: "native://checkers" 
+      },
+      {
+        id: "carrom-matrix",
+        title: "Carrom Matrix",
+        genre: "Physics • Board",
+        playersOnline: "Live PvP",
+        iconName: "radio_button_checked",
+        themeFrom: "from-amber-400",
+        themeTo: "to-orange-500",
+        shadow: "shadow-[0_8px_20px_rgba(245,158,11,0.3)]",
+        url: "native://carrom" 
       },
       {
         id: "glitch-deck",
@@ -37,9 +48,9 @@ const GAME_CATEGORIES = [
         genre: "Strategy • TCG",
         playersOnline: "2.1k active",
         iconName: "auto_awesome",
-        themeFrom: "from-amber-400",
-        themeTo: "to-orange-500",
-        shadow: "shadow-[0_8px_20px_rgba(245,158,11,0.3)]",
+        themeFrom: "from-emerald-400",
+        themeTo: "to-emerald-600",
+        shadow: "shadow-[0_8px_20px_rgba(16,185,129,0.3)]",
         url: "https://html5.gamedistribution.com/a42b9d8df2e245a4a5bb86524a806954/"
       }
     ]
@@ -138,12 +149,9 @@ export default function GamesTab({
       }`}>
         <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-900 rounded-[2rem] p-5 shadow-sm transition-colors flex flex-col gap-4 relative overflow-hidden group">
           
-          {/* Featured Image Box with 3D Icon */}
           <div className="relative w-full aspect-[16/9] bg-neutral-100 dark:bg-neutral-950 rounded-2xl border border-neutral-200 dark:border-neutral-800 flex items-center justify-center overflow-hidden">
-            {/* Glowing Aura */}
             <div className="absolute inset-0 bg-blue-500/10 dark:bg-blue-500/20 blur-3xl rounded-full scale-150 transition-opacity duration-500" />
             
-            {/* 3D App Icon */}
             <div className="w-24 h-24 rounded-[2rem] bg-gradient-to-br from-blue-400 to-blue-600 shadow-[0_10px_30px_rgba(59,130,246,0.4)] flex items-center justify-center relative z-10 transform group-hover:scale-105 transition-transform duration-500 border border-white/20">
               <span className="material-symbols-outlined text-5xl text-white drop-shadow-md" style={{ fontVariationSettings: "'FILL' 1" }}>
                 grid_4x4
@@ -220,13 +228,10 @@ export default function GamesTab({
                     key={game.id} 
                     className="group bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-900 overflow-hidden transition-all flex flex-col shadow-sm hover:shadow-md"
                   >
-                    {/* 🌟 3D ICON SHOWCASE HEADER */}
                     <div className="relative h-28 w-full flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 border-b border-neutral-100 dark:border-neutral-900/60 overflow-hidden">
                       
-                      {/* Dynamic Background Glow */}
                       <div className={`absolute inset-0 bg-gradient-to-br ${game.themeFrom} ${game.themeTo} opacity-[0.08] dark:opacity-[0.15] blur-2xl scale-150`} />
                       
-                      {/* 3D App Icon Box */}
                       <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${game.themeFrom} ${game.themeTo} ${game.shadow} flex items-center justify-center relative z-10 transform group-hover:scale-110 transition-transform duration-500 border border-white/20`}>
                         <span className="material-symbols-outlined text-3xl text-white drop-shadow-md" style={{ fontVariationSettings: "'FILL' 1" }}>
                           {game.iconName}

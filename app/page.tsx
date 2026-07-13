@@ -14,6 +14,7 @@ import GlobalInviteListener from "../components/GlobalInviteListener";
 import GamePlayer from "../components/GamePlayer";
 import GlitchDeck from "../components/games/GlitchDeck";
 import Checkers from "../components/games/Checkers";
+import Carrom from "../components/games/Carrom"; // 👈 Added Carrom Import
 import AuthView from "../components/AuthView";
 
 export default function Home() {
@@ -82,6 +83,7 @@ export default function Home() {
         />
       )}
 
+      {/* 🎮 NATIVE ENGINE ROUTER */}
       {playingGame === "native://glitch-deck" ? (
         <GlitchDeck onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://checkers" ? (
@@ -89,14 +91,18 @@ export default function Home() {
           onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} 
           preloadedMatchId={activeMatchId} 
         />
+      ) : playingGame === "native://carrom" ? (
+        <Carrom 
+          onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} 
+          preloadedMatchId={activeMatchId} 
+        />
       ) : playingGame ? (
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : null}
 
-      {/* 📱 NATIVE APP WRAPPER: fixed inset-0 completely locks the bounds of the app to the screen */}
+      {/* 📱 NATIVE APP WRAPPER */}
       <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors overflow-hidden"}>
         
-        {/* 💳 HEADER: Shrink-0 keeps it glued to the top */}
         <header className="shrink-0 w-full z-40 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-900 flex items-center justify-between px-6 h-20 pt-safe transition-colors">
           <div className="flex items-center gap-3">
             <div className="relative w-9 h-9 flex items-center justify-center transition-colors">
@@ -114,7 +120,6 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 📜 SCROLLABLE MAIN CONTENT: This is now the ONLY part of the app that scrolls */}
         <main className="flex-1 w-full max-w-xl mx-auto overflow-y-auto no-scrollbar px-4 pt-6 pb-6 relative">
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
@@ -148,7 +153,6 @@ export default function Home() {
           )}
         </main>
 
-        {/* 🗺️ NAVIGATION DECK: Shrink-0 keeps it perfectly glued to the bottom safe area */}
         <nav className="shrink-0 w-full z-40 flex justify-between items-center h-20 pb-safe px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-900 transition-colors">
           {["Games", "Ranks", "Chat", "Shop", "Profile"].map((tab) => {
             const isActive = activeTab === tab;
