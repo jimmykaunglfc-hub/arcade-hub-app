@@ -5,14 +5,17 @@ import { supabase } from "../../lib/supabaseClient";
 
 // --- HYPER-REALISTIC ENGINE CONSTANTS ---
 const BOARD_SIZE = 1000;
-const HOLE_POS = 18;          // True distance of hole center from the exact corner
-const HOLE_RADIUS = 52;       // Visual size of the corner cut-out
-const POCKET_TRIGGER_DIST = 38; // Coin must be driven deep over the hole to drop
+const FRAME_THICKNESS = 35;   // True thickness of the wooden bumper
+const BOUND_MIN = FRAME_THICKNESS;
+const BOUND_MAX = BOARD_SIZE - FRAME_THICKNESS;
+const HOLE_POS = 45;          // Pockets perfectly nestled into the corners
+const HOLE_RADIUS = 55;       
+const POCKET_TRIGGER = 35;    // Coin must fall deeply over the hole to drop
 const STRIKER_RADIUS = 34;    
 const COIN_RADIUS = 22;       
-const FRICTION = 0.984;       
+const FRICTION = 0.985;       
 const RESTITUTION = 0.85;     // High quality hardwood bounce
-const MAX_POWER = 240;        
+const MAX_POWER = 260;        
 
 const EMOJIS = ["👍", "😂", "🔥", "😡", "😭", "🤯"];
 
@@ -29,8 +32,8 @@ interface Coin {
   mass: number;
   radius: number;
   active: boolean;
-  falling?: boolean; // 3D Drop Animation Flag
-  scale?: number;    // Visual scaling for depth
+  falling?: boolean; 
+  scale?: number;    
 }
 
 // 🔊 ZERO-LATENCY PROCEDURAL AUDIO ENGINE
@@ -82,7 +85,7 @@ const generateInitialCoins = (): Coin[] => {
   const cy = BOARD_SIZE / 2;
   const R = COIN_RADIUS * 2 + 1; 
   
-  coins.push({ id: "striker", type: "striker", x: cx, y: 820, vx: 0, vy: 0, mass: 3, radius: STRIKER_RADIUS, active: true, scale: 1 });
+  coins.push({ id: "striker", type: "striker", x: cx, y: 840, vx: 0, vy: 0, mass: 3, radius: STRIKER_RADIUS, active: true, scale: 1 });
   coins.push({ id: "queen", type: "queen", x: cx, y: cy, vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true, scale: 1 });
 
   for (let i = 0; i < 6; i++) {
@@ -108,11 +111,11 @@ const generateInitialCoins = (): Coin[] => {
 
 const Baseline = ({ transform }: { transform?: string }) => (
   <g transform={transform} stroke="#70411d" strokeWidth="4" fill="none">
-    <path d="M 220 800 L 780 800 A 20 20 0 0 1 780 840 L 220 840 A 20 20 0 0 1 220 800 Z" />
-    <circle cx="220" cy="820" r="16" fill="#ebd097" />
-    <circle cx="780" cy="820" r="16" fill="#ebd097" />
-    <circle cx="220" cy="820" r="8" fill="#70411d" />
-    <circle cx="780" cy="820" r="8" fill="#70411d" />
+    <path d="M 220 820 L 780 820 A 20 20 0 0 1 780 860 L 220 860 A 20 20 0 0 1 220 820 Z" />
+    <circle cx="220" cy="840" r="16" fill="#ebd097" />
+    <circle cx="780" cy="840" r="16" fill="#ebd097" />
+    <circle cx="220" cy="840" r="8" fill="#70411d" />
+    <circle cx="780" cy="840" r="8" fill="#70411d" />
   </g>
 );
 
@@ -179,6 +182,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
 
+  // 🤝 AUTO-CONNECT FROM CHAT
   useEffect(() => {
     if (preloadedMatchId && myUserId) {
       const connectFromChat = async () => {
@@ -217,14 +221,14 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     const striker = coinsRef.current.find(c => c.type === "striker");
     if (striker && striker.active && !striker.falling) {
       striker.x = turn === 1 ? p1Slider : p2Slider;
-      striker.y = turn === 1 ? 820 : 180;
+      striker.y = turn === 1 ? 840 : 160;
       setRenderTrigger(prev => prev + 1);
     }
   }, [p1Slider, p2Slider, turn]);
 
-  // 📡 MULTIPLAYER CONTINUOUS PING RESOLVER
+  // 📡 MULTIPLAYER PING RESOLVER
   useEffect(() => {
-    if (!matchId) return;
+    if (!matchId || (playMode !== "host" && playMode !== "join" && playMode !== "online")) return;
 
     const channel = supabase.channel(`carrom_${matchId}`, { config: { broadcast: { self: false } } });
 
@@ -254,7 +258,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         if (striker) {
           if(!isMutedRef.current) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
           striker.x = startX;
-          striker.y = turnRef.current === 1 ? 820 : 180;
+          striker.y = turnRef.current === 1 ? 840 : 160;
           striker.vx = vx;
           striker.vy = vy;
           isMovingRef.current = true;
@@ -291,7 +295,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       clearInterval(pingInterval);
       supabase.removeChannel(channel); 
     };
-  }, [matchId]);
+  }, [matchId, playMode]);
 
   const hostMatch = () => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -302,7 +306,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     setMatchId(joinCode.toUpperCase()); setMyPlayerRole(2); setPlayMode("join");
   };
 
-  // --- PHYSICS ENGINE (WITH DROP ANIMATIONS) ---
+  // --- PERFECTED PHYSICS ENGINE ---
   const physicsLoop = () => {
     let moving = false;
     const coins = coinsRef.current;
@@ -311,10 +315,9 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       let c1 = coins[i];
       if (!c1.active) continue;
 
-      // Drop Animation Logic
       if (c1.falling) {
         c1.scale = (c1.scale || 1) * 0.85;
-        c1.vx *= 0.5; // Vacuum into hole
+        c1.vx *= 0.5; 
         c1.vy *= 0.5;
         c1.x += c1.vx;
         c1.y += c1.vy;
@@ -323,15 +326,14 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         if (c1.scale < 0.1) {
           if (c1.type === "striker") {
             c1.falling = false; c1.scale = 1; c1.vx = 0; c1.vy = 0;
-            c1.x = 500; c1.y = turnRef.current === 1 ? 820 : 180;
+            c1.x = 500; c1.y = turnRef.current === 1 ? 840 : 160;
           } else {
             c1.active = false;
           }
         }
-        continue; // Skip physical collisions if falling into hole
+        continue; 
       }
 
-      // Standard Glide
       c1.x += c1.vx;
       c1.y += c1.vy;
       c1.vx *= FRICTION;
@@ -340,15 +342,15 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       if (Math.abs(c1.vx) > 0.08 || Math.abs(c1.vy) > 0.08) moving = true;
       else { c1.vx = 0; c1.vy = 0; }
 
-      // Perfected Wall Bounces (Matches true SVG limits)
+      // 🪵 MATHEMATICAL WOODEN FRAME BOUNDARIES
       let hitWall = false;
-      if (c1.x - c1.radius < 0) { c1.x = c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
-      if (c1.x + c1.radius > BOARD_SIZE) { c1.x = BOARD_SIZE - c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
-      if (c1.y - c1.radius < 0) { c1.y = c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
-      if (c1.y + c1.radius > BOARD_SIZE) { c1.y = BOARD_SIZE - c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
+      if (c1.x - c1.radius < BOUND_MIN) { c1.x = BOUND_MIN + c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
+      if (c1.x + c1.radius > BOUND_MAX) { c1.x = BOUND_MAX - c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
+      if (c1.y - c1.radius < BOUND_MIN) { c1.y = BOUND_MIN + c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
+      if (c1.y + c1.radius > BOUND_MAX) { c1.y = BOUND_MAX - c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
       if (hitWall && !isMutedRef.current && Math.hypot(c1.vx, c1.vy) > 2) playSound('bounce', 0.5);
 
-      // Precision Pocket Triggers
+      // 🕳️ TRUE CORNER POCKET DETECTION
       const pockets = [
         {x: HOLE_POS, y: HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: HOLE_POS}, 
         {x: HOLE_POS, y: BOARD_SIZE - HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: BOARD_SIZE - HOLE_POS}
@@ -356,14 +358,12 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       
       for (const p of pockets) {
         const dist = Math.hypot(c1.x - p.x, c1.y - p.y);
-        // Requires coin to truly slide deeply over the hole
-        if (dist < POCKET_TRIGGER_DIST && !c1.falling) {
+        if (dist < POCKET_TRIGGER && !c1.falling) {
           c1.falling = true;
           if(!isMutedRef.current) playSound(c1.type === "striker" ? 'foul' : 'pocket');
         }
       }
 
-      // Collisions
       for (let j = i + 1; j < coins.length; j++) {
         let c2 = coins[j];
         if (!c2.active || c2.falling) continue;
@@ -462,7 +462,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     const striker = currentCoins.find(c => c.type === "striker");
     if (striker) {
       striker.active = true; striker.vx = 0; striker.vy = 0;
-      striker.x = 500; striker.y = nextTurn === 1 ? 820 : 180;
+      striker.x = 500; striker.y = nextTurn === 1 ? 840 : 160;
     }
     setP1Slider(500); setP2Slider(500);
 
@@ -507,11 +507,9 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     const striker = coinsRef.current.find(c => c.type === "striker")!;
     let dx = striker.x - svgP.x; let dy = striker.y - svgP.y;
     
-    // Calculate distance and strictly cap aiming vectors visually
     const distance = Math.hypot(dx, dy);
     if (distance > MAX_POWER) {
-      dx = (dx / distance) * MAX_POWER; 
-      dy = (dy / distance) * MAX_POWER;
+      dx = (dx / distance) * MAX_POWER; dy = (dy / distance) * MAX_POWER;
     }
     setAimVector({ x: dx, y: dy });
   };
@@ -619,37 +617,39 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       )}
 
       {/* ⚔️ HEADER HUB */}
-      <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
-        <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:scale-90 shadow-sm">
-          <span className="material-symbols-outlined text-lg">close</span>
-        </button>
-        <div className="text-center">
-          <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Carrom Matrix</h1>
-          <span className={`text-[9px] font-bold uppercase tracking-widest ${playMode === "online" ? "text-emerald-500 animate-pulse" : (playMode === "host" || playMode === "join") ? "text-amber-500 animate-pulse" : "text-neutral-400"}`}>
-            {playMode === "online" ? "● Live Network" : (playMode === "host" || playMode === "join") ? "Connecting..." : "Local Mode"}
-          </span>
+      {playMode !== "menu" && (
+        <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
+          <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:scale-90 shadow-sm">
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
+          <div className="text-center">
+            <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Carrom Matrix</h1>
+            <span className={`text-[9px] font-bold uppercase tracking-widest ${playMode === "online" ? "text-emerald-500 animate-pulse" : (playMode === "host" || playMode === "join") ? "text-amber-500 animate-pulse" : "text-neutral-400"}`}>
+              {playMode === "online" ? "● Live Network" : (playMode === "host" || playMode === "join") ? "Connecting..." : "Local Mode"}
+            </span>
+          </div>
+          <div className="flex gap-2 relative">
+            <button onClick={() => setIsMuted(!isMuted)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90">
+              <span className="material-symbols-outlined text-lg">{isMuted ? "volume_off" : "volume_up"}</span>
+            </button>
+            <button onClick={() => setShowEmojiMenu(!showEmojiMenu)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90">
+              <span className="material-symbols-outlined text-lg">add_reaction</span>
+            </button>
+            {showEmojiMenu && (
+              <div className="absolute top-12 right-0 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
+                {EMOJIS.map(em => (
+                  <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1">{em}</button>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setShowRules(true)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 shadow-sm">
+              <span className="material-symbols-outlined text-lg">info</span>
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2 relative">
-          <button onClick={() => setIsMuted(!isMuted)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90">
-            <span className="material-symbols-outlined text-lg">{isMuted ? "volume_off" : "volume_up"}</span>
-          </button>
-          <button onClick={() => setShowEmojiMenu(!showEmojiMenu)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90">
-            <span className="material-symbols-outlined text-lg">add_reaction</span>
-          </button>
-          {showEmojiMenu && (
-            <div className="absolute top-12 right-0 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
-              {EMOJIS.map(em => (
-                <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1">{em}</button>
-              ))}
-            </div>
-          )}
-          <button onClick={() => setShowRules(true)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 shadow-sm">
-            <span className="material-symbols-outlined text-lg">info</span>
-          </button>
-        </div>
-      </div>
+      )}
 
-      {/* --- WAITING SCREEN (RESTORED!) --- */}
+      {/* --- WAITING SCREEN --- */}
       {(playMode === "host" || playMode === "join") && (
         <div className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center p-6 relative z-10">
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] p-8 w-full shadow-[0_20px_40px_rgba(0,0,0,0.05)] flex flex-col items-center text-center relative overflow-hidden">
@@ -783,11 +783,15 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                     <radialGradient id="vStriker" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#f7f9fa" /><stop offset="70%" stopColor="#e1e6eb" /><stop offset="100%" stopColor="#b5bec4" /></radialGradient>
                   </defs>
 
-                  {/* MATHEMATICALLY PERFECT CORNER POCKETS */}
-                  <circle cx={HOLE_POS} cy={HOLE_POS} r={HOLE_RADIUS} fill="#110905" stroke="#4a2511" strokeWidth="4" />
-                  <circle cx={BOARD_SIZE-HOLE_POS} cy={HOLE_POS} r={HOLE_RADIUS} fill="#110905" stroke="#4a2511" strokeWidth="4" />
-                  <circle cx={HOLE_POS} cy={BOARD_SIZE-HOLE_POS} r={HOLE_RADIUS} fill="#110905" stroke="#4a2511" strokeWidth="4" />
-                  <circle cx={BOARD_SIZE-HOLE_POS} cy={BOARD_SIZE-HOLE_POS} r={HOLE_RADIUS} fill="#110905" stroke="#4a2511" strokeWidth="4" />
+                  {/* MATHEMATICALLY PERFECT WOODEN POCKETS */}
+                  {/* Drawing the actual frame cutout holes on the inside of the wooden boundary */}
+                  <path d={`M 0 0 L ${HOLE_POS*2} 0 A ${HOLE_RADIUS} ${HOLE_RADIUS} 0 0 0 0 ${HOLE_POS*2} Z`} fill="#110905" />
+                  <path d={`M ${BOARD_SIZE} 0 L ${BOARD_SIZE} ${HOLE_POS*2} A ${HOLE_RADIUS} ${HOLE_RADIUS} 0 0 0 ${BOARD_SIZE-HOLE_POS*2} 0 Z`} fill="#110905" />
+                  <path d={`M 0 ${BOARD_SIZE} L 0 ${BOARD_SIZE-HOLE_POS*2} A ${HOLE_RADIUS} ${HOLE_RADIUS} 0 0 0 ${HOLE_POS*2} ${BOARD_SIZE} Z`} fill="#110905" />
+                  <path d={`M ${BOARD_SIZE} ${BOARD_SIZE} L ${BOARD_SIZE-HOLE_POS*2} ${BOARD_SIZE} A ${HOLE_RADIUS} ${HOLE_RADIUS} 0 0 0 ${BOARD_SIZE} ${BOARD_SIZE-HOLE_POS*2} Z`} fill="#110905" />
+
+                  {/* Full Wooden Internal Overlay Bumper Frame */}
+                  <rect x="0" y="0" width={BOARD_SIZE} height={BOARD_SIZE} fill="none" stroke="#2d1606" strokeWidth={FRAME_THICKNESS * 2} />
 
                   <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="160" fill="none" stroke="#70411d" strokeWidth="4" />
                   <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="148" fill="none" stroke="#70411d" strokeWidth="1.5" />
