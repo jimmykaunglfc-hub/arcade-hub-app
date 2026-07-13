@@ -167,6 +167,8 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const [isAiming, setIsAiming] = useState(false);
   const [aimVector, setAimVector] = useState({ x: 0, y: 0 });
   const boardRef = useRef<SVGSVGElement>(null);
+  const bgmRef = useRef<HTMLAudioElement>(null);
+  const channelRef = useRef<any>(null);
 
   const isMutedRef = useRef(isMuted);
   const turnRef = useRef(turn);
@@ -194,19 +196,31 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
 
-  // 🤝 AUTO-CONNECT FROM CHAT INVITATION
+  // 🤝 AUTO-CONNECT FROM CHAT INVITATION (With Rule Parsing)
   useEffect(() => {
     if (preloadedMatchId && myUserId) {
       const connectFromChat = async () => {
+        let code = preloadedMatchId;
+        let mode = "freestyle";
+        
+        // Extract the bundled rules if present
+        if (preloadedMatchId.includes("_")) {
+           const parts = preloadedMatchId.split("_");
+           code = parts[0];
+           mode = parts[1];
+        }
+        
+        setGameRuleMode(mode as GameMode);
+
         const { data: msg } = await supabase.from('direct_messages').select('*').eq('match_id', preloadedMatchId).maybeSingle();
         if (msg) {
            if (msg.sender_id === myUserId) {
-              setMatchId(preloadedMatchId); setRoomCode(preloadedMatchId); setMyPlayerRole(1); setPlayMode("host");
+              setMatchId(code); setRoomCode(code); setMyPlayerRole(1); setPlayMode("host");
            } else {
-              setMatchId(preloadedMatchId); setMyPlayerRole(2); setPlayMode("join");
+              setMatchId(code); setMyPlayerRole(2); setPlayMode("join");
            }
         } else {
-           setMatchId(preloadedMatchId); setMyPlayerRole(2); setPlayMode("join");
+           setMatchId(code); setMyPlayerRole(2); setPlayMode("join");
         }
       };
       connectFromChat();
@@ -220,7 +234,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     }
   }, [toast]);
 
-  // 🎶 ATMOSPHERIC LOW-TONE BGM ENGINE (Zero Dependency)
+  // 🎶 ATMOSPHERIC LOW-TONE BGM ENGINE
   useEffect(() => {
     if (isMuted || playMode === "menu" || typeof window === 'undefined') return;
     try {
@@ -232,10 +246,10 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       const osc2 = ctx.createOscillator();
       const gainNode = ctx.createGain();
       
-      osc1.type = 'sine'; osc1.frequency.value = 65.41; // C2 Low Hum
-      osc2.type = 'sine'; osc2.frequency.value = 98.00; // G2 Fifth
+      osc1.type = 'sine'; osc1.frequency.value = 65.41; 
+      osc2.type = 'sine'; osc2.frequency.value = 98.00; 
       
-      gainNode.gain.value = 0.05; // Extremely subtle background drone
+      gainNode.gain.value = 0.04; 
       
       osc1.connect(gainNode); osc2.connect(gainNode);
       gainNode.connect(ctx.destination);
@@ -255,17 +269,23 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     if (strikerObj && strikerObj.active && !strikerObj.falling) {
       strikerObj.y = turn === 1 ? 840 : 160;
       let rawX = turn === 1 ? p1Slider : p2Slider;
-      if (shouldFlipBoard) rawX = 1000 - rawX;
+      
+      // Mirror the coordinate so slider visually maps correctly when rotated
+      if (shouldFlipBoard) {
+        rawX = 1000 - rawX;
+      }
+      
       strikerObj.x = rawX;
       setRenderTrigger(prev => prev + 1);
     }
   }, [p1Slider, p2Slider, turn, shouldFlipBoard]);
 
-  // 📡 MULTIPLAYER REAL-TIME SYNC
+  // 📡 MULTIPLAYER REAL-TIME SYNC HUB
   useEffect(() => {
     if (!matchId || (playMode !== "host" && playMode !== "join" && playMode !== "online")) return;
 
     const channel = supabase.channel(`carrom_${matchId}`, { config: { broadcast: { self: false } } });
+    channelRef.current = channel;
 
     channel
       .on('broadcast', { event: 'ping' }, (payload) => {
@@ -286,6 +306,10 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
             return prev;
           });
         }
+      })
+      .on('broadcast', { event: 'change_rules' }, (payload) => {
+         setGameRuleMode(payload.payload.mode);
+         setToast({ msg: `Rule Updated: ${payload.payload.mode.toUpperCase()}`, type: 'info' });
       })
       .on('broadcast', { event: 'shot_fired' }, (payload) => {
         const { vx, vy, startX } = payload.payload;
@@ -330,8 +354,16 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     return () => { 
       clearInterval(pingInterval);
       supabase.removeChannel(channel); 
+      channelRef.current = null;
     };
   }, [matchId, playMode]);
+
+  const updateOnlineRules = (mode: GameMode) => {
+     setGameRuleMode(mode);
+     if (channelRef.current) {
+        channelRef.current.send({ type: 'broadcast', event: 'change_rules', payload: { mode } });
+     }
+  };
 
   const hostMatch = () => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -443,6 +475,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       requestAnimationFrame(physicsLoop);
     } else {
       isMovingRef.current = false;
+      // 🛡️ AUTHORITATIVE TURN CALCULATION (Only the shooter evaluates rules)
       if (playMode !== "online" || turnRef.current === myPlayerRoleRef.current) {
         evaluateTurnEnd();
       }
@@ -458,52 +491,60 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     
     let newP1Score = p1Score; let newP2Score = p2Score;
     let newP1Color = p1Color; let newP2Color = p2Color;
-    let nextTurn = turnRef.current; let earnedExtraTurn = false;
+    let nextTurn = turnRef.current; 
+    let fouled = false;
+    let validPocket = false;
     let turnMsg = ""; let msgType: 'foul' | 'info' | 'success' = 'info';
 
+    // Rule Resolution Engine
     if (strikerFoul) {
-      turnMsg = "Foul! Striker Pocketed (-5 PTS).";
-      msgType = "foul";
-      nextTurn = turnRef.current === 1 ? 2 : 1; 
+      fouled = true;
       if (turnRef.current === 1) newP1Score = Math.max(0, newP1Score - 5);
       else newP2Score = Math.max(0, newP2Score - 5);
-    } 
-    else {
-      pocketedThisTurn.forEach(c => {
-        if (c.type === "queen") {
-          earnedExtraTurn = true; turnMsg = "Red Queen Secured (+5 PTS)!"; msgType = "success";
-          if (turnRef.current === 1) newP1Score += 5; else newP2Score += 5;
+    }
+
+    pocketedThisTurn.forEach(c => {
+      if (c.type === "queen") {
+        validPocket = true;
+        if (turnRef.current === 1) newP1Score += 5; else newP2Score += 5;
+      } 
+      else if (c.type === "white" || c.type === "black") {
+        const pts = c.type === "white" ? 3 : 2;
+        
+        if (gameRuleModeRef.current === "freestyle") {
+          validPocket = true;
+          if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
         } 
-        else if (c.type === "white" || c.type === "black") {
-          if (gameRuleModeRef.current === "freestyle") {
-            earnedExtraTurn = true; turnMsg = "Good Shot! Go Again."; msgType = "success";
-            const pts = c.type === "white" ? 3 : 2;
+        else if (gameRuleModeRef.current === "classic") {
+          if (!newP1Color) {
+            validPocket = true;
+            newP1Color = turnRef.current === 1 ? c.type : (c.type === "white" ? "black" : "white");
+            newP2Color = newP1Color === "white" ? "black" : "white";
             if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
-          } 
-          else if (gameRuleModeRef.current === "classic") {
-            if (!newP1Color) {
-              newP1Color = turnRef.current === 1 ? c.type : (c.type === "white" ? "black" : "white");
-              newP2Color = newP1Color === "white" ? "black" : "white";
-              earnedExtraTurn = true; turnMsg = `Player ${turnRef.current} Claims ${c.type.toUpperCase()}`; msgType = "success";
-              if (turnRef.current === 1) newP1Score += 10; else newP2Score += 10;
+          } else {
+            const myColor = turnRef.current === 1 ? newP1Color : newP2Color;
+            if (c.type === myColor) {
+              validPocket = true;
+              if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
             } else {
-              const myColor = turnRef.current === 1 ? newP1Color : newP2Color;
-              if (c.type === myColor) {
-                earnedExtraTurn = true; turnMsg = "Good Shot! Go Again."; msgType = "success";
-                if (turnRef.current === 1) newP1Score += 10; else newP2Score += 10;
-              } else {
-                turnMsg = "Foul! Pocketed Opponent's Coin."; msgType = "foul";
-                earnedExtraTurn = false; nextTurn = turnRef.current === 1 ? 2 : 1; 
-                if (turnRef.current === 1) newP2Score += 10; else newP1Score += 10;
-              }
+              fouled = true; // Sunk opponent coin
+              if (turnRef.current === 1) newP2Score += pts; else newP1Score += pts;
             }
           }
         }
-      });
-
-      if (!earnedExtraTurn && pocketedThisTurn.length === 0) {
-        nextTurn = turnRef.current === 1 ? 2 : 1;
       }
+    });
+
+    if (fouled) {
+      turnMsg = "Foul! Turn Lost.";
+      msgType = "foul";
+      nextTurn = turnRef.current === 1 ? 2 : 1;
+    } else if (validPocket) {
+      turnMsg = "Good Shot! Extra Turn.";
+      msgType = "success";
+      nextTurn = turnRef.current;
+    } else {
+      nextTurn = turnRef.current === 1 ? 2 : 1;
     }
 
     const strikerObj = currentCoins.find(c => c.type === "striker");
@@ -528,8 +569,8 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
 
     if (turnMsg) setToast({ msg: turnMsg, type: msgType });
 
-    if (playMode === "online" && turnRef.current === myPlayerRoleRef.current) {
-       supabase.channel(`carrom_${matchIdRef.current}`).send({
+    if (playMode === "online" && channelRef.current) {
+       channelRef.current.send({
           type: 'broadcast', event: 'turn_sync', 
           payload: { coins: currentCoins, nextTurn, p1S: newP1Score, p2S: newP2Score, win, p1C: newP1Color, p2C: newP2Color, msg: turnMsg, msgType, rulesMode: gameRuleModeRef.current }
        });
@@ -545,6 +586,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     setIsAiming(true);
   };
 
+  // 🎯 REAL-TIME BOUNDING BOX TRANSLATION MECHANISM
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isAiming || !boardRef.current) return;
     
@@ -585,8 +627,8 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       isMovingRef.current = true;
       if(!isMutedRef.current) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
       
-      if (playMode === "online") {
-        supabase.channel(`carrom_${matchIdRef.current}`).send({
+      if (playMode === "online" && channelRef.current) {
+        channelRef.current.send({
           type: 'broadcast', event: 'shot_fired', payload: { vx, vy, startX: strikerObj.x }
         });
       }
@@ -606,8 +648,8 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
 
   const sendEmoji = (emoji: string) => {
     setShowEmojiMenu(false);
-    if (playMode === "online") {
-      supabase.channel(`carrom_${matchIdRef.current}`).send({ type: 'broadcast', event: 'emoji', payload: { emoji, role: myPlayerRole } });
+    if (playMode === "online" && channelRef.current) {
+      channelRef.current.send({ type: 'broadcast', event: 'emoji', payload: { emoji, role: myPlayerRole } });
     } else {
       const newEmoji = { id: Date.now(), emoji, role: turn };
       setFloatingEmojis((prev) => [...prev, newEmoji]);
@@ -621,8 +663,12 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const topRole = playMode === 'local' ? 2 : (myPlayerRole === 1 ? 2 : 1);
-  const bottomRole = playMode === 'local' ? 1 : myPlayerRole;
+  // --- DYNAMIC HUD VARIABLES ---
+  const topRole: 1 | 2 = playMode === 'local' ? 2 : (myPlayerRole === 1 ? 2 : 1);
+  const bottomRole: 1 | 2 = playMode === 'local' ? 1 : myPlayerRole as 1 | 2;
+  const activeStriker = coinsRef.current.find(c => c.type === "striker");
+  const aimDist = Math.hypot(aimVector.x, aimVector.y);
+  const isMaxPower = aimDist >= MAX_POWER - 2;
 
   const renderPlayerHUD = (role: 1 | 2, position: 'top' | 'bottom') => {
     const isMyTurn = turn === role;
@@ -669,10 +715,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       </div>
     );
   };
-
-  const activeStriker = coinsRef.current.find(c=>c.type==="striker");
-  const aimDist = Math.hypot(aimVector.x, aimVector.y);
-  const isMaxPower = aimDist >= MAX_POWER - 2;
 
   return (
     <div className="fixed inset-0 z-[100] bg-neutral-100 dark:bg-neutral-950 flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors select-none">
@@ -722,11 +764,20 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
           <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:scale-90 shadow-sm">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
-          <div className="text-center">
+          <div className="text-center flex flex-col items-center">
             <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Carrom Matrix</h1>
-            <span className={`text-[9px] font-bold uppercase tracking-widest ${playMode === "online" ? "text-emerald-500 animate-pulse" : (playMode === "host" || playMode === "join") ? "text-amber-500 animate-pulse" : "text-neutral-400"}`}>
-              {playMode === "online" ? "● Live Network" : (playMode === "host" || playMode === "join") ? "Connecting..." : "Local Mode"}
-            </span>
+            
+            {/* Live Room Rule selector for the Host */}
+            {playMode === "online" && myPlayerRole === 1 ? (
+               <div className="flex bg-neutral-200 dark:bg-neutral-800 p-0.5 rounded-md mt-1 scale-90 border border-neutral-300 dark:border-neutral-700">
+                  <button onClick={() => updateOnlineRules("freestyle")} className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'freestyle' ? 'bg-white dark:bg-neutral-900 text-amber-500 shadow-sm' : 'text-neutral-400'}`}>Freestyle</button>
+                  <button onClick={() => updateOnlineRules("classic")} className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'classic' ? 'bg-white dark:bg-neutral-900 text-amber-500 shadow-sm' : 'text-neutral-400'}`}>Classic</button>
+               </div>
+            ) : (
+               <span className={`text-[9px] font-bold uppercase tracking-widest mt-1 ${playMode === "online" ? "text-emerald-500 animate-pulse" : (playMode === "host" || playMode === "join") ? "text-amber-500 animate-pulse" : "text-neutral-400"}`}>
+                 {playMode === "online" ? `● ${gameRuleMode.toUpperCase()}` : (playMode === "host" || playMode === "join") ? "Connecting..." : "Local Mode"}
+               </span>
+            )}
           </div>
           <div className="flex gap-2 relative">
             <button onClick={() => setIsMuted(!isMuted)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90">

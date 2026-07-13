@@ -48,7 +48,10 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
   const [searchTarget, setSearchTarget] = useState("");
   const [inviteStatus, setInviteStatus] = useState("");
   const [copied, setCopied] = useState(false);
+  
+  // 🎮 Modal Navigation State
   const [showGameSelector, setShowGameSelector] = useState(false);
+  const [inviteStep, setInviteStep] = useState<"game" | "carrom_mode">("game");
 
   // 1. INITIALIZE IDENTITY & NETWORK
   useEffect(() => {
@@ -133,30 +136,33 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     await supabase.from("direct_messages").insert([payload]);
   };
 
-  const handleSendGameInvite = async (gameType: "checkers" | "carrom") => {
+  // 🕹️ DYNAMIC INVITE HANDLER (Now processes rules!)
+  const handleSendGameInvite = async (gameType: "checkers" | "carrom", mode?: "freestyle" | "classic") => {
     setShowGameSelector(false);
+    setInviteStep("game");
     if (!myUserId || !activeChat) return;
     
     const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const gameName = gameType === "checkers" ? "Neon Checkers" : "Carrom Matrix";
     
-    // Create match room
-    const { data: match } = await supabase.from('checkers_matches').insert({
-      p1_id: myUserId, 
-      board: INITIAL_BOARD, 
-      room_code: generatedCode, 
-      status: 'waiting'
-    }).select().single();
+    if (gameType === "checkers") {
+      const { data: match } = await supabase.from('checkers_matches').insert({
+        p1_id: myUserId, board: INITIAL_BOARD, room_code: generatedCode, status: 'waiting'
+      }).select().single();
+      
+      if (match) {
+        await supabase.from("direct_messages").insert([{
+          sender_id: myUserId, receiver_id: activeChat.id, content: `Challenged you to Neon Checkers`,
+          message_type: 'game_invite', match_id: match.id, game_name: "Neon Checkers", invite_status: "pending"
+        }]);
+      }
+    } else if (gameType === "carrom" && mode) {
+      // Package the rule mode directly into the Match ID for seamless host syncing
+      const gameName = mode === "classic" ? "Carrom (Classic)" : "Carrom (Freestyle)";
+      const bundledPayload = `${generatedCode}_${mode}`;
 
-    if (match) {
       await supabase.from("direct_messages").insert([{
-        sender_id: myUserId, 
-        receiver_id: activeChat.id, 
-        content: `Challenged you to ${gameName}`,
-        message_type: 'game_invite', 
-        match_id: match.id, 
-        game_name: gameName, 
-        invite_status: "pending"
+        sender_id: myUserId, receiver_id: activeChat.id, content: `Challenged you to ${gameName}`,
+        message_type: 'game_invite', match_id: bundledPayload, game_name: gameName, invite_status: "pending"
       }]);
     }
   };
@@ -215,7 +221,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
 
 
   // ============================================================================
-  // RENDER VIEW 1: THE HUB (Resides perfectly inside the Main layout block)
+  // RENDER VIEW 1: THE HUB 
   // ============================================================================
   if (activeView === "hub") {
     return (
@@ -384,42 +390,64 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden animate-fade-in text-neutral-900 dark:text-neutral-100">
       
-      {/* 🎮 GAME SELECTOR MODAL */}
+      {/* 🎮 2-STEP GAME SELECTOR MODAL */}
       {showGameSelector && (
         <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-end justify-center p-4 animate-fade-in">
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl flex flex-col gap-4">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-base font-black tracking-tight uppercase">Select Arena</h3>
-              <button onClick={() => setShowGameSelector(false)} className="w-8 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-neutral-500 transition-all active:scale-90">
-                <span className="material-symbols-outlined text-sm">close</span>
-              </button>
-            </div>
             
-            <button onClick={() => handleSendGameInvite("carrom")} className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm">
-               <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md">
-                   <span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>radio_button_checked</span>
-                 </div>
-                 <div className="text-left">
-                   <h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Carrom Matrix</h4>
-                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Physics • Strategy</p>
-                 </div>
-               </div>
-               <span className="material-symbols-outlined text-amber-500">chevron_right</span>
-            </button>
+            {inviteStep === "game" && (
+              <>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-base font-black tracking-tight uppercase">Select Arena</h3>
+                  <button onClick={() => setShowGameSelector(false)} className="w-8 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-neutral-500 transition-all active:scale-90"><span className="material-symbols-outlined text-sm">close</span></button>
+                </div>
+                
+                <button onClick={() => setInviteStep("carrom_mode")} className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm">
+                   <div className="flex items-center gap-4">
+                     <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md"><span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>radio_button_checked</span></div>
+                     <div className="text-left"><h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Carrom Matrix</h4><p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Physics • Strategy</p></div>
+                   </div>
+                   <span className="material-symbols-outlined text-amber-500">chevron_right</span>
+                </button>
 
-            <button onClick={() => handleSendGameInvite("checkers")} className="w-full flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm">
-               <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md">
-                   <span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>grid_4x4</span>
-                 </div>
-                 <div className="text-left">
-                   <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100">Neon Checkers</h4>
-                   <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-500 uppercase tracking-widest mt-0.5">Grid • Strategy</p>
-                 </div>
-               </div>
-               <span className="material-symbols-outlined text-indigo-500">chevron_right</span>
-            </button>
+                <button onClick={() => handleSendGameInvite("checkers")} className="w-full flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm">
+                   <div className="flex items-center gap-4">
+                     <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md"><span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>grid_4x4</span></div>
+                     <div className="text-left"><h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100">Neon Checkers</h4><p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-500 uppercase tracking-widest mt-0.5">Grid • Strategy</p></div>
+                   </div>
+                   <span className="material-symbols-outlined text-indigo-500">chevron_right</span>
+                </button>
+              </>
+            )}
+
+            {inviteStep === "carrom_mode" && (
+              <>
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setInviteStep("game")} className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"><span className="material-symbols-outlined text-sm">arrow_back_ios_new</span></button>
+                    <h3 className="text-base font-black tracking-tight uppercase">Select Rule Mode</h3>
+                  </div>
+                  <button onClick={() => {setShowGameSelector(false); setInviteStep("game");}} className="w-8 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-neutral-500 transition-all active:scale-90"><span className="material-symbols-outlined text-sm">close</span></button>
+                </div>
+
+                <button onClick={() => handleSendGameInvite("carrom", "freestyle")} className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm">
+                   <div className="flex items-center gap-4">
+                     <div className="w-12 h-12 bg-white dark:bg-neutral-900 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-500 rounded-xl flex items-center justify-center shadow-md"><span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>sports_score</span></div>
+                     <div className="text-left"><h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Freestyle</h4><p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Score Based • Fast</p></div>
+                   </div>
+                   <span className="material-symbols-outlined text-amber-500">send</span>
+                </button>
+
+                <button onClick={() => handleSendGameInvite("carrom", "classic")} className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm">
+                   <div className="flex items-center gap-4">
+                     <div className="w-12 h-12 bg-white dark:bg-neutral-900 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-500 rounded-xl flex items-center justify-center shadow-md"><span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>palette</span></div>
+                     <div className="text-left"><h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Classic Colors</h4><p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Claim Colors • Tactical</p></div>
+                   </div>
+                   <span className="material-symbols-outlined text-amber-500">send</span>
+                </button>
+              </>
+            )}
+
           </div>
         </div>
       )}
@@ -456,7 +484,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
       <div className="flex-1 w-full overflow-y-auto px-4 py-6 space-y-6 no-scrollbar relative">
         {messages.map((msg) => {
           const isMe = msg.sender_id === myUserId;
-          const isCarrom = msg.game_name === "Carrom Matrix";
+          const isCarrom = msg.game_name?.includes("Carrom");
           
           // Theme classes mapped properly to prevent PurgeCSS dropping
           const themeCard = isCarrom 
@@ -549,7 +577,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         <form onSubmit={handleSendText} className="px-4 py-3 flex items-center gap-3">
           <button
             type="button"
-            onClick={() => setShowGameSelector(true)}
+            onClick={() => { setShowGameSelector(true); setInviteStep("game"); }}
             className="w-11 h-11 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-sm shrink-0"
           >
             <span className="material-symbols-outlined text-[20px]">swords</span>
