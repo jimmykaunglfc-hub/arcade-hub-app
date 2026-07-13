@@ -3,14 +3,15 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
-// --- ENGINE DIMENSIONS & CONSTANTS ---
+// --- HYPER-REALISTIC ENGINE CONSTANTS ---
 const BOARD_SIZE = 1000;
-const HOLE_RADIUS = 32;       
+const HOLE_RADIUS = 65;       // Authentic corner pocket size
+const POCKET_TRIGGER = 50;    // Coin must fall deeply into the corner to drop
 const STRIKER_RADIUS = 34;    
 const COIN_RADIUS = 24;       
-const FRICTION = 0.982;       
-const RESTITUTION = 0.85;     
-const MAX_POWER = 220;        
+const FRICTION = 0.985;       
+const RESTITUTION = 0.85;     // High quality hardwood bounce
+const MAX_POWER = 260;        
 
 const EMOJIS = ["👍", "😂", "🔥", "😡", "😭", "🤯"];
 
@@ -27,6 +28,8 @@ interface Coin {
   mass: number;
   radius: number;
   active: boolean;
+  falling?: boolean; 
+  scale?: number;    
 }
 
 // 🔊 ZERO-LATENCY PROCEDURAL AUDIO ENGINE
@@ -43,33 +46,33 @@ const playSound = (type: 'strike' | 'pocket' | 'foul' | 'bounce', intensity = 1)
     
     if (type === 'strike') {
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(120, ctx.currentTime);
+      osc.frequency.setValueAtTime(140, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(intensity * 0.5, ctx.currentTime);
+      gain.gain.setValueAtTime(intensity * 0.6, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
       osc.start(); osc.stop(ctx.currentTime + 0.1);
     } else if (type === 'bounce') {
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(200, ctx.currentTime);
-      gain.gain.setValueAtTime(intensity * 0.2, ctx.currentTime);
+      osc.frequency.setValueAtTime(250, ctx.currentTime);
+      gain.gain.setValueAtTime(intensity * 0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
       osc.start(); osc.stop(ctx.currentTime + 0.05);
     } else if (type === 'pocket') {
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(400, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.4, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-      osc.start(); osc.stop(ctx.currentTime + 0.15);
+      osc.frequency.setValueAtTime(300, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.5, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+      osc.start(); osc.stop(ctx.currentTime + 0.2);
     } else if (type === 'foul') {
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(90, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.4);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.4);
+      gain.gain.setValueAtTime(0.4, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
       osc.start(); osc.stop(ctx.currentTime + 0.4);
     }
-  } catch(e) { console.error("Audio block", e); }
+  } catch(e) { console.error("Audio engine context blocked by browser"); }
 };
 
 const generateInitialCoins = (): Coin[] => {
@@ -78,15 +81,15 @@ const generateInitialCoins = (): Coin[] => {
   const cy = BOARD_SIZE / 2;
   const R = COIN_RADIUS * 2 + 1; 
   
-  coins.push({ id: "striker", type: "striker", x: cx, y: 820, vx: 0, vy: 0, mass: 3, radius: STRIKER_RADIUS, active: true });
-  coins.push({ id: "queen", type: "queen", x: cx, y: cy, vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true });
+  coins.push({ id: "striker", type: "striker", x: cx, y: 820, vx: 0, vy: 0, mass: 3, radius: STRIKER_RADIUS, active: true, scale: 1 });
+  coins.push({ id: "queen", type: "queen", x: cx, y: cy, vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true, scale: 1 });
 
   for (let i = 0; i < 6; i++) {
     const angle = i * (Math.PI / 3);
     coins.push({
       id: `inner_${i}`, type: i % 2 === 0 ? "white" : "black",
       x: cx + R * Math.cos(angle), y: cy + R * Math.sin(angle),
-      vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true
+      vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true, scale: 1
     });
   }
 
@@ -95,16 +98,18 @@ const generateInitialCoins = (): Coin[] => {
     coins.push({
       id: `outer_${i}`, type: i % 2 === 0 ? "black" : "white",
       x: cx + (R * 1.9) * Math.cos(angle), y: cy + (R * 1.9) * Math.sin(angle),
-      vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true
+      vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true, scale: 1
     });
   }
   
   return coins;
 };
 
+// 🎨 AUTHENTIC CARROM DOUBLE-LINE BASELINES
 const Baseline = ({ transform }: { transform?: string }) => (
   <g transform={transform} stroke="#70411d" strokeWidth="4" fill="none">
-    <path d="M 220 800 L 780 800 A 20 20 0 0 1 780 840 L 220 840 A 20 20 0 0 1 220 800 Z" />
+    <path d="M 220 800 L 780 800" />
+    <path d="M 220 840 L 780 840" />
     <circle cx="220" cy="820" r="16" fill="#ebd097" />
     <circle cx="780" cy="820" r="16" fill="#ebd097" />
     <circle cx="220" cy="820" r="8" fill="#70411d" />
@@ -120,6 +125,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const [matchId, setMatchId] = useState("");
   const [roomCode, setRoomCode] = useState(""); 
   const [joinCode, setJoinCode] = useState("");
+  const [copied, setCopied] = useState(false);
   
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myPlayerRole, setMyPlayerRole] = useState<1 | 2>(1);
@@ -135,7 +141,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const [toast, setToast] = useState<{msg: string, type: 'foul' | 'info' | 'success'} | null>(null);
   const [isMuted, setIsMuted] = useState(false);
 
-  // Reaction States Fixed
   const [floatingEmojis, setFloatingEmojis] = useState<{id: number, emoji: string, role: number}[]>([]);
   const [showEmojiMenu, setShowEmojiMenu] = useState(false);
 
@@ -152,6 +157,18 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const boardRef = useRef<SVGSVGElement>(null);
   const bgmRef = useRef<HTMLAudioElement>(null);
 
+  const isMutedRef = useRef(isMuted);
+  const turnRef = useRef(turn);
+  const myPlayerRoleRef = useRef(myPlayerRole);
+  const gameRuleModeRef = useRef(gameRuleMode);
+  const matchIdRef = useRef(matchId);
+
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { turnRef.current = turn; }, [turn]);
+  useEffect(() => { myPlayerRoleRef.current = myPlayerRole; }, [myPlayerRole]);
+  useEffect(() => { gameRuleModeRef.current = gameRuleMode; }, [gameRuleMode]);
+  useEffect(() => { matchIdRef.current = matchId; }, [matchId]);
+
   const confettiPieces = useMemo(() => {
     const colors = ['#f59e0b', '#10b981', '#4f46e5', '#ec4899', '#3b82f6'];
     return Array.from({ length: 50 }).map((_, i) => ({
@@ -163,6 +180,25 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
 
+  // 🤝 AUTO-CONNECT FROM CHAT INVITATION
+  useEffect(() => {
+    if (preloadedMatchId && myUserId) {
+      const connectFromChat = async () => {
+        const { data: msg } = await supabase.from('direct_messages').select('*').eq('match_id', preloadedMatchId).maybeSingle();
+        if (msg) {
+           if (msg.sender_id === myUserId) {
+              setMatchId(preloadedMatchId); setRoomCode(preloadedMatchId); setMyPlayerRole(1); setPlayMode("host");
+           } else {
+              setMatchId(preloadedMatchId); setMyPlayerRole(2); setPlayMode("join");
+           }
+        } else {
+           setMatchId(preloadedMatchId); setMyPlayerRole(2); setPlayMode("join");
+        }
+      };
+      connectFromChat();
+    }
+  }, [preloadedMatchId, myUserId]);
+
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), 3000);
@@ -170,7 +206,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     }
   }, [toast]);
 
-  // Background Music Handler
   useEffect(() => {
     if (bgmRef.current && (playMode === "local" || playMode === "online")) {
       bgmRef.current.volume = 0.15;
@@ -182,26 +217,46 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   useEffect(() => {
     if (isMovingRef.current) return;
     const striker = coinsRef.current.find(c => c.type === "striker");
-    if (striker && striker.active) {
+    if (striker && striker.active && !striker.falling) {
       striker.x = turn === 1 ? p1Slider : p2Slider;
       striker.y = turn === 1 ? 820 : 180;
       setRenderTrigger(prev => prev + 1);
     }
   }, [p1Slider, p2Slider, turn]);
 
-  // 📡 MULTIPLAYER SYNC
+  // 📡 MULTIPLAYER CONTINUOUS PING RESOLVER
   useEffect(() => {
-    if (playMode !== "online" && playMode !== "host") return;
     if (!matchId) return;
 
-    const channel = supabase.channel(`carrom_${matchId}`, { config: { broadcast: { self: false } } })
+    const channel = supabase.channel(`carrom_${matchId}`, { config: { broadcast: { self: false } } });
+
+    channel
+      .on('broadcast', { event: 'ping' }, (payload) => {
+        if (payload.payload.role !== myPlayerRoleRef.current) {
+          setPlayMode(prev => {
+            if (prev === "host") {
+              setToast({ msg: "Opponent joined the Arena!", type: "success" });
+              channel.send({
+                type: 'broadcast', event: 'turn_sync', 
+                payload: { coins: coinsRef.current, nextTurn: 1, p1S: 0, p2S: 0, win: null, p1C: null, p2C: null, msg: "", msgType: "info" }
+              });
+              return "online";
+            }
+            if (prev === "join") {
+              setToast({ msg: "Connected to Host Matrix!", type: "success" });
+              return "online";
+            }
+            return prev;
+          });
+        }
+      })
       .on('broadcast', { event: 'shot_fired' }, (payload) => {
         const { vx, vy, startX } = payload.payload;
         const striker = coinsRef.current.find(c => c.type === "striker");
         if (striker) {
-          if(!isMuted) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
+          if(!isMutedRef.current) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
           striker.x = startX;
-          striker.y = turn === 1 ? 820 : 180;
+          striker.y = turnRef.current === 1 ? 820 : 180;
           striker.vx = vx;
           striker.vy = vy;
           isMovingRef.current = true;
@@ -221,13 +276,24 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       .on('broadcast', { event: 'emoji' }, (payload) => {
         const { emoji, role } = payload.payload;
         const newEmoji = { id: Date.now() + Math.random(), emoji, role };
-        setFloatingEmojis((prev: {id: number, emoji: string, role: number}[]) => [...prev, newEmoji]);
-        setTimeout(() => setFloatingEmojis((prev: {id: number, emoji: string, role: number}[]) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
-      })
-      .subscribe();
+        setFloatingEmojis((prev) => [...prev, newEmoji]);
+        setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
+      });
 
-    return () => { supabase.removeChannel(channel); };
-  }, [matchId, playMode, isMuted, turn]);
+    let pingInterval: NodeJS.Timeout;
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+         pingInterval = setInterval(async () => {
+            await channel.send({ type: 'broadcast', event: 'ping', payload: { role: myPlayerRoleRef.current } });
+         }, 1000);
+      }
+    });
+
+    return () => { 
+      clearInterval(pingInterval);
+      supabase.removeChannel(channel); 
+    };
+  }, [matchId]);
 
   const hostMatch = () => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -235,10 +301,10 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   };
 
   const joinMatch = () => {
-    setMatchId(joinCode.toUpperCase()); setMyPlayerRole(2); setPlayMode("online");
+    setMatchId(joinCode.toUpperCase()); setMyPlayerRole(2); setPlayMode("join");
   };
 
-  // --- PHYSICS ENGINE ---
+  // --- PHYSICS ENGINE (WITH DROP ANIMATIONS) ---
   const physicsLoop = () => {
     let moving = false;
     const coins = coinsRef.current;
@@ -246,6 +312,25 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     for (let i = 0; i < coins.length; i++) {
       let c1 = coins[i];
       if (!c1.active) continue;
+
+      if (c1.falling) {
+        c1.scale = (c1.scale || 1) * 0.85;
+        c1.vx *= 0.5; 
+        c1.vy *= 0.5;
+        c1.x += c1.vx;
+        c1.y += c1.vy;
+        moving = true;
+
+        if (c1.scale < 0.1) {
+          if (c1.type === "striker") {
+            c1.falling = false; c1.scale = 1; c1.vx = 0; c1.vy = 0;
+            c1.x = 500; c1.y = turnRef.current === 1 ? 820 : 180;
+          } else {
+            c1.active = false;
+          }
+        }
+        continue; 
+      }
 
       c1.x += c1.vx;
       c1.y += c1.vy;
@@ -255,30 +340,31 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       if (Math.abs(c1.vx) > 0.08 || Math.abs(c1.vy) > 0.08) moving = true;
       else { c1.vx = 0; c1.vy = 0; }
 
+      // 🪵 MATHEMATICALLY PERFECT WALL BOUNDARIES (0 to 1000)
       let hitWall = false;
       if (c1.x - c1.radius < 0) { c1.x = c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
       if (c1.x + c1.radius > BOARD_SIZE) { c1.x = BOARD_SIZE - c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
       if (c1.y - c1.radius < 0) { c1.y = c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
       if (c1.y + c1.radius > BOARD_SIZE) { c1.y = BOARD_SIZE - c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
-      if (hitWall && !isMuted && Math.hypot(c1.vx, c1.vy) > 2) playSound('bounce', 0.5);
+      if (hitWall && !isMutedRef.current && Math.hypot(c1.vx, c1.vy) > 2) playSound('bounce', 0.5);
 
+      // 🕳️ ABSOLUTE CORNER POCKET DETECTION
       const pockets = [
-        {x: 64, y: 64}, {x: BOARD_SIZE - 64, y: 64}, 
-        {x: 64, y: BOARD_SIZE - 64}, {x: BOARD_SIZE - 64, y: BOARD_SIZE - 64}
+        {x: 0, y: 0}, {x: BOARD_SIZE, y: 0}, 
+        {x: 0, y: BOARD_SIZE}, {x: BOARD_SIZE, y: BOARD_SIZE}
       ];
       
       for (const p of pockets) {
         const dist = Math.hypot(c1.x - p.x, c1.y - p.y);
-        if (dist < HOLE_RADIUS + 4) {
-          c1.active = false; 
-          c1.vx = 0; c1.vy = 0;
-          if(!isMuted) playSound(c1.type === "striker" ? 'foul' : 'pocket');
+        if (dist < POCKET_TRIGGER && !c1.falling) {
+          c1.falling = true;
+          if(!isMutedRef.current) playSound(c1.type === "striker" ? 'foul' : 'pocket');
         }
       }
 
       for (let j = i + 1; j < coins.length; j++) {
         let c2 = coins[j];
-        if (!c2.active) continue;
+        if (!c2.active || c2.falling) continue;
 
         const dx = c2.x - c1.x;
         const dy = c2.y - c1.y;
@@ -299,7 +385,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
           c1.vx -= p * c2.mass * nx * RESTITUTION; c1.vy -= p * c2.mass * ny * RESTITUTION;
           c2.vx += p * c1.mass * nx * RESTITUTION; c2.vy += p * c1.mass * ny * RESTITUTION;
           
-          if (!isMuted && Math.abs(p) > 1) playSound('bounce', Math.min(Math.abs(p) / 10, 1));
+          if (!isMutedRef.current && Math.abs(p) > 1) playSound('bounce', Math.min(Math.abs(p) / 10, 1));
         }
       }
     }
@@ -323,45 +409,43 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     
     let newP1Score = p1Score; let newP2Score = p2Score;
     let newP1Color = p1Color; let newP2Color = p2Color;
-    let nextTurn = turn; let earnedExtraTurn = false;
+    let nextTurn = turnRef.current; let earnedExtraTurn = false;
     let turnMsg = ""; let msgType: 'foul' | 'info' | 'success' = 'info';
 
     if (strikerFoul) {
       turnMsg = "Foul! Striker Pocketed (-5 PTS).";
       msgType = "foul";
-      nextTurn = turn === 1 ? 2 : 1; 
-      if (turn === 1) newP1Score = Math.max(0, newP1Score - 5);
+      nextTurn = turnRef.current === 1 ? 2 : 1; 
+      if (turnRef.current === 1) newP1Score = Math.max(0, newP1Score - 5);
       else newP2Score = Math.max(0, newP2Score - 5);
     } 
     else {
       pocketedThisTurn.forEach(c => {
         if (c.type === "queen") {
-          earnedExtraTurn = true;
-          turnMsg = "Red Queen Secured (+5 PTS)!";
-          msgType = "success";
-          if (turn === 1) newP1Score += 5; else newP2Score += 5;
+          earnedExtraTurn = true; turnMsg = "Red Queen Secured (+5 PTS)!"; msgType = "success";
+          if (turnRef.current === 1) newP1Score += 5; else newP2Score += 5;
         } 
         else if (c.type === "white" || c.type === "black") {
-          if (gameRuleMode === "freestyle") {
+          if (gameRuleModeRef.current === "freestyle") {
             earnedExtraTurn = true; turnMsg = "Good Shot! Go Again."; msgType = "success";
             const pts = c.type === "white" ? 3 : 2;
-            if (turn === 1) newP1Score += pts; else newP2Score += pts;
+            if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
           } 
-          else if (gameRuleMode === "classic") {
+          else if (gameRuleModeRef.current === "classic") {
             if (!newP1Color) {
-              newP1Color = turn === 1 ? c.type : (c.type === "white" ? "black" : "white");
+              newP1Color = turnRef.current === 1 ? c.type : (c.type === "white" ? "black" : "white");
               newP2Color = newP1Color === "white" ? "black" : "white";
-              earnedExtraTurn = true; turnMsg = `Player ${turn} Claims ${c.type.toUpperCase()}`; msgType = "success";
-              if (turn === 1) newP1Score += 10; else newP2Score += 10;
+              earnedExtraTurn = true; turnMsg = `Player ${turnRef.current} Claims ${c.type.toUpperCase()}`; msgType = "success";
+              if (turnRef.current === 1) newP1Score += 10; else newP2Score += 10;
             } else {
-              const myColor = turn === 1 ? newP1Color : newP2Color;
+              const myColor = turnRef.current === 1 ? newP1Color : newP2Color;
               if (c.type === myColor) {
                 earnedExtraTurn = true; turnMsg = "Good Shot! Go Again."; msgType = "success";
-                if (turn === 1) newP1Score += 10; else newP2Score += 10;
+                if (turnRef.current === 1) newP1Score += 10; else newP2Score += 10;
               } else {
                 turnMsg = "Foul! Pocketed Opponent's Coin."; msgType = "foul";
-                earnedExtraTurn = false; nextTurn = turn === 1 ? 2 : 1; 
-                if (turn === 1) newP2Score += 10; else newP1Score += 10;
+                earnedExtraTurn = false; nextTurn = turnRef.current === 1 ? 2 : 1; 
+                if (turnRef.current === 1) newP2Score += 10; else newP1Score += 10;
               }
             }
           }
@@ -369,7 +453,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       });
 
       if (!earnedExtraTurn && pocketedThisTurn.length === 0) {
-        nextTurn = turn === 1 ? 2 : 1;
+        nextTurn = turnRef.current === 1 ? 2 : 1;
       }
     }
 
@@ -384,7 +468,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     const whitesLeft = currentCoins.filter(c => c.type === "white" && c.active).length;
     const blacksLeft = currentCoins.filter(c => c.type === "black" && c.active).length;
     
-    if (gameRuleMode === "classic" && newP1Color) {
+    if (gameRuleModeRef.current === "classic" && newP1Color) {
        if (newP1Color === "white" && whitesLeft === 0) win = 1;
        if (newP2Color === "white" && whitesLeft === 0) win = 2;
        if (newP1Color === "black" && blacksLeft === 0) win = 1;
@@ -395,8 +479,8 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
 
     if (turnMsg) setToast({ msg: turnMsg, type: msgType });
 
-    if (playMode === "online" && turn === myPlayerRole) {
-       supabase.channel(`carrom_${matchId}`).send({
+    if (playMode === "online" && turnRef.current === myPlayerRoleRef.current) {
+       supabase.channel(`carrom_${matchIdRef.current}`).send({
           type: 'broadcast', event: 'turn_sync', 
           payload: { coins: currentCoins, nextTurn, p1S: newP1Score, p2S: newP2Score, win, p1C: newP1Color, p2C: newP2Color, msg: turnMsg, msgType }
        });
@@ -420,6 +504,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     
     const striker = coinsRef.current.find(c => c.type === "striker")!;
     let dx = striker.x - svgP.x; let dy = striker.y - svgP.y;
+    
     const distance = Math.hypot(dx, dy);
     if (distance > MAX_POWER) {
       dx = (dx / distance) * MAX_POWER; dy = (dy / distance) * MAX_POWER;
@@ -442,10 +527,10 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       turnSnapshotRef.current = JSON.parse(JSON.stringify(coinsRef.current));
       striker.vx = vx; striker.vy = vy;
       isMovingRef.current = true;
-      if(!isMuted) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
+      if(!isMutedRef.current) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
       
       if (playMode === "online") {
-        supabase.channel(`carrom_${matchId}`).send({
+        supabase.channel(`carrom_${matchIdRef.current}`).send({
           type: 'broadcast', event: 'shot_fired', payload: { vx, vy, startX: striker.x }
         });
       }
@@ -466,12 +551,18 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const sendEmoji = (emoji: string) => {
     setShowEmojiMenu(false);
     if (playMode === "online") {
-      supabase.channel(`carrom_${matchId}`).send({ type: 'broadcast', event: 'emoji', payload: { emoji, role: myPlayerRole } });
+      supabase.channel(`carrom_${matchIdRef.current}`).send({ type: 'broadcast', event: 'emoji', payload: { emoji, role: myPlayerRole } });
     } else {
       const newEmoji = { id: Date.now(), emoji, role: turn };
-      setFloatingEmojis((prev: {id: number, emoji: string, role: number}[]) => [...prev, newEmoji]);
-      setTimeout(() => setFloatingEmojis((prev: {id: number, emoji: string, role: number}[]) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
+      setFloatingEmojis((prev) => [...prev, newEmoji]);
+      setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
     }
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(roomCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const shouldFlipBoard = playMode === "online" && myPlayerRole === 2;
@@ -482,7 +573,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   return (
     <div className="fixed inset-0 z-[100] bg-neutral-100 dark:bg-neutral-950 flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors select-none">
       
-      {/* Dynamic Background Audio Element (Requires a file in public/sounds/ or fails silently) */}
       <audio ref={bgmRef} src="/sounds/ambient-low.mp3" loop />
 
       <style>{`
@@ -491,9 +581,12 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         .animate-slide-down { animation: slide-down 0.3s ease-out forwards; }
       `}</style>
 
+      {/* 🛡️ ARENA LOBBY PANEL */}
       {playMode === "menu" && (
         <div className="absolute inset-0 z-50 bg-neutral-100/90 dark:bg-neutral-950/90 backdrop-blur-xl flex items-center justify-center p-6">
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800/60 rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl flex flex-col gap-6 relative overflow-hidden">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-amber-500/10 dark:bg-amber-500/20 blur-3xl rounded-full pointer-events-none"></div>
+
             <div className="text-center pt-2 relative z-10">
               <div className="w-16 h-16 mx-auto bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-2xl flex items-center justify-center mb-3 shadow-[0_8px_16px_rgba(245,158,11,0.15)]">
                 <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>radio_button_checked</span>
@@ -507,8 +600,8 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
             </div>
 
             <div className="space-y-3 relative z-10">
-              <button onClick={hostMatch} className="w-full h-14 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs uppercase tracking-wider rounded-2xl active:scale-95 shadow-md">Host Network Match</button>
-              <button onClick={() => setPlayMode("local")} className="w-full h-14 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 font-bold text-xs uppercase tracking-wider rounded-2xl border border-neutral-200 dark:border-neutral-700 active:scale-95">Local Pass & Play</button>
+              <button onClick={hostMatch} className="group w-full h-14 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs uppercase tracking-wider rounded-2xl active:scale-95 shadow-md flex items-center justify-center gap-2"><span className="material-symbols-outlined">language</span> Host Network Match</button>
+              <button onClick={() => setPlayMode("local")} className="group w-full h-14 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 font-bold text-xs uppercase tracking-wider rounded-2xl border border-neutral-200 dark:border-neutral-700 active:scale-95 flex items-center justify-center gap-2"><span className="material-symbols-outlined">group</span> Local Pass & Play</button>
             </div>
 
             <div className="bg-neutral-50 dark:bg-neutral-950 p-2 rounded-[1.25rem] border border-neutral-200 dark:border-neutral-800 flex items-center relative z-10">
@@ -521,36 +614,74 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         </div>
       )}
 
-      {/* ⚔️ HEADER HUB */}
-      <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
-        <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:scale-90 shadow-sm">
-          <span className="material-symbols-outlined text-lg">close</span>
-        </button>
-        <div className="text-center">
-          <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Carrom Matrix</h1>
-          <span className={`text-[9px] font-bold uppercase tracking-widest ${playMode === "online" ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`}>
-            {playMode === "online" ? "● Live Network" : "Local Mode"}
-          </span>
+      {/* ⚔️ HEADER HUB (Unified Status Logic) */}
+      {playMode !== "menu" && (
+        <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
+          <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:scale-90 shadow-sm">
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
+          <div className="text-center">
+            <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Carrom Matrix</h1>
+            <span className={`text-[9px] font-bold uppercase tracking-widest ${playMode === "online" ? "text-emerald-500 animate-pulse" : (playMode === "host" || playMode === "join") ? "text-amber-500 animate-pulse" : "text-neutral-400"}`}>
+              {playMode === "online" ? "● Live Network" : (playMode === "host" || playMode === "join") ? "Connecting..." : "Local Mode"}
+            </span>
+          </div>
+          <div className="flex gap-2 relative">
+            <button onClick={() => setIsMuted(!isMuted)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90">
+              <span className="material-symbols-outlined text-lg">{isMuted ? "volume_off" : "volume_up"}</span>
+            </button>
+            <button onClick={() => setShowEmojiMenu(!showEmojiMenu)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90">
+              <span className="material-symbols-outlined text-lg">add_reaction</span>
+            </button>
+            {showEmojiMenu && (
+              <div className="absolute top-12 right-0 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
+                {EMOJIS.map(em => (
+                  <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1">{em}</button>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setShowRules(true)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 shadow-sm">
+              <span className="material-symbols-outlined text-lg">info</span>
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2 relative">
-          <button onClick={() => setIsMuted(!isMuted)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90">
-            <span className="material-symbols-outlined text-lg">{isMuted ? "volume_off" : "volume_up"}</span>
-          </button>
-          <button onClick={() => setShowEmojiMenu(!showEmojiMenu)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90">
-            <span className="material-symbols-outlined text-lg">add_reaction</span>
-          </button>
-          {showEmojiMenu && (
-            <div className="absolute top-12 right-0 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
-              {EMOJIS.map(em => (
-                <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1">{em}</button>
-              ))}
-            </div>
-          )}
-          <button onClick={() => setShowRules(true)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 shadow-sm">
-            <span className="material-symbols-outlined text-lg">info</span>
-          </button>
+      )}
+
+      {/* --- WAITING SCREEN --- */}
+      {(playMode === "host" || playMode === "join") && (
+        <div className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center p-6 relative z-10">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] p-8 w-full shadow-[0_20px_40px_rgba(0,0,0,0.05)] flex flex-col items-center text-center relative overflow-hidden">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-amber-500/10 dark:bg-amber-500/20 blur-3xl rounded-full pointer-events-none"></div>
+            <div className="w-16 h-16 rounded-full border-[3px] border-amber-100 dark:border-amber-900/30 border-t-amber-500 dark:border-t-amber-500 animate-spin mb-6 relative z-10"></div>
+            <h2 className="text-xl font-black text-neutral-900 dark:text-white tracking-tight uppercase relative z-10">
+              {playMode === "join" ? "Syncing Matrix..." : "Awaiting Opponent"}
+            </h2>
+            
+            {playMode === "host" && (
+              <div className="mt-8 w-full relative z-10">
+                <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-bold uppercase tracking-widest mb-2">Share This Room Code</p>
+                <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-2.5 rounded-2xl flex items-center justify-between shadow-inner">
+                  <span className="text-amber-600 dark:text-amber-400 font-mono text-2xl font-black tracking-[0.25em] pl-4 pt-1">{roomCode}</span>
+                  <button 
+                    onClick={handleCopyCode}
+                    className={`h-11 px-5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm ${
+                      copied 
+                        ? "bg-emerald-500 text-white" 
+                        : "bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 hover:scale-[1.02] active:scale-95"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
+                    {copied ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              </div>
+            )}
+            <button onClick={() => playMode === "host" ? setPlayMode("menu") : onClose()} className="w-full mt-8 py-3.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all relative z-10">
+              Cancel Match
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {showRules && (
         <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
@@ -648,10 +779,11 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                     <radialGradient id="vStriker" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#f7f9fa" /><stop offset="70%" stopColor="#e1e6eb" /><stop offset="100%" stopColor="#b5bec4" /></radialGradient>
                   </defs>
 
-                  <circle cx="48" cy="48" r={HOLE_RADIUS} fill="#110905" />
-                  <circle cx={BOARD_SIZE-48} cy="48" r={HOLE_RADIUS} fill="#110905" />
-                  <circle cx="48" cy={BOARD_SIZE-48} r={HOLE_RADIUS} fill="#110905" />
-                  <circle cx={BOARD_SIZE-48} cy={BOARD_SIZE-48} r={HOLE_RADIUS} fill="#110905" />
+                  {/* PERFECT MATHEMATICAL CORNER POCKETS */}
+                  <circle cx="0" cy="0" r={HOLE_RADIUS} fill="#110905" />
+                  <circle cx={BOARD_SIZE} cy="0" r={HOLE_RADIUS} fill="#110905" />
+                  <circle cx="0" cy={BOARD_SIZE} r={HOLE_RADIUS} fill="#110905" />
+                  <circle cx={BOARD_SIZE} cy={BOARD_SIZE} r={HOLE_RADIUS} fill="#110905" />
 
                   <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="160" fill="none" stroke="#70411d" strokeWidth="4" />
                   <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="148" fill="none" stroke="#70411d" strokeWidth="1.5" />
@@ -678,7 +810,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                     if (coin.type === "black") { fillMat = "url(#vBlack)"; edgeStroke = "#0a0a0a"; interiorRing = "#333333"; }
 
                     return (
-                      <g key={coin.id} transform={`translate(${coin.x}, ${coin.y})`} filter="url(#c-shadow)">
+                      <g key={coin.id} transform={`translate(${coin.x}, ${coin.y}) scale(${coin.scale || 1})`} filter={coin.falling ? "" : "url(#c-shadow)"}>
                         <circle r={coin.radius} fill={fillMat} stroke={edgeStroke} strokeWidth="1.5" onPointerDown={(e) => handlePointerDown(e, coin.id)} className={coin.type === "striker" && !isMovingRef.current && ((playMode === "online" && turn === myPlayerRole) || (playMode === "local" && turn === 1) || (playMode === "local" && turn === 2)) ? "cursor-grab active:cursor-grabbing" : ""} />
                         <circle r={coin.radius * 0.68} fill="none" stroke={interiorRing} strokeWidth="1.5" opacity="0.6" pointerEvents="none" />
                         <circle r={coin.radius * 0.36} fill="none" stroke={interiorRing} strokeWidth="1" opacity="0.5" pointerEvents="none" />
