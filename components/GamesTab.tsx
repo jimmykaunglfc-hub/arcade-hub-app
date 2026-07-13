@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-// 🎮 DYNAMIC CONFIGURATION: 3D App Icon Styling Restored
+// 🎮 DYNAMIC CONFIGURATION: 3D App Icon Styling & Categories
 const GAME_CATEGORIES = [
   {
     id: "strategy-cards",
@@ -31,7 +31,24 @@ const GAME_CATEGORIES = [
         shadow: "shadow-[0_8px_20px_rgba(245,158,11,0.3)]",
         url: "native://carrom" 
       },
-      // 🚨 NEW GAME INJECTED HERE: Nexus Breach!
+      {
+        id: "rune-masters",
+        title: "Rune Masters",
+        genre: "Strategy • TCG",
+        playersOnline: "2.1k active",
+        iconName: "auto_awesome",
+        themeFrom: "from-emerald-400",
+        themeTo: "to-emerald-600",
+        shadow: "shadow-[0_8px_20px_rgba(16,185,129,0.3)]",
+        url: "https://html5.gamedistribution.com/a42b9d8df2e245a4a5bb86524a806954/"
+      }
+    ]
+  },
+  {
+    id: "party-games",
+    name: "Party Games",
+    icon: "celebration",
+    games: [
       {
         id: "nexus-breach",
         title: "Nexus Breach",
@@ -53,17 +70,6 @@ const GAME_CATEGORIES = [
         themeTo: "to-purple-600",
         shadow: "shadow-[0_8px_20px_rgba(168,85,247,0.3)]",
         url: "native://glitch-deck"
-      },
-      {
-        id: "rune-masters",
-        title: "Rune Masters",
-        genre: "Strategy • TCG",
-        playersOnline: "2.1k active",
-        iconName: "auto_awesome",
-        themeFrom: "from-emerald-400",
-        themeTo: "to-emerald-600",
-        shadow: "shadow-[0_8px_20px_rgba(16,185,129,0.3)]",
-        url: "https://html5.gamedistribution.com/a42b9d8df2e245a4a5bb86524a806954/"
       }
     ]
   },
@@ -252,7 +258,7 @@ export default function GamesTab({
                       
                       <div className="absolute top-2 right-2 bg-white/90 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800 px-1.5 py-0.5 rounded-md backdrop-blur-sm shadow-sm z-20">
                         <span className="text-[8px] text-neutral-600 dark:text-neutral-300 font-bold flex items-center gap-1.5 uppercase tracking-wider">
-                          <span className={`w-1 h-1 rounded-full ${game.playersOnline === "Local Party" ? "bg-amber-500" : "bg-emerald-500 animate-pulse"}`}></span>
+                          <span className={`w-1 h-1 rounded-full ${game.playersOnline === "Local Party" || game.playersOnline === "Local Only" ? "bg-amber-500" : "bg-emerald-500 animate-pulse"}`}></span>
                           {game.playersOnline}
                         </span>
                       </div>
