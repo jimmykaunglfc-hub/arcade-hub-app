@@ -235,7 +235,7 @@ export default function ProfileTab({ isDarkMode, onToggleTheme }: ProfileTabProp
           className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 flex items-center justify-center gap-2 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-200 dark:hover:border-red-900/50 text-red-500 transition-all active:scale-[0.98] shadow-sm"
         >
           <span className="material-symbols-outlined text-lg">logout</span>
-          <span className="text-xs font-black uppercase tracking-wider">Terminate Session</span>
+          <span className="text-xs font-black uppercase tracking-wider">Logout</span>
         </button>
         
         <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest">
