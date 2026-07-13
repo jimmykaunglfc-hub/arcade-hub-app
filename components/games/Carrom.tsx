@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
-// --- PHYSICS & GAME CONSTANTS ---
+// --- ENGINE DIMENSIONS & CONSTANTS ---
 const BOARD_SIZE = 1000;
-const HOLE_RADIUS = 55;
-const STRIKER_RADIUS = 36;
-const COIN_RADIUS = 24;
-const FRICTION = 0.985;
-const RESTITUTION = 0.8; // Bounciness
+const HOLE_RADIUS = 36;       // Adjusted down for professional scale balance
+const STRIKER_RADIUS = 34;    // Proportionate premium feel
+const COIN_RADIUS = 22;       // Clear target footprint
+const FRICTION = 0.982;       // Highly smooth velvet board glide
+const RESTITUTION = 0.85;     // Clean bumper elasticity
+const MAX_POWER = 180;        // Secure force capping threshold
 
 type CoinType = "striker" | "white" | "black" | "queen";
 
@@ -25,24 +26,23 @@ interface Coin {
   active: boolean;
 }
 
-// 📐 PRECISION HEXAGONAL PACKING FOR 19 CARROM COINS
 const generateInitialCoins = (): Coin[] => {
   const coins: Coin[] = [];
   const cx = BOARD_SIZE / 2;
   const cy = BOARD_SIZE / 2;
-  const R = COIN_RADIUS * 2 + 0.5; // Distance between coin centers
+  const R = COIN_RADIUS * 2 + 0.5;
   
-  // 1. Striker (Placed on the bottom baseline)
-  coins.push({ id: "striker", type: "striker", x: cx, y: 840, vx: 0, vy: 0, mass: 2, radius: STRIKER_RADIUS, active: true });
+  // Striker base init
+  coins.push({ id: "striker", type: "striker", x: cx, y: 840, vx: 0, vy: 0, mass: 2.5, radius: STRIKER_RADIUS, active: true });
   
-  // 2. Queen (Center)
+  // Queen Core Center
   coins.push({ id: "queen", type: "queen", x: cx, y: cy, vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true });
 
-  // 3. Inner Ring (6 Coins: Alternating W/B)
+  // Concentric Hexagonal Ring Configuration (9 White, 9 Black)
   for (let i = 0; i < 6; i++) {
     const angle = i * (Math.PI / 3);
     coins.push({
-      id: `r1_${i}`,
+      id: `inner_${i}`,
       type: i % 2 === 0 ? "white" : "black",
       x: cx + R * Math.cos(angle),
       y: cy + R * Math.sin(angle),
@@ -50,26 +50,13 @@ const generateInitialCoins = (): Coin[] => {
     });
   }
 
-  // 4. Outer Ring (12 Coins: Corners and Edges)
-  for (let i = 0; i < 6; i++) {
-    // Corners of the hexagon
-    const angleC = i * (Math.PI / 3);
+  for (let i = 0; i < 12; i++) {
+    const angle = i * (Math.PI / 6);
     coins.push({
-      id: `r2_c_${i}`,
+      id: `outer_${i}`,
       type: i % 2 === 0 ? "black" : "white",
-      x: cx + (2 * R) * Math.cos(angleC),
-      y: cy + (2 * R) * Math.sin(angleC),
-      vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true
-    });
-    
-    // Edges of the hexagon
-    const angleE = i * (Math.PI / 3) + (Math.PI / 6);
-    const R3 = Math.sqrt(3) * R;
-    coins.push({
-      id: `r2_e_${i}`,
-      type: i % 2 === 0 ? "white" : "black",
-      x: cx + R3 * Math.cos(angleE),
-      y: cy + R3 * Math.sin(angleE),
+      x: cx + (R * 1.9) * Math.cos(angle),
+      y: cy + (R * 1.9) * Math.sin(angle),
       vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true
     });
   }
@@ -79,12 +66,12 @@ const generateInitialCoins = (): Coin[] => {
 
 // 🎨 AUTHENTIC SVG BASELINE DRAWING
 const Baseline = ({ transform }: { transform?: string }) => (
-  <g transform={transform} stroke="#794420" strokeWidth="4" fill="none">
+  <g transform={transform} stroke="#70411d" strokeWidth="4" fill="none">
     <path d="M 220 820 L 780 820 A 20 20 0 0 1 780 860 L 220 860 A 20 20 0 0 1 220 820 Z" />
-    <circle cx="220" cy="840" r="16" fill="#e6c387" />
-    <circle cx="780" cy="840" r="16" fill="#e6c387" />
-    <circle cx="220" cy="840" r="8" fill="#794420" />
-    <circle cx="780" cy="840" r="8" fill="#794420" />
+    <circle cx="220" cy="840" r="16" fill="#ebd097" />
+    <circle cx="780" cy="840" r="16" fill="#ebd097" />
+    <circle cx="220" cy="840" r="8" fill="#70411d" />
+    <circle cx="780" cy="840" r="8" fill="#70411d" />
   </g>
 );
 
@@ -105,30 +92,31 @@ export default function Carrom({
   const [myPlayerRole, setMyPlayerRole] = useState<1 | 2>(1);
   const [turn, setTurn] = useState<1 | 2>(1);
   
-  // Scoring
+  // Rule System Points Setup
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
   const [winner, setWinner] = useState<1 | 2 | null>(null);
+  const [showRules, setShowRules] = useState(false);
 
-  // Physics State
+  // Mechanical Core States
   const coinsRef = useRef<Coin[]>(generateInitialCoins());
   const [renderTrigger, setRenderTrigger] = useState(0);
   const isMovingRef = useRef(false);
+  const [strikerBaselinePos, setStrikerBaselinePos] = useState(500); // Horizontal slider track
   
-  // Interaction State
+  // Vector Aiming States
   const [isAiming, setIsAiming] = useState(false);
   const [aimVector, setAimVector] = useState({ x: 0, y: 0 });
   const boardRef = useRef<SVGSVGElement>(null);
 
-  // 🎉 Celebration Confetti Generator
   const confettiPieces = useMemo(() => {
-    const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6'];
-    return Array.from({ length: 60 }).map((_, i) => ({
+    const colors = ['#f59e0b', '#10b981', '#4f46e5', '#ec4899', '#3b82f6'];
+    return Array.from({ length: 50 }).map((_, i) => ({
       id: i,
       left: `${Math.random() * 100}%`,
-      animDuration: `${2 + Math.random() * 3}s`,
-      animDelay: `${Math.random() * 1.5}s`,
-      color: colors[Math.floor(Math.random() * colors.length)],
+      duration: `${1.8 + Math.random() * 2}s`,
+      delay: `${Math.random() * 1}s`,
+      color: colors[Math.floor(Math.random() * colors.length)]
     }));
   }, []);
 
@@ -136,16 +124,29 @@ export default function Carrom({
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
 
-  // 📡 REAL-TIME SYNCHRONIZATION
+  // Sync Slider State directly with Striker entity coordinates prior to physics execution
+  useEffect(() => {
+    if (isMovingRef.current) return;
+    const striker = coinsRef.current.find(c => c.type === "striker");
+    if (striker) {
+      striker.x = strikerBaselinePos;
+      striker.y = turn === 1 ? 840 : 160;
+      setRenderTrigger(prev => prev + 1);
+    }
+  }, [strikerBaselinePos, turn]);
+
+  // 📡 MULTIPLAYER REAL-TIME WIRE
   useEffect(() => {
     if (playMode !== "online" && playMode !== "host") return;
     if (!matchId) return;
 
     const channel = supabase.channel(`carrom_${matchId}`, { config: { broadcast: { self: false } } })
       .on('broadcast', { event: 'shot_fired' }, (payload) => {
-        const { vx, vy } = payload.payload;
+        const { vx, vy, startX } = payload.payload;
         const striker = coinsRef.current.find(c => c.type === "striker");
         if (striker) {
+          striker.x = startX;
+          striker.y = turn === 1 ? 840 : 160;
           striker.vx = vx;
           striker.vy = vy;
           isMovingRef.current = true;
@@ -159,6 +160,7 @@ export default function Carrom({
         setP1Score(p1S);
         setP2Score(p2S);
         setWinner(win);
+        setStrikerBaselinePos(500);
         setRenderTrigger(prev => prev + 1);
       })
       .subscribe();
@@ -175,7 +177,7 @@ export default function Carrom({
     setMatchId(joinCode.toUpperCase()); setMyPlayerRole(2); setPlayMode("online");
   };
 
-  // --- PHYSICS ENGINE ---
+  // --- 2D VECTOR MATH COLLISION PHYSICS ---
   const physicsLoop = () => {
     let moving = false;
     const coins = coinsRef.current;
@@ -189,27 +191,27 @@ export default function Carrom({
       c1.vx *= FRICTION;
       c1.vy *= FRICTION;
 
-      if (Math.abs(c1.vx) > 0.1 || Math.abs(c1.vy) > 0.1) moving = true;
+      if (Math.abs(c1.vx) > 0.08 || Math.abs(c1.vy) > 0.08) moving = true;
       else { c1.vx = 0; c1.vy = 0; }
 
-      // Wall Bounces
+      // Wall Inset Bounds Verification
       if (c1.x - c1.radius < 0) { c1.x = c1.radius; c1.vx *= -RESTITUTION; }
       if (c1.x + c1.radius > BOARD_SIZE) { c1.x = BOARD_SIZE - c1.radius; c1.vx *= -RESTITUTION; }
       if (c1.y - c1.radius < 0) { c1.y = c1.radius; c1.vy *= -RESTITUTION; }
       if (c1.y + c1.radius > BOARD_SIZE) { c1.y = BOARD_SIZE - c1.radius; c1.vy *= -RESTITUTION; }
 
-      // Pocket Detection
+      // Precision Pocket Coordinate Drop Checks
       const pockets = [
-        {x: 45, y: 45}, {x: BOARD_SIZE - 45, y: 45}, 
-        {x: 45, y: BOARD_SIZE - 45}, {x: BOARD_SIZE - 45, y: BOARD_SIZE - 45}
+        {x: 64, y: 64}, {x: BOARD_SIZE - 64, y: 64}, 
+        {x: 64, y: BOARD_SIZE - 64}, {x: BOARD_SIZE - 64, y: BOARD_SIZE - 64}
       ];
       
       for (const p of pockets) {
         const dist = Math.hypot(c1.x - p.x, c1.y - p.y);
-        if (dist < HOLE_RADIUS) {
+        if (dist < HOLE_RADIUS + 4) {
           if (c1.type === "striker") {
             c1.vx = 0; c1.vy = 0;
-            c1.x = BOARD_SIZE / 2;
+            c1.x = 500;
             c1.y = turn === 1 ? 840 : 160; 
           } else {
             c1.active = false;
@@ -217,7 +219,7 @@ export default function Carrom({
         }
       }
 
-      // Coin Collisions
+      // Sphere-to-Sphere Elastic Momentum Exchanges
       for (let j = i + 1; j < coins.length; j++) {
         let c2 = coins[j];
         if (!c2.active) continue;
@@ -266,10 +268,10 @@ export default function Carrom({
 
     coinsRef.current.forEach(c => {
       if (!c.active) {
-        if (c.type === "white") p1Points++;
-        if (c.type === "black") p2Points++;
+        if (c.type === "white") p1Points += 10;
+        if (c.type === "black") p2Points += 10;
         if (c.type === "queen") {
-            if (turn === 1) p1Points += 3; else p2Points += 3;
+          if (turn === 1) p1Points += 30; else p2Points += 30;
         }
       } else {
         if (c.type === "white") whitesLeft++;
@@ -283,9 +285,12 @@ export default function Carrom({
     if (whitesLeft === 0) win = 1;
     if (blacksLeft === 0) win = 2;
 
+    // Reposition back safely to baseline center limits
+    setStrikerBaselinePos(500);
     const striker = coinsRef.current.find(c => c.type === "striker");
     if (striker) {
-      striker.x = BOARD_SIZE / 2;
+      striker.vx = 0; striker.vy = 0;
+      striker.x = 500;
       striker.y = nextTurn === 1 ? 840 : 160;
     }
 
@@ -302,6 +307,7 @@ export default function Carrom({
     setWinner(win);
   };
 
+  // --- CONTROLLER EVENTS ---
   const handlePointerDown = (e: React.PointerEvent, coinId: string) => {
     if (coinId !== "striker" || isMovingRef.current || winner) return;
     if (playMode === "online" && turn !== myPlayerRole) return;
@@ -315,8 +321,16 @@ export default function Carrom({
     const svgP = pt.matrixTransform(boardRef.current.getScreenCTM()?.inverse());
     
     const striker = coinsRef.current.find(c => c.type === "striker")!;
-    const dx = striker.x - svgP.x;
-    const dy = striker.y - svgP.y;
+    let dx = striker.x - svgP.x;
+    let dy = striker.y - svgP.y;
+
+    // Apply strict force capping vectors
+    const distance = Math.hypot(dx, dy);
+    if (distance > MAX_POWER) {
+      dx = (dx / distance) * MAX_POWER;
+      dy = (dy / distance) * MAX_POWER;
+    }
+
     setAimVector({ x: dx, y: dy });
   };
 
@@ -324,11 +338,11 @@ export default function Carrom({
     if (!isAiming) return;
     setIsAiming(false);
     
-    const powerMultiplier = 0.15;
+    const powerMultiplier = 0.16;
     const vx = aimVector.x * powerMultiplier;
     const vy = aimVector.y * powerMultiplier;
     
-    if (Math.hypot(vx, vy) < 2) return;
+    if (Math.hypot(vx, vy) < 1.5) return;
 
     const striker = coinsRef.current.find(c => c.type === "striker");
     if (striker) {
@@ -338,7 +352,7 @@ export default function Carrom({
       
       if (playMode === "online") {
         supabase.channel(`carrom_${matchId}`).send({
-          type: 'broadcast', event: 'shot_fired', payload: { vx, vy }
+          type: 'broadcast', event: 'shot_fired', payload: { vx, vy, startX: striker.x }
         });
       }
       
@@ -351,290 +365,259 @@ export default function Carrom({
     coinsRef.current = generateInitialCoins();
     setWinner(null);
     setTurn(1);
+    setStrikerBaselinePos(500);
+    setP1Score(0);
+    setP2Score(0);
     setRenderTrigger(prev => prev + 1);
   };
 
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(roomCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  // 🧭 FIXED: Board ONLY flips in Online Mode when you are Player 2.
+  // 🧭 PERSPECTIVE LOGIC: Flipped match orientation occurs exclusively for P2 in Online environments
   const shouldFlipBoard = playMode === "online" && myPlayerRole === 2;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-neutral-100 dark:bg-neutral-950 flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors">
+    <div className="fixed inset-0 z-[100] bg-neutral-100 dark:bg-neutral-950 flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors select-none">
       
-      {/* 🎊 CELEBRATION CONFETTI CSS */}
       <style>{`
         @keyframes confetti-fall {
           0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; }
-          100% { transform: translateY(110vh) rotate(720deg) scale(0.8); opacity: 0; }
+          100% { transform: translateY(110vh) rotate(720deg) scale(0.7); opacity: 0; }
         }
       `}</style>
 
-      {/* 🛡️ MENU LOBBY */}
+      {/* 🛡️ ARENA LOBBY PANEL */}
       {playMode === "menu" && (
         <div className="absolute inset-0 z-50 bg-neutral-100/90 dark:bg-neutral-950/90 backdrop-blur-xl flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800/60 rounded-[2.5rem] p-6 w-full max-w-sm shadow-[0_20px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] flex flex-col gap-6 relative overflow-hidden">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-amber-500/10 dark:bg-amber-500/20 blur-3xl rounded-full pointer-events-none"></div>
-
-            <div className="text-center pt-2 relative z-10">
-              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/40 dark:to-amber-800/20 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center border border-amber-200/50 dark:border-amber-700/50 mb-3 shadow-[0_8px_16px_rgba(245,158,11,0.15)]">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800/60 rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl flex flex-col gap-6 relative overflow-hidden">
+            <div className="text-center pt-2">
+              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-2xl flex items-center justify-center mb-3 shadow-md">
                 <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>radio_button_checked</span>
               </div>
-              <h2 className="text-2xl font-black text-neutral-900 dark:text-white tracking-tight">Carrom Arena</h2>
-              <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest mt-1">Physics Engine Initialized</p>
+              <h2 className="text-2xl font-black tracking-tight">Carrom Arena</h2>
+              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mt-1">Multiplayer System Ready</p>
             </div>
             
-            <div className="space-y-3 relative z-10">
-              <button onClick={hostMatch} className="group w-full h-14 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center justify-between px-5 rounded-2xl hover:opacity-90 transition-all active:scale-[0.98] shadow-[0_8px_20px_rgba(245,158,11,0.25)] border border-amber-400/50 dark:border-amber-400/20">
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-amber-100">language</span>
-                  <span className="font-bold text-xs uppercase tracking-wider text-white">Host Network Match</span>
-                </div>
-                <span className="material-symbols-outlined text-amber-200 group-hover:translate-x-1 transition-transform">chevron_right</span>
-              </button>
-
-              <button onClick={() => setPlayMode("local")} className="group w-full h-14 bg-neutral-50 dark:bg-neutral-800 flex items-center justify-between px-5 rounded-2xl border border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 transition-all active:scale-[0.98] shadow-sm text-neutral-800 dark:text-neutral-200">
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-neutral-400 dark:text-neutral-500">group</span>
-                  <span className="font-bold text-xs uppercase tracking-wider">Local Pass & Play</span>
-                </div>
-                <span className="material-symbols-outlined text-neutral-400 dark:text-neutral-500 group-hover:translate-x-1 transition-transform">chevron_right</span>
-              </button>
+            <div className="space-y-3">
+              <button onClick={hostMatch} className="w-full h-14 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs uppercase tracking-wider rounded-2xl active:scale-95 shadow-md">Host Network Match</button>
+              <button onClick={() => setPlayMode("local")} className="w-full h-14 bg-neutral-50 dark:bg-neutral-800 font-bold text-xs uppercase tracking-wider rounded-2xl border border-neutral-200 dark:border-neutral-700 active:scale-95">Local Pass & Play</button>
             </div>
 
-            <div className="flex items-center gap-3 relative z-10">
-              <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800"></div>
-              <span className="text-[9px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest">Or Join Room</span>
-              <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800"></div>
-            </div>
-            
-            <div className="bg-neutral-50 dark:bg-neutral-950 p-2 rounded-[1.25rem] border border-neutral-200 dark:border-neutral-800 flex items-center shadow-inner relative z-10">
-              <input type="text" maxLength={6} placeholder="CODE" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} className="flex-1 bg-transparent text-center text-lg font-black tracking-[0.3em] placeholder-neutral-300 dark:placeholder-neutral-700 text-neutral-900 dark:text-white focus:outline-none uppercase"/>
-              <button onClick={joinMatch} disabled={joinCode.length < 6} className={`h-11 px-6 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-sm ${joinCode.length === 6 ? "bg-neutral-900 dark:bg-white text-white dark:text-black hover:scale-[1.02] active:scale-95 cursor-pointer" : "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed border border-transparent"}`}>Join</button>
+            <div className="bg-neutral-50 dark:bg-neutral-950 p-2 rounded-[1.25rem] border border-neutral-200 dark:border-neutral-800 flex items-center">
+              <input type="text" maxLength={6} placeholder="CODE" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} className="flex-1 bg-transparent text-center text-lg font-black tracking-widest focus:outline-none uppercase"/>
+              <button onClick={joinMatch} disabled={joinCode.length < 6} className="h-11 px-6 bg-neutral-900 dark:bg-white text-white dark:text-black font-black text-xs uppercase rounded-xl disabled:opacity-50">Join</button>
             </div>
 
-            <div className="pt-2 relative z-10">
-              <button onClick={onClose} className="w-full flex items-center justify-center gap-2 text-[10px] text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-widest hover:text-neutral-900 dark:hover:text-white transition-colors py-2">
-                <span className="material-symbols-outlined text-sm">exit_to_app</span>
-                Exit Arena
-              </button>
-            </div>
+            <button onClick={onClose} className="w-full py-2 text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Exit Arena</button>
           </div>
         </div>
       )}
 
-      {/* ⚔️ HEADER HUD */}
+      {/* ⚔️ GENERAL HUB HEADER */}
       <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
-        <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
+        <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:scale-90 shadow-sm">
           <span className="material-symbols-outlined text-lg">close</span>
         </button>
         <div className="text-center">
           <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Carrom Matrix</h1>
-          <span className={`text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 mt-0.5 ${playMode === "online" ? "text-emerald-500" : playMode === "host" || playMode === "join" ? "text-amber-500" : "text-neutral-400"}`}>
-            {(playMode === "online" || playMode === "host" || playMode === "join") && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>}
-            {playMode === "online" ? "Live Network" : playMode === "host" || playMode === "join" ? "Connecting..." : "Local Mode"}
+          <span className={`text-[9px] font-bold uppercase tracking-widest ${playMode === "online" ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`}>
+            {playMode === "online" ? "● Live Network" : "Local Mode"}
           </span>
         </div>
-        <div className="w-10" /> 
+        <button onClick={() => setShowRules(true)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500">
+          <span className="material-symbols-outlined text-lg">info</span>
+        </button>
       </div>
 
-      {/* --- HOSTING / JOINING WAITING SCREEN --- */}
-      {(playMode === "host" || playMode === "join") && (
-        <div className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center p-6 relative">
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] p-8 w-full shadow-[0_20px_40px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.3)] flex flex-col items-center text-center relative overflow-hidden">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-amber-500/10 dark:bg-amber-500/20 blur-3xl rounded-full pointer-events-none"></div>
-            <div className="w-16 h-16 rounded-full border-[3px] border-amber-100 dark:border-amber-900/30 border-t-amber-500 dark:border-t-amber-500 animate-spin mb-6 relative z-10"></div>
-            <h2 className="text-xl font-black text-neutral-900 dark:text-white tracking-tight uppercase relative z-10">
-              {playMode === "join" ? "Syncing Matrix..." : "Awaiting Opponent"}
-            </h2>
-            
-            {playMode === "host" && (
-              <div className="mt-8 w-full relative z-10">
-                <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-bold uppercase tracking-widest mb-2">Share This Room Code</p>
-                <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-2.5 rounded-2xl flex items-center justify-between shadow-inner">
-                  <span className="text-amber-600 dark:text-amber-400 font-mono text-2xl font-black tracking-[0.25em] pl-4 pt-1">{roomCode}</span>
-                  <button 
-                    onClick={handleCopyCode}
-                    className={`h-11 px-5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm ${
-                      copied 
-                        ? "bg-emerald-500 text-white" 
-                        : "bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 hover:scale-[1.02] active:scale-95"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
-                    {copied ? "Copied" : "Copy"}
-                  </button>
-                </div>
-              </div>
-            )}
-            <button onClick={() => playMode === "host" ? setPlayMode("menu") : onClose()} className="w-full mt-8 py-3.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700 relative z-10">
-              Cancel Match
-            </button>
+      {/* RULES INFO OVERLAY MODAL */}
+      {showRules && (
+        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 w-full max-w-xs text-center space-y-4 shadow-xl">
+            <h3 className="text-base font-black uppercase tracking-wider">Carrom Guidelines</h3>
+            <ul className="text-left text-xs space-y-2 text-neutral-600 dark:text-neutral-400 font-medium">
+              <li>🔸 White Coins Pocketed = +10 Points (P1 targets White)</li>
+              <li>🔸 Black Coins Pocketed = +10 Points (P2 targets Black)</li>
+              <li>🔸 Sinking the Red Queen yields +30 Points.</li>
+              <li>🔸 Adjust the slider baseline before dragging the striker back to aim and trigger a shot.</li>
+            </ul>
+            <button onClick={() => setShowRules(false)} className="w-full py-2.5 bg-neutral-900 dark:bg-white text-white dark:text-black font-bold text-xs uppercase tracking-wider rounded-xl">Got It</button>
           </div>
         </div>
       )}
 
-      {/* 🎮 SCOREBOARD & BOARD */}
+      {/* 🎮 SCOREBOARD DISPLAY HUGS ENGINE VIEW */}
       {(playMode === "local" || playMode === "online") && (
-        <div className="flex-1 w-full max-w-md mx-auto flex flex-col justify-start min-h-0 relative z-10">
+        <div className="flex-1 w-full max-w-md mx-auto flex flex-col justify-start min-h-0 relative z-10 px-4">
           
-          <div className="px-6 py-4 flex justify-between items-center shrink-0">
-            <div className={`flex flex-col items-center transition-all ${turn === 2 ? "scale-105" : "opacity-60"}`}>
+          <div className="py-4 flex justify-between items-center shrink-0 w-full">
+            <div className={`flex flex-col items-center transition-all ${turn === 2 ? "scale-105" : "opacity-50"}`}>
               <span className="text-xs font-black text-neutral-900 dark:text-white">{p2Score} PTS</span>
-              <div className="w-10 h-10 rounded-full bg-neutral-900 border-2 border-neutral-700 flex items-center justify-center mt-1 text-white text-xs font-bold shadow-md">P2</div>
+              <div className="w-11 h-11 rounded-full bg-neutral-950 border-2 border-neutral-800 flex items-center justify-center mt-1 text-white text-xs font-bold shadow-md">P2</div>
             </div>
             
-            <div className="px-4 py-2 bg-white dark:bg-neutral-900 rounded-full shadow-sm border border-neutral-200 dark:border-neutral-800 text-[10px] font-black uppercase tracking-widest">
-              {playMode === "online" ? (turn === myPlayerRole ? "Your Shot" : "Opponent Aiming") : `Player ${turn} Shot`}
+            <div className="px-4 py-1.5 bg-white dark:bg-neutral-900 rounded-full shadow-sm border border-neutral-200 dark:border-neutral-800 text-[9px] font-black uppercase tracking-widest text-neutral-800 dark:text-neutral-200">
+              {playMode === "online" ? (turn === myPlayerRole ? "Your Shot" : "Opponent Turn") : `Player ${turn} Turn`}
             </div>
 
-            <div className={`flex flex-col items-center transition-all ${turn === 1 ? "scale-105" : "opacity-60"}`}>
+            <div className={`flex flex-col items-center transition-all ${turn === 1 ? "scale-105" : "opacity-50"}`}>
               <span className="text-xs font-black text-neutral-900 dark:text-white">{p1Score} PTS</span>
-              <div className="w-10 h-10 rounded-full bg-[#f3ead3] border-2 border-[#dccfb4] flex items-center justify-center mt-1 text-[#8a7f6b] text-xs font-bold shadow-md">P1</div>
+              <div className="w-11 h-11 rounded-full bg-[#f4ebd4] border-2 border-[#d6c7b0] flex items-center justify-center mt-1 text-[#6b5f4c] text-xs font-bold shadow-md">P1</div>
             </div>
           </div>
 
-          <div className="flex-1 w-full flex items-center justify-center px-4 pb-6 min-h-0 relative">
+          {/* 🎯 INTEGRATED CARROM STAGE FRAME (CONTAINED TO AVOID BOTTOM CUTTING) */}
+          <div className="flex-1 w-full flex flex-col items-center justify-center min-h-0 pb-4">
             
-            {/* 🎉 VICTORY CELEBRATION DIALOG */}
+            {/* WINS CELEBRATION BOX OVERLAY */}
             {winner && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-in overflow-hidden">
-                <div className="absolute inset-0 bg-white/60 dark:bg-black/60 backdrop-blur-md rounded-[2.5rem]"></div>
+              <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-in">
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-md rounded-[2rem]"></div>
                 
                 {confettiPieces.map(p => (
-                  <div key={p.id} className="absolute top-0 z-[60] pointer-events-none" style={{
-                    left: p.left, width: '6px', height: '14px', backgroundColor: p.color, borderRadius: '4px',
-                    animation: `confetti-fall ${p.animDuration} linear ${p.animDelay} infinite`,
+                  <div key={p.id} className="absolute top-0 z-[60]" style={{
+                    left: p.left, width: '7px', height: '15px', backgroundColor: p.color, borderRadius: '3px',
+                    animation: `confetti-fall ${p.duration} linear ${p.delay} infinite`
                   }} />
                 ))}
 
-                <div className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 w-full shadow-[0_20px_40px_rgba(0,0,0,0.2)] flex flex-col items-center text-center z-50">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center mb-5 shadow-[0_4px_20px_rgba(245,158,11,0.4)] border-4 border-amber-200 dark:border-amber-900 animate-bounce">
-                    <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>emoji_events</span>
+                <div className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 w-full shadow-2xl flex flex-col items-center text-center z-50 animate-scale-up">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-yellow-600 text-white flex items-center justify-center mb-4 shadow-lg border-4 border-amber-200 dark:border-yellow-900 animate-bounce">
+                    <span className="material-symbols-outlined text-3xl">emoji_events</span>
                   </div>
-                  <h3 className="text-[10px] font-black text-amber-600 dark:text-amber-400 tracking-widest uppercase mb-1">Match Concluded</h3>
-                  <h2 className="text-3xl font-black text-neutral-900 dark:text-white tracking-tight uppercase">Congratulations!</h2>
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400 font-medium mt-3">
-                    {playMode === "online" ? (winner === myPlayerRole ? "You cleared the board!" : "Your opponent won this round.") : `Player ${winner} has completely dominated the board.`}
+                  <h3 className="text-[10px] font-black text-amber-500 tracking-widest uppercase mb-1">Victory Sequence</h3>
+                  <h2 className="text-3xl font-black tracking-tight uppercase">Arena Cleared!</h2>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium mt-3 px-2 leading-relaxed">
+                    {playMode === "online" ? (winner === myPlayerRole ? "Incredible skill! You claimed complete server victory." : "The opponent cleared the board.") : `Player ${winner} has completely pocketed their target roster!`}
                   </p>
                   
                   <div className="w-full flex gap-3 mt-8">
-                    <button onClick={onClose} className="flex-1 py-3.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm">Exit Arena</button>
-                    <button onClick={handleRematch} className="flex-1 py-3.5 bg-amber-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-[0_4px_15px_rgba(245,158,11,0.3)] hover:bg-amber-600">Play Again</button>
+                    <button onClick={onClose} className="flex-1 py-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-sm">Exit</button>
+                    <button onClick={handleRematch} className="flex-1 py-3 bg-amber-500 text-white font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-md hover:bg-amber-600">Play Next</button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* 🎯 THE REALISTIC SVG PHYSICS BOARD */}
+            {/* CASINO-GRADE RESPONSIVE CARROM FRAME */}
             <div 
-              className="w-full max-h-full aspect-square rounded-[2rem] p-3 shadow-2xl relative overflow-hidden select-none touch-none"
-              style={{ backgroundColor: '#2d1606', border: '16px solid #3e1f0e' }} // Authentic Thick Wood Frame
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerLeave={handlePointerUp}
+              className="w-full max-w-[92vw] aspect-square rounded-[2rem] p-2.5 shadow-2xl relative select-none touch-none flex items-center justify-center border-[14px] border-[#3e1f0e]"
+              style={{ backgroundColor: '#2d1606' }} 
             >
-              
-              {/* Metallic Gold Corners */}
-              <div className="absolute top-0 left-0 w-10 h-10 border-t-8 border-l-8 border-yellow-500/80 rounded-tl-xl z-10 shadow-lg pointer-events-none" />
-              <div className="absolute top-0 right-0 w-10 h-10 border-t-8 border-r-8 border-yellow-500/80 rounded-tr-xl z-10 shadow-lg pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-10 h-10 border-b-8 border-l-8 border-yellow-500/80 rounded-bl-xl z-10 shadow-lg pointer-events-none" />
-              <div className="absolute bottom-0 right-0 w-10 h-10 border-b-8 border-r-8 border-yellow-500/80 rounded-br-xl z-10 shadow-lg pointer-events-none" />
+              {/* Gold Plated Metallic Corner Mounts */}
+              <div className="absolute top-0 left-0 w-8 h-10 border-t-[6px] border-l-[6px] border-amber-500/80 rounded-tl-lg pointer-events-none" />
+              <div className="absolute top-0 right-0 w-8 h-10 border-t-[6px] border-r-[6px] border-amber-500/80 rounded-tr-lg pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-8 h-10 border-b-[6px] border-l-[6px] border-amber-500/80 rounded-bl-lg pointer-events-none" />
+              <div className="absolute bottom-0 right-0 w-8 h-10 border-b-[6px] border-r-[6px] border-amber-500/80 rounded-br-lg pointer-events-none" />
 
               <svg 
                 ref={boardRef}
                 viewBox={`0 0 ${BOARD_SIZE} ${BOARD_SIZE}`} 
-                className={`w-full h-full rounded-lg shadow-inner transition-transform duration-500 ${shouldFlipBoard ? "rotate-180" : "rotate-0"}`}
-                style={{ backgroundColor: '#e6c387' }} // Light Birch Wood Center
+                className={`w-full h-full rounded-xl shadow-inner transition-transform duration-500 ${shouldFlipBoard ? "rotate-180" : "rotate-0"}`}
+                style={{ backgroundColor: '#ebd097' }} 
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerLeave={handlePointerUp}
               >
                 <defs>
-                  <filter id="shadow">
-                    <feDropShadow dx="3" dy="5" stdDeviation="4" floodOpacity="0.4" />
+                  <filter id="c-shadow">
+                    <feDropShadow dx="2" dy="4" stdDeviation="3" floodOpacity="0.4" />
                   </filter>
-                  <radialGradient id="gradWhite" cx="30%" cy="30%" r="70%">
+                  <radialGradient id="vWhite" cx="35%" cy="30%" r="70%">
                     <stop offset="0%" stopColor="#ffffff" />
-                    <stop offset="100%" stopColor="#e2d5c3" />
+                    <stop offset="100%" stopColor="#dfd0bd" />
                   </radialGradient>
-                  <radialGradient id="gradBlack" cx="30%" cy="30%" r="70%">
-                    <stop offset="0%" stopColor="#444444" />
-                    <stop offset="100%" stopColor="#111111" />
+                  <radialGradient id="vBlack" cx="35%" cy="30%" r="70%">
+                    <stop offset="0%" stopColor="#4d4d4d" />
+                    <stop offset="100%" stopColor="#141414" />
                   </radialGradient>
-                  <radialGradient id="gradRed" cx="30%" cy="30%" r="70%">
-                    <stop offset="0%" stopColor="#ff6b6b" />
-                    <stop offset="100%" stopColor="#cc0000" />
+                  <radialGradient id="vRed" cx="35%" cy="30%" r="70%">
+                    <stop offset="0%" stopColor="#ff5959" />
+                    <stop offset="100%" stopColor="#ba0000" />
                   </radialGradient>
-                  <radialGradient id="gradStriker" cx="30%" cy="30%" r="70%">
-                    <stop offset="0%" stopColor="#fdfdfd" />
-                    <stop offset="100%" stopColor="#d8ccb8" />
+                  <radialGradient id="vStriker" cx="35%" cy="30%" r="70%">
+                    <stop offset="0%" stopColor="#f7f9fa" />
+                    <stop offset="70%" stopColor="#e1e6eb" />
+                    <stop offset="100%" stopColor="#b5bec4" />
                   </radialGradient>
                 </defs>
 
-                {/* 4 Corner Pockets */}
-                <circle cx="45" cy="45" r={HOLE_RADIUS} fill="#111" />
-                <circle cx={BOARD_SIZE-45} cy="45" r={HOLE_RADIUS} fill="#111" />
-                <circle cx="45" cy={BOARD_SIZE-45} r={HOLE_RADIUS} fill="#111" />
-                <circle cx={BOARD_SIZE-45} cy={BOARD_SIZE-45} r={HOLE_RADIUS} fill="#111" />
+                {/* 4 Boundary Pockets */}
+                <circle cx="65" cy="64" r={HOLE_RADIUS} fill="#180f08" />
+                <circle cx={BOARD_SIZE-65} cy="64" r={HOLE_RADIUS} fill="#180f08" />
+                <circle cx="65" cy={BOARD_SIZE-64} r={HOLE_RADIUS} fill="#180f08" />
+                <circle cx={BOARD_SIZE-65} cy={BOARD_SIZE-64} r={HOLE_RADIUS} fill="#180f08" />
 
-                {/* Center Markings */}
-                <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="180" fill="none" stroke="#794420" strokeWidth="4" />
-                <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="165" fill="none" stroke="#794420" strokeWidth="2" />
-                <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="28" fill="none" stroke="#794420" strokeWidth="4" />
+                {/* Concentric Center Graphics */}
+                <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="160" fill="none" stroke="#70411d" strokeWidth="4" />
+                <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="148" fill="none" stroke="#70411d" strokeWidth="1.5" />
+                <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="26" fill="none" stroke="#70411d" strokeWidth="3" />
 
-                {/* 4 Arrow Baselines */}
+                {/* 4 Tournament Guideline Tracks */}
                 <Baseline />
                 <Baseline transform={`rotate(90 ${BOARD_SIZE/2} ${BOARD_SIZE/2})`} />
                 <Baseline transform={`rotate(180 ${BOARD_SIZE/2} ${BOARD_SIZE/2})`} />
                 <Baseline transform={`rotate(270 ${BOARD_SIZE/2} ${BOARD_SIZE/2})`} />
 
-                {/* Aiming Vector Line */}
+                {/* Vector Aiming Indicator Dash Overlay */}
                 {isAiming && (
                   <line 
                     x1={coinsRef.current.find(c=>c.type==="striker")?.x} 
                     y1={coinsRef.current.find(c=>c.type==="striker")?.y} 
                     x2={(coinsRef.current.find(c=>c.type==="striker")?.x || 0) + aimVector.x} 
                     y2={(coinsRef.current.find(c=>c.type==="striker")?.y || 0) + aimVector.y} 
-                    stroke="rgba(255,255,255,0.6)" strokeWidth="8" strokeDasharray="12 12" strokeLinecap="round"
+                    stroke="#4f46e5" strokeWidth="6" strokeDasharray="10 10" strokeLinecap="round"
                   />
                 )}
 
-                {/* Coins Rendering */}
+                {/* Active Playing Pieces Render */}
                 {coinsRef.current.map(coin => {
                   if (!coin.active) return null;
                   
-                  let grad = ""; let stroke = ""; let ringStroke = "";
-                  if (coin.type === "striker") { grad = "url(#gradStriker)"; stroke = "#a39481"; ringStroke = "#8b7355"; }
-                  if (coin.type === "queen") { grad = "url(#gradRed)"; stroke = "#7f1d1d"; ringStroke = "#5c1111"; }
-                  if (coin.type === "white") { grad = "url(#gradWhite)"; stroke = "#c4b69d"; ringStroke = "#a39481"; }
-                  if (coin.type === "black") { grad = "url(#gradBlack)"; stroke = "#000000"; ringStroke = "#333333"; }
+                  let fillMat = ""; let edgeStroke = ""; let interiorRing = "";
+                  if (coin.type === "striker") { fillMat = "url(#vStriker)"; edgeStroke = "#8695a0"; interiorRing = "#61737e"; }
+                  if (coin.type === "queen") { fillMat = "url(#vRed)"; edgeStroke = "#801515"; interiorRing = "#5c0b0b"; }
+                  if (coin.type === "white") { fillMat = "url(#vWhite)"; edgeStroke = "#bdae98"; interiorRing = "#968875"; }
+                  if (coin.type === "black") { fillMat = "url(#vBlack)"; edgeStroke = "#0a0a0a"; interiorRing = "#333333"; }
 
                   return (
-                    <g key={coin.id} transform={`translate(${coin.x}, ${coin.y})`} filter="url(#shadow)">
-                      {/* Main Coin Body */}
+                    <g key={coin.id} transform={`translate(${coin.x}, ${coin.y})`} filter="url(#c-shadow)">
                       <circle 
                         r={coin.radius} 
-                        fill={grad} 
-                        stroke={stroke} 
-                        strokeWidth="2"
+                        fill={fillMat} 
+                        stroke={edgeStroke} 
+                        strokeWidth="1.5"
                         onPointerDown={(e) => handlePointerDown(e, coin.id)}
-                        className={coin.type === "striker" && !isMovingRef.current ? "cursor-grab" : ""}
+                        className={coin.type === "striker" && !isMovingRef.current && ((playMode === "online" && turn === myPlayerRole) || playMode !== "online") ? "cursor-grab active:cursor-grabbing" : ""}
                       />
-                      {/* Inner 3D Carved Rings */}
-                      <circle r={coin.radius * 0.7} fill="none" stroke={ringStroke} strokeWidth="2" opacity="0.6" pointerEvents="none" />
-                      <circle r={coin.radius * 0.4} fill="none" stroke={ringStroke} strokeWidth="1" opacity="0.6" pointerEvents="none" />
-                      
-                      {/* Intricate center detail for Striker */}
+                      <circle r={coin.radius * 0.68} fill="none" stroke={interiorRing} strokeWidth="1.5" opacity="0.6" pointerEvents="none" />
+                      <circle r={coin.radius * 0.36} fill="none" stroke={interiorRing} strokeWidth="1" opacity="0.5" pointerEvents="none" />
                       {coin.type === "striker" && (
-                         <path d="M 0,-12 L 3,-3 L 12,0 L 3,3 L 0,12 L -3,3 L -12,0 L -3,-3 Z" fill={ringStroke} opacity="0.4" pointerEvents="none"/>
+                         <circle r="6" fill="#ef4444" opacity="0.7" pointerEvents="none"/>
                       )}
                     </g>
                   );
                 })}
               </svg>
             </div>
+
+            {/* 🎚️ FIXED BASELINE SLIDER ACTION CONTROLLER */}
+            <div className="w-full max-w-[88vw] mt-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-3 rounded-2xl shadow-sm shrink-0 flex flex-col gap-1.5">
+              <div className="flex justify-between items-center px-1">
+                <span className="text-[9px] font-black text-neutral-400 uppercase tracking-wider">Striker Adjustment Track</span>
+                <span className="text-[9px] font-bold px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 rounded-md border border-neutral-200/50 dark:border-neutral-700/50">
+                  X: {Math.round(strikerBaselinePos)}
+                </span>
+              </div>
+              <input 
+                type="range" 
+                min={240} 
+                max={760} 
+                step={2}
+                value={strikerBaselinePos}
+                disabled={isMovingRef.current || !!winner || (playMode === "online" && turn !== myPlayerRole)}
+                onChange={(e) => setStrikerBaselinePos(Number(e.target.value))}
+                className="w-full h-2 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-500 disabled:opacity-40 disabled:cursor-not-allowed"
+              />
+            </div>
+
           </div>
         </div>
       )}
