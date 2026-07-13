@@ -72,6 +72,17 @@ const GAME_CATEGORIES = [
         url: "native://liars-dice" 
       },
       {
+        id: "neural-duel",
+        title: "Neural Duel",
+        genre: "Reflex • PvP",
+        playersOnline: "Local Party",
+        iconName: "bolt",
+        themeFrom: "from-cyan-500",
+        themeTo: "to-emerald-500",
+        shadow: "shadow-[0_8px_20px_rgba(6,182,212,0.3)]",
+        url: "native://neural-duel" 
+      },
+      {
         id: "glitch-deck",
         title: "Glitch Deck",
         genre: "Cyberpunk • TCG",
