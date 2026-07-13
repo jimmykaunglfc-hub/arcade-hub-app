@@ -175,6 +175,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const turnSnapshotRef = useRef<Coin[]>([]);
   const [renderTrigger, setRenderTrigger] = useState(0);
   const isMovingRef = useRef(false);
+  const didIShootRef = useRef(false); // 🛡️ CRITICAL LOCK: Solves the Infinite Turn Bouncing Bug
   
   const [p1Slider, setP1Slider] = useState(500);
   const [p2Slider, setP2Slider] = useState(500); 
@@ -189,7 +190,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const turnRef = useRef(turn);
   const myPlayerRoleRef = useRef(myPlayerRole);
   const gameRuleModeRef = useRef(gameRuleMode);
-  const matchIdRef = useRef(matchId);
 
   // 🧭 PERSPECTIVE LOGIC: Rotates the board 180 degrees ONLY for P2 in Online Mode
   const shouldFlipBoard = playMode === "online" && myPlayerRole === 2;
@@ -198,7 +198,6 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   useEffect(() => { turnRef.current = turn; }, [turn]);
   useEffect(() => { myPlayerRoleRef.current = myPlayerRole; }, [myPlayerRole]);
   useEffect(() => { gameRuleModeRef.current = gameRuleMode; }, [gameRuleMode]);
-  useEffect(() => { matchIdRef.current = matchId; }, [matchId]);
 
   const confettiPieces = useMemo(() => {
     const colors = ['#f59e0b', '#10b981', '#4f46e5', '#ec4899', '#3b82f6'];
@@ -264,7 +263,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     }
   }, [toast]);
 
-  // 🎶 ATMOSPHERIC LOW-TONE BGM ENGINE (Zero Dependency)
+  // 🎶 ATMOSPHERIC LOW-TONE BGM ENGINE
   useEffect(() => {
     if (isMuted || playMode === "menu" || typeof window === 'undefined') return;
     try {
@@ -277,9 +276,9 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       const gainNode = ctx.createGain();
       
       osc1.type = 'sine'; 
-      osc1.frequency.value = 65.41; // C2 Low Hum
+      osc1.frequency.value = 65.41; 
       osc2.type = 'sine'; 
-      osc2.frequency.value = 98.00; // G2 Fifth
+      osc2.frequency.value = 98.00; 
       
       gainNode.gain.value = 0.04; 
       
@@ -368,6 +367,8 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
           strikerObj.vx = vx;
           strikerObj.vy = vy;
           isMovingRef.current = true;
+          // The receiving player does NOT act as authoritative shooter
+          didIShootRef.current = false; 
           turnSnapshotRef.current = JSON.parse(JSON.stringify(coinsRef.current));
           requestAnimationFrame(physicsLoop);
         }
@@ -547,9 +548,11 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       requestAnimationFrame(physicsLoop);
     } else {
       isMovingRef.current = false;
-      // 🛡️ AUTHORITATIVE TURN CALCULATION (Only the shooter evaluates rules)
-      if (playMode !== "online" || turnRef.current === myPlayerRoleRef.current) {
+      // 🛡️ AUTHORITATIVE TURN CALCULATION LOCK
+      // Resolves the race condition: Only evaluate the turn if YOU took the shot.
+      if (playMode === "local" || didIShootRef.current) {
         evaluateTurnEnd();
+        didIShootRef.current = false; // Reset lock
       }
     }
   };
@@ -725,6 +728,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       strikerObj.vx = vx; 
       strikerObj.vy = vy;
       isMovingRef.current = true;
+      didIShootRef.current = true; // 🛡️ CRITICAL LOCK: Claims evaluation rights for this shot
       if(!isMutedRef.current) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
       
       if (playMode === "online" && channelRef.current) {
