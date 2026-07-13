@@ -5,10 +5,14 @@ import { supabase } from "../../lib/supabaseClient";
 
 // --- HYPER-REALISTIC ENGINE CONSTANTS ---
 const BOARD_SIZE = 1000;
-const HOLE_RADIUS = 65;       // Authentic corner pocket size
-const POCKET_TRIGGER = 50;    // Coin must fall deeply into the corner to drop
+const FRAME_THICKNESS = 35;   // True thickness of the wooden bumper
+const BOUND_MIN = FRAME_THICKNESS;
+const BOUND_MAX = BOARD_SIZE - FRAME_THICKNESS;
+const HOLE_POS = 45;          // Pockets perfectly nestled into the corners
+const HOLE_RADIUS = 55;       
+const POCKET_TRIGGER = 35;    // Coin must fall deeply over the hole to drop
 const STRIKER_RADIUS = 34;    
-const COIN_RADIUS = 24;       
+const COIN_RADIUS = 22;       
 const FRICTION = 0.985;       
 const RESTITUTION = 0.85;     // High quality hardwood bounce
 const MAX_POWER = 260;        
@@ -81,7 +85,7 @@ const generateInitialCoins = (): Coin[] => {
   const cy = BOARD_SIZE / 2;
   const R = COIN_RADIUS * 2 + 1; 
   
-  coins.push({ id: "striker", type: "striker", x: cx, y: 820, vx: 0, vy: 0, mass: 3, radius: STRIKER_RADIUS, active: true, scale: 1 });
+  coins.push({ id: "striker", type: "striker", x: cx, y: 840, vx: 0, vy: 0, mass: 3, radius: STRIKER_RADIUS, active: true, scale: 1 });
   coins.push({ id: "queen", type: "queen", x: cx, y: cy, vx: 0, vy: 0, mass: 1, radius: COIN_RADIUS, active: true, scale: 1 });
 
   for (let i = 0; i < 6; i++) {
@@ -105,15 +109,13 @@ const generateInitialCoins = (): Coin[] => {
   return coins;
 };
 
-// 🎨 AUTHENTIC CARROM DOUBLE-LINE BASELINES
 const Baseline = ({ transform }: { transform?: string }) => (
   <g transform={transform} stroke="#70411d" strokeWidth="4" fill="none">
-    <path d="M 220 800 L 780 800" />
-    <path d="M 220 840 L 780 840" />
-    <circle cx="220" cy="820" r="16" fill="#ebd097" />
-    <circle cx="780" cy="820" r="16" fill="#ebd097" />
-    <circle cx="220" cy="820" r="8" fill="#70411d" />
-    <circle cx="780" cy="820" r="8" fill="#70411d" />
+    <path d="M 220 820 L 780 820 A 20 20 0 0 1 780 860 L 220 860 A 20 20 0 0 1 220 820 Z" />
+    <circle cx="220" cy="840" r="16" fill="#ebd097" />
+    <circle cx="780" cy="840" r="16" fill="#ebd097" />
+    <circle cx="220" cy="840" r="8" fill="#70411d" />
+    <circle cx="780" cy="840" r="8" fill="#70411d" />
   </g>
 );
 
@@ -180,7 +182,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
 
-  // 🤝 AUTO-CONNECT FROM CHAT INVITATION
+  // 🤝 AUTO-CONNECT FROM CHAT
   useEffect(() => {
     if (preloadedMatchId && myUserId) {
       const connectFromChat = async () => {
@@ -219,14 +221,14 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     const striker = coinsRef.current.find(c => c.type === "striker");
     if (striker && striker.active && !striker.falling) {
       striker.x = turn === 1 ? p1Slider : p2Slider;
-      striker.y = turn === 1 ? 820 : 180;
+      striker.y = turn === 1 ? 840 : 160;
       setRenderTrigger(prev => prev + 1);
     }
   }, [p1Slider, p2Slider, turn]);
 
-  // 📡 MULTIPLAYER CONTINUOUS PING RESOLVER
+  // 📡 MULTIPLAYER PING RESOLVER
   useEffect(() => {
-    if (!matchId) return;
+    if (!matchId || (playMode !== "host" && playMode !== "join" && playMode !== "online")) return;
 
     const channel = supabase.channel(`carrom_${matchId}`, { config: { broadcast: { self: false } } });
 
@@ -256,7 +258,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         if (striker) {
           if(!isMutedRef.current) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
           striker.x = startX;
-          striker.y = turnRef.current === 1 ? 820 : 180;
+          striker.y = turnRef.current === 1 ? 840 : 160;
           striker.vx = vx;
           striker.vy = vy;
           isMovingRef.current = true;
@@ -293,7 +295,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       clearInterval(pingInterval);
       supabase.removeChannel(channel); 
     };
-  }, [matchId]);
+  }, [matchId, playMode]);
 
   const hostMatch = () => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -304,7 +306,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     setMatchId(joinCode.toUpperCase()); setMyPlayerRole(2); setPlayMode("join");
   };
 
-  // --- PHYSICS ENGINE (WITH DROP ANIMATIONS) ---
+  // --- PERFECTED PHYSICS ENGINE ---
   const physicsLoop = () => {
     let moving = false;
     const coins = coinsRef.current;
@@ -324,7 +326,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         if (c1.scale < 0.1) {
           if (c1.type === "striker") {
             c1.falling = false; c1.scale = 1; c1.vx = 0; c1.vy = 0;
-            c1.x = 500; c1.y = turnRef.current === 1 ? 820 : 180;
+            c1.x = 500; c1.y = turnRef.current === 1 ? 840 : 160;
           } else {
             c1.active = false;
           }
@@ -340,18 +342,18 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       if (Math.abs(c1.vx) > 0.08 || Math.abs(c1.vy) > 0.08) moving = true;
       else { c1.vx = 0; c1.vy = 0; }
 
-      // 🪵 MATHEMATICALLY PERFECT WALL BOUNDARIES (0 to 1000)
+      // 🪵 MATHEMATICAL WOODEN FRAME BOUNDARIES
       let hitWall = false;
-      if (c1.x - c1.radius < 0) { c1.x = c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
-      if (c1.x + c1.radius > BOARD_SIZE) { c1.x = BOARD_SIZE - c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
-      if (c1.y - c1.radius < 0) { c1.y = c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
-      if (c1.y + c1.radius > BOARD_SIZE) { c1.y = BOARD_SIZE - c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
+      if (c1.x - c1.radius < BOUND_MIN) { c1.x = BOUND_MIN + c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
+      if (c1.x + c1.radius > BOUND_MAX) { c1.x = BOUND_MAX - c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
+      if (c1.y - c1.radius < BOUND_MIN) { c1.y = BOUND_MIN + c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
+      if (c1.y + c1.radius > BOUND_MAX) { c1.y = BOUND_MAX - c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
       if (hitWall && !isMutedRef.current && Math.hypot(c1.vx, c1.vy) > 2) playSound('bounce', 0.5);
 
-      // 🕳️ ABSOLUTE CORNER POCKET DETECTION
+      // 🕳️ TRUE CORNER POCKET DETECTION
       const pockets = [
-        {x: 0, y: 0}, {x: BOARD_SIZE, y: 0}, 
-        {x: 0, y: BOARD_SIZE}, {x: BOARD_SIZE, y: BOARD_SIZE}
+        {x: HOLE_POS, y: HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: HOLE_POS}, 
+        {x: HOLE_POS, y: BOARD_SIZE - HOLE_POS}, {x: BOARD_SIZE - HOLE_POS, y: BOARD_SIZE - HOLE_POS}
       ];
       
       for (const p of pockets) {
@@ -460,7 +462,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     const striker = currentCoins.find(c => c.type === "striker");
     if (striker) {
       striker.active = true; striker.vx = 0; striker.vy = 0;
-      striker.x = 500; striker.y = nextTurn === 1 ? 820 : 180;
+      striker.x = 500; striker.y = nextTurn === 1 ? 840 : 160;
     }
     setP1Slider(500); setP2Slider(500);
 
@@ -614,7 +616,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         </div>
       )}
 
-      {/* ⚔️ HEADER HUB (Unified Status Logic) */}
+      {/* ⚔️ HEADER HUB */}
       {playMode !== "menu" && (
         <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
           <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:scale-90 shadow-sm">
@@ -765,12 +767,14 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
               </div>
             )}
 
-            <div className="relative w-full max-w-[95vw] aspect-square rounded-[2.5rem] bg-[#3e1f0e] shadow-2xl p-4 flex items-center justify-center">
+            {/* PRECISION SVG CONTAINMENT (Prevents Corner Clipping) */}
+            <div className="relative w-full max-w-[95vw] aspect-square rounded-[2rem] bg-[#3e1f0e] shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-3 flex items-center justify-center">
+              
               <div 
-                className="relative w-full h-full bg-[#ebd097] rounded-[1.5rem] overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] border-[6px] border-[#2d1606] touch-none select-none"
+                className="relative w-full h-full bg-[#ebd097] rounded-[1rem] overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] border-[4px] border-[#2d1606] touch-none select-none"
                 onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp}
               >
-                <svg ref={boardRef} viewBox={`0 0 ${BOARD_SIZE} ${BOARD_SIZE}`} className={`w-full h-full transition-transform duration-500 ${shouldFlipBoard ? "rotate-180" : "rotate-0"}`}>
+                <svg ref={boardRef} viewBox={`0 0 ${BOARD_SIZE} ${BOARD_SIZE}`} className={`w-full h-full transition-transform duration-500 ${shouldFlipBoard ? "rotate-180" : "rotate-0"}`} style={{ display: 'block' }}>
                   <defs>
                     <filter id="c-shadow"><feDropShadow dx="3" dy="5" stdDeviation="4" floodOpacity="0.4" /></filter>
                     <radialGradient id="vWhite" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#ffffff" /><stop offset="100%" stopColor="#dfd0bd" /></radialGradient>
@@ -779,11 +783,15 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                     <radialGradient id="vStriker" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#f7f9fa" /><stop offset="70%" stopColor="#e1e6eb" /><stop offset="100%" stopColor="#b5bec4" /></radialGradient>
                   </defs>
 
-                  {/* PERFECT MATHEMATICAL CORNER POCKETS */}
-                  <circle cx="0" cy="0" r={HOLE_RADIUS} fill="#110905" />
-                  <circle cx={BOARD_SIZE} cy="0" r={HOLE_RADIUS} fill="#110905" />
-                  <circle cx="0" cy={BOARD_SIZE} r={HOLE_RADIUS} fill="#110905" />
-                  <circle cx={BOARD_SIZE} cy={BOARD_SIZE} r={HOLE_RADIUS} fill="#110905" />
+                  {/* MATHEMATICALLY PERFECT WOODEN POCKETS */}
+                  {/* Drawing the actual frame cutout holes on the inside of the wooden boundary */}
+                  <path d={`M 0 0 L ${HOLE_POS*2} 0 A ${HOLE_RADIUS} ${HOLE_RADIUS} 0 0 0 0 ${HOLE_POS*2} Z`} fill="#110905" />
+                  <path d={`M ${BOARD_SIZE} 0 L ${BOARD_SIZE} ${HOLE_POS*2} A ${HOLE_RADIUS} ${HOLE_RADIUS} 0 0 0 ${BOARD_SIZE-HOLE_POS*2} 0 Z`} fill="#110905" />
+                  <path d={`M 0 ${BOARD_SIZE} L 0 ${BOARD_SIZE-HOLE_POS*2} A ${HOLE_RADIUS} ${HOLE_RADIUS} 0 0 0 ${HOLE_POS*2} ${BOARD_SIZE} Z`} fill="#110905" />
+                  <path d={`M ${BOARD_SIZE} ${BOARD_SIZE} L ${BOARD_SIZE-HOLE_POS*2} ${BOARD_SIZE} A ${HOLE_RADIUS} ${HOLE_RADIUS} 0 0 0 ${BOARD_SIZE} ${BOARD_SIZE-HOLE_POS*2} Z`} fill="#110905" />
+
+                  {/* Full Wooden Internal Overlay Bumper Frame */}
+                  <rect x="0" y="0" width={BOARD_SIZE} height={BOARD_SIZE} fill="none" stroke="#2d1606" strokeWidth={FRAME_THICKNESS * 2} />
 
                   <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="160" fill="none" stroke="#70411d" strokeWidth="4" />
                   <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="148" fill="none" stroke="#70411d" strokeWidth="1.5" />
@@ -794,7 +802,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                   <Baseline transform={`rotate(180 ${BOARD_SIZE/2} ${BOARD_SIZE/2})`} />
                   <Baseline transform={`rotate(270 ${BOARD_SIZE/2} ${BOARD_SIZE/2})`} />
 
-                  {isAiming && striker && (
+                  {isAiming && striker && !striker.falling && (
                     <>
                       <line x1={striker.x} y1={striker.y} x2={striker.x + aimVector.x} y2={striker.y + aimVector.y} stroke={isMaxPower ? "#ef4444" : "#4f46e5"} strokeWidth="8" strokeDasharray="12 12" strokeLinecap="round" opacity="0.8" />
                       <circle cx={striker.x + aimVector.x} cy={striker.y + aimVector.y} r={striker.radius} fill={isMaxPower ? "#ef4444" : "#4f46e5"} opacity="0.2" />

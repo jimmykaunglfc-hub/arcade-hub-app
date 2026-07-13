@@ -414,16 +414,16 @@ export default function Checkers({
       )}
 
       {(playMode === "local" || playMode === "online") && (
-        <div className="flex-1 w-full max-w-md mx-auto flex flex-col justify-start min-h-0 relative">
+        <div className="flex-1 w-full max-w-md mx-auto flex flex-col justify-start min-h-0 relative z-10">
           
           {/* Scoreboard HUD */}
           <div className="px-6 py-4 flex justify-between items-center shrink-0">
             <div className={`flex flex-col items-center transition-all duration-300 ${turn === P2 ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
               <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">{p2Score}</span>
+                <span className="text-xs font-black text-[#5c3a21] dark:text-[#cfaa75]">{p2Score}</span>
                 <span className="text-[8px] text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">Wins</span>
               </div>
-              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-white dark:bg-neutral-900 border-emerald-500 text-emerald-500`}>
+              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-[#4d2f1d] border-[#362114] text-white`}>
                 <span className="font-black text-sm">P2</span>
               </div>
               <span className="text-[9px] font-bold text-neutral-500 dark:text-neutral-400 mt-2 uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 rounded-md border border-neutral-300 dark:border-neutral-700">
@@ -440,9 +440,9 @@ export default function Checkers({
             <div className={`flex flex-col items-center transition-all duration-300 ${turn === P1 ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="text-[8px] text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">Wins</span>
-                <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{p1Score}</span>
+                <span className="text-xs font-black text-[#f3ead3] dark:text-white">{p1Score}</span>
               </div>
-              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-white dark:bg-neutral-900 border-indigo-500 text-indigo-500`}>
+              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-[#f3ead3] border-[#dccfb4] text-[#8a7f6b]`}>
                 <span className="font-black text-sm">P1</span>
               </div>
               <span className="text-[9px] font-bold text-neutral-500 dark:text-neutral-400 mt-2 uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 rounded-md border border-neutral-300 dark:border-neutral-700">
@@ -488,7 +488,7 @@ export default function Checkers({
                 <div className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 w-full shadow-[0_20px_40px_rgba(0,0,0,0.2)] flex flex-col items-center text-center z-50">
                   <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/5 to-transparent rounded-3xl pointer-events-none"></div>
 
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 text-white flex items-center justify-center mb-5 shadow-[0_4px_20px_rgba(79,70,229,0.4)] border-4 border-indigo-200 dark:border-indigo-900 animate-bounce">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 text-white flex items-center justify-center mb-5 shadow-[0_4px_20px_rgba(250,204,21,0.4)] border-4 border-yellow-200 dark:border-yellow-900 animate-bounce">
                     <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>emoji_events</span>
                   </div>
                   
@@ -512,9 +512,9 @@ export default function Checkers({
               </div>
             )}
 
-            {/* CASINO-GRADE BOARD FRAME */}
-            <div className="w-full max-h-full aspect-square bg-gradient-to-b from-neutral-200 to-neutral-300 dark:from-neutral-700 dark:to-neutral-800 rounded-3xl p-2 shadow-[0_15px_35px_rgba(0,0,0,0.2)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.6)] border border-white/60 dark:border-white/10 relative">
-              <div className={`w-full h-full grid grid-cols-8 grid-rows-8 rounded-2xl overflow-hidden border-4 border-neutral-800 dark:border-black bg-neutral-800 dark:bg-black shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] transition-transform duration-500 ${
+            {/* CLASSIC WOODEN BOARD FRAME */}
+            <div className="w-full max-h-full aspect-square bg-[#e6c48f] rounded-[1.5rem] p-3 shadow-[0_15px_35px_rgba(0,0,0,0.3)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.8)] border border-[#cfaa75] relative">
+              <div className={`w-full h-full grid grid-cols-8 grid-rows-8 border-4 border-[#333] shadow-[inset_0_0_20px_rgba(0,0,0,0.4)] transition-transform duration-500 ${
                 shouldFlipBoard ? "rotate-180" : "rotate-0"
               }`}>
                 {viewIndices.map((r) => 
@@ -522,37 +522,47 @@ export default function Checkers({
                     const playable = isPlayableSquare(r, c);
                     
                     const squareClass = playable 
-                      ? "bg-neutral-800 dark:bg-neutral-900 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] cursor-pointer" 
-                      : "bg-neutral-300 dark:bg-neutral-200";
+                      ? "bg-[#1a1a1a] shadow-[inset_0_2px_6px_rgba(0,0,0,0.5)] cursor-pointer" 
+                      : "bg-[#e6c48f]";
                     
                     const isSelected = selected?.r === r && selected?.c === c;
                     const isTarget = activeMoveTargets.some((m) => m.r === r && m.c === c);
                     const piece = board[r][c];
                     
-                    // 🎲 3D TACTILE POKER CHIP RENDERING
-                    let chipOuter = "";
-                    let chipInner = "";
+                    // 🪵 PREMIUM WOODEN PIECE STYLING
+                    let pieceOuter = "";
+                    let pieceRing = "";
+                    let pieceCenter = "";
+                    let starColor = "";
                     
                     if (piece === P1 || piece === P1_KING) {
-                      chipOuter = "bg-gradient-to-b from-indigo-400 to-indigo-800 shadow-[0_5px_10px_rgba(0,0,0,0.5),inset_0_2px_2px_rgba(255,255,255,0.4),inset_0_-4px_4px_rgba(0,0,0,0.4)] ring-1 ring-indigo-900";
-                      chipInner = "border-[2px] border-indigo-900/60 bg-gradient-to-br from-indigo-500 to-indigo-900 shadow-[inset_0_2px_5px_rgba(0,0,0,0.5)]";
+                      pieceOuter = "bg-[#f3ead3] shadow-[0_4px_6px_rgba(0,0,0,0.5)]";
+                      pieceRing = "border-[#dccfb4]";
+                      pieceCenter = "bg-[#dccfb4]";
+                      starColor = "text-[#bdae93]";
                     } else if (piece === P2 || piece === P2_KING) {
-                      chipOuter = "bg-gradient-to-b from-emerald-400 to-emerald-800 shadow-[0_5px_10px_rgba(0,0,0,0.5),inset_0_2px_2px_rgba(255,255,255,0.4),inset_0_-4px_4px_rgba(0,0,0,0.4)] ring-1 ring-emerald-900";
-                      chipInner = "border-[2px] border-emerald-900/60 bg-gradient-to-br from-emerald-500 to-emerald-900 shadow-[inset_0_2px_5px_rgba(0,0,0,0.5)]";
+                      pieceOuter = "bg-[#4d2f1d] shadow-[0_4px_6px_rgba(0,0,0,0.6)]";
+                      pieceRing = "border-[#362114]";
+                      pieceCenter = "bg-[#362114]";
+                      starColor = "text-[#24160d]";
                     }
 
                     return (
                       <div 
                         key={`${r}-${c}`}
                         onClick={() => playable && handleSquareClick(r, c)}
-                        className={`relative w-full h-full flex items-center justify-center transition-colors ${squareClass} ${isSelected ? "ring-inset ring-2 ring-indigo-400 bg-indigo-900/40" : ""} ${isTarget ? "bg-indigo-500/30" : ""}`}
+                        className={`relative w-full h-full flex items-center justify-center transition-colors ${squareClass} ${isSelected ? "ring-inset ring-2 ring-[#4f46e5] bg-indigo-900/40" : ""} ${isTarget ? "bg-indigo-500/30" : ""}`}
                       >
-                        {isTarget && <div className="w-3 h-3 rounded-full bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.8)] animate-pulse"></div>}
+                        {isTarget && <div className="w-3 h-3 rounded-full bg-[#4f46e5] shadow-[0_0_10px_rgba(79,70,229,0.8)] animate-pulse"></div>}
 
                         {piece !== EMPTY && (
-                          <div className={`w-[85%] h-[85%] rounded-full flex items-center justify-center transition-all duration-300 ${chipOuter} ${shouldFlipBoard ? "rotate-180" : "rotate-0"} ${isSelected ? "scale-110 ring-4 ring-white dark:ring-neutral-900" : ""}`}>
-                             <div className={`w-[70%] h-[70%] rounded-full flex items-center justify-center ${chipInner}`}>
-                                 {(piece === P1_KING || piece === P2_KING) && <span className="material-symbols-outlined text-[18px] text-white/90 drop-shadow-md" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>}
+                          <div className={`w-[85%] h-[85%] rounded-full flex items-center justify-center transition-all duration-300 ${pieceOuter} ${shouldFlipBoard ? "rotate-180" : "rotate-0"} ${isSelected ? "scale-110 ring-4 ring-[#4f46e5]" : ""}`}>
+                             <div className={`w-[75%] h-[75%] rounded-full border-[1.5px] flex items-center justify-center ${pieceRing}`}>
+                                 <div className={`w-[50%] h-[50%] rounded-full border-[1.5px] flex items-center justify-center ${pieceRing}`}>
+                                     {(piece === P1_KING || piece === P2_KING) 
+                                         ? <span className={`material-symbols-outlined text-[20px] drop-shadow-sm ${starColor}`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span> 
+                                         : <div className={`w-[30%] h-[30%] rounded-full ${pieceCenter}`}></div>}
+                                 </div>
                              </div>
                           </div>
                         )}
