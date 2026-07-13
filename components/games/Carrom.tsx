@@ -119,6 +119,18 @@ const Baseline = ({ transform }: { transform?: string }) => (
   </g>
 );
 
+// 🎨 REALISTIC HOLE RENDERER
+const renderRealisticHole = (cx: number, cy: number) => (
+  <g>
+    {/* Deep Dark Pocket */}
+    <circle cx={cx} cy={cy} r={HOLE_RADIUS} fill="#0a0502" />
+    {/* Wooden Rim Cutout */}
+    <circle cx={cx} cy={cy} r={HOLE_RADIUS} fill="none" stroke="#4a2511" strokeWidth="4" />
+    {/* Inner Drop Shadow for Depth */}
+    <circle cx={cx} cy={cy} r={HOLE_RADIUS - 2} fill="none" stroke="#000000" strokeWidth="6" opacity="0.6" />
+  </g>
+);
+
 export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => void; preloadedMatchId?: string | null; }) {
   
   const [playMode, setPlayMode] = useState<"menu" | "local" | "host" | "join" | "online">(preloadedMatchId ? "join" : "menu");
@@ -783,15 +795,14 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                     <radialGradient id="vStriker" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#f7f9fa" /><stop offset="70%" stopColor="#e1e6eb" /><stop offset="100%" stopColor="#b5bec4" /></radialGradient>
                   </defs>
 
-                  {/* MATHEMATICALLY PERFECT WOODEN POCKETS */}
-                  {/* Drawing the actual frame cutout holes on the inside of the wooden boundary */}
-                  <path d={`M 0 0 L ${HOLE_POS*2} 0 A ${HOLE_RADIUS} ${HOLE_RADIUS} 0 0 0 0 ${HOLE_POS*2} Z`} fill="#110905" />
-                  <path d={`M ${BOARD_SIZE} 0 L ${BOARD_SIZE} ${HOLE_POS*2} A ${HOLE_RADIUS} ${HOLE_RADIUS} 0 0 0 ${BOARD_SIZE-HOLE_POS*2} 0 Z`} fill="#110905" />
-                  <path d={`M 0 ${BOARD_SIZE} L 0 ${BOARD_SIZE-HOLE_POS*2} A ${HOLE_RADIUS} ${HOLE_RADIUS} 0 0 0 ${HOLE_POS*2} ${BOARD_SIZE} Z`} fill="#110905" />
-                  <path d={`M ${BOARD_SIZE} ${BOARD_SIZE} L ${BOARD_SIZE-HOLE_POS*2} ${BOARD_SIZE} A ${HOLE_RADIUS} ${HOLE_RADIUS} 0 0 0 ${BOARD_SIZE} ${BOARD_SIZE-HOLE_POS*2} Z`} fill="#110905" />
-
-                  {/* Full Wooden Internal Overlay Bumper Frame */}
+                  {/* 1. Full Wooden Internal Overlay Bumper Frame */}
                   <rect x="0" y="0" width={BOARD_SIZE} height={BOARD_SIZE} fill="none" stroke="#2d1606" strokeWidth={FRAME_THICKNESS * 2} />
+
+                  {/* 2. MATHEMATICALLY PERFECT & REALISTIC WOODEN POCKETS */}
+                  {renderRealisticHole(HOLE_POS, HOLE_POS)}
+                  {renderRealisticHole(BOARD_SIZE - HOLE_POS, HOLE_POS)}
+                  {renderRealisticHole(HOLE_POS, BOARD_SIZE - HOLE_POS)}
+                  {renderRealisticHole(BOARD_SIZE - HOLE_POS, BOARD_SIZE - HOLE_POS)}
 
                   <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="160" fill="none" stroke="#70411d" strokeWidth="4" />
                   <circle cx={BOARD_SIZE/2} cy={BOARD_SIZE/2} r="148" fill="none" stroke="#70411d" strokeWidth="1.5" />
