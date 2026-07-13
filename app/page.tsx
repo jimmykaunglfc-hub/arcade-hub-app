@@ -15,7 +15,8 @@ import GamePlayer from "../components/GamePlayer";
 import GlitchDeck from "../components/games/GlitchDeck";
 import Checkers from "../components/games/Checkers";
 import Carrom from "../components/games/Carrom";
-import NexusBreach from "../components/games/NexusBreach"; // 👈 New Game Imported!
+import NexusBreach from "../components/games/NexusBreach"; 
+import LiarsDice from "../components/games/LiarsDice"; // 👈 Liar's Dice Imported!
 import AuthView from "../components/AuthView";
 
 export default function Home() {
@@ -99,6 +100,10 @@ export default function Home() {
         />
       ) : playingGame === "native://nexus-breach" ? (
         <NexusBreach 
+          onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} 
+        />
+      ) : playingGame === "native://liars-dice" ? (
+        <LiarsDice 
           onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} 
         />
       ) : playingGame ? (

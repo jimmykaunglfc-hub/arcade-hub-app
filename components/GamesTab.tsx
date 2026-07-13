@@ -61,6 +61,17 @@ const GAME_CATEGORIES = [
         url: "native://nexus-breach" 
       },
       {
+        id: "liars-dice",
+        title: "Liar's Dice",
+        genre: "Bluffing • Party",
+        playersOnline: "Local Party",
+        iconName: "casino",
+        themeFrom: "from-zinc-600",
+        themeTo: "to-zinc-900",
+        shadow: "shadow-[0_8px_20px_rgba(39,39,42,0.3)]",
+        url: "native://liars-dice" 
+      },
+      {
         id: "glitch-deck",
         title: "Glitch Deck",
         genre: "Cyberpunk • TCG",
