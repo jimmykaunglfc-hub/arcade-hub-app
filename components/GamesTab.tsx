@@ -92,6 +92,17 @@ const GAME_CATEGORIES = [
         themeTo: "to-purple-600",
         shadow: "shadow-[0_8px_20px_rgba(168,85,247,0.3)]",
         url: "native://glitch-deck"
+      },
+      {
+        id: "biometric-override",
+        title: "Biometric Override",
+        genre: "Finger Chooser • Party",
+        playersOnline: "Local Party",
+        iconName: "fingerprint",
+        themeFrom: "from-pink-500",
+        themeTo: "to-rose-600",
+        shadow: "shadow-[0_8px_20px_rgba(236,72,153,0.3)]",
+        url: "native://biometric-override" 
       }
     ]
   },

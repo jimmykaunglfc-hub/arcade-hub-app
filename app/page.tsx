@@ -17,7 +17,8 @@ import Checkers from "../components/games/Checkers";
 import Carrom from "../components/games/Carrom";
 import NexusBreach from "../components/games/NexusBreach"; 
 import LiarsDice from "../components/games/LiarsDice"; 
-import NeuralDuel from "../components/games/NeuralDuel"; // 👈 Neural Duel Imported!
+import NeuralDuel from "../components/games/NeuralDuel"; 
+import BiometricOverride from "../components/games/BiometricOverride"; // 👈 Biometric Override Imported!
 import AuthView from "../components/AuthView";
 
 export default function Home() {
@@ -109,6 +110,10 @@ export default function Home() {
         />
       ) : playingGame === "native://neural-duel" ? (
         <NeuralDuel 
+          onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} 
+        />
+      ) : playingGame === "native://biometric-override" ? (
+        <BiometricOverride 
           onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} 
         />
       ) : playingGame ? (
