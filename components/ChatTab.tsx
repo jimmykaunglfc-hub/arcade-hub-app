@@ -34,31 +34,25 @@ const INITIAL_BOARD = [
 ];
 
 export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: string) => void }) {
-  // 🧭 HUB NAVIGATION STATE
   const [activeView, setActiveView] = useState<"hub" | "chat">("hub");
   const [hubTab, setHubTab] = useState<"dms" | "groups" | "network">("dms");
 
-  // 👤 USER & DATA STATES
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myUsername, setMyUsername] = useState<string>("");
   const [friends, setFriends] = useState<Friend[]>([]);
   const [activeChat, setActiveChat] = useState<Friend | null>(null);
   
-  // 💬 CHAT STATES
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 🤝 INVITATION & GAME SELECTOR STATES
   const [searchTarget, setSearchTarget] = useState("");
   const [inviteStatus, setInviteStatus] = useState("");
   const [copied, setCopied] = useState(false);
   
-  // 🎮 Modal Navigation State
   const [showGameSelector, setShowGameSelector] = useState(false);
   const [inviteStep, setInviteStep] = useState<"game" | "carrom_mode">("game");
 
-  // 1. INITIALIZE IDENTITY & NETWORK
   useEffect(() => {
     const initData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -94,7 +88,6 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     initData();
   }, []);
 
-  // 2. LOAD MESSAGES (When a chat is opened)
   useEffect(() => {
     if (!myUserId || !activeChat || activeView !== "chat") return;
 
@@ -130,14 +123,12 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     return () => { supabase.removeChannel(channel); };
   }, [myUserId, activeChat, activeView]);
 
-  // Safely scroll to bottom ONLY when inside the full-screen chat modal
   useEffect(() => {
     if (activeView === "chat") {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, activeView]);
 
-  // --- ACTIONS ---
   const handleSendText = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !myUserId || !activeChat) return;
@@ -152,7 +143,6 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     await supabase.from("direct_messages").insert([payload]);
   };
 
-  // 🕹️ DATABASE-SAFE GAME INVITER
   const handleSendGameInvite = async (gameType: "checkers" | "carrom", mode?: "freestyle" | "classic") => {
     setShowGameSelector(false);
     setInviteStep("game");
@@ -179,13 +169,10 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         }]);
       }
     } else if (gameType === "carrom" && mode) {
-      // 🛡️ CRITICAL FIX: Generate a strict UUID to satisfy DB Column constraints
       const generatedUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
       });
-      
-      // Store the mode in the free-text 'game_name' column instead to prevent UUID format crashes
       const gameName = mode === "classic" ? "Carrom (Classic)" : "Carrom (Freestyle)";
 
       await supabase.from("direct_messages").insert([{
@@ -254,16 +241,15 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-
   // ============================================================================
   // RENDER VIEW 1: THE HUB 
   // ============================================================================
   if (activeView === "hub") {
     return (
-      <div className="w-full animate-fade-in text-on-surface flex flex-col gap-6 pb-6">
+      <div className="w-full animate-fade-in text-on-surface flex flex-col gap-4 pb-6">
         
-        {/* 🎛️ SEGMENTED HUB NAVIGATION (Glassmorphism) */}
-        <div className="bg-surface-container/50 backdrop-blur-md p-1.5 rounded-xl flex items-center shadow-sm border border-white/5">
+        {/* 🎛️ SEGMENTED HUB NAVIGATION */}
+        <div className="bg-surface-container/50 backdrop-blur-md p-1 rounded-xl flex items-center border border-white/5">
           {[
             { id: "dms", label: "Messages" },
             { id: "groups", label: "Groups" },
@@ -272,7 +258,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
             <button
               key={tab.id}
               onClick={() => setHubTab(tab.id as any)}
-              className={`flex-1 py-2 font-caps text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${
+              className={`flex-1 py-1.5 font-caps text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${
                 hubTab === tab.id 
                   ? "bg-surface-container-high text-primary shadow-sm" 
                   : "text-on-surface-variant hover:text-primary"
@@ -285,38 +271,38 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
 
         {/* 💬 TAB: DIRECT MESSAGES */}
         {hubTab === "dms" && (
-          <div className="flex flex-col gap-3">
-            <h3 className="font-caps text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">
+          <div className="flex flex-col gap-2">
+            <h3 className="font-caps text-[9px] font-bold text-on-surface-variant uppercase tracking-widest px-1">
               Active Conversations
             </h3>
             {friends.length === 0 ? (
-              <div className="p-8 text-center glass-panel rounded-3xl shadow-sm">
-                <span className="material-symbols-outlined text-4xl text-white/20 mb-3">chat_bubble</span>
-                <p className="font-body text-xs text-on-surface-variant font-medium leading-relaxed">
-                  Your inbox is empty.<br/>Head to the Network tab to connect.
+              <div className="p-8 text-center glass-panel rounded-2xl shadow-sm">
+                <span className="material-symbols-outlined text-3xl text-white/20 mb-2">chat_bubble</span>
+                <p className="font-body text-xs text-on-surface-variant font-medium">
+                  Your inbox is empty.<br/>Connect via the Network tab.
                 </p>
               </div>
             ) : (
-              <div className="glass-panel rounded-3xl overflow-hidden shadow-sm">
+              <div className="glass-panel rounded-2xl overflow-hidden shadow-sm">
                 {friends.map((friend, index) => (
                   <button 
                     key={friend.id}
                     onClick={() => openChat(friend)}
-                    className={`w-full p-4 flex items-center justify-between transition-all hover:bg-white/5 text-left ${
+                    className={`w-full p-3.5 flex items-center justify-between transition-all hover:bg-white/5 text-left ${
                       index !== friends.length - 1 ? 'border-b border-white/5' : ''
                     }`}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full overflow-hidden relative bg-surface-container shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full overflow-hidden relative bg-surface-container shrink-0">
                         <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover" unoptimized />
-                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-surface-tint border-[2px] border-surface rounded-full"></div>
+                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-surface-tint border-[1.5px] border-surface rounded-full"></div>
                       </div>
                       <div>
                         <h4 className="font-headline text-sm font-extrabold tracking-tight text-primary">{friend.username}</h4>
-                        <p className="font-body text-[11px] text-on-surface-variant font-medium truncate mt-0.5">Tap to open secure comms...</p>
+                        <p className="font-body text-[10px] text-on-surface-variant font-medium truncate mt-0.5">Tap to open secure comms...</p>
                       </div>
                     </div>
-                    <span className="material-symbols-outlined text-white/20 text-lg">chevron_right</span>
+                    <span className="material-symbols-outlined text-white/20 text-md">chevron_right</span>
                   </button>
                 ))}
               </div>
@@ -326,94 +312,54 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
 
         {/* 🏛️ TAB: GROUPS */}
         {hubTab === "groups" && (
-          <div className="flex flex-col gap-3">
-            <h3 className="font-caps text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">
+          <div className="flex flex-col gap-2">
+            <h3 className="font-caps text-[9px] font-bold text-on-surface-variant uppercase tracking-widest px-1">
               Discover Communities
             </h3>
             
-            <div className="glass-panel rounded-3xl p-5 flex items-center gap-4 shadow-sm hover:bg-white/5 transition-all cursor-pointer">
-              <div className="w-12 h-12 rounded-[1.25rem] bg-tertiary-container/10 border border-tertiary-container/30 flex items-center justify-center shrink-0 shadow-inner">
-                <span className="material-symbols-outlined text-tertiary-container">grid_4x4</span>
+            <div className="glass-panel rounded-2xl p-4 flex items-center gap-3 shadow-sm hover:bg-white/5 transition-all cursor-pointer">
+              <div className="w-10 h-10 rounded-xl bg-tertiary-container/10 border border-tertiary-container/30 flex items-center justify-center shrink-0 shadow-inner">
+                <span className="material-symbols-outlined text-tertiary-container text-base">grid_4x4</span>
               </div>
               <div className="flex-1">
                 <h4 className="font-headline text-sm font-extrabold tracking-tight text-primary">Global Checkers Hub</h4>
                 <p className="font-body text-[10px] text-on-surface-variant font-medium mt-0.5">2,140 Members • 14 Online</p>
               </div>
-              <button className="px-4 py-2 bg-white/10 hover:bg-white/20 text-primary font-caps text-[10px] font-bold uppercase tracking-wider rounded-xl transition-colors">Join</button>
-            </div>
-
-            <div className="glass-panel rounded-3xl p-5 flex items-center gap-4 shadow-sm hover:bg-white/5 transition-all cursor-pointer">
-              <div className="w-12 h-12 rounded-[1.25rem] bg-primary-container/10 border border-primary-container/30 flex items-center justify-center shrink-0 shadow-inner">
-                <span className="material-symbols-outlined text-surface-tint">style</span>
-              </div>
-              <div className="flex-1">
-                <h4 className="font-headline text-sm font-extrabold tracking-tight text-primary">Glitch Deck Veterans</h4>
-                <p className="font-body text-[10px] text-on-surface-variant font-medium mt-0.5">856 Members • 3 Online</p>
-              </div>
-              <button className="px-4 py-2 bg-white/10 hover:bg-white/20 text-primary font-caps text-[10px] font-bold uppercase tracking-wider rounded-xl transition-colors">Join</button>
+              <button className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-primary font-caps text-[9px] font-bold uppercase tracking-wider rounded-lg transition-colors">Join</button>
             </div>
           </div>
         )}
 
-        {/* 🌐 TAB: NETWORK & INVITATIONS */}
+        {/* 🌐 TAB: NETWORK */}
         {hubTab === "network" && (
-          <div className="flex flex-col gap-6">
-            
-            {/* Share Your ID Card (Gradient Upgrade) */}
-            <div className="bg-gradient-to-br from-tertiary-container/30 to-primary-container/10 rounded-3xl p-6 shadow-lg text-primary relative overflow-hidden border border-white/20 glass-panel">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <span className="material-symbols-outlined text-8xl">share</span>
-              </div>
-              <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Your Network ID</h3>
+          <div className="flex flex-col gap-4">
+            <div className="bg-gradient-to-br from-tertiary-container/20 to-primary-container/5 rounded-2xl p-5 shadow-md text-primary relative overflow-hidden border border-white/10 glass-panel">
+              <h3 className="font-caps text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Your Network ID</h3>
               <div className="flex items-end justify-between relative z-10">
-                <p className="font-headline text-2xl font-extrabold tracking-tight">{myUsername || "Loading..."}</p>
-                <div className="flex gap-2.5">
-                  <button onClick={handleCopyId} className="w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center transition-all active:scale-95 shadow-inner border border-white/10">
+                <p className="font-headline text-xl font-extrabold tracking-tight">{myUsername || "Loading..."}</p>
+                <div className="flex gap-2">
+                  <button onClick={handleCopyId} className="w-9 h-9 bg-white/10 hover:bg-white/20 rounded-lg flex items-center justify-center transition-all border border-white/10">
                     <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
-                  </button>
-                  <button className="w-10 h-10 bg-primary text-background rounded-xl flex items-center justify-center shadow-md hover:scale-105 transition-all active:scale-95">
-                    <span className="material-symbols-outlined text-sm">ios_share</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Add Friend Form */}
-            <div className="glass-panel rounded-3xl p-5 shadow-sm">
-              <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3 px-1">Add Connection</h3>
+            <div className="glass-panel rounded-2xl p-4 shadow-sm">
+              <h3 className="font-caps text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-2 px-1">Add Connection</h3>
               <form onSubmit={handleAddFriend} className="flex gap-2">
                 <input 
                   type="text" 
                   placeholder="Enter Network ID..."
                   value={searchTarget}
                   onChange={(e) => setSearchTarget(e.target.value)}
-                  className="flex-1 bg-surface-container-high border border-white/10 rounded-xl px-4 py-3 font-body text-xs focus:outline-none focus:border-surface-tint transition-colors text-primary placeholder-on-surface-variant"
+                  className="flex-1 bg-surface-container-high border border-white/10 rounded-xl px-3 py-2.5 font-body text-xs focus:outline-none focus:border-surface-tint transition-colors text-primary placeholder-on-surface-variant"
                 />
-                <button type="submit" disabled={!searchTarget.trim()} className="px-6 gradient-pill-primary font-caps font-bold text-[10px] uppercase tracking-wider rounded-xl hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 shadow-sm">
+                <button type="submit" disabled={!searchTarget.trim()} className="px-4 gradient-pill-primary font-caps font-bold text-[9px] uppercase tracking-wider rounded-xl shadow-sm">
                   Invite
                 </button>
               </form>
-              {inviteStatus && <p className="font-body text-[11px] text-surface-tint font-bold mt-2.5 px-1">{inviteStatus}</p>}
-            </div>
-
-            {/* Current Friends List */}
-            <div className="flex flex-col gap-2">
-              <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-1 mb-1">My Network Roster</h3>
-              {friends.length === 0 ? (
-                <p className="font-body text-xs text-on-surface-variant px-1">No connections yet.</p>
-              ) : (
-                friends.map(friend => (
-                  <div key={friend.id} className="flex items-center justify-between p-3 glass-panel rounded-xl shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-container relative">
-                        <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover" unoptimized />
-                      </div>
-                      <span className="font-headline text-sm font-extrabold tracking-tight">{friend.username}</span>
-                    </div>
-                    <span className="font-caps text-[9px] font-bold text-surface-tint uppercase tracking-widest">Connected</span>
-                  </div>
-                ))
-              )}
+              {inviteStatus && <p className="font-body text-[10px] text-surface-tint font-bold mt-2 px-1">{inviteStatus}</p>}
             </div>
           </div>
         )}
@@ -427,7 +373,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-background overflow-hidden animate-fade-in text-on-background">
       
-      {/* 🎮 2-STEP GAME SELECTOR MODAL (Glassmorphism) */}
+      {/* 🎮 CHOOSE GAME OVERLAY */}
       {showGameSelector && (
         <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-end justify-center p-4 animate-fade-in">
           <div className="glass-panel bg-surface-container-high/90 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl flex flex-col gap-4 border border-white/10">
@@ -438,7 +384,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                   <h3 className="font-headline text-base font-extrabold tracking-tight uppercase text-primary">Select Arena</h3>
                   <button 
                     onClick={() => setShowGameSelector(false)} 
-                    className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-on-surface-variant transition-all active:scale-90"
+                    className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-on-surface-variant transition-all"
                   >
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
@@ -446,7 +392,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                 
                 <button 
                   onClick={() => setInviteStep("carrom_mode")} 
-                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
+                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all shadow-sm"
                 >
                    <div className="flex items-center gap-4">
                      <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md">
@@ -462,7 +408,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
 
                 <button 
                   onClick={() => handleSendGameInvite("checkers")} 
-                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
+                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all shadow-sm"
                 >
                    <div className="flex items-center gap-4">
                      <div className="w-12 h-12 bg-gradient-to-br from-tertiary-container to-blue-500 text-background rounded-xl flex items-center justify-center shadow-md">
@@ -492,7 +438,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                   </div>
                   <button 
                     onClick={() => { setShowGameSelector(false); setInviteStep("game"); }} 
-                    className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-on-surface-variant transition-all active:scale-90"
+                    className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-on-surface-variant transition-all"
                   >
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
@@ -500,7 +446,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
 
                 <button 
                   onClick={() => handleSendGameInvite("carrom", "freestyle")} 
-                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
+                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all shadow-sm"
                 >
                    <div className="flex items-center gap-4">
                      <div className="w-12 h-12 bg-white/10 border border-amber-500/50 text-amber-500 rounded-xl flex items-center justify-center shadow-md">
@@ -516,7 +462,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
 
                 <button 
                   onClick={() => handleSendGameInvite("carrom", "classic")} 
-                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
+                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all shadow-sm"
                 >
                    <div className="flex items-center gap-4">
                      <div className="w-12 h-12 bg-white/10 border border-amber-500/50 text-amber-500 rounded-xl flex items-center justify-center shadow-md">
@@ -536,12 +482,12 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         </div>
       )}
 
-      {/* 📞 THREAD HEADER */}
+      {/* 📞 HEADER (Fixed back navigation mapping) */}
       <header className="shrink-0 w-full bg-surface/60 backdrop-blur-xl border-b border-white/10 z-20 shadow-sm" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button 
-              onClick={() => setActiveView("hub")}
+              onClick={() => setActiveView("hub")} // Re-routes to main contact feed perfectly
               className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-on-surface flex items-center justify-center transition-all active:scale-90"
             >
               <span className="material-symbols-outlined text-lg">arrow_back_ios_new</span>
@@ -564,20 +510,20 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         </div>
       </header>
 
-      {/* 💬 MESSAGE SCROLL AREA */}
+      {/* 💬 INTERACTIVE MESSAGE TRACKS */}
       <div className="flex-1 w-full overflow-y-auto px-4 py-6 space-y-6 no-scrollbar relative">
         {messages.map((msg) => {
           const isMe = msg.sender_id === myUserId;
           const isCarrom = msg.game_name?.includes("Carrom");
-          
           const gameIcon = isCarrom ? "radio_button_checked" : "grid_4x4";
-          const targetUrl = isCarrom ? "native://carrom" : "native://checkers";
+          
+          // Re-routes game modules to matches correctly based on challenge payload types
+          const targetUrl = msg.game_name?.includes("Checkers") ? "native://checkers" : "native://carrom";
 
           return (
             <div key={msg.id} className={`flex items-start w-full ${isMe ? "justify-end" : "justify-start"}`}>
               <div className={`flex flex-col max-w-[80%] ${isMe ? "items-end" : "items-start"}`}>
                 
-                {/* Text Bubble */}
                 {msg.message_type === 'text' && (
                   <div className={`px-4 py-3 font-body text-[14px] shadow-sm leading-relaxed border ${
                     isMe 
@@ -588,7 +534,6 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                   </div>
                 )}
 
-                {/* Game Invite Card (Premium Action Card) */}
                 {msg.message_type === 'game_invite' && (
                   <div className={`w-64 rounded-3xl overflow-hidden shadow-lg p-5 flex flex-col items-center gap-3 text-center ${
                     isMe 
@@ -631,7 +576,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                       )}
                       {msg.invite_status === 'accepted' && (
                         <button 
-                          onClick={() => onPlay?.(targetUrl, msg.match_id!)}
+                          onClick={() => onPlay?.(targetUrl, msg.match_id!)} // Successfully mounts active canvas matching context
                           className="w-full py-3 bg-primary text-background font-headline font-extrabold text-[11px] uppercase tracking-wider rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-md hover:opacity-90"
                         >
                           <span className="material-symbols-outlined text-[16px]">play_arrow</span>
@@ -651,7 +596,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 📥 CHAT INPUT */}
+      {/* 📥 FOOTER FIELD */}
       <footer className="shrink-0 w-full bg-surface/60 backdrop-blur-xl border-t border-white/10 z-20" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
         <form onSubmit={handleSendText} className="px-4 py-3 flex items-center gap-3">
           <button

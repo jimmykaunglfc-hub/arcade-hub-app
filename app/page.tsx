@@ -120,42 +120,43 @@ export default function Home() {
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : null}
 
-      {/* 📱 NATIVE APP WRAPPER (Scroll & Viewport Fix) */}
+      {/* 📱 STABILIZED NATIVE LAYOUT ENVIRONMENT */}
       <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden animate-fade-in"}>
         
-        {/* FIXED HEADER PORTAL */}
-        <header className="shrink-0 w-full bg-surface/60 backdrop-blur-xl border-b border-white/10 flex justify-between items-center px-container-padding h-[80px] pt-safe-area-top shadow-md z-30">
-          {/* Logo Branding */}
-          <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center">
-             <div className="relative w-10 h-10 overflow-hidden rounded-xl">
+        {/* PREMIUM COMPACT HEADER BLOCK (Height Fix Applied) */}
+        <header className="fixed top-0 w-full z-50 bg-surface/60 backdrop-blur-xl border-b border-white/10 flex justify-between items-center px-4 pt-safe-area-top pb-3.5 shadow-md">
+          
+          {/* Top Left: Rounded Brand Identity Layout */}
+          <div className="flex items-center gap-2.5">
+             <div className="relative w-9 h-9 rounded-full bg-surface-container-high border border-white/10 overflow-hidden flex items-center justify-center shadow-inner">
                <Image 
                  src="/joeyoke-logo.png" 
                  alt="Joe Yoke Logo" 
                  fill
-                 className="object-contain"
+                 className="object-contain p-1.5"
                  unoptimized
                />
              </div>
-             <div className="absolute -bottom-1 -right-1 bg-surface-tint text-on-primary-container font-stat-pill text-[9px] font-bold px-1.5 py-0.5 rounded-sm border border-surface">
-               1
-             </div>
+             <span className="font-headline text-sm font-black tracking-widest text-primary uppercase">
+               Joe Yoke
+             </span>
           </div>
 
-          {/* Center Brand String */}
-          <div className="flex items-center justify-center gap-2">
-            <span className="font-headline text-md font-extrabold tracking-widest text-primary uppercase pt-0.5">
-              Joe Yoke
-            </span>
+          {/* Top Right: Wallet Points Tray & Notification Bell */}
+          <div className="flex items-center gap-3">
+            <div className="glass-panel flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border border-white/5 bg-white/5 shadow-inner">
+              <span className="material-symbols-outlined text-secondary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
+              <span className="text-primary tracking-wide">1,500</span>
+            </div>
+            
+            <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors text-on-surface-variant">
+              <span className="material-symbols-outlined text-xl">notifications</span>
+            </button>
           </div>
-
-          {/* Notifications */}
-          <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors scale-95 active:duration-150 text-on-surface-variant flex-shrink-0">
-            <span className="material-symbols-outlined">notifications</span>
-          </button>
         </header>
 
-        {/* ACTIVE PORTAL DISPLAY (Scroll Enabled Center Content) */}
-        <main className="flex-1 overflow-y-auto no-scrollbar pt-[100px] pb-[110px] px-4 md:px-8 space-y-section-margin max-w-xl mx-auto w-full z-10">
+        {/* COMPACT VIEWPORT CONTAINER PORTAL (Gap Compression Fix) */}
+        <main className="flex-1 overflow-y-auto no-scrollbar pt-[104px] pb-[100px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10">
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
@@ -188,8 +189,8 @@ export default function Home() {
           )}
         </main>
 
-        {/* FIXED NAV SYSTEM SHIELD */}
-        <nav className="shrink-0 fixed bottom-0 left-0 w-full z-50 glass-panel bg-surface/80 border-t border-white/10 px-6 pb-safe pt-2 flex justify-between items-center h-[85px]">
+        {/* FROSTED BOTTOM NAVIGATION SHIELD */}
+        <nav className="shrink-0 fixed bottom-0 left-0 w-full z-50 glass-panel bg-surface/80 border-t border-white/10 px-6 pb-safe pt-1.5 flex justify-between items-center h-[82px]">
           {["Games", "Ranks", "Chat", "Shop", "Profile"].map((tab) => {
             const isActive = activeTab === tab;
             return (
@@ -197,14 +198,12 @@ export default function Home() {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`flex flex-col items-center justify-center w-14 transition-all duration-300 active:scale-95 ${
-                  isActive 
-                    ? "text-primary-container" 
-                    : "text-on-surface-variant hover:text-white"
+                  isActive ? "text-primary-container" : "text-on-surface-variant hover:text-white"
                 }`}
               >
-                <div className={`flex items-center justify-center w-12 h-10 rounded-full transition-all duration-300 ${isActive ? "bg-primary-container/10" : "bg-transparent"}`}>
+                <div className={`flex items-center justify-center w-12 h-9 rounded-full transition-all duration-300 ${isActive ? "bg-primary-container/10" : "bg-transparent"}`}>
                   <span 
-                    className="material-symbols-outlined text-[26px]" 
+                    className="material-symbols-outlined text-[24px]" 
                     style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
                   >
                     {tab === "Games" ? "sports_esports" 
