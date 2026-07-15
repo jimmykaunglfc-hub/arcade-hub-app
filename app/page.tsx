@@ -123,40 +123,40 @@ export default function Home() {
       {/* 📱 STABILIZED NATIVE LAYOUT ENVIRONMENT */}
       <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden animate-fade-in"}>
         
-        {/* PREMIUM COMPACT HEADER BLOCK (Height Fix Applied) */}
-        <header className="fixed top-0 w-full z-50 bg-surface/60 backdrop-blur-xl border-b border-white/10 flex justify-between items-center px-4 pt-safe-area-top pb-3.5 shadow-md">
+        {/* PREMIUM COMPACT HEADER BLOCK (Perfect Framing Patch) */}
+        <header className="fixed top-0 w-full z-50 bg-surface/60 backdrop-blur-xl border-b border-white/10 flex justify-between items-end px-4 h-[68px] pb-2.5 shadow-md">
           
           {/* Top Left: Rounded Brand Identity Layout */}
-          <div className="flex items-center gap-2.5">
-             <div className="relative w-9 h-9 rounded-full bg-surface-container-high border border-white/10 overflow-hidden flex items-center justify-center shadow-inner">
+          <div className="flex items-center gap-2">
+             <div className="relative w-7 h-7 rounded-full bg-surface-container-high border border-white/10 overflow-hidden flex items-center justify-center shadow-inner">
                <Image 
                  src="/joeyoke-logo.png" 
                  alt="Joe Yoke Logo" 
                  fill
-                 className="object-contain p-1.5"
+                 className="object-contain p-1"
                  unoptimized
                />
              </div>
-             <span className="font-headline text-sm font-black tracking-widest text-primary uppercase">
+             <span className="font-headline text-xs font-black tracking-widest text-primary uppercase">
                Joe Yoke
              </span>
           </div>
 
           {/* Top Right: Wallet Points Tray & Notification Bell */}
-          <div className="flex items-center gap-3">
-            <div className="glass-panel flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border border-white/5 bg-white/5 shadow-inner">
-              <span className="material-symbols-outlined text-secondary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
+          <div className="flex items-center gap-2">
+            <div className="glass-panel flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-white/5 bg-white/5 shadow-inner">
+              <span className="material-symbols-outlined text-secondary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
               <span className="text-primary tracking-wide">1,500</span>
             </div>
             
-            <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors text-on-surface-variant">
-              <span className="material-symbols-outlined text-xl">notifications</span>
+            <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors text-on-surface-variant">
+              <span className="material-symbols-outlined text-lg">notifications</span>
             </button>
           </div>
         </header>
 
-        {/* COMPACT VIEWPORT CONTAINER PORTAL (Gap Compression Fix) */}
-        <main className="flex-1 overflow-y-auto no-scrollbar pt-[104px] pb-[100px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10">
+        {/* COMPACT VIEWPORT CONTAINER PORTAL (Gap Compression Patch) */}
+        <main className="flex-1 overflow-y-auto no-scrollbar pt-[80px] pb-[96px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10">
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
