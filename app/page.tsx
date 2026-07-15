@@ -68,8 +68,8 @@ export default function Home() {
 
   if (checkingAuth) {
     return (
-      <div className="fixed inset-0 bg-[#f4f6f9] dark:bg-background flex items-center justify-center transition-colors">
-        <span className="text-xs font-bold text-neutral-400 dark:text-on-surface-variant uppercase tracking-widest animate-pulse">
+      <div className="fixed inset-0 bg-[#eef2f6] dark:bg-background flex items-center justify-center transition-colors">
+        <span className="text-xs font-bold text-neutral-500 dark:text-on-surface-variant uppercase tracking-widest animate-pulse">
           Syncing Session Matrix...
         </span>
       </div>
@@ -120,11 +120,11 @@ export default function Home() {
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : null}
 
-      {/* 📱 HARMONIZED NATIVE LAYOUT CORE */}
-      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-[#f4f6f9] dark:bg-background text-neutral-800 dark:text-on-background font-body overflow-hidden animate-fade-in transition-colors duration-300"}>
+      {/* 📱 STABILIZED APP SHELL */}
+      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-[#eef2f6] dark:bg-background text-[#091428] dark:text-on-background font-body overflow-hidden animate-fade-in transition-colors duration-300"}>
         
-        {/* PREMIUM COMPACT HEADER BLOCK (Adaptive Theme Upgrade) */}
-        <header className="fixed top-0 w-full z-50 bg-white/70 dark:bg-surface/60 backdrop-blur-xl border-b border-neutral-200 dark:border-white/10 flex justify-between items-end px-4 h-[68px] pb-2.5 shadow-sm transition-colors duration-300">
+        {/* PREMIUM COMPACT HEADER BLOCK */}
+        <header className="fixed top-0 w-full z-50 bg-white/70 dark:bg-surface/60 backdrop-blur-xl border-b border-neutral-200/60 dark:border-white/10 flex justify-between items-end px-4 h-[68px] pb-2.5 shadow-sm transition-colors duration-300">
           
           {/* Top Left: Rounded Brand Identity Layout */}
           <div className="flex items-center gap-2">
@@ -133,18 +133,18 @@ export default function Home() {
                  src="/joeyoke-logo.png" 
                  alt="Joe Yoke Logo" 
                  fill
-                 className="object-contain p-1 dark:invert-0"
+                 className="object-contain p-1"
                  unoptimized
                />
              </div>
-             <span className="font-headline text-xs font-black tracking-widest text-neutral-900 dark:text-primary uppercase">
+             <span className="font-headline text-xs font-black tracking-widest text-[#091428] dark:text-primary uppercase">
                Joe Yoke
              </span>
           </div>
 
           {/* Top Right: Wallet Points Tray & Notification Bell */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-neutral-200 dark:border-white/5 bg-white/90 dark:bg-white/5 text-neutral-800 dark:text-primary shadow-sm">
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-neutral-200 dark:border-white/5 bg-white/90 dark:bg-white/5 text-[#091428] dark:text-primary shadow-sm">
               <span className="material-symbols-outlined text-amber-500 dark:text-secondary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
               <span className="tracking-wide">1,500</span>
             </div>
@@ -189,7 +189,7 @@ export default function Home() {
           )}
         </main>
 
-        {/* FROSTED BOTTOM NAVIGATION SHIELD (Adaptive Theme Upgrade) */}
+        {/* FROSTED BOTTOM NAVIGATION SHIELD */}
         <nav className="shrink-0 fixed bottom-0 left-0 w-full z-50 bg-white/80 dark:bg-surface/85 backdrop-blur-xl border-t border-neutral-200 dark:border-white/10 px-6 pb-safe pt-1.5 flex justify-between items-center h-[82px] shadow-lg transition-colors duration-300">
           {["Games", "Ranks", "Chat", "Shop", "Profile"].map((tab) => {
             const isActive = activeTab === tab;
