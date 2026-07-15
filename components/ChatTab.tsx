@@ -22,6 +22,12 @@ interface DirectMessage {
   created_at: string;
 }
 
+interface ChatTabProps {
+  currentPoints: number;
+  userId: string | null;
+  onPlay?: (url: string, matchId: string) => void;
+}
+
 const INITIAL_BOARD = [
   [0, 2, 0, 2, 0, 2, 0, 2], 
   [2, 0, 2, 0, 2, 0, 2, 0], 
@@ -33,7 +39,7 @@ const INITIAL_BOARD = [
   [1, 0, 1, 0, 1, 0, 1, 0]
 ];
 
-export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: string) => void }) {
+export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps) {
   const [activeView, setActiveView] = useState<"hub" | "chat">("hub");
   const [hubTab, setHubTab] = useState<"dms" | "groups" | "network">("dms");
 
@@ -52,6 +58,9 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
   
   const [showGameSelector, setShowGameSelector] = useState(false);
   const [inviteStep, setInviteStep] = useState<"game" | "carrom_mode">("game");
+
+  // Multiplayer lockout rule enforcement
+  const isLockedOut = currentPoints <= 0;
 
   useEffect(() => {
     const initData = async () => {
@@ -147,6 +156,11 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     setShowGameSelector(false);
     setInviteStep("game");
     if (!myUserId || !activeChat) return;
+
+    if (isLockedOut) {
+      alert("Matchmaking Halted: You cannot issue challenges with 0 credits.");
+      return;
+    }
     
     if (gameType === "checkers") {
       const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -169,7 +183,6 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         }]);
       }
     } else if (gameType === "carrom" && mode) {
-      // Fixed inline UUID generator tracking block logic
       const generatedUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
         const r = (Math.random() * 16) | 0;
         const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -243,14 +256,9 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // ============================================================================
-  // VIEW 1: THE HUB CONSOLE FEED
-  // ============================================================================
   if (activeView === "hub") {
     return (
       <div className="w-full animate-fade-in text-on-surface flex flex-col gap-4 pb-6">
-        
-        {/* SEGMENTED TAB HEADER NAVIGATION */}
         <div className="bg-surface-container/50 backdrop-blur-md p-1 rounded-xl flex items-center border border-white/5">
           {[
             { id: "dms", label: "Messages" },
@@ -353,15 +361,11 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
     );
   }
 
-  // ============================================================================
-  // VIEW 2: INTEGRATED CHAT WINDOW VIEWPORT STABILIZED
-  // ============================================================================
   return (
     <div className="w-full flex flex-col h-[calc(100vh-204px)] animate-fade-in text-on-background relative">
       
-      {/* 🎮 CHALLENGE STAGE SELECTOR POPUP */}
       {showGameSelector && (
-        <div className="absolute inset-0 bg-black/70 backdrop-blur-md flex items-end justify-center p-2 z-50 rounded-2xl animate-fade-in">
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-end justify-center p-2 z-50 rounded-2xl animate-fade-in">
           <div className="glass-panel bg-surface-container-high w-full rounded-2xl p-4 flex flex-col gap-3 border border-white/10">
             {inviteStep === "game" && (
               <>
@@ -413,7 +417,6 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         </div>
       )}
 
-      {/* 📞 HEADER ROW MODULE */}
       <div className="shrink-0 w-full glass-panel rounded-2xl p-2.5 flex items-center justify-between border border-white/10 shadow-sm">
         <div className="flex items-center gap-2.5">
           <button 
@@ -444,7 +447,6 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         </button>
       </div>
 
-      {/* 💬 MAIN MESSAGE CHANNELS TRAILER */}
       <div className="flex-1 w-full overflow-y-auto px-1 py-3 space-y-4 no-scrollbar relative">
         {messages.map((msg) => {
           const isMe = msg.sender_id === myUserId;
@@ -482,15 +484,38 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                           <div className="font-caps text-[8px] font-bold uppercase py-1.5 rounded-lg border border-white/10 text-on-surface-variant bg-white/5">Awaiting...</div>
                         ) : (
                           <div className="flex gap-2">
-                            <button onClick={() => updateInviteStatus(msg.id, 'declined')} className="flex-1 py-1.5 bg-white/5 text-primary font-caps font-bold text-[8px] uppercase tracking-widest rounded-lg border border-white/5">Decline</button>
-                            <button onClick={() => updateInviteStatus(msg.id, 'accepted')} className="flex-1 py-1.5 gradient-pill-primary font-caps font-bold text-[8px] uppercase tracking-widest rounded-lg shadow-sm">Accept</button>
+                            <button 
+                              onClick={() => updateInviteStatus(msg.id, 'declined')} 
+                              className="flex-1 py-1.5 bg-white/5 text-primary font-caps font-bold text-[8px] uppercase tracking-widest rounded-lg border border-white/5"
+                            >
+                              Decline
+                            </button>
+                            <button 
+                              onClick={() => {
+                                if (isLockedOut) {
+                                  alert("Accept Halted: You cannot accept challenges with 0 credits.");
+                                  return;
+                                }
+                                updateInviteStatus(msg.id, 'accepted');
+                              }}
+                              disabled={isLockedOut}
+                              className="flex-1 py-1.5 gradient-pill-primary font-caps font-bold text-[8px] uppercase tracking-widest rounded-lg shadow-sm disabled:opacity-50"
+                            >
+                              Accept
+                            </button>
                           </div>
                         )
                       )}
                       {msg.invite_status === 'declined' && <div className="font-caps text-[8px] text-red-400 font-bold uppercase py-1.5 bg-red-500/10 rounded-lg border border-red-500/20">Declined</div>}
                       {msg.invite_status === 'accepted' && (
                         <button 
-                          onClick={() => onPlay?.(targetUrl, msg.match_id!)}
+                          onClick={() => {
+                            if (isLockedOut) {
+                              alert("Match Entry Halted: Refuel your arena points to join multiplayer.");
+                              return;
+                            }
+                            onPlay?.(targetUrl, msg.match_id!);
+                          }}
                           className="w-full py-2 bg-primary text-background font-headline font-extrabold text-[10px] uppercase tracking-wider rounded-lg flex items-center justify-center gap-1 shadow-sm"
                         >
                           <span className="material-symbols-outlined text-sm">play_arrow</span>
@@ -508,9 +533,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 📥 INLINE DOCK DECK INPUT */}
       <div className="shrink-0 w-full bg-surface-container/90 backdrop-blur-md border border-white/10 rounded-2xl p-2 flex items-center gap-2 shadow-2xl relative z-20 mb-1">
-        
         <button
           type="button"
           onClick={() => { setShowGameSelector(true); setInviteStep("game"); }}
