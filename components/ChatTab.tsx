@@ -193,7 +193,7 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         receiver_id: activeChat.id, 
         content: `Challenged you to ${gameName}`,
         message_type: 'game_invite', 
-        match_id: generatedUUID, // Only pure UUID gets passed!
+        match_id: generatedUUID, 
         game_name: gameName, 
         invite_status: "pending"
       }]);
@@ -260,10 +260,10 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
   // ============================================================================
   if (activeView === "hub") {
     return (
-      <div className="w-full animate-fade-in text-neutral-900 dark:text-neutral-100 flex flex-col gap-6 pb-6">
+      <div className="w-full animate-fade-in text-on-surface flex flex-col gap-6 pb-6">
         
-        {/* 🎛️ SEGMENTED HUB NAVIGATION */}
-        <div className="bg-neutral-200/60 dark:bg-neutral-800/60 p-1.5 rounded-xl flex items-center shadow-sm">
+        {/* 🎛️ SEGMENTED HUB NAVIGATION (Glassmorphism) */}
+        <div className="bg-surface-container/50 backdrop-blur-md p-1.5 rounded-xl flex items-center shadow-sm border border-white/5">
           {[
             { id: "dms", label: "Messages" },
             { id: "groups", label: "Groups" },
@@ -272,10 +272,10 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
             <button
               key={tab.id}
               onClick={() => setHubTab(tab.id as any)}
-              className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${
+              className={`flex-1 py-2 font-caps text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${
                 hubTab === tab.id 
-                  ? "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm" 
-                  : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300"
+                  ? "bg-surface-container-high text-primary shadow-sm" 
+                  : "text-on-surface-variant hover:text-primary"
               }`}
             >
               {tab.label}
@@ -286,37 +286,37 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         {/* 💬 TAB: DIRECT MESSAGES */}
         {hubTab === "dms" && (
           <div className="flex flex-col gap-3">
-            <h3 className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest px-1">
+            <h3 className="font-caps text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">
               Active Conversations
             </h3>
             {friends.length === 0 ? (
-              <div className="p-8 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-sm">
-                <span className="material-symbols-outlined text-4xl text-neutral-300 dark:text-neutral-700 mb-3">chat_bubble</span>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium leading-relaxed">
+              <div className="p-8 text-center glass-panel rounded-3xl shadow-sm">
+                <span className="material-symbols-outlined text-4xl text-white/20 mb-3">chat_bubble</span>
+                <p className="font-body text-xs text-on-surface-variant font-medium leading-relaxed">
                   Your inbox is empty.<br/>Head to the Network tab to connect.
                 </p>
               </div>
             ) : (
-              <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl overflow-hidden shadow-sm">
+              <div className="glass-panel rounded-3xl overflow-hidden shadow-sm">
                 {friends.map((friend, index) => (
                   <button 
                     key={friend.id}
                     onClick={() => openChat(friend)}
-                    className={`w-full p-4 flex items-center justify-between transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800/50 text-left ${
-                      index !== friends.length - 1 ? 'border-b border-neutral-100 dark:border-neutral-800/60' : ''
+                    className={`w-full p-4 flex items-center justify-between transition-all hover:bg-white/5 text-left ${
+                      index !== friends.length - 1 ? 'border-b border-white/5' : ''
                     }`}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full overflow-hidden relative border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 shrink-0">
-                        <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover p-0.5" unoptimized />
-                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-[2.5px] border-white dark:border-neutral-900 rounded-full"></div>
+                      <div className="w-12 h-12 rounded-full overflow-hidden relative bg-surface-container shrink-0">
+                        <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover" unoptimized />
+                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-surface-tint border-[2px] border-surface rounded-full"></div>
                       </div>
                       <div>
-                        <h4 className="text-sm font-black tracking-tight text-neutral-900 dark:text-white">{friend.username}</h4>
-                        <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium truncate mt-0.5">Tap to open secure comms...</p>
+                        <h4 className="font-headline text-sm font-extrabold tracking-tight text-primary">{friend.username}</h4>
+                        <p className="font-body text-[11px] text-on-surface-variant font-medium truncate mt-0.5">Tap to open secure comms...</p>
                       </div>
                     </div>
-                    <span className="material-symbols-outlined text-neutral-300 dark:text-neutral-600 text-lg">chevron_right</span>
+                    <span className="material-symbols-outlined text-white/20 text-lg">chevron_right</span>
                   </button>
                 ))}
               </div>
@@ -327,30 +327,30 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         {/* 🏛️ TAB: GROUPS */}
         {hubTab === "groups" && (
           <div className="flex flex-col gap-3">
-            <h3 className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-widest px-1">
+            <h3 className="font-caps text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">
               Discover Communities
             </h3>
             
-            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-5 flex items-center gap-4 shadow-sm hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer">
-              <div className="w-12 h-12 rounded-[1.25rem] bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 flex items-center justify-center shrink-0 shadow-inner">
-                <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400">grid_4x4</span>
+            <div className="glass-panel rounded-3xl p-5 flex items-center gap-4 shadow-sm hover:bg-white/5 transition-all cursor-pointer">
+              <div className="w-12 h-12 rounded-[1.25rem] bg-tertiary-container/10 border border-tertiary-container/30 flex items-center justify-center shrink-0 shadow-inner">
+                <span className="material-symbols-outlined text-tertiary-container">grid_4x4</span>
               </div>
               <div className="flex-1">
-                <h4 className="text-sm font-black tracking-tight text-neutral-900 dark:text-white">Global Checkers Hub</h4>
-                <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium mt-0.5">2,140 Members • 14 Online</p>
+                <h4 className="font-headline text-sm font-extrabold tracking-tight text-primary">Global Checkers Hub</h4>
+                <p className="font-body text-[10px] text-on-surface-variant font-medium mt-0.5">2,140 Members • 14 Online</p>
               </div>
-              <button className="px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white text-[10px] font-bold uppercase tracking-wider rounded-xl transition-colors">Join</button>
+              <button className="px-4 py-2 bg-white/10 hover:bg-white/20 text-primary font-caps text-[10px] font-bold uppercase tracking-wider rounded-xl transition-colors">Join</button>
             </div>
 
-            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-5 flex items-center gap-4 shadow-sm hover:border-neutral-300 dark:hover:border-neutral-700 transition-all cursor-pointer">
-              <div className="w-12 h-12 rounded-[1.25rem] bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 flex items-center justify-center shrink-0 shadow-inner">
-                <span className="material-symbols-outlined text-purple-600 dark:text-purple-400">style</span>
+            <div className="glass-panel rounded-3xl p-5 flex items-center gap-4 shadow-sm hover:bg-white/5 transition-all cursor-pointer">
+              <div className="w-12 h-12 rounded-[1.25rem] bg-primary-container/10 border border-primary-container/30 flex items-center justify-center shrink-0 shadow-inner">
+                <span className="material-symbols-outlined text-surface-tint">style</span>
               </div>
               <div className="flex-1">
-                <h4 className="text-sm font-black tracking-tight text-neutral-900 dark:text-white">Glitch Deck Veterans</h4>
-                <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium mt-0.5">856 Members • 3 Online</p>
+                <h4 className="font-headline text-sm font-extrabold tracking-tight text-primary">Glitch Deck Veterans</h4>
+                <p className="font-body text-[10px] text-on-surface-variant font-medium mt-0.5">856 Members • 3 Online</p>
               </div>
-              <button className="px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-900 dark:text-white text-[10px] font-bold uppercase tracking-wider rounded-xl transition-colors">Join</button>
+              <button className="px-4 py-2 bg-white/10 hover:bg-white/20 text-primary font-caps text-[10px] font-bold uppercase tracking-wider rounded-xl transition-colors">Join</button>
             </div>
           </div>
         )}
@@ -359,19 +359,19 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
         {hubTab === "network" && (
           <div className="flex flex-col gap-6">
             
-            {/* Share Your ID Card */}
-            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-3xl p-6 shadow-[0_8px_20px_rgba(79,70,229,0.25)] text-white relative overflow-hidden border border-indigo-400/30">
+            {/* Share Your ID Card (Gradient Upgrade) */}
+            <div className="bg-gradient-to-br from-tertiary-container/30 to-primary-container/10 rounded-3xl p-6 shadow-lg text-primary relative overflow-hidden border border-white/20 glass-panel">
               <div className="absolute top-0 right-0 p-4 opacity-10">
                 <span className="material-symbols-outlined text-8xl">share</span>
               </div>
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-200 mb-1.5">Your Network ID</h3>
+              <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Your Network ID</h3>
               <div className="flex items-end justify-between relative z-10">
-                <p className="text-2xl font-black tracking-tight">{myUsername || "Loading..."}</p>
+                <p className="font-headline text-2xl font-extrabold tracking-tight">{myUsername || "Loading..."}</p>
                 <div className="flex gap-2.5">
-                  <button onClick={handleCopyId} className="w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl flex items-center justify-center transition-all active:scale-95 shadow-inner border border-white/10">
+                  <button onClick={handleCopyId} className="w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center transition-all active:scale-95 shadow-inner border border-white/10">
                     <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
                   </button>
-                  <button className="w-10 h-10 bg-white text-indigo-600 rounded-xl flex items-center justify-center shadow-md hover:scale-105 transition-all active:scale-95">
+                  <button className="w-10 h-10 bg-primary text-background rounded-xl flex items-center justify-center shadow-md hover:scale-105 transition-all active:scale-95">
                     <span className="material-symbols-outlined text-sm">ios_share</span>
                   </button>
                 </div>
@@ -379,38 +379,38 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
             </div>
 
             {/* Add Friend Form */}
-            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-5 shadow-sm">
-              <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 dark:text-neutral-500 mb-3 px-1">Add Connection</h3>
+            <div className="glass-panel rounded-3xl p-5 shadow-sm">
+              <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3 px-1">Add Connection</h3>
               <form onSubmit={handleAddFriend} className="flex gap-2">
                 <input 
                   type="text" 
                   placeholder="Enter Network ID..."
                   value={searchTarget}
                   onChange={(e) => setSearchTarget(e.target.value)}
-                  className="flex-1 bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-indigo-500 transition-colors text-neutral-900 dark:text-white"
+                  className="flex-1 bg-surface-container-high border border-white/10 rounded-xl px-4 py-3 font-body text-xs focus:outline-none focus:border-surface-tint transition-colors text-primary placeholder-on-surface-variant"
                 />
-                <button type="submit" disabled={!searchTarget.trim()} className="px-6 bg-neutral-900 dark:bg-white text-white dark:text-black font-bold text-[10px] uppercase tracking-wider rounded-xl hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 shadow-sm">
+                <button type="submit" disabled={!searchTarget.trim()} className="px-6 gradient-pill-primary font-caps font-bold text-[10px] uppercase tracking-wider rounded-xl hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 shadow-sm">
                   Invite
                 </button>
               </form>
-              {inviteStatus && <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mt-2.5 px-1">{inviteStatus}</p>}
+              {inviteStatus && <p className="font-body text-[11px] text-surface-tint font-bold mt-2.5 px-1">{inviteStatus}</p>}
             </div>
 
             {/* Current Friends List */}
             <div className="flex flex-col gap-2">
-              <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 dark:text-neutral-500 px-1 mb-1">My Network Roster</h3>
+              <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-1 mb-1">My Network Roster</h3>
               {friends.length === 0 ? (
-                <p className="text-xs text-neutral-400 dark:text-neutral-500 px-1">No connections yet.</p>
+                <p className="font-body text-xs text-on-surface-variant px-1">No connections yet.</p>
               ) : (
                 friends.map(friend => (
-                  <div key={friend.id} className="flex items-center justify-between p-3 bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-xl shadow-sm">
+                  <div key={friend.id} className="flex items-center justify-between p-3 glass-panel rounded-xl shadow-sm">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800 relative">
-                        <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover p-0.5" unoptimized />
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-container relative">
+                        <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover" unoptimized />
                       </div>
-                      <span className="text-sm font-bold tracking-tight">{friend.username}</span>
+                      <span className="font-headline text-sm font-extrabold tracking-tight">{friend.username}</span>
                     </div>
-                    <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest">Connected</span>
+                    <span className="font-caps text-[9px] font-bold text-surface-tint uppercase tracking-widest">Connected</span>
                   </div>
                 ))
               )}
@@ -425,20 +425,20 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
   // RENDER VIEW 2: FULL-SCREEN OVERLAY CHAT MODAL 
   // ============================================================================
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden animate-fade-in text-neutral-900 dark:text-neutral-100">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-background overflow-hidden animate-fade-in text-on-background">
       
-      {/* 🎮 2-STEP GAME SELECTOR MODAL */}
+      {/* 🎮 2-STEP GAME SELECTOR MODAL (Glassmorphism) */}
       {showGameSelector && (
         <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-end justify-center p-4 animate-fade-in">
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl flex flex-col gap-4">
+          <div className="glass-panel bg-surface-container-high/90 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl flex flex-col gap-4 border border-white/10">
             
             {inviteStep === "game" && (
               <>
                 <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-base font-black tracking-tight uppercase">Select Arena</h3>
+                  <h3 className="font-headline text-base font-extrabold tracking-tight uppercase text-primary">Select Arena</h3>
                   <button 
                     onClick={() => setShowGameSelector(false)} 
-                    className="w-8 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-neutral-500 transition-all active:scale-90"
+                    className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-on-surface-variant transition-all active:scale-90"
                   >
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
@@ -446,34 +446,34 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                 
                 <button 
                   onClick={() => setInviteStep("carrom_mode")} 
-                  className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
+                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
                 >
                    <div className="flex items-center gap-4">
                      <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md">
                         <span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>radio_button_checked</span>
                      </div>
                      <div className="text-left">
-                        <h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Carrom Matrix</h4>
-                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Physics • Strategy</p>
+                        <h4 className="font-headline text-sm font-extrabold text-primary">Carrom Matrix</h4>
+                        <p className="font-caps text-[9px] font-bold text-on-surface-variant uppercase tracking-widest mt-0.5">Physics • Strategy</p>
                      </div>
                    </div>
-                   <span className="material-symbols-outlined text-amber-500">chevron_right</span>
+                   <span className="material-symbols-outlined text-white/40">chevron_right</span>
                 </button>
 
                 <button 
                   onClick={() => handleSendGameInvite("checkers")} 
-                  className="w-full flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
+                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
                 >
                    <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-indigo-600 text-white rounded-xl flex items-center justify-center shadow-md">
+                     <div className="w-12 h-12 bg-gradient-to-br from-tertiary-container to-blue-500 text-background rounded-xl flex items-center justify-center shadow-md">
                         <span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>grid_4x4</span>
                      </div>
                      <div className="text-left">
-                        <h4 className="text-sm font-black text-indigo-900 dark:text-indigo-100">Neon Checkers</h4>
-                        <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-500 uppercase tracking-widest mt-0.5">Grid • Strategy</p>
+                        <h4 className="font-headline text-sm font-extrabold text-primary">Neon Checkers</h4>
+                        <p className="font-caps text-[9px] font-bold text-on-surface-variant uppercase tracking-widest mt-0.5">Grid • Strategy</p>
                      </div>
                    </div>
-                   <span className="material-symbols-outlined text-indigo-500">chevron_right</span>
+                   <span className="material-symbols-outlined text-white/40">chevron_right</span>
                 </button>
               </>
             )}
@@ -484,15 +484,15 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={() => setInviteStep("game")} 
-                      className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                      className="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
                     >
                       <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span>
                     </button>
-                    <h3 className="text-base font-black tracking-tight uppercase">Select Rule Mode</h3>
+                    <h3 className="font-headline text-base font-extrabold tracking-tight uppercase text-primary">Rule Mode</h3>
                   </div>
                   <button 
                     onClick={() => { setShowGameSelector(false); setInviteStep("game"); }} 
-                    className="w-8 h-8 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-neutral-500 transition-all active:scale-90"
+                    className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-on-surface-variant transition-all active:scale-90"
                   >
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
@@ -500,15 +500,15 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
 
                 <button 
                   onClick={() => handleSendGameInvite("carrom", "freestyle")} 
-                  className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
+                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
                 >
                    <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 bg-white dark:bg-neutral-900 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-500 rounded-xl flex items-center justify-center shadow-md">
+                     <div className="w-12 h-12 bg-white/10 border border-amber-500/50 text-amber-500 rounded-xl flex items-center justify-center shadow-md">
                         <span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>sports_score</span>
                      </div>
                      <div className="text-left">
-                        <h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Freestyle</h4>
-                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Score Based • Fast</p>
+                        <h4 className="font-headline text-sm font-extrabold text-primary">Freestyle</h4>
+                        <p className="font-caps text-[9px] font-bold text-amber-500/80 uppercase tracking-widest mt-0.5">Score Based • Fast</p>
                      </div>
                    </div>
                    <span className="material-symbols-outlined text-amber-500">send</span>
@@ -516,15 +516,15 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
 
                 <button 
                   onClick={() => handleSendGameInvite("carrom", "classic")} 
-                  className="w-full flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
+                  className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl active:scale-[0.98] transition-all shadow-sm"
                 >
                    <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 bg-white dark:bg-neutral-900 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-500 rounded-xl flex items-center justify-center shadow-md">
+                     <div className="w-12 h-12 bg-white/10 border border-amber-500/50 text-amber-500 rounded-xl flex items-center justify-center shadow-md">
                         <span className="material-symbols-outlined" style={{fontVariationSettings:"'FILL' 1"}}>palette</span>
                      </div>
                      <div className="text-left">
-                        <h4 className="text-sm font-black text-amber-900 dark:text-amber-100">Classic Colors</h4>
-                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Claim Colors • Tactical</p>
+                        <h4 className="font-headline text-sm font-extrabold text-primary">Classic Colors</h4>
+                        <p className="font-caps text-[9px] font-bold text-amber-500/80 uppercase tracking-widest mt-0.5">Claim Colors • Tactical</p>
                      </div>
                    </div>
                    <span className="material-symbols-outlined text-amber-500">send</span>
@@ -537,28 +537,28 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
       )}
 
       {/* 📞 THREAD HEADER */}
-      <header className="shrink-0 w-full bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 z-20 shadow-sm" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
+      <header className="shrink-0 w-full bg-surface/60 backdrop-blur-xl border-b border-white/10 z-20 shadow-sm" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setActiveView("hub")}
-              className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-neutral-200/50 dark:border-neutral-700/50 text-neutral-600 dark:text-neutral-300 flex items-center justify-center transition-all active:scale-90"
+              className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-on-surface flex items-center justify-center transition-all active:scale-90"
             >
               <span className="material-symbols-outlined text-lg">arrow_back_ios_new</span>
             </button>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full overflow-hidden relative border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-950">
-                <Image src={activeChat?.avatar_url || ""} alt="User" fill className="object-cover p-0.5" unoptimized />
+              <div className="w-10 h-10 rounded-full overflow-hidden relative bg-surface-container">
+                <Image src={activeChat?.avatar_url || ""} alt="User" fill className="object-cover" unoptimized />
               </div>
               <div>
-                <h3 className="text-sm font-black tracking-tight text-neutral-900 dark:text-white">{activeChat?.username}</h3>
-                <span className="text-[9px] text-emerald-500 dark:text-emerald-400 font-bold uppercase tracking-widest flex items-center gap-1 mt-0.5">
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Online
+                <h3 className="font-headline text-sm font-extrabold tracking-tight text-primary">{activeChat?.username}</h3>
+                <span className="font-caps text-[9px] text-surface-tint font-bold uppercase tracking-widest flex items-center gap-1 mt-0.5">
+                  <span className="w-1.5 h-1.5 bg-surface-tint rounded-full animate-pulse"></span> Online
                 </span>
               </div>
             </div>
           </div>
-          <button className="w-10 h-10 flex items-center justify-center text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">
+          <button className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors">
             <span className="material-symbols-outlined text-2xl">more_vert</span>
           </button>
         </div>
@@ -570,71 +570,54 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
           const isMe = msg.sender_id === myUserId;
           const isCarrom = msg.game_name?.includes("Carrom");
           
-          // Theme classes mapped properly to prevent PurgeCSS dropping
-          const themeCard = isCarrom 
-            ? "bg-amber-50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/50" 
-            : "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/50";
-            
-          const themeIconBox = isCarrom 
-            ? "bg-amber-100 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400"
-            : "bg-indigo-100 dark:bg-indigo-900/40 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400";
-            
-          const themeBadge = isCarrom
-            ? "text-amber-500 dark:text-amber-400 bg-white/50 dark:bg-black/20 border-amber-200/50 dark:border-amber-900/50"
-            : "text-indigo-500 dark:text-indigo-400 bg-white/50 dark:bg-black/20 border-indigo-200/50 dark:border-indigo-900/50";
-            
-          const themeAcceptBtn = isCarrom
-            ? "bg-amber-500 hover:bg-amber-600"
-            : "bg-indigo-600 hover:bg-indigo-700";
-            
           const gameIcon = isCarrom ? "radio_button_checked" : "grid_4x4";
           const targetUrl = isCarrom ? "native://carrom" : "native://checkers";
 
           return (
             <div key={msg.id} className={`flex items-start w-full ${isMe ? "justify-end" : "justify-start"}`}>
-              <div className={`flex flex-col max-w-[75%] ${isMe ? "items-end" : "items-start"}`}>
+              <div className={`flex flex-col max-w-[80%] ${isMe ? "items-end" : "items-start"}`}>
                 
                 {/* Text Bubble */}
                 {msg.message_type === 'text' && (
-                  <div className={`px-4 py-3 text-[13px] shadow-sm leading-relaxed border ${
+                  <div className={`px-4 py-3 font-body text-[14px] shadow-sm leading-relaxed border ${
                     isMe 
-                      ? "bg-indigo-600 text-white border-transparent rounded-[1.25rem] rounded-tr-sm" 
-                      : "bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-neutral-800 rounded-[1.25rem] rounded-tl-sm"
+                      ? "bg-primary-container text-on-primary-container border-transparent rounded-[1.25rem] rounded-tr-sm" 
+                      : "glass-panel text-on-surface rounded-[1.25rem] rounded-tl-sm"
                   }`}>
-                    <p className="whitespace-pre-wrap break-words font-medium">{msg.content}</p>
+                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                   </div>
                 )}
 
-                {/* Game Invite Card */}
+                {/* Game Invite Card (Premium Action Card) */}
                 {msg.message_type === 'game_invite' && (
-                  <div className={`w-64 rounded-3xl overflow-hidden border shadow-sm p-5 flex flex-col items-center gap-3 text-center ${
+                  <div className={`w-64 rounded-3xl overflow-hidden shadow-lg p-5 flex flex-col items-center gap-3 text-center ${
                     isMe 
-                      ? `${themeCard} rounded-tr-sm` 
-                      : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 rounded-tl-sm"
+                      ? `glass-panel border-primary-container/30 rounded-tr-sm` 
+                      : "glass-panel border-white/10 rounded-tl-sm"
                   }`}>
-                    <div className={`w-14 h-14 rounded-[1.25rem] flex items-center justify-center mb-1 shadow-inner border ${themeIconBox}`}>
-                      <span className="material-symbols-outlined text-3xl" style={{fontVariationSettings:"'FILL' 1"}}>{gameIcon}</span>
+                    <div className="w-14 h-14 rounded-[1.25rem] flex items-center justify-center mb-1 shadow-inner bg-white/5 border border-white/10">
+                      <span className={`material-symbols-outlined text-3xl ${isCarrom ? "text-amber-500" : "text-tertiary-container"}`} style={{fontVariationSettings:"'FILL' 1"}}>{gameIcon}</span>
                     </div>
                     <div>
-                      <h4 className="text-sm font-black tracking-tight text-neutral-900 dark:text-white">{msg.game_name}</h4>
-                      <p className="text-[9px] text-neutral-500 dark:text-neutral-400 font-bold uppercase tracking-wider mt-1">Challenge Request</p>
+                      <h4 className="font-headline text-sm font-extrabold tracking-tight text-primary">{msg.game_name}</h4>
+                      <p className="font-caps text-[9px] text-on-surface-variant font-bold uppercase tracking-wider mt-1">Challenge Request</p>
                     </div>
 
                     <div className="w-full mt-3">
                       {msg.invite_status === 'pending' && (
                         isMe ? (
-                          <div className={`text-[10px] font-bold uppercase py-2.5 rounded-xl border ${themeBadge}`}>Awaiting...</div>
+                          <div className="font-caps text-[10px] font-bold uppercase py-2.5 rounded-xl border border-white/20 text-on-surface-variant bg-white/5">Awaiting...</div>
                         ) : (
                           <div className="flex gap-2">
                             <button 
                               onClick={() => updateInviteStatus(msg.id, 'declined')} 
-                              className="flex-1 py-2.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all"
+                              className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 text-primary font-caps font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-white/5"
                             >
                               Decline
                             </button>
                             <button 
                               onClick={() => updateInviteStatus(msg.id, 'accepted')} 
-                              className={`flex-1 py-2.5 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-md ${themeAcceptBtn}`}
+                              className="flex-1 py-2.5 gradient-pill-primary font-caps font-bold text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-md"
                             >
                               Accept
                             </button>
@@ -642,23 +625,23 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
                         )
                       )}
                       {msg.invite_status === 'declined' && (
-                        <div className="text-[10px] text-red-500 font-bold uppercase py-2.5 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-100 dark:border-red-900/40">
+                        <div className="font-caps text-[10px] text-red-400 font-bold uppercase py-2.5 bg-red-500/10 rounded-xl border border-red-500/20">
                           Declined
                         </div>
                       )}
                       {msg.invite_status === 'accepted' && (
                         <button 
                           onClick={() => onPlay?.(targetUrl, msg.match_id!)}
-                          className="w-full py-3 bg-neutral-900 dark:bg-white text-white dark:text-black font-black text-[10px] uppercase tracking-wider rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-md hover:opacity-90"
+                          className="w-full py-3 bg-primary text-background font-headline font-extrabold text-[11px] uppercase tracking-wider rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-md hover:opacity-90"
                         >
-                          <span className="material-symbols-outlined text-[14px]">play_arrow</span>
+                          <span className="material-symbols-outlined text-[16px]">play_arrow</span>
                           Enter Arena
                         </button>
                       )}
                     </div>
                   </div>
                 )}
-                <span className="text-[9px] block mt-1.5 px-2 text-neutral-400 dark:text-neutral-500 font-bold uppercase tracking-widest">
+                <span className="font-caps text-[9px] block mt-1.5 px-2 text-on-surface-variant font-bold uppercase tracking-widest">
                   {formatTime(msg.created_at)}
                 </span>
               </div>
@@ -669,29 +652,29 @@ export default function ChatTab({ onPlay }: { onPlay?: (url: string, matchId: st
       </div>
 
       {/* 📥 CHAT INPUT */}
-      <footer className="shrink-0 w-full bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-800 z-20" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
+      <footer className="shrink-0 w-full bg-surface/60 backdrop-blur-xl border-t border-white/10 z-20" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
         <form onSubmit={handleSendText} className="px-4 py-3 flex items-center gap-3">
           <button
             type="button"
             onClick={() => { setShowGameSelector(true); setInviteStep("game"); }}
-            className="w-11 h-11 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-sm shrink-0"
+            className="w-11 h-11 bg-white/5 hover:bg-white/10 text-primary border border-white/10 rounded-full flex items-center justify-center transition-all active:scale-90 shadow-sm shrink-0"
           >
             <span className="material-symbols-outlined text-[20px]">swords</span>
           </button>
           
-          <div className="flex-1 bg-neutral-100 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-full flex items-center pr-1.5 focus-within:border-indigo-400 dark:focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all overflow-hidden shadow-inner">
+          <div className="flex-1 bg-surface-container-highest border border-white/10 rounded-full flex items-center pr-1.5 focus-within:border-surface-tint focus-within:ring-1 focus-within:ring-surface-tint transition-all overflow-hidden shadow-inner">
             <input
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Message..."
-              className="flex-1 bg-transparent border-none text-[13px] text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none px-4 py-3 w-full"
+              className="flex-1 bg-transparent border-none font-body text-[14px] text-primary placeholder-on-surface-variant focus:outline-none px-4 py-3 w-full"
             />
             <button
               type="submit"
               disabled={!newMessage.trim()}
               className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0 ${
-                newMessage.trim() ? "bg-indigo-600 text-white active:scale-90 shadow-sm" : "bg-transparent text-neutral-300 dark:text-neutral-700 cursor-not-allowed"
+                newMessage.trim() ? "bg-primary-container text-on-primary-container active:scale-90 shadow-sm" : "bg-transparent text-white/20 cursor-not-allowed"
               }`}
             >
               <span className="material-symbols-outlined text-[16px] font-bold">arrow_upward</span>

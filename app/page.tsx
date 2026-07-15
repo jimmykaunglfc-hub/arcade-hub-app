@@ -18,7 +18,7 @@ import Carrom from "../components/games/Carrom";
 import NexusBreach from "../components/games/NexusBreach"; 
 import LiarsDice from "../components/games/LiarsDice"; 
 import NeuralDuel from "../components/games/NeuralDuel"; 
-import BiometricOverride from "../components/games/BiometricOverride"; // 👈 Biometric Override Imported!
+import BiometricOverride from "../components/games/BiometricOverride"; 
 import AuthView from "../components/AuthView";
 
 export default function Home() {
@@ -48,7 +48,7 @@ export default function Home() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+      setSession(subscription ? session : null);
     });
 
     return () => subscription.unsubscribe();
@@ -68,8 +68,8 @@ export default function Home() {
 
   if (checkingAuth) {
     return (
-      <div className="fixed inset-0 bg-neutral-100 dark:bg-neutral-950 flex items-center justify-center transition-colors">
-        <span className="text-xs font-bold text-neutral-400 dark:text-neutral-600 uppercase tracking-widest animate-pulse">
+      <div className="fixed inset-0 bg-background flex items-center justify-center transition-colors">
+        <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest animate-pulse">
           Syncing Session Matrix...
         </span>
       </div>
@@ -121,26 +121,48 @@ export default function Home() {
       ) : null}
 
       {/* 📱 NATIVE APP WRAPPER */}
-      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors overflow-hidden"}>
+      <div className={playingGame ? "hidden" : "flex flex-col bg-background text-on-background min-h-screen font-body overflow-x-hidden"}>
         
-        <header className="shrink-0 w-full z-40 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-900 flex items-center justify-between px-6 h-20 pt-safe transition-colors">
-          <div className="flex items-center gap-3">
-            <div className="relative w-9 h-9 flex items-center justify-center transition-colors">
+        {/* TOP HEADER OVERHAUL */}
+        <header className="fixed top-0 w-full z-50 bg-surface/60 backdrop-blur-xl border-b border-white/10 flex justify-between items-center px-container-padding h-[80px] pt-safe-area-top shadow-md">
+          
+          {/* Left Side: Clean Profile Avatar Action Circle */}
+          <div 
+            className="relative w-10 h-10 rounded-full border border-white/20 flex-shrink-0 cursor-pointer"
+            onClick={() => setActiveTab("Profile")}
+          >
+             <div className="w-full h-full bg-surface-container-high rounded-full flex items-center justify-center text-on-surface-variant overflow-hidden">
+               <span className="material-symbols-outlined text-xl">person</span>
+             </div>
+             <div className="absolute -bottom-1 -right-1 bg-surface-tint text-on-primary-container font-stat-pill text-[9px] font-bold px-1.5 py-0.5 rounded-sm border border-surface">
+               1
+             </div>
+          </div>
+
+          {/* Absolute Center: 3D App Logo Inline With Game Title */}
+          <div className="flex items-center justify-center gap-2">
+            <div className="relative w-7 h-7 overflow-hidden rounded-md">
               <Image 
                 src="/joeyoke-logo.png" 
                 alt="Joe Yoke Logo" 
-                fill 
-                className="object-contain invert dark:invert-0 transition-all duration-300" 
-                unoptimized 
+                fill
+                className="object-contain"
+                unoptimized
               />
             </div>
-            <span className="text-lg font-black tracking-tight text-neutral-900 dark:text-white uppercase">
-              JOE YOKE
+            <span className="font-headline text-base font-extrabold tracking-widest text-primary uppercase pt-0.5">
+              Joe Yoke
             </span>
           </div>
+
+          {/* Trailing Right Side: Notifications */}
+          <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors scale-95 active:duration-150 text-on-surface-variant flex-shrink-0">
+            <span className="material-symbols-outlined">notifications</span>
+          </button>
         </header>
 
-        <main className="flex-1 w-full max-w-xl mx-auto overflow-y-auto no-scrollbar px-4 pt-6 pb-6 relative">
+        {/* Dynamic App Content Portal */}
+        <main className="pt-[100px] pb-[120px] px-4 md:px-8 space-y-section-margin max-w-xl mx-auto w-full">
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
@@ -173,34 +195,40 @@ export default function Home() {
           )}
         </main>
 
-        <nav className="shrink-0 w-full z-40 flex justify-between items-center h-20 pb-safe px-6 bg-white/95 dark:bg-neutral-950/95 backdrop-blur-xl border-t border-neutral-200 dark:border-neutral-900 transition-colors">
+        {/* FIXED BOTTOM NAV BAR (Frosted Glassmorphism) */}
+        <nav className="fixed bottom-0 w-full z-50 glass-panel bg-surface/80 border-t border-white/10 px-6 pb-safe pt-2 flex justify-between items-center h-[85px]">
           {["Games", "Ranks", "Chat", "Shop", "Profile"].map((tab) => {
             const isActive = activeTab === tab;
             return (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex flex-col items-center justify-center transition-all w-14 active:scale-95 ${
+                className={`flex flex-col items-center justify-center w-14 transition-all duration-300 active:scale-95 ${
                   isActive 
-                    ? "text-indigo-600 dark:text-indigo-400 font-bold" 
-                    : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200"
+                    ? "text-primary-container" 
+                    : "text-on-surface-variant hover:text-white"
                 }`}
               >
-                <span 
-                  className="material-symbols-outlined text-[24px] transition-transform" 
-                  style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
-                >
-                  {tab === "Games" ? "sports_esports" 
-                    : tab === "Ranks" ? "leaderboard" 
-                    : tab === "Chat" ? "forum" 
-                    : tab === "Shop" ? "storefront" 
-                    : "person"}
+                <div className={`flex items-center justify-center w-12 h-10 rounded-full transition-all duration-300 ${isActive ? "bg-primary-container/10" : "bg-transparent"}`}>
+                  <span 
+                    className="material-symbols-outlined text-[26px]" 
+                    style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
+                  >
+                    {tab === "Games" ? "sports_esports" 
+                      : tab === "Ranks" ? "leaderboard" 
+                      : tab === "Chat" ? "forum" 
+                      : tab === "Shop" ? "storefront" 
+                      : "person"}
+                  </span>
+                </div>
+                <span className={`font-caps text-[9px] font-bold tracking-widest mt-1 transition-all duration-300 ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 h-0 overflow-hidden"}`}>
+                  {tab}
                 </span>
-                <span className="text-[9px] font-bold tracking-tight mt-1">{tab}</span>
               </button>
             );
           })}
         </nav>
+
       </div>
     </>
   );
