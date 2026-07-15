@@ -120,49 +120,42 @@ export default function Home() {
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : null}
 
-      {/* 📱 NATIVE APP WRAPPER */}
-      <div className={playingGame ? "hidden" : "flex flex-col bg-background text-on-background min-h-screen font-body overflow-x-hidden"}>
+      {/* 📱 NATIVE APP WRAPPER (Scroll & Viewport Fix) */}
+      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden animate-fade-in"}>
         
-        {/* TOP HEADER OVERHAUL */}
-        <header className="fixed top-0 w-full z-50 bg-surface/60 backdrop-blur-xl border-b border-white/10 flex justify-between items-center px-container-padding h-[80px] pt-safe-area-top shadow-md">
-          
-          {/* Left Side: Clean Profile Avatar Action Circle */}
-          <div 
-            className="relative w-10 h-10 rounded-full border border-white/20 flex-shrink-0 cursor-pointer"
-            onClick={() => setActiveTab("Profile")}
-          >
-             <div className="w-full h-full bg-surface-container-high rounded-full flex items-center justify-center text-on-surface-variant overflow-hidden">
-               <span className="material-symbols-outlined text-xl">person</span>
+        {/* FIXED HEADER PORTAL */}
+        <header className="shrink-0 w-full bg-surface/60 backdrop-blur-xl border-b border-white/10 flex justify-between items-center px-container-padding h-[80px] pt-safe-area-top shadow-md z-30">
+          {/* Logo Branding */}
+          <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center">
+             <div className="relative w-10 h-10 overflow-hidden rounded-xl">
+               <Image 
+                 src="/joeyoke-logo.png" 
+                 alt="Joe Yoke Logo" 
+                 fill
+                 className="object-contain"
+                 unoptimized
+               />
              </div>
              <div className="absolute -bottom-1 -right-1 bg-surface-tint text-on-primary-container font-stat-pill text-[9px] font-bold px-1.5 py-0.5 rounded-sm border border-surface">
                1
              </div>
           </div>
 
-          {/* Absolute Center: 3D App Logo Inline With Game Title */}
+          {/* Center Brand String */}
           <div className="flex items-center justify-center gap-2">
-            <div className="relative w-7 h-7 overflow-hidden rounded-md">
-              <Image 
-                src="/joeyoke-logo.png" 
-                alt="Joe Yoke Logo" 
-                fill
-                className="object-contain"
-                unoptimized
-              />
-            </div>
-            <span className="font-headline text-base font-extrabold tracking-widest text-primary uppercase pt-0.5">
+            <span className="font-headline text-md font-extrabold tracking-widest text-primary uppercase pt-0.5">
               Joe Yoke
             </span>
           </div>
 
-          {/* Trailing Right Side: Notifications */}
+          {/* Notifications */}
           <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors scale-95 active:duration-150 text-on-surface-variant flex-shrink-0">
             <span className="material-symbols-outlined">notifications</span>
           </button>
         </header>
 
-        {/* Dynamic App Content Portal */}
-        <main className="pt-[100px] pb-[120px] px-4 md:px-8 space-y-section-margin max-w-xl mx-auto w-full">
+        {/* ACTIVE PORTAL DISPLAY (Scroll Enabled Center Content) */}
+        <main className="flex-1 overflow-y-auto no-scrollbar pt-[100px] pb-[110px] px-4 md:px-8 space-y-section-margin max-w-xl mx-auto w-full z-10">
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
@@ -195,8 +188,8 @@ export default function Home() {
           )}
         </main>
 
-        {/* FIXED BOTTOM NAV BAR (Frosted Glassmorphism) */}
-        <nav className="fixed bottom-0 w-full z-50 glass-panel bg-surface/80 border-t border-white/10 px-6 pb-safe pt-2 flex justify-between items-center h-[85px]">
+        {/* FIXED NAV SYSTEM SHIELD */}
+        <nav className="shrink-0 fixed bottom-0 left-0 w-full z-50 glass-panel bg-surface/80 border-t border-white/10 px-6 pb-safe pt-2 flex justify-between items-center h-[85px]">
           {["Games", "Ranks", "Chat", "Shop", "Profile"].map((tab) => {
             const isActive = activeTab === tab;
             return (
