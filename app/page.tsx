@@ -68,8 +68,8 @@ export default function Home() {
 
   if (checkingAuth) {
     return (
-      <div className="fixed inset-0 bg-background flex items-center justify-center transition-colors">
-        <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest animate-pulse">
+      <div className="fixed inset-0 bg-[#f4f6f9] dark:bg-background flex items-center justify-center transition-colors">
+        <span className="text-xs font-bold text-neutral-400 dark:text-on-surface-variant uppercase tracking-widest animate-pulse">
           Syncing Session Matrix...
         </span>
       </div>
@@ -120,42 +120,42 @@ export default function Home() {
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : null}
 
-      {/* 📱 STABILIZED NATIVE LAYOUT ENVIRONMENT */}
-      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden animate-fade-in"}>
+      {/* 📱 HARMONIZED NATIVE LAYOUT CORE */}
+      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-[#f4f6f9] dark:bg-background text-neutral-800 dark:text-on-background font-body overflow-hidden animate-fade-in transition-colors duration-300"}>
         
-        {/* PREMIUM COMPACT HEADER BLOCK (Perfect Framing Patch) */}
-        <header className="fixed top-0 w-full z-50 bg-surface/60 backdrop-blur-xl border-b border-white/10 flex justify-between items-end px-4 h-[68px] pb-2.5 shadow-md">
+        {/* PREMIUM COMPACT HEADER BLOCK (Adaptive Theme Upgrade) */}
+        <header className="fixed top-0 w-full z-50 bg-white/70 dark:bg-surface/60 backdrop-blur-xl border-b border-neutral-200 dark:border-white/10 flex justify-between items-end px-4 h-[68px] pb-2.5 shadow-sm transition-colors duration-300">
           
           {/* Top Left: Rounded Brand Identity Layout */}
           <div className="flex items-center gap-2">
-             <div className="relative w-7 h-7 rounded-full bg-surface-container-high border border-white/10 overflow-hidden flex items-center justify-center shadow-inner">
+             <div className="relative w-7 h-7 rounded-full bg-white dark:bg-surface-container-high border border-neutral-200 dark:border-white/10 overflow-hidden flex items-center justify-center shadow-sm">
                <Image 
                  src="/joeyoke-logo.png" 
                  alt="Joe Yoke Logo" 
                  fill
-                 className="object-contain p-1"
+                 className="object-contain p-1 dark:invert-0"
                  unoptimized
                />
              </div>
-             <span className="font-headline text-xs font-black tracking-widest text-primary uppercase">
+             <span className="font-headline text-xs font-black tracking-widest text-neutral-900 dark:text-primary uppercase">
                Joe Yoke
              </span>
           </div>
 
           {/* Top Right: Wallet Points Tray & Notification Bell */}
           <div className="flex items-center gap-2">
-            <div className="glass-panel flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-white/5 bg-white/5 shadow-inner">
-              <span className="material-symbols-outlined text-secondary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
-              <span className="text-primary tracking-wide">1,500</span>
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-neutral-200 dark:border-white/5 bg-white/90 dark:bg-white/5 text-neutral-800 dark:text-primary shadow-sm">
+              <span className="material-symbols-outlined text-amber-500 dark:text-secondary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
+              <span className="tracking-wide">1,500</span>
             </div>
             
-            <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/5 transition-colors text-on-surface-variant">
+            <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-neutral-200/50 dark:hover:bg-white/5 transition-colors text-neutral-400 dark:text-on-surface-variant">
               <span className="material-symbols-outlined text-lg">notifications</span>
             </button>
           </div>
         </header>
 
-        {/* COMPACT VIEWPORT CONTAINER PORTAL (Gap Compression Patch) */}
+        {/* COMPACT VIEWPORT CONTAINER PORTAL */}
         <main className="flex-1 overflow-y-auto no-scrollbar pt-[80px] pb-[96px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10">
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
@@ -189,8 +189,8 @@ export default function Home() {
           )}
         </main>
 
-        {/* FROSTED BOTTOM NAVIGATION SHIELD */}
-        <nav className="shrink-0 fixed bottom-0 left-0 w-full z-50 glass-panel bg-surface/80 border-t border-white/10 px-6 pb-safe pt-1.5 flex justify-between items-center h-[82px]">
+        {/* FROSTED BOTTOM NAVIGATION SHIELD (Adaptive Theme Upgrade) */}
+        <nav className="shrink-0 fixed bottom-0 left-0 w-full z-50 bg-white/80 dark:bg-surface/85 backdrop-blur-xl border-t border-neutral-200 dark:border-white/10 px-6 pb-safe pt-1.5 flex justify-between items-center h-[82px] shadow-lg transition-colors duration-300">
           {["Games", "Ranks", "Chat", "Shop", "Profile"].map((tab) => {
             const isActive = activeTab === tab;
             return (
@@ -198,10 +198,12 @@ export default function Home() {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`flex flex-col items-center justify-center w-14 transition-all duration-300 active:scale-95 ${
-                  isActive ? "text-primary-container" : "text-on-surface-variant hover:text-white"
+                  isActive 
+                    ? "text-indigo-600 dark:text-primary-container font-extrabold" 
+                    : "text-neutral-400 dark:text-on-surface-variant hover:text-neutral-900 dark:hover:text-white"
                 }`}
               >
-                <div className={`flex items-center justify-center w-12 h-9 rounded-full transition-all duration-300 ${isActive ? "bg-primary-container/10" : "bg-transparent"}`}>
+                <div className={`flex items-center justify-center w-12 h-9 rounded-full transition-all duration-300 ${isActive ? "bg-indigo-50 dark:bg-primary-container/10" : "bg-transparent"}`}>
                   <span 
                     className="material-symbols-outlined text-[24px]" 
                     style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
