@@ -27,7 +27,7 @@ export default function Home() {
   const [rewardClaimed, setRewardClaimed] = useState(false);
   const [activeTab, setActiveTab] = useState("Games");
   
-  // Real-Time Point Engine State Hooks
+  // Real-Time Point Engine States
   const [userPoints, setUserPoints] = useState<number>(0);
   const [myUserId, setMyUserId] = useState<string | null>(null);
 
@@ -68,7 +68,6 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Sync real-time Postgres listener to intercept external currency modifications instantly
   useEffect(() => {
     if (!myUserId) return;
 
@@ -80,7 +79,6 @@ export default function Home() {
           if (payload.new && typeof payload.new.points === "number") {
             setUserPoints(payload.new.points);
             
-            // Check daily login status via timestamp existence match
             if (payload.new.last_login_claim) {
               const lastClaim = new Date(payload.new.last_login_claim).toDateString();
               const today = new Date().toDateString();
@@ -158,33 +156,40 @@ export default function Home() {
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : null}
 
-      {/* 📱 NATIVE APP WRAPPER CONTAINER */}
+      {/* 📱 STABILIZED APP SHELL */}
       <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-[#eef2f6] dark:bg-background text-[#091428] dark:text-on-background font-body overflow-hidden animate-fade-in transition-colors duration-300"}>
         
-        {/* PREMIUM COMPACT HEADER BLOCK */}
-        <header className="fixed top-0 w-full z-50 bg-white/70 dark:bg-surface/60 backdrop-blur-xl border-b border-neutral-200/60 dark:border-white/10 flex justify-between items-center px-4 h-[68px] pt-safe-area-top pb-2 flex-shrink-0 z-30 transition-colors duration-300">
-          <div className="flex items-center gap-2">
-             <div className="relative w-7 h-7 rounded-full bg-white dark:bg-surface-container-high border border-neutral-200 dark:border-white/10 overflow-hidden flex items-center justify-center shadow-sm">
-               <Image src="/joeyoke-logo.png" alt="Joe Yoke Logo" fill className="object-contain p-1" unoptimized />
-             </div>
-             <span className="font-headline text-xs font-black tracking-widest text-[#091428] dark:text-primary uppercase">Joe Yoke</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Real-Time Points counter Display */}
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-neutral-200 dark:border-white/5 bg-white/90 dark:bg-white/5 text-[#091428] dark:text-primary shadow-sm">
-              <span className="material-symbols-outlined text-amber-500 dark:text-secondary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
-              <span className="tracking-wide">{userPoints.toLocaleString()}</span>
-            </div>
+        {/* PREMIUM COMPACT HEADER BLOCK (Dual-Layer Centering Engine Fix) */}
+        <header className="fixed top-0 w-full z-50 bg-white/70 dark:bg-surface/60 backdrop-blur-xl border-b border-neutral-200/60 dark:border-white/10 shadow-sm transition-colors duration-300">
+          <div className="w-full flex justify-between items-center px-4 h-14 pt-[max(env(safe-area-inset-top),1.25rem)] box-content">
             
-            <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-neutral-200/50 dark:hover:bg-white/5 text-neutral-400">
-              <span className="material-symbols-outlined text-lg">notifications</span>
-            </button>
+            {/* Top Left Component Node: Vertically Centered */}
+            <div className="flex items-center gap-2">
+               <div className="relative w-7 h-7 rounded-full bg-white dark:bg-surface-container-high border border-neutral-200 dark:border-white/10 overflow-hidden flex items-center justify-center shadow-sm">
+                 <Image src="/joeyoke-logo.png" alt="Joe Yoke Logo" fill className="object-contain p-1" unoptimized />
+               </div>
+               <span className="font-headline text-xs font-black tracking-widest text-[#091428] dark:text-primary uppercase pt-0.5">
+                 Joe Yoke
+               </span>
+            </div>
+
+            {/* Top Right Component Node: Vertically Centered */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-neutral-200 dark:border-white/5 bg-white/90 dark:bg-white/5 text-[#091428] dark:text-primary shadow-sm h-7">
+                <span className="material-symbols-outlined text-amber-500 dark:text-secondary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
+                <span className="tracking-wide">{userPoints.toLocaleString()}</span>
+              </div>
+              
+              <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-neutral-200/50 dark:hover:bg-white/5 transition-colors text-neutral-400">
+                <span className="material-symbols-outlined text-lg">notifications</span>
+              </button>
+            </div>
+
           </div>
         </header>
 
-        {/* ACTIVE PORTAL DISPLAY */}
-        <main className="flex-1 overflow-y-auto no-scrollbar pt-[80px] pb-[96px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10">
+        {/* COMPACT VIEWPORT CONTAINER PORTAL */}
+        <main className="flex-1 overflow-y-auto no-scrollbar pt-[104px] pb-[96px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10">
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
@@ -220,7 +225,7 @@ export default function Home() {
           )}
         </main>
 
-        {/* BOTTOM NAV SYSTEMS SHIELD */}
+        {/* FROSTED BOTTOM NAVIGATION SHIELD */}
         <nav className="shrink-0 fixed bottom-0 left-0 w-full z-50 bg-white/80 dark:bg-surface/85 backdrop-blur-xl border-t border-neutral-200 dark:border-white/10 px-6 pb-safe pt-1.5 flex justify-between items-center h-[82px] shadow-lg transition-colors duration-300">
           {["Games", "Ranks", "Chat", "Shop", "Profile"].map((tab) => {
             const isActive = activeTab === tab;
