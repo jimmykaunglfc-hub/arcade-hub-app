@@ -159,21 +159,21 @@ export default function Home() {
       {/* 📱 STABILIZED APP SHELL */}
       <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-[#eef2f6] dark:bg-background text-[#091428] dark:text-on-background font-body overflow-hidden animate-fade-in transition-colors duration-300"}>
         
-        {/* PREMIUM COMPACT HEADER BLOCK (Clipping Fix Implemented) */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-white/70 dark:bg-surface/60 backdrop-blur-xl border-b border-neutral-200/60 dark:border-white/10 shadow-sm transition-colors duration-300">
-          <div className="w-full max-w-xl mx-auto flex justify-between items-center px-6 h-14 pt-[max(env(safe-area-inset-top),1.25rem)] pb-2 box-border">
+        {/* PREMIUM COMPACT HEADER BLOCK (Dual-Layer Centering Engine Fix) */}
+        <header className="fixed top-0 left-0 right-0 z-50 bg-white/70 dark:bg-surface/60 backdrop-blur-xl border-b border-neutral-200/60 dark:border-white/10 shadow-sm pt-safe-area-top transition-colors duration-300">
+          <div className="w-full max-w-xl mx-auto flex justify-between items-center px-6 h-14 box-border">
             
-            {/* Top Left Component Node */}
+            {/* Top Left Component Node: Centered inside h-14 */}
             <div className="flex items-center gap-2">
                <div className="relative w-7 h-7 rounded-full bg-white dark:bg-surface-container-high border border-neutral-200 dark:border-white/10 overflow-hidden flex items-center justify-center shadow-sm">
                  <Image src="/joeyoke-logo.png" alt="Joe Yoke Logo" fill className="object-contain p-1" unoptimized />
                </div>
-               <span className="font-headline text-xs font-black tracking-widest text-[#091428] dark:text-primary uppercase pt-0.5">
+               <span className="font-headline text-xs font-black tracking-widest text-[#091428] dark:text-primary uppercase">
                  Joe Yoke
                </span>
             </div>
 
-            {/* Top Right Component Node (Safe-Bounded Alignment) */}
+            {/* Top Right Component Node: Centered inside h-14 */}
             <div className="flex items-center gap-2.5">
               <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-neutral-200 dark:border-white/5 bg-white/90 dark:bg-white/5 text-[#091428] dark:text-primary shadow-sm h-7 box-border">
                 <span className="material-symbols-outlined text-amber-500 dark:text-secondary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
@@ -188,8 +188,8 @@ export default function Home() {
           </div>
         </header>
 
-        {/* COMPACT VIEWPORT CONTAINER PORTAL */}
-        <main className="flex-1 overflow-y-auto no-scrollbar pt-[104px] pb-[96px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10">
+        {/* COMPACT VIEWPORT CONTAINER PORTAL (Dead Space Gap Fixed) */}
+        <main className="flex-1 overflow-y-auto no-scrollbar pt-safe-area-top mt-14 pb-[96px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10">
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
