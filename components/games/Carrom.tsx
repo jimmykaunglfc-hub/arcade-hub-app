@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 // --- HYPER-REALISTIC ENGINE CONSTANTS ---
 const BOARD_SIZE = 1000;
@@ -175,7 +176,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const turnSnapshotRef = useRef<Coin[]>([]);
   const [renderTrigger, setRenderTrigger] = useState(0);
   const isMovingRef = useRef(false);
-  const didIShootRef = useRef(false); // 🛡️ CRITICAL LOCK: Solves the Infinite Turn Bouncing Bug
+  const didIShootRef = useRef(false); 
   
   const [p1Slider, setP1Slider] = useState(500);
   const [p2Slider, setP2Slider] = useState(500); 
@@ -183,13 +184,13 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const [isAiming, setIsAiming] = useState(false);
   const [aimVector, setAimVector] = useState({ x: 0, y: 0 });
   const boardRef = useRef<SVGSVGElement>(null);
-  const bgmRef = useRef<HTMLAudioElement>(null);
-  const channelRef = useRef<any>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const isMutedRef = useRef(isMuted);
   const turnRef = useRef(turn);
   const myPlayerRoleRef = useRef(myPlayerRole);
   const gameRuleModeRef = useRef(gameRuleMode);
+  const playModeRef = useRef(playMode);
 
   // 🧭 PERSPECTIVE LOGIC: Rotates the board 180 degrees ONLY for P2 in Online Mode
   const shouldFlipBoard = playMode === "online" && myPlayerRole === 2;
@@ -198,6 +199,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   useEffect(() => { turnRef.current = turn; }, [turn]);
   useEffect(() => { myPlayerRoleRef.current = myPlayerRole; }, [myPlayerRole]);
   useEffect(() => { gameRuleModeRef.current = gameRuleMode; }, [gameRuleMode]);
+  useEffect(() => { playModeRef.current = playMode; }, [playMode]);
 
   const confettiPieces = useMemo(() => {
     const colors = ['#f59e0b', '#10b981', '#4f46e5', '#ec4899', '#3b82f6'];
@@ -314,43 +316,51 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     }
   }, [p1Slider, p2Slider, turn, shouldFlipBoard]);
 
-  // 📡 MULTIPLAYER REAL-TIME SYNC HUB
-  useEffect(() => {
-    if (!matchId || (playMode !== "host" && playMode !== "join" && playMode !== "online")) return;
+  // 📡 STABILIZED MULTIPLAYER REAL-TIME SYNC HUB
+  const shouldConnect = matchId && myUserId && playMode !== "menu" && playMode !== "local";
 
-    const channel = supabase.channel(`carrom_${matchId}`, { config: { broadcast: { self: false } } });
+  useEffect(() => {
+    if (!shouldConnect) return;
+
+    const channel = supabase.channel(`carrom_${matchId}`, { 
+      config: { 
+        broadcast: { ack: false, self: false },
+        presence: { key: myUserId }
+      } 
+    });
+    
     channelRef.current = channel;
 
     channel
-      .on('broadcast', { event: 'ping' }, (payload) => {
-        if (payload.payload.role !== myPlayerRoleRef.current) {
-          setPlayMode(prev => {
-            if (prev === "host") {
-              setToast({ msg: "Opponent joined the Arena!", type: "success" });
-              channel.send({
-                type: 'broadcast', 
-                event: 'turn_sync', 
-                payload: { 
-                  coins: coinsRef.current, 
-                  nextTurn: 1, 
-                  p1S: 0, 
-                  p2S: 0, 
-                  win: null, 
-                  p1C: null, 
-                  p2C: null, 
-                  msg: "", 
-                  msgType: "info", 
-                  rulesMode: gameRuleModeRef.current 
-                }
-              });
-              return "online";
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const connectedPlayers = Object.keys(state).length;
+
+        if (connectedPlayers === 2 && playModeRef.current === "host") {
+          setPlayMode("online");
+          setToast({ msg: "Opponent joined the Arena!", type: "success" });
+          channel.send({
+            type: 'broadcast', 
+            event: 'turn_sync', 
+            payload: { 
+              coins: coinsRef.current, 
+              nextTurn: 1, 
+              p1S: 0, 
+              p2S: 0, 
+              win: null, 
+              p1C: null, 
+              p2C: null, 
+              msg: "", 
+              msgType: "info", 
+              rulesMode: gameRuleModeRef.current 
             }
-            if (prev === "join") {
-              setToast({ msg: "Connected to Host Matrix!", type: "success" });
-              return "online";
-            }
-            return prev;
           });
+        } else if (connectedPlayers === 2 && playModeRef.current === "join") {
+          setPlayMode("online");
+          setToast({ msg: "Connected to Host Matrix!", type: "success" });
+        } else if (connectedPlayers < 2 && playModeRef.current === "online") {
+          setToast({ msg: "Opponent Disconnected! You Win.", type: "success" });
+          setWinner(myPlayerRoleRef.current);
         }
       })
       .on('broadcast', { event: 'change_rules' }, (payload) => {
@@ -397,21 +407,17 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
       });
 
-    let pingInterval: NodeJS.Timeout;
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-         pingInterval = setInterval(async () => {
-            await channel.send({ type: 'broadcast', event: 'ping', payload: { role: myPlayerRoleRef.current } });
-         }, 1000);
+         await channel.track({ online_at: new Date().toISOString(), role: myPlayerRoleRef.current });
       }
     });
 
     return () => { 
-      clearInterval(pingInterval);
       supabase.removeChannel(channel); 
       channelRef.current = null;
     };
-  }, [matchId, playMode]);
+  }, [shouldConnect]); // Only re-runs if connection requirements change
 
   const updateOnlineRules = (mode: GameMode) => {
      setGameRuleMode(mode);
