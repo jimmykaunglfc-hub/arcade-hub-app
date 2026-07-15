@@ -159,11 +159,11 @@ export default function Home() {
       {/* 📱 STABILIZED APP SHELL */}
       <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-[#eef2f6] dark:bg-background text-[#091428] dark:text-on-background font-body overflow-hidden animate-fade-in transition-colors duration-300"}>
         
-        {/* PREMIUM COMPACT HEADER BLOCK (Dual-Layer Centering Engine Fix) */}
-        <header className="fixed top-0 w-full z-50 bg-white/70 dark:bg-surface/60 backdrop-blur-xl border-b border-neutral-200/60 dark:border-white/10 shadow-sm transition-colors duration-300">
-          <div className="w-full flex justify-between items-center px-4 h-14 pt-[max(env(safe-area-inset-top),1.25rem)] box-content">
+        {/* PREMIUM COMPACT HEADER BLOCK (Clipping Fix Implemented) */}
+        <header className="fixed top-0 left-0 right-0 z-50 bg-white/70 dark:bg-surface/60 backdrop-blur-xl border-b border-neutral-200/60 dark:border-white/10 shadow-sm transition-colors duration-300">
+          <div className="w-full max-w-xl mx-auto flex justify-between items-center px-6 h-14 pt-[max(env(safe-area-inset-top),1.25rem)] pb-2 box-border">
             
-            {/* Top Left Component Node: Vertically Centered */}
+            {/* Top Left Component Node */}
             <div className="flex items-center gap-2">
                <div className="relative w-7 h-7 rounded-full bg-white dark:bg-surface-container-high border border-neutral-200 dark:border-white/10 overflow-hidden flex items-center justify-center shadow-sm">
                  <Image src="/joeyoke-logo.png" alt="Joe Yoke Logo" fill className="object-contain p-1" unoptimized />
@@ -173,14 +173,14 @@ export default function Home() {
                </span>
             </div>
 
-            {/* Top Right Component Node: Vertically Centered */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-neutral-200 dark:border-white/5 bg-white/90 dark:bg-white/5 text-[#091428] dark:text-primary shadow-sm h-7">
+            {/* Top Right Component Node (Safe-Bounded Alignment) */}
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-neutral-200 dark:border-white/5 bg-white/90 dark:bg-white/5 text-[#091428] dark:text-primary shadow-sm h-7 box-border">
                 <span className="material-symbols-outlined text-amber-500 dark:text-secondary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
                 <span className="tracking-wide">{userPoints.toLocaleString()}</span>
               </div>
               
-              <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-neutral-200/50 dark:hover:bg-white/5 transition-colors text-neutral-400">
+              <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-neutral-200/50 dark:hover:bg-white/5 transition-colors text-neutral-400 select-none">
                 <span className="material-symbols-outlined text-lg">notifications</span>
               </button>
             </div>
