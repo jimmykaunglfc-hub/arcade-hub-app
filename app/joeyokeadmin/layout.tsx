@@ -1,24 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname(); // Allows us to highlight the active sidebar tab
 
   useEffect(() => {
     const verifyAdminAccess = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        router.push("/"); // Kick to main app if not logged in
+        router.push("/login"); // Kick to secure admin login if no session
         return;
       }
 
-      // Check the user's role in the database
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
@@ -28,7 +29,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (profile && (profile.role === "admin" || profile.role === "super_admin")) {
         setIsAuthorized(true);
       } else {
-        router.push("/"); // Kick back to arcade if they are just a 'player'
+        router.push("/login"); // Kick to secure admin login if not cleared
       }
       setLoading(false);
     };
@@ -38,8 +39,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-[#eef2f6] dark:bg-background flex items-center justify-center transition-colors">
-        <span className="text-xs font-bold text-neutral-500 dark:text-on-surface-variant uppercase tracking-widest animate-pulse">
+      <div className="fixed inset-0 bg-[#eef2f6] dark:bg-[#091428] flex items-center justify-center transition-colors">
+        <span className="text-xs font-bold text-neutral-500 dark:text-white/50 uppercase tracking-widest animate-pulse">
           Verifying Clearance...
         </span>
       </div>
@@ -48,37 +49,54 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!isAuthorized) return null;
 
+  const navItems = [
+    { id: "dashboard", path: "/joeyokeadmin", icon: "dashboard", label: "Overview" },
+    { id: "users", path: "/joeyokeadmin/users", icon: "group", label: "User Nodes" },
+    { id: "economy", path: "/joeyokeadmin/economy", icon: "account_balance", label: "Economy Ledger" },
+    { id: "games", path: "/joeyokeadmin/games", icon: "sports_esports", label: "Game Catalog" },
+    { id: "reports", path: "/joeyokeadmin/reports", icon: "flag", label: "Moderation" },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#eef2f6] dark:bg-background text-[#091428] dark:text-white font-body flex transition-colors duration-300">
+    <div className="min-h-screen bg-[#eef2f6] dark:bg-[#091428] text-neutral-900 dark:text-white font-body flex transition-colors duration-300">
+      
       {/* 🛡️ ADMIN SIDEBAR */}
-      <aside className="w-64 bg-white dark:bg-surface-container-high border-r border-neutral-200 dark:border-white/10 hidden md:flex flex-col transition-colors duration-300">
-        <div className="p-6 border-b border-neutral-200 dark:border-white/10 flex items-center gap-3">
-          <div className="w-8 h-8 bg-indigo-600 dark:bg-primary-container rounded-lg flex items-center justify-center text-white dark:text-neutral-900 shadow-md">
-            <span className="material-symbols-outlined text-lg">admin_panel_settings</span>
+      <aside className="w-64 bg-white dark:bg-[#111c33] border-r border-neutral-200 dark:border-white/5 hidden md:flex flex-col transition-colors duration-300">
+        <div className="p-6 border-b border-neutral-200 dark:border-white/5 flex items-center gap-3">
+          <div className="w-8 h-8 bg-[#c3f400] rounded-lg flex items-center justify-center text-neutral-900 shadow-md">
+            <span className="material-symbols-outlined text-lg font-bold">admin_panel_settings</span>
           </div>
           <div>
-            <h1 className="font-headline text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-primary">Control Core</h1>
-            <p className="font-caps text-[8px] text-neutral-400 dark:text-on-surface-variant font-bold uppercase tracking-widest mt-0.5">Joe Yoke OS</p>
+            <h1 className="font-headline text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Control Core</h1>
+            <p className="font-caps text-[8px] text-neutral-400 dark:text-white/40 font-bold uppercase tracking-widest mt-0.5">Joe Yoke OS</p>
           </div>
         </div>
         
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {[
-            { id: "dashboard", icon: "dashboard", label: "Overview" },
-            { id: "users", icon: "group", label: "User Nodes" },
-            { id: "economy", icon: "account_balance", label: "Economy Ledger" },
-            { id: "games", icon: "sports_esports", label: "Game Catalog" },
-            { id: "reports", icon: "flag", label: "Moderation" },
-          ].map((item) => (
-            <button key={item.id} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors text-neutral-600 dark:text-neutral-300 hover:text-indigo-600 dark:hover:text-primary">
-              <span className="material-symbols-outlined text-lg">{item.icon}</span>
-              <span className="font-headline text-xs font-bold">{item.label}</span>
-            </button>
-          ))}
+          {navItems.map((item) => {
+            const isActive = pathname === item.path;
+            return (
+              <Link 
+                key={item.id} 
+                href={item.path}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 ${
+                  isActive 
+                    ? "bg-neutral-100 dark:bg-white/10 text-neutral-900 dark:text-white font-bold" 
+                    : "text-neutral-500 dark:text-white/50 hover:bg-neutral-50 dark:hover:bg-white/5 hover:text-neutral-800 dark:hover:text-white/80"
+                }`}
+              >
+                <span className={`material-symbols-outlined text-lg ${isActive ? "font-bold" : ""}`}>{item.icon}</span>
+                <span className="font-headline text-xs tracking-wide">{item.label}</span>
+              </Link>
+            );
+          })}
         </nav>
 
-        <div className="p-4 border-t border-neutral-200 dark:border-white/10">
-          <button onClick={() => router.push("/")} className="w-full flex items-center justify-center gap-2 py-2.5 bg-neutral-100 dark:bg-white/5 rounded-xl font-headline text-xs font-bold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors">
+        <div className="p-4 border-t border-neutral-200 dark:border-white/5">
+          <button 
+            onClick={() => window.location.href = "https://app.joeyoke.com"} 
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-neutral-100 dark:bg-white/5 rounded-xl font-headline text-xs font-bold text-neutral-600 dark:text-white/60 hover:bg-neutral-200 dark:hover:bg-white/10 transition-colors"
+          >
             <span className="material-symbols-outlined text-sm">exit_to_app</span>
             Exit to Arcade
           </button>
