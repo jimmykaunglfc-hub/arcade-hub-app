@@ -8,12 +8,17 @@ export default function GameCatalogManager() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal States
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // --- MODAL STATES ---
+  const [isGameModalOpen, setIsGameModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  
+  const [uploadingGame, setUploadingGame] = useState(false);
+  const [uploadingCategory, setUploadingCategory] = useState(false);
+  
+  const gameInputRef = useRef<HTMLInputElement>(null);
+  const categoryInputRef = useRef<HTMLInputElement>(null);
 
-  // Form States
+  // --- GAME FORM STATES ---
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formTitle, setFormTitle] = useState("");
   const [formDesc, setFormDesc] = useState("");
@@ -21,6 +26,10 @@ export default function GameCatalogManager() {
   const [formCategory, setFormCategory] = useState("");
   const [formImage, setFormImage] = useState<File | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState("");
+
+  // --- CATEGORY FORM STATES ---
+  const [catName, setCatName] = useState("");
+  const [catIcon, setCatIcon] = useState<File | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -36,9 +45,48 @@ export default function GameCatalogManager() {
     fetchData();
   }, []);
 
-  // --- GAME MANAGEMENT ACTIONS ---
+  // ==========================================
+  // CATEGORY MANAGEMENT
+  // ==========================================
+  const handleCategoryIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
+      if (file.size > 1024 * 1024) return alert("File too large. Max 1MB.");
+      setCatIcon(file);
+    }
+  };
 
-  const openAddModal = () => {
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catName.trim() || !catIcon) return alert("Please provide a name and an icon.");
+    setUploadingCategory(true);
+
+    try {
+      const fileExt = catIcon.name.split('.').pop();
+      const fileName = `icon_${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from("category_icons").upload(fileName, catIcon);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from("category_icons").getPublicUrl(fileName);
+      const { error: dbError } = await supabase.from("game_categories").insert({ name: catName.trim(), icon_url: publicUrl });
+      if (dbError) throw dbError;
+
+      setCatName("");
+      setCatIcon(null);
+      setIsCategoryModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      alert("Error creating category: " + err.message);
+    } finally {
+      setUploadingCategory(false);
+    }
+  };
+
+  // ==========================================
+  // GAME MANAGEMENT
+  // ==========================================
+  const openAddGameModal = () => {
     setEditingId(null);
     setFormTitle("");
     setFormDesc("");
@@ -46,10 +94,10 @@ export default function GameCatalogManager() {
     setFormCategory(categories.length > 0 ? categories[0].name : "Uncategorized");
     setFormImage(null);
     setCurrentImageUrl("");
-    setIsModalOpen(true);
+    setIsGameModalOpen(true);
   };
 
-  const openEditModal = (game: any) => {
+  const openEditGameModal = (game: any) => {
     setEditingId(game.id);
     setFormTitle(game.title);
     setFormDesc(game.description || "");
@@ -57,7 +105,7 @@ export default function GameCatalogManager() {
     setFormCategory(game.category || "Uncategorized");
     setFormImage(null);
     setCurrentImageUrl(game.image_url || "");
-    setIsModalOpen(true);
+    setIsGameModalOpen(true);
   };
 
   const handleDeleteGame = async (id: string, title: string) => {
@@ -73,17 +121,11 @@ export default function GameCatalogManager() {
     fetchData();
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGameImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (!file.type.startsWith("image/")) {
-        alert("Please upload an image file.");
-        return;
-      }
-      if (file.size > 2 * 1024 * 1024) {
-        alert("File too large. Max 2MB.");
-        return;
-      }
+      if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
+      if (file.size > 2 * 1024 * 1024) return alert("File too large. Max 2MB.");
       setFormImage(file);
     }
   };
@@ -91,12 +133,10 @@ export default function GameCatalogManager() {
   const handleSaveGame = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) return;
-    setUploading(true);
+    setUploadingGame(true);
 
     try {
       let finalImageUrl = currentImageUrl;
-
-      // Upload new image if selected
       if (formImage) {
         const fileExt = formImage.name.split('.').pop();
         const fileName = `game_${Date.now()}.${fileExt}`;
@@ -121,12 +161,12 @@ export default function GameCatalogManager() {
         await supabase.from("games").insert(gameData);
       }
 
-      setIsModalOpen(false);
+      setIsGameModalOpen(false);
       fetchData();
     } catch (err: any) {
       alert("Error saving game: " + err.message);
     } finally {
-      setUploading(false);
+      setUploadingGame(false);
     }
   };
 
@@ -143,25 +183,71 @@ export default function GameCatalogManager() {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="font-headline text-2xl font-black text-neutral-900 dark:text-white">Game Catalog</h2>
-          <p className="font-body text-xs text-neutral-500 dark:text-white/60 mt-1">Manage titles, images, fees, and matchmaking status.</p>
+          <p className="font-body text-xs text-neutral-500 dark:text-white/60 mt-1">Manage titles, images, categories, and matchmaking status.</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={openAddModal} className="flex items-center gap-2 bg-[#c3f400] text-neutral-900 px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#d4ff1a] transition-colors shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setIsCategoryModalOpen(true)} className="flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-600 transition-colors shadow-sm">
+            <span className="material-symbols-outlined text-sm">category</span> Add Category
+          </button>
+          
+          <button onClick={openAddGameModal} className="flex items-center gap-2 bg-[#c3f400] text-neutral-900 px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#d4ff1a] transition-colors shadow-sm">
             <span className="material-symbols-outlined text-sm">add_circle</span> Add Game
           </button>
+          
           <button onClick={fetchData} className="flex items-center gap-2 bg-neutral-100 dark:bg-white/10 px-4 py-2 rounded-lg border border-neutral-200 dark:border-white/5 text-xs font-bold hover:bg-neutral-200 dark:hover:bg-white/20 transition-colors shadow-sm">
             <span className="material-symbols-outlined text-sm">refresh</span>
           </button>
         </div>
       </header>
 
+      {/* --- ADD CATEGORY MODAL --- */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-[#111c33] border border-neutral-200 dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-headline text-lg font-black dark:text-white">New Game Category</h3>
+              <button onClick={() => setIsCategoryModalOpen(false)} className="text-neutral-500 hover:text-white">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCategory} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-white/60 block mb-1">Category Name</label>
+                <input type="text" required value={catName} onChange={(e) => setCatName(e.target.value)} placeholder="e.g., Arcade Classics" className="w-full bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm dark:text-white focus:outline-none focus:border-[#c3f400] transition-colors" />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-white/60 block mb-1">Upload Icon</label>
+                <div onClick={() => categoryInputRef.current?.click()} className="w-full h-24 border-2 border-dashed border-neutral-300 dark:border-white/20 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors">
+                  {catIcon ? (
+                    <span className="text-sm font-bold text-emerald-500 flex items-center gap-2"><span className="material-symbols-outlined">check_circle</span> {catIcon.name}</span>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-neutral-400 mb-1">upload_file</span>
+                      <span className="text-xs text-neutral-500 font-bold">Click to browse files</span>
+                    </>
+                  )}
+                </div>
+                <input type="file" accept="image/png, image/jpeg, image/svg+xml, image/webp" className="hidden" ref={categoryInputRef} onChange={handleCategoryIconChange} />
+                <p className="text-[9px] text-neutral-400 mt-2 text-center uppercase tracking-widest">Format: PNG, SVG, WEBP | Max: 1MB</p>
+              </div>
+
+              <button type="submit" disabled={uploadingCategory} className="w-full bg-indigo-500 text-white font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-indigo-600 transition-colors disabled:opacity-50 mt-4">
+                {uploadingCategory ? "Deploying..." : "Create Category"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* --- ADD/EDIT GAME MODAL --- */}
-      {isModalOpen && (
+      {isGameModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-[#111c33] border border-neutral-200 dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-headline text-lg font-black dark:text-white">{editingId ? "Edit Game" : "Add New Game"}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-neutral-500 hover:text-white">
+              <button onClick={() => setIsGameModalOpen(false)} className="text-neutral-500 hover:text-white">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
@@ -193,7 +279,7 @@ export default function GameCatalogManager() {
 
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-white/60 block mb-1">Cover Image</label>
-                <div onClick={() => fileInputRef.current?.click()} className="w-full h-24 border-2 border-dashed border-neutral-300 dark:border-white/20 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors relative overflow-hidden">
+                <div onClick={() => gameInputRef.current?.click()} className="w-full h-24 border-2 border-dashed border-neutral-300 dark:border-white/20 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors relative overflow-hidden">
                   {formImage ? (
                     <span className="text-sm font-bold text-emerald-500 flex items-center gap-2"><span className="material-symbols-outlined">check_circle</span> New Image Selected</span>
                   ) : currentImageUrl ? (
@@ -202,11 +288,11 @@ export default function GameCatalogManager() {
                     <span className="text-xs text-neutral-500 font-bold">Click to upload</span>
                   )}
                 </div>
-                <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageChange} />
+                <input type="file" accept="image/*" className="hidden" ref={gameInputRef} onChange={handleGameImageChange} />
               </div>
 
-              <button type="submit" disabled={uploading} className="w-full bg-[#c3f400] text-neutral-900 font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-[#d4ff1a] transition-colors disabled:opacity-50 mt-4">
-                {uploading ? "Saving..." : "Save Game"}
+              <button type="submit" disabled={uploadingGame} className="w-full bg-[#c3f400] text-neutral-900 font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-[#d4ff1a] transition-colors disabled:opacity-50 mt-4">
+                {uploadingGame ? "Saving..." : "Save Game"}
               </button>
             </form>
           </div>
@@ -232,9 +318,8 @@ export default function GameCatalogManager() {
                   {categoryGames.map((game) => (
                     <div key={game.id} className="bg-white dark:bg-[#111c33] border border-neutral-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm flex flex-col group relative">
                       
-                      {/* Edit/Delete Overlay actions */}
                       <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10">
-                        <button onClick={() => openEditModal(game)} className="p-1.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 shadow-md transition-colors"><span className="material-symbols-outlined text-sm">edit</span></button>
+                        <button onClick={() => openEditGameModal(game)} className="p-1.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 shadow-md transition-colors"><span className="material-symbols-outlined text-sm">edit</span></button>
                         <button onClick={() => handleDeleteGame(game.id, game.title)} className="p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 shadow-md transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
                       </div>
 
