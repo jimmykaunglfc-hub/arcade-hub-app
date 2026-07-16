@@ -28,8 +28,10 @@ export default function GameCatalogManager() {
   const [currentImageUrl, setCurrentImageUrl] = useState("");
 
   // --- CATEGORY FORM STATES ---
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [catName, setCatName] = useState("");
   const [catIcon, setCatIcon] = useState<File | null>(null);
+  const [currentCategoryIconUrl, setCurrentCategoryIconUrl] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
@@ -48,6 +50,22 @@ export default function GameCatalogManager() {
   // ==========================================
   // CATEGORY MANAGEMENT
   // ==========================================
+  const openAddCategoryModal = () => {
+    setEditingCategoryId(null);
+    setCatName("");
+    setCatIcon(null);
+    setCurrentCategoryIconUrl("");
+    setIsCategoryModalOpen(true);
+  };
+
+  const openEditCategoryModal = (category: any) => {
+    setEditingCategoryId(category.id);
+    setCatName(category.name);
+    setCatIcon(null);
+    setCurrentCategoryIconUrl(category.icon_url || "");
+    setIsCategoryModalOpen(true);
+  };
+
   const handleCategoryIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -57,27 +75,50 @@ export default function GameCatalogManager() {
     }
   };
 
-  const handleCreateCategory = async (e: React.FormEvent) => {
+  const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!catName.trim() || !catIcon) return alert("Please provide a name and an icon.");
+    if (!catName.trim()) return alert("Please provide a category name.");
+    
+    // Require an icon if it's a brand new category
+    if (!editingCategoryId && !catIcon) return alert("Please provide an icon for the new category.");
+    
     setUploadingCategory(true);
 
     try {
-      const fileExt = catIcon.name.split('.').pop();
-      const fileName = `icon_${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from("category_icons").upload(fileName, catIcon);
-      if (uploadError) throw uploadError;
+      let finalIconUrl = currentCategoryIconUrl;
 
-      const { data: { publicUrl } } = supabase.storage.from("category_icons").getPublicUrl(fileName);
-      const { error: dbError } = await supabase.from("game_categories").insert({ name: catName.trim(), icon_url: publicUrl });
-      if (dbError) throw dbError;
+      // Only upload to storage if they actually selected a new file
+      if (catIcon) {
+        const fileExt = catIcon.name.split('.').pop();
+        const fileName = `icon_${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from("category_icons").upload(fileName, catIcon);
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage.from("category_icons").getPublicUrl(fileName);
+        finalIconUrl = publicUrl;
+      }
+
+      const categoryData = { 
+        name: catName.trim(), 
+        icon_url: finalIconUrl 
+      };
+
+      if (editingCategoryId) {
+        // UPDATE existing category
+        const { error: dbError } = await supabase.from("game_categories").update(categoryData).eq("id", editingCategoryId);
+        if (dbError) throw dbError;
+      } else {
+        // INSERT new category
+        const { error: dbError } = await supabase.from("game_categories").insert(categoryData);
+        if (dbError) throw dbError;
+      }
 
       setCatName("");
       setCatIcon(null);
       setIsCategoryModalOpen(false);
       fetchData();
     } catch (err: any) {
-      alert("Error creating category: " + err.message);
+      alert("Error saving category: " + err.message);
     } finally {
       setUploadingCategory(false);
     }
@@ -123,12 +164,10 @@ export default function GameCatalogManager() {
 
   // --- TOGGLE FEATURED HERO BANNER ---
   const handleToggleFeature = async (gameId: string, currentStatus: boolean) => {
-    // If we are turning it ON, unfeature all other games first so only one is active
     if (!currentStatus) {
       await supabase.from("games").update({ is_featured: false }).neq("id", "00000000-0000-0000-0000-000000000000");
     }
 
-    // Toggle the selected game
     const { error } = await supabase
       .from("games")
       .update({ is_featured: !currentStatus })
@@ -137,7 +176,7 @@ export default function GameCatalogManager() {
     if (error) {
       alert("Error updating featured status: " + error.message);
     } else {
-      fetchData(); // Refresh list to show updated star icon
+      fetchData(); 
     }
   };
 
@@ -206,7 +245,7 @@ export default function GameCatalogManager() {
           <p className="font-body text-xs text-neutral-500 dark:text-white/60 mt-1">Manage titles, images, categories, and matchmaking status.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setIsCategoryModalOpen(true)} className="flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-600 transition-colors shadow-sm">
+          <button onClick={openAddCategoryModal} className="flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-600 transition-colors shadow-sm">
             <span className="material-symbols-outlined text-sm">category</span> Add Category
           </button>
           
@@ -220,18 +259,18 @@ export default function GameCatalogManager() {
         </div>
       </header>
 
-      {/* --- ADD CATEGORY MODAL --- */}
+      {/* --- ADD / EDIT CATEGORY MODAL --- */}
       {isCategoryModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-[#111c33] border border-neutral-200 dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="font-headline text-lg font-black dark:text-white">New Game Category</h3>
+              <h3 className="font-headline text-lg font-black dark:text-white">{editingCategoryId ? "Edit Game Category" : "New Game Category"}</h3>
               <button onClick={() => setIsCategoryModalOpen(false)} className="text-neutral-500 hover:text-white">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleCreateCategory} className="space-y-4">
+            <form onSubmit={handleSaveCategory} className="space-y-4">
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-white/60 block mb-1">Category Name</label>
                 <input type="text" required value={catName} onChange={(e) => setCatName(e.target.value)} placeholder="e.g., Arcade Classics" className="w-full bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm dark:text-white focus:outline-none focus:border-[#c3f400] transition-colors" />
@@ -239,9 +278,14 @@ export default function GameCatalogManager() {
 
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-white/60 block mb-1">Upload Icon</label>
-                <div onClick={() => categoryInputRef.current?.click()} className="w-full h-24 border-2 border-dashed border-neutral-300 dark:border-white/20 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors">
+                <div onClick={() => categoryInputRef.current?.click()} className="w-full h-24 border-2 border-dashed border-neutral-300 dark:border-white/20 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors relative overflow-hidden">
                   {catIcon ? (
-                    <span className="text-sm font-bold text-emerald-500 flex items-center gap-2"><span className="material-symbols-outlined">check_circle</span> {catIcon.name}</span>
+                    <span className="text-sm font-bold text-emerald-500 flex items-center gap-2"><span className="material-symbols-outlined">check_circle</span> New Icon Selected</span>
+                  ) : currentCategoryIconUrl ? (
+                    <div className="flex flex-col items-center">
+                      <img src={currentCategoryIconUrl} alt="Current" className="h-10 w-10 object-contain opacity-70 mb-1" />
+                      <span className="text-[10px] text-neutral-400 font-bold uppercase">Click to change</span>
+                    </div>
                   ) : (
                     <>
                       <span className="material-symbols-outlined text-neutral-400 mb-1">upload_file</span>
@@ -254,7 +298,7 @@ export default function GameCatalogManager() {
               </div>
 
               <button type="submit" disabled={uploadingCategory} className="w-full bg-indigo-500 text-white font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-indigo-600 transition-colors disabled:opacity-50 mt-4">
-                {uploadingCategory ? "Deploying..." : "Create Category"}
+                {uploadingCategory ? "Deploying..." : (editingCategoryId ? "Save Category" : "Create Category")}
               </button>
             </form>
           </div>
@@ -328,9 +372,28 @@ export default function GameCatalogManager() {
             const catData = categories.find(c => c.name === categoryName);
             return (
               <div key={categoryName}>
-                <div className="flex items-center gap-3 mb-4 border-b border-neutral-200 dark:border-white/10 pb-2">
-                  {catData ? <img src={catData.icon_url} alt="" className="w-6 h-6 object-contain" /> : <span className="material-symbols-outlined text-[#c3f400]">sports_esports</span>}
+                
+                {/* --- CATEGORY HEADER --- */}
+                <div className="flex items-center gap-3 mb-4 border-b border-neutral-200 dark:border-white/10 pb-2 group">
+                  {catData ? (
+                    <img src={catData.icon_url} alt="" className="w-6 h-6 object-contain" onError={(e) => e.currentTarget.style.display = 'none'} />
+                  ) : (
+                    <span className="material-symbols-outlined text-[#c3f400]">sports_esports</span>
+                  )}
+                  
                   <h3 className="font-headline text-lg font-black text-neutral-900 dark:text-white uppercase tracking-wide">{categoryName}</h3>
+                  
+                  {/* EDIT CATEGORY BUTTON */}
+                  {catData && (
+                    <button 
+                      onClick={() => openEditCategoryModal(catData)}
+                      className="ml-2 p-1 bg-neutral-200 dark:bg-white/10 text-neutral-600 dark:text-white/60 rounded-md hover:bg-indigo-500 hover:text-white dark:hover:bg-indigo-500 transition-colors opacity-0 group-hover:opacity-100"
+                      title="Edit Category"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">edit</span>
+                    </button>
+                  )}
+
                   <span className="ml-auto bg-neutral-100 dark:bg-white/10 text-neutral-600 dark:text-white/60 px-2.5 py-0.5 rounded-full text-[10px] font-bold">{categoryGames.length} Game{categoryGames.length !== 1 && 's'}</span>
                 </div>
 
