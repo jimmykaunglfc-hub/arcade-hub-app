@@ -2,29 +2,31 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  const url = req.nextUrl.clone();
-  
-  // Extract the hostname safely (e.g., 'joeyokeadmin.joeyoke.com')
-  const hostname = req.nextUrl.hostname;
+  // Grab the hostname from Vercel's edge headers safely
+  const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || '';
 
-  // If the user visits the admin subdomain
-  if (hostname === 'joeyokeadmin.joeyoke.com') {
-    // Prevent infinite rewrite loops if the path already starts with /joeyokeadmin
+  // Aggressive check: If the domain contains 'joeyokeadmin' at all
+  if (hostname.includes('joeyokeadmin')) {
+    const url = req.nextUrl.clone();
+    
+    // Make sure we don't cause an infinite rewrite loop
     if (!url.pathname.startsWith('/joeyokeadmin')) {
-      // Map root "/" to "/joeyokeadmin", and "/login" to "/joeyokeadmin/login"
+      // Map the root '/' to '/joeyokeadmin' 
       const path = url.pathname === '/' ? '' : url.pathname;
       url.pathname = `/joeyokeadmin${path}`;
+      
+      // Rewrite the URL invisibly under the hood
       return NextResponse.rewrite(url);
     }
   }
 
-  // Otherwise, serve the standard arcade app normally
+  // If not the admin domain, let the arcade load normally
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    // Matches all routes except static files, images, and internal Next.js APIs
-    '/((?!api|_next/static|_next/image|favicon.ico|assets|joeyoke-logo.png).*)',
+    // Catch every single route except background Next.js files and images
+    '/((?!_next/static|_next/image|favicon.ico|assets|joeyoke-logo.png).*)',
   ],
 };
