@@ -96,7 +96,7 @@ export default function GamesTab({
     ? GAME_CATEGORIES.filter(c => c.id === isolatedCategory) 
     : GAME_CATEGORIES;
 
-  // Handles real database updates for daily checking pipeline
+  // Handles true atomic database updates for daily checking pipeline
   const handleDailyCheckIn = async () => {
     if (rewardClaimed || !userId || claiming) return;
     setClaiming(true);
@@ -126,7 +126,7 @@ export default function GamesTab({
   };
 
   const executeLaunchEngine = (url: string) => {
-    // Check if player has run out of tokens before allowing access into online rooms
+    // Intercepts connection routing if user balance drops below threshold 
     const isLocalGame = url.includes("nexus-breach") || url.includes("liars-dice") || url.includes("neural-duel");
     if (currentPoints <= 0 && !isLocalGame) {
       alert("Matchmaking Halted: You have depleted your network credits. Spin the Shop core wheel or purchase a points voucher to resume online multiplayer matches.");
@@ -171,7 +171,7 @@ export default function GamesTab({
             <p className="font-body text-[10px] text-neutral-500 dark:text-on-surface-variant leading-snug">Challenge friends and climb the community boards.</p>
             <button 
               onClick={() => executeLaunchEngine("native://carrom")}
-              className="gradient-pill-primary font-caps text-[9px] font-make font-extrabold uppercase tracking-widest px-4 py-2 rounded-full shadow-md flex items-center justify-center gap-1 mt-2"
+              className="gradient-pill-primary font-caps text-[9px] font-extrabold uppercase tracking-widest px-4 py-2 rounded-full shadow-md flex items-center justify-center gap-1 mt-2"
             >
               Enter Arena
               <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
