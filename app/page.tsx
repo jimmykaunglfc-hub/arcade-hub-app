@@ -188,8 +188,8 @@ export default function Home() {
           </div>
         </header>
 
-        {/* COMPACT VIEWPORT CONTAINER PORTAL (Spacing Calibration Applied) */}
-        <main className="flex-1 overflow-y-auto no-scrollbar pt-safe-area-top mt-20 pb-[96px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10">
+        {/* COMPACT VIEWPORT CONTAINER PORTAL (Calculated Safe-Area Padding to allow frosted glass scrolling) */}
+        <main className="flex-1 overflow-y-auto no-scrollbar pt-[calc(env(safe-area-inset-top)+72px)] pb-[96px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10">
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
