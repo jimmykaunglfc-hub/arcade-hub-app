@@ -160,7 +160,10 @@ export default function Home() {
       <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-[#eef2f6] dark:bg-background text-[#091428] dark:text-on-background font-body overflow-hidden animate-fade-in transition-colors duration-300"}>
         
         {/* PREMIUM COMPACT HEADER BLOCK */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-white/70 dark:bg-surface/60 backdrop-blur-xl border-b border-neutral-200/60 dark:border-white/10 shadow-sm pt-safe-area-top transition-colors duration-300">
+        <header 
+          className="fixed top-0 left-0 right-0 z-50 bg-white/70 dark:bg-surface/60 backdrop-blur-xl border-b border-neutral-200/60 dark:border-white/10 shadow-sm transition-colors duration-300"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
           <div className="w-full max-w-xl mx-auto flex justify-between items-center px-6 h-14 box-border">
             
             {/* Top Left Component Node */}
@@ -188,8 +191,12 @@ export default function Home() {
           </div>
         </header>
 
-        {/* COMPACT VIEWPORT CONTAINER PORTAL (Calculated Safe-Area Padding to allow frosted glass scrolling) */}
-        <main className="flex-1 overflow-y-auto no-scrollbar pt-[calc(env(safe-area-inset-top)+72px)] pb-[96px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10">
+        {/* COMPACT VIEWPORT CONTAINER PORTAL */}
+        {/* Uses exact inline CSS calc to ensure flawless clearance of the header regardless of Tailwind compiler */}
+        <main 
+          className="flex-1 overflow-y-auto no-scrollbar pb-[96px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 84px)' }}
+        >
           {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
