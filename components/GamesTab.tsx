@@ -1,78 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
-
-const GAME_CATEGORIES = [
-  {
-    id: "strategy-cards",
-    name: "Strategy & Board Games",
-    icon: "extension",
-    games: [
-      { 
-        id: "checkers-matrix", 
-        title: "Neon Checkers", 
-        genre: "Board • Network Live", 
-        playersOnline: "Live PvP", 
-        iconName: "grid_4x4", 
-        bgImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuCvofxe0cbVXZqLn_t3gwLdy00XU5HvlgFkMeixWwCaLvlL9NvuJNcX9cDv0eliUrYMT6SNAVV7w9SCuKnukyCK9lYu9lAYPPvKwjK2sK8NG6d0BAu7f9PHvK30yA4diELAKHs5Nv4A7uRI68iPIlrPYIEStcCMyPWrdqIXtnAf64ND7knY9QShUI0gKz4OVyAAkmKPyPMGGRKbGuSowEuAuMxFrLaXWsHXEddOrNz3Z7zeNEE1b_IiLRwln8jsWh4Wr0OfzaZrs8g", 
-        url: "native://checkers" 
-      },
-      { 
-        id: "carrom-matrix", 
-        title: "Carrom Matrix", 
-        genre: "Physics • Board", 
-        playersOnline: "Live PvP", 
-        iconName: "radio_button_checked", 
-        bgImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuCU6iWQ8wFtq2SwggNs8HUkZcHH9f0dGAwuO2iqBKx64uqGsvowSALLlJg2kt36RBZbgDfZcSdT73jAcUw8SiFAk78lIIDAciEdsFulLFcdNdVPAADMjvgvpMuAyASQT1fvELbg05gSgiJLsL-ZRa-usAmVaKqW42WiuxhCFjFw7LEHgUQDAmy-OEB6wlxKimr8aBkGSfvMOXLgfC6ivctbxrt5zI2HkQS5fPbZzQDPhf-pT4-toM2hS9msonjTOmaWxdDsl27kXtY", 
-        url: "native://carrom" 
-      },
-      { 
-        id: "glitch-deck", 
-        title: "Glitch Deck", 
-        genre: "Cyberpunk • TCG", 
-        playersOnline: "1.4k active", 
-        iconName: "style", 
-        bgImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuAw9GGGfJjQcHurp11YuMunpWW8_UoiW5VBFcBpeW4ZXKttuG0efJ77pk7FtYip6uuNw1RPyxzQV9RuYvt2p7FxheRZJu1YhWAK5zBJ8TQ6vDNcOXv2lrEpvS2EPU4Nv8MXLm7x0y-BFF9BhHyT-6_j7LDaJMB5h9DmaJ9FUlUWj1PLVDOrKUAVexo1F1-BMDPoSvyfDm_KNZRhQp1lD-gjr1nmldpAZ_gDUoCp-Y75SSlwmzVVeQiUZhRIjlR7CKPJp-wfQOpvZw4", 
-        url: "native://glitch-deck" 
-      }
-    ]
-  },
-  {
-    id: "party-games",
-    name: "Party Games",
-    icon: "celebration",
-    games: [
-      { 
-        id: "nexus-breach", 
-        title: "Nexus Breach", 
-        genre: "Luck • Penalties", 
-        playersOnline: "Local Party", 
-        iconName: "hexagon", 
-        bgImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuDikZ3MZE0aAqLwH11sD5yC2-nVFwwhEWYnY07L6UvxACZFNhJqqhTOyAU4vmHtTDn7x6OK6tYae7TftcTRzVIfaskLBdB5RirAuqhy4ewx3dL3uV6rHaGpyI0kVujWKsWnRiPJibix8CyA3iLfsGFGJFQFBU2McThKv_bhmR1NxoEyTrwlZOae_huSEtAlaUhdbxDFjnT_7oZ0wWjWgsTGFU6tnFvL79ObFcPwU3VhsS5G-jmppdW79ty_x9LS4L86qw72RVdUuTA", 
-        url: "native://nexus-breach" 
-      },
-      { 
-        id: "liars-dice", 
-        title: "Liar's Dice", 
-        genre: "Bluffing • Party", 
-        playersOnline: "Local Party", 
-        iconName: "casino", 
-        bgImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuAK9-peJla1aHe6zB35cdYyNUhbHTQ7OTuWC8KFJHxTRzeWsF0JqXNwnb4FPrYuaQJo0_8Ofz6a71mZ5YAzLDp9w-4ubDt74H67Q8teuvldPznwH5LiAph0QfHncecYxOHRKMHMVwLMX39RoRk0EeAQN7Pz1gqzezTuD18OJLMWEji2N4iuSDgUDpOzHIySMsfvFjnl3zgd7Nda5an0LOAuUq9ju3p2KoOTZeVdevPYAkvP2HZQeJyHvPka-AFXat-zug7pgG8r2Pg", 
-        url: "native://liars-dice" 
-      },
-      { 
-        id: "neural-duel", 
-        title: "Neural Duel", 
-        genre: "Reflex • PvP", 
-        playersOnline: "Local Party", 
-        iconName: "bolt", 
-        bgImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuAw9GGGfJjQcHurp11YuMunpWW8_UoiW5VBFcBpeW4ZXKttuG0efJ77pk7FtYip6uuNw1RPyxzQV9RuYvt2p7FxheRZJu1YhWAK5zBJ8TQ6vDNcOXv2lrEpvS2EPU4Nv8MXLm7x0y-BFF9BhHyT-6_j7LDaJMB5h9DmaJ9FUlUWj1PLVDOrKUAVexo1F1-BMDPoSvyfDm_KNZRhQp1lD-gjr1nmldpAZ_gDUoCp-Y75SSlwmzVVeQiUZhRIjlR7CKPJp-wfQOpvZw4", 
-        url: "native://neural-duel" 
-      }
-    ]
-  }
-];
 
 interface GamesTabProps {
   rewardClaimed: boolean;
@@ -92,9 +21,72 @@ export default function GamesTab({
   const [isolatedCategory, setIsolatedCategory] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
 
+  // --- NEW DYNAMIC STATES ---
+  const [dbCategories, setDbCategories] = useState<any[]>([]);
+  const [dbGames, setDbGames] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // --- FETCH LIVE DATA FROM CONTROL CORE ---
+  useEffect(() => {
+    const fetchLiveArcadeData = async () => {
+      setLoading(true);
+      
+      // Fetch Categories
+      const { data: catData } = await supabase.from("game_categories").select("*").order("name");
+      if (catData) setDbCategories(catData);
+
+      // Fetch ONLY 'active' games
+      const { data: gameData } = await supabase.from("games").select("*").eq("status", "active").order("created_at");
+      if (gameData) setDbGames(gameData);
+      
+      setLoading(false);
+    };
+
+    fetchLiveArcadeData();
+  }, []);
+
+  // --- TRANSFORM DATA FOR UI ---
+  const formattedCategories = dbCategories.map(cat => {
+    const catGames = dbGames.filter(g => g.category === cat.name).map(g => ({
+      id: g.id,
+      title: g.title,
+      genre: g.description || "Arcade Game",
+      playersOnline: g.entry_fee === 0 ? "Local Party" : "Live PvP", 
+      bgImage: g.image_url,
+      url: `native://${g.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      entry_fee: g.entry_fee
+    }));
+    
+    return {
+      id: cat.id,
+      name: cat.name,
+      icon: cat.icon_url, 
+      games: catGames
+    };
+  }).filter(cat => cat.games.length > 0); // Only show categories that have games
+
+  // Append uncategorized games if any exist
+  const uncategorizedGames = dbGames.filter(g => !g.category || g.category === 'Uncategorized');
+  if (uncategorizedGames.length > 0) {
+    formattedCategories.push({
+      id: "uncategorized",
+      name: "Uncategorized",
+      icon: "sports_esports",
+      games: uncategorizedGames.map(g => ({
+        id: g.id,
+        title: g.title,
+        genre: g.description || "Arcade Game",
+        playersOnline: g.entry_fee === 0 ? "Local Party" : "Live PvP",
+        bgImage: g.image_url,
+        url: `native://${g.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        entry_fee: g.entry_fee
+      }))
+    });
+  }
+
   const displayedCategories = isolatedCategory 
-    ? GAME_CATEGORIES.filter(c => c.id === isolatedCategory) 
-    : GAME_CATEGORIES;
+    ? formattedCategories.filter(c => c.id === isolatedCategory) 
+    : formattedCategories;
 
   // Handles true atomic database updates for daily checking pipeline
   const handleDailyCheckIn = async () => {
@@ -125,15 +117,25 @@ export default function GamesTab({
     }
   };
 
-  const executeLaunchEngine = (url: string) => {
-    // Intercepts connection routing if user balance drops below threshold 
-    const isLocalGame = url.includes("nexus-breach") || url.includes("liars-dice") || url.includes("neural-duel");
-    if (currentPoints <= 0 && !isLocalGame) {
+  // Uses the actual entry_fee from the database instead of hardcoded rules!
+  const executeLaunchEngine = (url: string, entryFee: number = 0) => {
+    if (currentPoints < entryFee && entryFee > 0) {
       alert("Matchmaking Halted: You have depleted your network credits. Spin the Shop core wheel or purchase a points voucher to resume online multiplayer matches.");
       return;
     }
     onPlay(url);
   };
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[50vh]">
+        <span className="material-symbols-outlined text-indigo-500 dark:text-[#c3f400] text-4xl animate-spin mb-4">refresh</span>
+        <span className="text-indigo-500 dark:text-[#c3f400] text-xs font-bold tracking-widest uppercase animate-pulse">
+          Syncing Arcade Network...
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 w-full pb-6">
@@ -170,7 +172,7 @@ export default function GamesTab({
             <h1 className="font-headline text-xl font-black text-[#091428] dark:text-white leading-tight">Play Together.<br/>Win Together.</h1>
             <p className="font-body text-[10px] text-neutral-500 dark:text-on-surface-variant leading-snug">Challenge friends and climb the community boards.</p>
             <button 
-              onClick={() => executeLaunchEngine("native://carrom")}
+              onClick={() => executeLaunchEngine("native://carrom", 0)}
               className="gradient-pill-primary font-caps text-[9px] font-extrabold uppercase tracking-widest px-4 py-2 rounded-full shadow-md flex items-center justify-center gap-1 mt-2"
             >
               Enter Arena
@@ -202,7 +204,12 @@ export default function GamesTab({
                     <span className="material-symbols-outlined text-xs">arrow_back_ios_new</span>
                   </button>
                 )}
-                <span className="material-symbols-outlined text-base opacity-70">{category.icon}</span>
+                {/* Render uploaded image icon or fallback to string icon */}
+                {category.icon.startsWith('http') ? (
+                  <img src={category.icon} alt={category.name} className="w-5 h-5 object-contain opacity-80" />
+                ) : (
+                  <span className="material-symbols-outlined text-base opacity-70">{category.icon}</span>
+                )}
                 <h2 className="font-headline text-sm font-black tracking-tight">{category.name}</h2>
               </div>
               {!isolatedCategory && (
@@ -217,13 +224,13 @@ export default function GamesTab({
 
             <div className={isolatedCategory ? "grid grid-cols-2 gap-3 animate-fade-in" : "flex gap-3 overflow-x-auto no-scrollbar pb-1 pr-4 snap-x"}>
               {category.games.map((game) => {
-                const isOnlineGame = !game.playersOnline.includes("Local");
-                const isLockedOut = currentPoints <= 0 && isOnlineGame;
+                const isOnlineGame = game.entry_fee > 0;
+                const isLockedOut = currentPoints < game.entry_fee && isOnlineGame;
 
                 return (
                   <div 
                     key={game.id} 
-                    onClick={() => executeLaunchEngine(game.url)}
+                    onClick={() => executeLaunchEngine(game.url, game.entry_fee)}
                     className={isolatedCategory 
                       ? "relative w-full h-[180px] rounded-[16px] overflow-hidden group cursor-pointer border border-neutral-200 dark:border-white/5 shadow-sm"
                       : "relative min-w-[210px] w-[58vw] md:min-w-[230px] h-[255px] rounded-[20px] overflow-hidden snap-start flex-shrink-0 group cursor-pointer border border-neutral-200 dark:border-white/5 shadow-sm"
@@ -235,7 +242,7 @@ export default function GamesTab({
                     {/* Status badge track system overlay */}
                     <div className="absolute top-3 right-3 bg-black/40 border border-white/10 px-1.5 py-0.5 rounded-md backdrop-blur-sm z-20">
                       <span className="text-[8px] font-caps text-white font-bold flex items-center gap-1 uppercase tracking-wider">
-                        <span className={`w-1 h-1 rounded-full ${isLockedOut ? "bg-red-500" : game.playersOnline.includes("Local") ? "bg-amber-400" : "bg-primary-container animate-pulse"}`}></span>
+                        <span className={`w-1 h-1 rounded-full ${isLockedOut ? "bg-red-500" : !isOnlineGame ? "bg-amber-400" : "bg-primary-container animate-pulse"}`}></span>
                         {isLockedOut ? "CREDITS EXP" : game.playersOnline}
                       </span>
                     </div>
