@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
 
 interface AuthViewProps {
@@ -9,235 +8,222 @@ interface AuthViewProps {
 }
 
 export default function AuthView({ onAuthSuccess }: AuthViewProps) {
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"signin" | "register">("signin");
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
+  
   const [loading, setLoading] = useState(false);
-  const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: "error" | "success" } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) return;
     setLoading(true);
-    setFeedbackMsg(null);
+    setErrorMsg(null);
 
     try {
-      if (authMode === "register") {
-        if (!username.trim()) {
-          setFeedbackMsg({ text: "Please provide a network handle tag.", type: "error" });
-          setLoading(false);
-          return;
-        }
-
-        const { error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: password.trim(),
-          options: { data: { username: username.trim() } }
+      if (mode === "register") {
+        if (!username.trim()) throw new Error("Network Handle is required.");
+        
+        // 1. Register new user
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username: username.trim(),
+            }
+          }
         });
-
+        
         if (error) throw error;
-        setFeedbackMsg({ text: "Verification transmission sent! Check your inbox.", type: "success" });
+        
+        // Note: If email confirmation is turned ON in Supabase, 
+        // they won't be logged in automatically. 
+        if (data?.session) {
+          onAuthSuccess();
+        } else {
+          alert("Registration successful! Check your email to verify your account.");
+          setMode("signin");
+        }
+        
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ 
-          email: email.trim(), 
-          password: password.trim() 
+        // 2. Sign In existing user
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
         });
+        
         if (error) throw error;
         onAuthSuccess();
       }
     } catch (err: any) {
-      setFeedbackMsg({ text: err.message || "An authentication error occurred.", type: "error" });
+      setErrorMsg(err.message || "An error occurred during authentication.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handles Google, Apple, and Facebook single sign-on flows
-  const triggerOAuthProvider = async (provider: "google" | "apple" | "facebook") => {
+  const handleGuestLogin = async () => {
     setLoading(true);
-    setFeedbackMsg(null);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: window.location.origin }
-      });
-      if (error) throw error;
-    } catch (err: any) {
-      setFeedbackMsg({ text: err.message || "OAuth handoff failure.", type: "error" });
-      setLoading(false);
-    }
-  };
-
-  // Implements single-tap automated guest account access
-  const triggerGuestPassLogin = async () => {
-    setLoading(true);
-    setFeedbackMsg(null);
-    const anonymousId = `guest_${Math.random().toString(36).substring(2, 11)}@joeyoke.local`;
-    const ephemeralSecret = Math.random().toString(36).substring(2, 15) + "Pass!";
-
-    try {
-      const { error } = await supabase.auth.signUp({
-        email: anonymousId,
-        password: ephemeralSecret,
-        options: { data: { username: `Guest_${Math.random().toString(36).substring(2, 6).toUpperCase()}` } }
-      });
+      const { error } = await supabase.auth.signInAnonymously();
       if (error) throw error;
       onAuthSuccess();
     } catch (err: any) {
-      setFeedbackMsg({ text: err.message || "Guest allocation failure.", type: "error" });
-    } finally {
+      setErrorMsg(err.message || "Guest login failed.");
       setLoading(false);
     }
   };
 
   return (
-    <div className="w-full max-w-sm mx-auto my-4 p-6 bg-white/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 backdrop-blur-xl rounded-[24px] shadow-sm animate-fade-in text-neutral-800 dark:text-on-background">
-      
-      {/* 🛡️ BRAND IDENTITY HEADER */}
-      <div className="flex flex-col items-center text-center mb-6">
-        <div className="relative w-14 h-14 rounded-2xl overflow-hidden border border-neutral-200 dark:border-white/10 bg-white dark:bg-surface-container-high shadow-sm mb-3 flex items-center justify-center transition-colors">
-          <Image src="/joeyoke-logo.png" alt="Joe Yoke Logo" fill className="object-contain p-2" unoptimized />
+    <div className="flex-1 flex items-center justify-center py-8">
+      <div className="w-full max-w-sm bg-[#111c33]/80 backdrop-blur-xl border border-white/5 rounded-[32px] p-6 shadow-2xl relative overflow-hidden">
+        
+        {/* Top Gradient Glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-32 bg-indigo-500/20 blur-[50px] rounded-full pointer-events-none"></div>
+
+        {/* --- HEADER --- */}
+        <div className="flex flex-col items-center mb-8 relative z-10">
+          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 shadow-sm">
+            <span className="material-symbols-outlined text-white text-xl">admin_panel_settings</span>
+          </div>
+          <h2 className="font-headline text-xl font-black text-white tracking-wide uppercase">Access Matrix</h2>
+          <p className="font-body text-[10px] text-white/50 mt-1 tracking-wide">
+            Initialize identity synchronization pipeline
+          </p>
         </div>
-        <h2 className="font-headline text-lg font-black tracking-tight text-neutral-900 dark:text-white uppercase">
-          Access Matrix
-        </h2>
-        <p className="font-body text-[10px] text-neutral-500 dark:text-on-surface-variant mt-0.5">
-          Initialize identity synchronization pipeline
-        </p>
-      </div>
 
-      {/* 🏷️ TOGGLE CONTROLS BAR */}
-      <div className="bg-neutral-100 dark:bg-white/5 p-1 rounded-xl flex items-center mb-5 border border-neutral-200/50 dark:border-white/5 transition-colors">
-        <button 
-          onClick={() => { setAuthMode("login"); setFeedbackMsg(null); }}
-          className={`flex-1 py-1.5 font-caps text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all ${
-            authMode === "login" 
-              ? "bg-white dark:bg-surface-container-high text-indigo-600 dark:text-primary shadow-sm" 
-              : "text-neutral-400 dark:text-on-surface-variant hover:text-neutral-600 dark:hover:text-white"
-          }`}
-        >
-          Sign In
-        </button>
-        <button 
-          onClick={() => { setAuthMode("register"); setFeedbackMsg(null); }}
-          className={`flex-1 py-1.5 font-caps text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all ${
-            authMode === "register" 
-              ? "bg-white dark:bg-surface-container-high text-indigo-600 dark:text-primary shadow-sm" 
-              : "text-neutral-400 dark:text-on-surface-variant hover:text-neutral-600 dark:hover:text-white"
-          }`}
-        >
-          Register
-        </button>
-      </div>
-
-      {/* ⚠️ FEEDBACK MESSAGES */}
-      {feedbackMsg && (
-        <div className={`mb-4 p-3 rounded-xl text-[10px] font-bold border transition-colors ${
-          feedbackMsg.type === "error" 
-            ? "bg-red-50 dark:bg-red-500/10 text-red-500 border-red-200 dark:border-red-500/20" 
-            : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
-        }`}>
-          {feedbackMsg.text}
+        {/* --- TAB SWITCHER --- */}
+        <div className="flex bg-black/40 rounded-xl p-1 mb-6 border border-white/5 relative z-10">
+          <button
+            onClick={() => { setMode("signin"); setErrorMsg(null); }}
+            className={`flex-1 py-2 rounded-lg font-caps text-[10px] font-bold tracking-widest uppercase transition-all ${
+              mode === "signin" 
+                ? "bg-white/10 text-white shadow-sm" 
+                : "text-white/40 hover:text-white/70"
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            onClick={() => { setMode("register"); setErrorMsg(null); }}
+            className={`flex-1 py-2 rounded-lg font-caps text-[10px] font-bold tracking-widest uppercase transition-all ${
+              mode === "register" 
+                ? "bg-white/10 text-white shadow-sm" 
+                : "text-white/40 hover:text-white/70"
+            }`}
+          >
+            Register
+          </button>
         </div>
-      )}
 
-      {/* 📧 NATIVE FORM INPUT LAYOUTS */}
-      <form onSubmit={handleEmailAuth} className="space-y-3">
-        {authMode === "register" && (
-          <div>
-            <label className="font-caps text-[8px] font-bold tracking-widest text-neutral-400 dark:text-on-surface-variant uppercase block mb-1 px-1">
-              Network Handle
-            </label>
-            <input 
-              type="text" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={loading}
-              placeholder="e.g., PlayerOne"
-              className="w-full bg-neutral-50 dark:bg-surface-container-high border border-neutral-200 dark:border-white/10 rounded-xl px-3 py-2.5 font-body text-xs focus:outline-none focus:border-indigo-500 dark:focus:border-primary text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-on-surface-variant transition-colors"
-            />
+        {/* --- ERROR MESSAGE --- */}
+        {errorMsg && (
+          <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold text-center tracking-wide">
+            {errorMsg}
           </div>
         )}
 
-        <div>
-          <label className="font-caps text-[8px] font-bold tracking-widest text-neutral-400 dark:text-on-surface-variant uppercase block mb-1 px-1">
-            Email Address
-          </label>
-          <input 
-            type="email" 
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+        {/* --- AUTH FORM --- */}
+        <form onSubmit={handleAuth} className="space-y-4 relative z-10">
+          
+          {mode === "register" && (
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 block mb-1.5 ml-1">
+                Network Handle
+              </label>
+              <input 
+                type="text" 
+                required 
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="e.g., PlayerOne" 
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-white/20"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 block mb-1.5 ml-1">
+              Email Address
+            </label>
+            <input 
+              type="email" 
+              required 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@domain.com" 
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-white/20"
+            />
+          </div>
+
+          <div>
+            <label className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 block mb-1.5 ml-1">
+              Security Passkey
+            </label>
+            <input 
+              type="password" 
+              required 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••" 
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-white/20"
+            />
+          </div>
+
+          <button 
+            type="submit" 
             disabled={loading}
-            placeholder="name@domain.com"
-            className="w-full bg-neutral-50 dark:bg-surface-container-high border border-neutral-200 dark:border-white/10 rounded-xl px-3 py-2.5 font-body text-xs focus:outline-none focus:border-indigo-500 dark:focus:border-primary text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-on-surface-variant transition-colors"
-          />
+            className="w-full mt-2 gradient-pill-primary font-caps text-[11px] font-black uppercase tracking-widest py-3.5 rounded-xl hover:opacity-90 transition-opacity shadow-lg disabled:opacity-50"
+          >
+            {loading ? "Authenticating..." : mode === "signin" ? "Sign In To Account" : "Initialize Account"}
+          </button>
+        </form>
+
+        {/* --- DIVIDER --- */}
+        <div className="flex items-center gap-3 my-6 opacity-60">
+          <div className="flex-1 h-px bg-white/10"></div>
+          <span className="font-caps text-[8px] font-bold tracking-widest text-white/50 uppercase">Or Connect Via</span>
+          <div className="flex-1 h-px bg-white/10"></div>
         </div>
 
-        <div>
-          <label className="font-caps text-[8px] font-bold tracking-widest text-neutral-400 dark:text-on-surface-variant uppercase block mb-1 px-1">
-            Security Passkey
-          </label>
-          <input 
-            type="password" 
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
-            placeholder="••••••••"
-            className="w-full bg-neutral-50 dark:bg-surface-container-high border border-neutral-200 dark:border-white/10 rounded-xl px-3 py-2.5 font-body text-xs focus:outline-none focus:border-indigo-500 dark:focus:border-primary text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-on-surface-variant transition-colors"
-          />
+        {/* --- SOCIAL BUTTONS --- */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <button type="button" className="h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
+            {/* Google G Logo SVG */}
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+          </button>
+          <button type="button" className="h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
+            {/* Apple Logo SVG */}
+            <svg className="w-5 h-5" fill="white" viewBox="0 0 24 24">
+              <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.19 2.31-.88 3.5-.84 1.5.05 2.76.62 3.54 1.69-3.23 1.98-2.65 6.31.5 7.62-.75 1.58-1.57 2.86-2.62 3.7zm-4.73-14.4c-.16-1.57.99-2.99 2.5-3.32.29 1.7-1.12 3.19-2.5 3.32z"/>
+            </svg>
+          </button>
+          <button type="button" className="h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
+            {/* Facebook Logo SVG */}
+            <svg className="w-4 h-4" fill="#1877F2" viewBox="0 0 24 24">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
+          </button>
         </div>
 
+        {/* --- GUEST LOGIN --- */}
         <button 
-          type="submit" 
-          disabled={loading}
-          className="w-full py-3 mt-4 gradient-pill-primary font-headline font-bold text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all disabled:opacity-50"
+          type="button" 
+          onClick={handleGuestLogin}
+          className="w-full py-3.5 rounded-xl bg-white/5 border border-white/10 font-caps text-[10px] font-bold text-white uppercase tracking-widest hover:bg-white/10 transition-colors"
         >
-          {loading ? "Processing..." : authMode === "login" ? "Sign In To Account" : "Initialize Account"}
+          Instant Guest Pass
         </button>
-      </form>
 
-      {/* 🌐 MULTI-PROVIDER SOCIAL HUB SPLITTER */}
-      <div className="relative flex items-center justify-center my-6">
-        <div className="w-full border-t border-neutral-200 dark:border-white/5 transition-colors"></div>
-        <span className="absolute bg-[#eef2f6] dark:bg-background px-3 font-caps text-[8px] font-bold text-neutral-400 dark:text-on-surface-variant uppercase tracking-widest transition-colors">
-          Or Connect Via
-        </span>
       </div>
-
-      <div className="grid grid-cols-3 gap-2">
-        <button 
-          onClick={() => triggerOAuthProvider("google")} 
-          disabled={loading}
-          className="py-2.5 bg-white dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl flex items-center justify-center hover:bg-neutral-50 dark:hover:bg-white/10 transition-colors active:scale-95 shadow-sm"
-        >
-          <img src="https://img.icons8.com/color/24/google-logo.png" className="w-5 h-5 object-contain" alt="Google" />
-        </button>
-        <button 
-          onClick={() => triggerOAuthProvider("apple")} 
-          disabled={loading}
-          className="py-2.5 bg-white dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl flex items-center justify-center hover:bg-neutral-50 dark:hover:bg-white/10 transition-colors active:scale-95 shadow-sm"
-        >
-          <img src="https://img.icons8.com/ios-filled/24/mac-os.png" className="w-5 h-5 object-contain dark:invert" alt="Apple" />
-        </button>
-        <button 
-          onClick={() => triggerOAuthProvider("facebook")} 
-          disabled={loading}
-          className="py-2.5 bg-white dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl flex items-center justify-center hover:bg-neutral-50 dark:hover:bg-white/10 transition-colors active:scale-95 shadow-sm"
-        >
-          <img src="https://img.icons8.com/color/24/facebook-new.png" className="w-5 h-5 object-contain" alt="Facebook" />
-        </button>
-      </div>
-
-      {/* 🚪 QUICK GUEST DECK ACCESS PASS */}
-      <button 
-        onClick={triggerGuestPassLogin}
-        disabled={loading}
-        className="w-full mt-5 py-2.5 bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200/50 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/5 text-neutral-600 dark:text-primary font-headline text-[10px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-sm"
-      >
-        Instant Guest Pass
-      </button>
-
     </div>
   );
 }
