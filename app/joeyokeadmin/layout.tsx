@@ -9,14 +9,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const pathname = usePathname(); // Allows us to highlight the active sidebar tab
+  const pathname = usePathname(); 
+
+  const isLoginPage = pathname === "/login";
 
   useEffect(() => {
+    // If they are on the login page, don't run the security boot loop
+    if (isLoginPage) {
+      setLoading(false);
+      setIsAuthorized(true);
+      return;
+    }
+
     const verifyAdminAccess = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        router.push("/login"); // Kick to secure admin login if no session
+        router.push("/login"); 
         return;
       }
 
@@ -29,13 +38,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (profile && (profile.role === "admin" || profile.role === "super_admin")) {
         setIsAuthorized(true);
       } else {
-        router.push("/login"); // Kick to secure admin login if not cleared
+        router.push("/login"); 
       }
       setLoading(false);
     };
 
     verifyAdminAccess();
-  }, [router]);
+  }, [router, isLoginPage]);
 
   if (loading) {
     return (
@@ -49,6 +58,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!isAuthorized) return null;
 
+  // Render a clean screen with no sidebar for the login page
+  if (isLoginPage) {
+    return <main className="min-h-screen bg-[#091428]">{children}</main>;
+  }
+
   const navItems = [
     { id: "dashboard", path: "/joeyokeadmin", icon: "dashboard", label: "Overview" },
     { id: "users", path: "/joeyokeadmin/users", icon: "group", label: "User Nodes" },
@@ -59,8 +73,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-[#eef2f6] dark:bg-[#091428] text-neutral-900 dark:text-white font-body flex transition-colors duration-300">
-      
-      {/* 🛡️ ADMIN SIDEBAR */}
       <aside className="w-64 bg-white dark:bg-[#111c33] border-r border-neutral-200 dark:border-white/5 hidden md:flex flex-col transition-colors duration-300">
         <div className="p-6 border-b border-neutral-200 dark:border-white/5 flex items-center gap-3">
           <div className="w-8 h-8 bg-[#c3f400] rounded-lg flex items-center justify-center text-neutral-900 shadow-md">
@@ -103,7 +115,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      {/* 🖥️ MAIN ADMIN CONTENT PORTAL */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {children}
       </main>
