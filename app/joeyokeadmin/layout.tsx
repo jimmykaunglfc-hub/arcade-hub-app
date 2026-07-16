@@ -11,10 +11,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname(); 
 
-  const isLoginPage = pathname === "/login";
+  const isLoginPage = pathname === "/login" || pathname === "/joeyokeadmin/login";
 
   useEffect(() => {
-    // If they are on the login page, don't run the security boot loop
     if (isLoginPage) {
       setLoading(false);
       setIsAuthorized(true);
@@ -58,17 +57,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!isAuthorized) return null;
 
-  // Render a clean screen with no sidebar for the login page
   if (isLoginPage) {
     return <main className="min-h-screen bg-[#091428]">{children}</main>;
   }
 
+  // Notice the paths are now perfectly clean root paths for the subdomain!
   const navItems = [
-    { id: "dashboard", path: "/joeyokeadmin", icon: "dashboard", label: "Overview" },
-    { id: "users", path: "/joeyokeadmin/users", icon: "group", label: "User Nodes" },
-    { id: "economy", path: "/joeyokeadmin/economy", icon: "account_balance", label: "Economy Ledger" },
-    { id: "games", path: "/joeyokeadmin/games", icon: "sports_esports", label: "Game Catalog" },
-    { id: "reports", path: "/joeyokeadmin/reports", icon: "flag", label: "Moderation" },
+    { id: "dashboard", path: "/", icon: "dashboard", label: "Overview" },
+    { id: "users", path: "/users", icon: "group", label: "User Nodes" },
+    { id: "roles", path: "/roles", icon: "shield_person", label: "Access Management" }, // <-- NEW MODULE
+    { id: "economy", path: "/economy", icon: "account_balance", label: "Economy Ledger" },
+    { id: "games", path: "/games", icon: "sports_esports", label: "Game Catalog" },
+    { id: "reports", path: "/reports", icon: "flag", label: "Moderation" },
   ];
 
   return (
@@ -86,7 +86,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive = pathname === item.path;
+            // Updated logic to highlight the correct active tab
+            const isActive = pathname === item.path || pathname === `/joeyokeadmin${item.path === '/' ? '' : item.path}`;
             return (
               <Link 
                 key={item.id} 

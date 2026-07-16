@@ -9,10 +9,11 @@ export default function UsersManager() {
 
   const fetchUsers = async () => {
     setLoading(true);
-    // Fetch all profiles, ordered by who has the most points
+    // Fetch ONLY profiles matching the player role, sorted by balance weight
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
+      .eq("role", "player")
       .order("points", { ascending: false });
 
     if (data) setUsers(data);
@@ -37,7 +38,7 @@ export default function UsersManager() {
     if (error) {
       alert("Error updating points: " + error.message);
     } else {
-      fetchUsers(); // Refresh table
+      fetchUsers(); // Refresh table state
     }
   };
 
@@ -49,7 +50,7 @@ export default function UsersManager() {
     if (error) {
       alert("Error updating ban status: " + error.message);
     } else {
-      fetchUsers(); // Refresh table
+      fetchUsers(); // Refresh table state
     }
   };
 
@@ -82,6 +83,10 @@ export default function UsersManager() {
                 <tr>
                   <td colSpan={5} className="px-6 py-8 text-center text-xs text-neutral-400">Loading network nodes...</td>
                 </tr>
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-xs text-neutral-400">No standard player accounts recorded in database.</td>
+                </tr>
               ) : (
                 users.map((user) => (
                   <tr key={user.id} className="hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors">
@@ -95,11 +100,7 @@ export default function UsersManager() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider ${
-                        user.role === 'super_admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400' :
-                        user.role === 'admin' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' :
-                        'bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-white/60'
-                      }`}>
+                      <span className="px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-white/60">
                         {user.role}
                       </span>
                     </td>
