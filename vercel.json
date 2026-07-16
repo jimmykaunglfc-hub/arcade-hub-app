@@ -1,0 +1,14 @@
+{
+  "rewrites": [
+    {
+      "source": "/((?!joeyokeadmin|_next|assets|joeyoke-logo.png).*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "joeyokeadmin.joeyoke.com"
+        }
+      ],
+      "destination": "/joeyokeadmin/$1"
+    }
+  ]
+}
