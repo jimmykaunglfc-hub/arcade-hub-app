@@ -24,7 +24,7 @@ export default function GamesTab({
   // Dynamic States
   const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [dbGames, setDbGames] = useState<any[]>([]);
-  const [featuredGame, setFeaturedGame] = useState<any>(null); // NEW: Featured Game State
+  const [featuredGame, setFeaturedGame] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   // Fetch data from Control Core
@@ -46,7 +46,7 @@ export default function GamesTab({
       if (manuallyFeatured) {
         setFeaturedGame(manuallyFeatured);
       } else if (gameData.length > 0) {
-        setFeaturedGame(gameData[0]); // Fallback to newest game
+        setFeaturedGame(gameData[0]); 
       }
     }
     
@@ -65,7 +65,6 @@ export default function GamesTab({
       genre: g.description || "Arcade Game",
       playersOnline: g.entry_fee === 0 ? "Local Party" : "Live PvP", 
       bgImage: g.image_url,
-      // Strips apostrophes before adding hyphens
       url: `native://${g.title.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-')}`,
       entry_fee: g.entry_fee
     }));
@@ -90,7 +89,6 @@ export default function GamesTab({
         genre: g.description || "Arcade Game",
         playersOnline: g.entry_fee === 0 ? "Local Party" : "Live PvP",
         bgImage: g.image_url,
-        // Strips apostrophes before adding hyphens
         url: `native://${g.title.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-')}`,
         entry_fee: g.entry_fee
       }))
@@ -226,14 +224,19 @@ export default function GamesTab({
             </button>
           </div>
           
-          <div className="absolute right-0 bottom-0 w-[50%] h-full pointer-events-none overflow-hidden rounded-r-[20px]">
+          {/* True CSS Mask for a flawless seamless fade */}
+          <div 
+            className="absolute right-0 bottom-0 w-[55%] h-full pointer-events-none overflow-hidden rounded-r-[20px]"
+            style={{ 
+              WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 40%)',
+              maskImage: 'linear-gradient(to right, transparent 0%, black 40%)'
+            }}
+          >
             <img 
               alt="Featured Game Cover" 
               className="w-full h-full object-cover opacity-90 drop-shadow-2xl" 
               src={featuredGame.image_url}
             />
-            {/* Dark gradient fade from left to right to blend the image smoothly into the background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-white/80 dark:from-[#091428] to-transparent w-1/2"></div>
           </div>
         </section>
       )}
