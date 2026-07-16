@@ -121,6 +121,26 @@ export default function GameCatalogManager() {
     fetchData();
   };
 
+  // --- TOGGLE FEATURED HERO BANNER ---
+  const handleToggleFeature = async (gameId: string, currentStatus: boolean) => {
+    // If we are turning it ON, unfeature all other games first so only one is active
+    if (!currentStatus) {
+      await supabase.from("games").update({ is_featured: false }).neq("id", "00000000-0000-0000-0000-000000000000");
+    }
+
+    // Toggle the selected game
+    const { error } = await supabase
+      .from("games")
+      .update({ is_featured: !currentStatus })
+      .eq("id", gameId);
+
+    if (error) {
+      alert("Error updating featured status: " + error.message);
+    } else {
+      fetchData(); // Refresh list to show updated star icon
+    }
+  };
+
   const handleGameImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -319,6 +339,15 @@ export default function GameCatalogManager() {
                     <div key={game.id} className="bg-white dark:bg-[#111c33] border border-neutral-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm flex flex-col group relative">
                       
                       <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10">
+                        {/* FEATURE / STAR BUTTON */}
+                        <button 
+                          onClick={() => handleToggleFeature(game.id, game.is_featured)} 
+                          className={`p-1.5 rounded-lg text-white shadow-md transition-colors ${game.is_featured ? 'bg-amber-500' : 'bg-neutral-700 hover:bg-amber-500'}`}
+                          title={game.is_featured ? "Featured on Hero Banner" : "Feature this game"}
+                        >
+                          <span className="material-symbols-outlined text-sm">star</span>
+                        </button>
+
                         <button onClick={() => openEditGameModal(game)} className="p-1.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 shadow-md transition-colors"><span className="material-symbols-outlined text-sm">edit</span></button>
                         <button onClick={() => handleDeleteGame(game.id, game.title)} className="p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 shadow-md transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
                       </div>

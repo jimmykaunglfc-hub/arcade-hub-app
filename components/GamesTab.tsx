@@ -21,31 +21,43 @@ export default function GamesTab({
   const [isolatedCategory, setIsolatedCategory] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
 
-  // --- NEW DYNAMIC STATES ---
+  // Dynamic States
   const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [dbGames, setDbGames] = useState<any[]>([]);
+  const [featuredGame, setFeaturedGame] = useState<any>(null); // NEW: Featured Game State
   const [loading, setLoading] = useState(true);
 
-  // --- FETCH LIVE DATA FROM CONTROL CORE ---
+  // Fetch data from Control Core
+  const fetchLiveArcadeData = async () => {
+    setLoading(true);
+    
+    // 1. Fetch Categories
+    const { data: catData } = await supabase.from("game_categories").select("*").order("name");
+    if (catData) setDbCategories(catData);
+
+    // 2. Fetch Active Games
+    const { data: gameData } = await supabase.from("games").select("*").eq("status", "active").order("created_at", { ascending: false });
+    
+    if (gameData) {
+      setDbGames(gameData);
+      
+      // 3. FEATURED GAME LOGIC: Find manually featured game, OR fallback to the newest active game
+      const manuallyFeatured = gameData.find((g: any) => g.is_featured);
+      if (manuallyFeatured) {
+        setFeaturedGame(manuallyFeatured);
+      } else if (gameData.length > 0) {
+        setFeaturedGame(gameData[0]); // Fallback to newest game
+      }
+    }
+    
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchLiveArcadeData = async () => {
-      setLoading(true);
-      
-      // Fetch Categories
-      const { data: catData } = await supabase.from("game_categories").select("*").order("name");
-      if (catData) setDbCategories(catData);
-
-      // Fetch ONLY 'active' games
-      const { data: gameData } = await supabase.from("games").select("*").eq("status", "active").order("created_at");
-      if (gameData) setDbGames(gameData);
-      
-      setLoading(false);
-    };
-
     fetchLiveArcadeData();
   }, []);
 
-  // --- TRANSFORM DATA FOR UI ---
+  // Format data for UI grouping
   const formattedCategories = dbCategories.map(cat => {
     const catGames = dbGames.filter(g => g.category === cat.name).map(g => ({
       id: g.id,
@@ -63,9 +75,8 @@ export default function GamesTab({
       icon: cat.icon_url, 
       games: catGames
     };
-  }).filter(cat => cat.games.length > 0); // Only show categories that have games
+  }).filter(cat => cat.games.length > 0);
 
-  // Append uncategorized games if any exist
   const uncategorizedGames = dbGames.filter(g => !g.category || g.category === 'Uncategorized');
   if (uncategorizedGames.length > 0) {
     formattedCategories.push({
@@ -88,7 +99,7 @@ export default function GamesTab({
     ? formattedCategories.filter(c => c.id === isolatedCategory) 
     : formattedCategories;
 
-  // Handles true atomic database updates for daily checking pipeline
+  // --- EARN POINTS LINKED TO LEDGER ---
   const handleDailyCheckIn = async () => {
     if (rewardClaimed || !userId || claiming) return;
     setClaiming(true);
@@ -101,15 +112,26 @@ export default function GamesTab({
         .single();
         
       const startingPoints = currentProfile?.points ?? 0;
+      const prizeAmount = 250;
 
+      // 1. Update Profile Balance
       await supabase.from("profiles")
         .update({
-          points: startingPoints + 250,
+          points: startingPoints + prizeAmount,
           last_login_claim: new Date().toISOString()
         })
         .eq("id", userId);
 
+      // 2. Log to Economy Transaction Ledger
+      await supabase.from("transactions").insert({
+        user_id: userId,
+        amount: prizeAmount,
+        transaction_type: "daily_reward",
+        description: "Claimed daily entry matrix allowance multiplier rewards"
+      });
+
       setRewardClaimed(true);
+      alert(`Success! +${prizeAmount} credits successfully minted and signed to ledger.`);
     } catch (err) {
       console.error("Ledger communication error:", err);
     } finally {
@@ -117,25 +139,40 @@ export default function GamesTab({
     }
   };
 
-  // Uses the actual entry_fee from the database instead of hardcoded rules!
-  const executeLaunchEngine = (url: string, entryFee: number = 0) => {
+  // --- SPEND POINTS LINKED TO LEDGER ---
+  const executeLaunchEngine = async (url: string, entryFee: number = 0) => {
     if (currentPoints < entryFee && entryFee > 0) {
       alert("Matchmaking Halted: You have depleted your network credits. Spin the Shop core wheel or purchase a points voucher to resume online multiplayer matches.");
       return;
     }
+
+    // If the game charges credits, dynamically process ledger entry before execution
+    if (entryFee > 0 && userId) {
+      try {
+        // 1. Deduct cost from account balance
+        const { error: profileError } = await supabase.from("profiles")
+          .update({ points: currentPoints - entryFee })
+          .eq("id", userId);
+
+        if (profileError) throw profileError;
+
+        // 2. Write receipt record into transaction history
+        await supabase.from("transactions").insert({
+          user_id: userId,
+          amount: -entryFee,
+          transaction_type: "match_fee",
+          description: `Authorized arena connection payload for game route: ${url}`
+        });
+
+      } catch (err) {
+        console.error("Economy connection ledger synchronization failed:", err);
+        alert("Network Handshake Aborted: Security engine could not securely clear entry cost from ledger nodes.");
+        return;
+      }
+    }
+
     onPlay(url);
   };
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[50vh]">
-        <span className="material-symbols-outlined text-indigo-500 dark:text-[#c3f400] text-4xl animate-spin mb-4">refresh</span>
-        <span className="text-indigo-500 dark:text-[#c3f400] text-xs font-bold tracking-widest uppercase animate-pulse">
-          Syncing Arcade Network...
-        </span>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4 w-full pb-6">
@@ -163,29 +200,38 @@ export default function GamesTab({
         </section>
       )}
 
-      {/* 🎯 HERO HUB BANNER */}
-      {!isolatedCategory && (
+      {/* 🎯 DYNAMIC HERO HUB BANNER */}
+      {!isolatedCategory && featuredGame && (
         <section className="relative w-full rounded-[20px] overflow-hidden bg-white/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 backdrop-blur-xl min-h-[220px] flex items-center justify-between p-5 shadow-sm transition-colors duration-300">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 dark:from-tertiary-container/10 to-transparent pointer-events-none"></div>
+          
           <div className="relative z-10 max-w-[210px] space-y-2">
-            <span className="inline-flex items-center font-caps text-[8px] px-1.5 py-0.5 rounded bg-indigo-500/10 dark:bg-primary-container/20 text-indigo-600 dark:text-primary-fixed font-bold uppercase tracking-widest border border-indigo-500/10 dark:border-primary-container/10">Social Arcade</span>
-            <h1 className="font-headline text-xl font-black text-[#091428] dark:text-white leading-tight">Play Together.<br/>Win Together.</h1>
-            <p className="font-body text-[10px] text-neutral-500 dark:text-on-surface-variant leading-snug">Challenge friends and climb the community boards.</p>
+            <span className="inline-flex items-center font-caps text-[8px] px-1.5 py-0.5 rounded bg-indigo-500/10 dark:bg-primary-container/20 text-indigo-600 dark:text-primary-fixed font-bold uppercase tracking-widest border border-indigo-500/10 dark:border-primary-container/10">
+              Featured Arena
+            </span>
+            <h1 className="font-headline text-xl font-black text-[#091428] dark:text-white leading-tight">
+              {featuredGame.title}
+            </h1>
+            <p className="font-body text-[10px] text-neutral-500 dark:text-on-surface-variant leading-snug line-clamp-2">
+              {featuredGame.description || "Jump into the action and climb the community boards."}
+            </p>
             <button 
-              onClick={() => executeLaunchEngine("native://carrom", 0)}
+              onClick={() => executeLaunchEngine(`native://${featuredGame.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, featuredGame.entry_fee)}
               className="gradient-pill-primary font-caps text-[9px] font-extrabold uppercase tracking-widest px-4 py-2 rounded-full shadow-md flex items-center justify-center gap-1 mt-2"
             >
-              Enter Arena
+              Play Now {featuredGame.entry_fee > 0 && `(${featuredGame.entry_fee} PTS)`}
               <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
             </button>
           </div>
           
-          <div className="absolute right-0 bottom-0 w-[50%] max-w-[240px] h-auto pointer-events-none">
+          <div className="absolute right-0 bottom-0 w-[50%] h-full pointer-events-none overflow-hidden rounded-r-[20px]">
             <img 
-              alt="Mascot Asset" 
-              className="w-full h-full object-contain object-bottom drop-shadow-2xl" 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuClpYw7-JH_h-D07qCBzyUN4hRD47gznlsDFo8_-LJu1-SSvURw3TafvYea1IOoww68YC1v8DBtkJV7nLpq8C7bOXs4BRcISVP7k7DioFJXZ5HOLHlWB-K0_FHBu0Mxm7i6PBRcvur2qJdpDEcXHqsb0JOMb3wd-QJKG7g6ocrSfdQ6NK9qWJG_AzIoLJktnQh7j4x_iVzEFBomRDHsbxaSoaPK19SVIhu6jmwDbQr15FM2ZtGeJr23tDgq3C0feqDfgZGTGAG8-GY"
+              alt="Featured Game Cover" 
+              className="w-full h-full object-cover opacity-90 drop-shadow-2xl" 
+              src={featuredGame.image_url}
             />
+            {/* Dark gradient fade from left to right to blend the image smoothly into the background */}
+            <div className="absolute inset-0 bg-gradient-to-r from-white/80 dark:from-[#091428] to-transparent w-1/2"></div>
           </div>
         </section>
       )}
@@ -204,7 +250,6 @@ export default function GamesTab({
                     <span className="material-symbols-outlined text-xs">arrow_back_ios_new</span>
                   </button>
                 )}
-                {/* Render uploaded image icon or fallback to string icon */}
                 {category.icon.startsWith('http') ? (
                   <img src={category.icon} alt={category.name} className="w-5 h-5 object-contain opacity-80" />
                 ) : (
@@ -239,7 +284,6 @@ export default function GamesTab({
                     <div className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" style={{ backgroundImage: `url('${game.bgImage}')` }}></div>
                     <div className="absolute inset-0 game-card-gradient"></div>
                     
-                    {/* Status badge track system overlay */}
                     <div className="absolute top-3 right-3 bg-black/40 border border-white/10 px-1.5 py-0.5 rounded-md backdrop-blur-sm z-20">
                       <span className="text-[8px] font-caps text-white font-bold flex items-center gap-1 uppercase tracking-wider">
                         <span className={`w-1 h-1 rounded-full ${isLockedOut ? "bg-red-500" : !isOnlineGame ? "bg-amber-400" : "bg-primary-container animate-pulse"}`}></span>
