@@ -3,13 +3,22 @@
 @tailwind utilities;
 
 @layer base {
-  /* 🔒 NATIVE APP VIEWPORT LOCK */
-  /* This prevents the entire webpage from "rubber-banding" or bouncing up and down */
+  /* 🔒 NATIVE APP VIEWPORT LOCK & PROTECTION RESETS */
+  /* Blocks rubber-banding, selection callouts, and highlight flashes globally */
   html, body {
     overscroll-behavior-y: none; 
     height: 100%;
     overflow: hidden; 
     -webkit-overflow-scrolling: auto;
+
+    /* Completely blocks native browser text selection menus */
+    -webkit-user-select: none;  /* iOS Safari & WebViews */
+    -moz-user-select: none;     /* Firefox */
+    -ms-user-select: none;      /* Edge/IE */
+    user-select: none;          /* Standard */
+
+    /* Eliminates the dark grey tap accent box feedback on iOS/Android */
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* 🌌 NEW STITCH UI FOUNDATION */
@@ -17,6 +26,24 @@
     /* Pulls directly from your new tailwind.config.ts setup */
     @apply bg-background text-on-background font-body overflow-x-hidden;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* 🖼️ NATIVE IMAGE PROPERTY HARDENING */
+  img {
+    /* Prevents the iOS long-press context popup from firing on assets */
+    -webkit-touch-callout: none;
+    
+    /* Disables web-style transparent ghost image dragging mechanics */
+    -webkit-user-drag: none;
+  }
+
+  /* ⌨️ SYSTEM EXCEPTIONS */
+  /* Explicitly re-enables focus selecting so keyboard typing and inputs still work */
+  input, textarea {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
   }
 }
 
