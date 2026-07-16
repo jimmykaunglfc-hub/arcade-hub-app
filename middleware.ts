@@ -2,21 +2,33 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  const hostname = req.headers.get('host') || req.nextUrl.hostname;
+  const url = req.nextUrl.clone();
+  const pathname = url.pathname;
 
-  if (hostname.includes('joeyokeadmin')) {
-    const url = req.nextUrl.clone();
-    // Only rewrite if it hasn't been rewritten yet
-    if (!url.pathname.startsWith('/joeyokeadmin')) {
-      const path = url.pathname === '/' ? '' : url.pathname;
-      // Force an absolute URL rewrite to guarantee Vercel catches it
-      return NextResponse.rewrite(new URL(`/joeyokeadmin${path}`, req.url));
+  // 1. Manually bypass static files, Next.js internal assets, and API routes
+  // This replaces the buggy config.matcher regex
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname.includes('.') // Excludes files like favicon.ico, images, etc.
+  ) {
+    return NextResponse.next();
+  }
+
+  // 2. Safely grab the host header from Vercel
+  const host = req.headers.get('host') || '';
+
+  // 3. If the user is specifically on the admin subdomain
+  if (host === 'joeyokeadmin.joeyoke.com' || host.includes('joeyokeadmin')) {
+    
+    // Prevent infinite loops if the path already includes the folder
+    if (!pathname.startsWith('/joeyokeadmin')) {
+      // Rewrite the URL under the hood to pull from the /joeyokeadmin folder
+      url.pathname = `/joeyokeadmin${pathname === '/' ? '' : pathname}`;
+      return NextResponse.rewrite(url);
     }
   }
 
+  // 4. Otherwise, let the normal arcade load
   return NextResponse.next();
 }
-
-export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|assets|joeyoke-logo.png).*)'],
-};
