@@ -65,7 +65,8 @@ export default function GamesTab({
       genre: g.description || "Arcade Game",
       playersOnline: g.entry_fee === 0 ? "Local Party" : "Live PvP", 
       bgImage: g.image_url,
-      url: `native://${g.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      // Strips apostrophes before adding hyphens
+      url: `native://${g.title.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-')}`,
       entry_fee: g.entry_fee
     }));
     
@@ -89,7 +90,8 @@ export default function GamesTab({
         genre: g.description || "Arcade Game",
         playersOnline: g.entry_fee === 0 ? "Local Party" : "Live PvP",
         bgImage: g.image_url,
-        url: `native://${g.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        // Strips apostrophes before adding hyphens
+        url: `native://${g.title.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-')}`,
         entry_fee: g.entry_fee
       }))
     });
@@ -216,7 +218,7 @@ export default function GamesTab({
               {featuredGame.description || "Jump into the action and climb the community boards."}
             </p>
             <button 
-              onClick={() => executeLaunchEngine(`native://${featuredGame.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, featuredGame.entry_fee)}
+              onClick={() => executeLaunchEngine(`native://${featuredGame.title.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-')}`, featuredGame.entry_fee)}
               className="gradient-pill-primary font-caps text-[9px] font-extrabold uppercase tracking-widest px-4 py-2 rounded-full shadow-md flex items-center justify-center gap-1 mt-2"
             >
               Play Now {featuredGame.entry_fee > 0 && `(${featuredGame.entry_fee} PTS)`}
