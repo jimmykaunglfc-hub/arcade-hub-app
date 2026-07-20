@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { supabase } from "../lib/supabaseClient";
 
 import GamesTab from "../components/GamesTab";
@@ -21,8 +22,20 @@ import NeuralDuel from "../components/games/NeuralDuel";
 import BiometricOverride from "../components/games/BiometricOverride"; 
 import AuthView from "../components/AuthView";
 
-// 1. IMPORT THE GOLF GAME HERE
-import GolfGame from "../components/games/GolfGame";
+// 1. DYNAMICALLY IMPORT THE NEW PHASER 3 GOLF ENGINE (Disables SSR)
+const PhaserGolfGame = dynamic(() => import("../components/games/PhaserGolfGame"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col h-full w-full items-center justify-center bg-[#091428] space-y-4">
+      <span className="material-symbols-outlined text-amber-400 text-5xl animate-spin">
+        sports_golf
+      </span>
+      <div className="text-white font-black text-xl animate-pulse tracking-widest uppercase">
+        Loading Engine...
+      </div>
+    </div>
+  ),
+});
 
 export default function Home() {
   const [session, setSession] = useState<any>(null);
@@ -156,15 +169,15 @@ export default function Home() {
       ) : playingGame === "native://biometric-override" ? (
         <BiometricOverride onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://golf-game" ? (
-        /* 2. GOLF GAME ADDED HERE WITH A CLOSE BUTTON */
+        /* 2. RENDER THE NEW PHASER ENGINE WITH THE CLOSE OVERLAY */
         <div className="fixed inset-0 z-[100] bg-black">
           <button 
             onClick={() => { setPlayingGame(null); setActiveMatchId(null); }} 
-            className="absolute top-12 left-6 z-[101] w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white border border-white/20 shadow-md backdrop-blur-md"
+            className="absolute top-12 left-6 z-[101] w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white border border-white/20 shadow-md backdrop-blur-md hover:bg-white/20 transition-colors"
           >
             <span className="material-symbols-outlined text-xl">close</span>
           </button>
-          <GolfGame />
+          <PhaserGolfGame />
         </div>
       ) : playingGame ? (
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
