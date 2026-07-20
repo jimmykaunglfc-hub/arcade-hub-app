@@ -3,6 +3,42 @@
 import { useEffect, useRef, useState } from "react";
 import Matter from "matter-js";
 
+// --- COURSE BLUEPRINTS ---
+// We use multipliers (0.0 to 1.0) so the course scales perfectly to any phone screen size.
+const COURSE = [
+  {
+    id: 1,
+    name: "The Basics",
+    ball: { x: 0.5, y: 0.85 },
+    hole: { x: 0.5, y: 0.15 },
+    obstacles: [
+      { type: 'sand', x: 0.2, y: 0.5, w: 0.3, h: 0.15 },
+      { type: 'sand', x: 0.8, y: 0.5, w: 0.3, h: 0.15 }
+    ]
+  },
+  {
+    id: 2,
+    name: "Bank Shot",
+    ball: { x: 0.5, y: 0.85 },
+    hole: { x: 0.5, y: 0.15 },
+    obstacles: [
+      { type: 'wall', x: 0.5, y: 0.5, w: 0.6, h: 0.05 },
+      { type: 'water', x: 0.5, y: 0.3, w: 0.4, h: 0.1 }
+    ]
+  },
+  {
+    id: 3,
+    name: "Island Green",
+    ball: { x: 0.5, y: 0.9 },
+    hole: { x: 0.5, y: 0.2 },
+    obstacles: [
+      { type: 'water', x: 0.5, y: 0.5, w: 1.0, h: 0.2 },
+      { type: 'water', x: 0.2, y: 0.2, w: 0.3, h: 0.4 },
+      { type: 'water', x: 0.8, y: 0.2, w: 0.3, h: 0.4 }
+    ]
+  }
+];
+
 export default function GolfGame() {
   const sceneRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Matter.Engine | null>(null);
@@ -13,15 +49,22 @@ export default function GolfGame() {
   const [isAiming, setIsAiming] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [currentDrag, setCurrentDrag] = useState({ x: 0, y: 0 });
-  const [strokes, setStrokes] = useState(0);
-  const [gameWon, setGameWon] = useState(false);
   
-  // Track where the ball was shot from (for water hazard resets)
+  const [currentHole, setCurrentHole] = useState(0);
+  const [holeStrokes, setHoleStrokes] = useState(0);
+  const [totalStrokes, setTotalStrokes] = useState(0);
+  
+  const [holeCompleted, setHoleCompleted] = useState(false);
+  const [courseCompleted, setCourseCompleted] = useState(false);
+  
+  // Refs to avoid stale closures in Matter.js event listeners
   const lastShotPos = useRef({ x: 400, y: 500 });
+  const holeCompletedRef = useRef(false);
 
-  const initGame = () => {
+  const initGame = (holeIndex: number) => {
     if (typeof window === "undefined" || !sceneRef.current) return;
 
+    // Clean up previous level
     if (engineRef.current) {
       Matter.Engine.clear(engineRef.current);
       if (renderRef.current) {
@@ -38,7 +81,8 @@ export default function GolfGame() {
     const w = window.innerWidth > 800 ? 800 : window.innerWidth;
     const h = window.innerHeight > 600 ? 600 : window.innerHeight - 150;
     
-    lastShotPos.current = { x: w / 2, y: h - 100 };
+    const level = COURSE[holeIndex];
+    lastShotPos.current = { x: w * level.ball.x, y: h * level.ball.y };
 
     const render = Matter.Render.create({
       element: sceneRef.current,
@@ -47,47 +91,49 @@ export default function GolfGame() {
         width: w,
         height: h,
         wireframes: false,
-        background: '#2d5a27', // Grass color
+        background: '#2d5a27', 
       }
     });
     renderRef.current = render;
 
     // 1. The Ball
-    const ball = Matter.Bodies.circle(w / 2, h - 100, 10, {
+    const ball = Matter.Bodies.circle(w * level.ball.x, h * level.ball.y, 10, {
       label: 'ball',
       restitution: 0.8, 
       friction: 0.01,
-      frictionAir: 0.03, // Normal grass friction
+      frictionAir: 0.03, 
       density: 0.04,
       render: { fillStyle: '#ffffff' }
     });
     ballRef.current = ball;
 
     // 2. The Hole
-    const hole = Matter.Bodies.circle(w / 2, 80, 16, {
+    const hole = Matter.Bodies.circle(w * level.hole.x, h * level.hole.y, 16, {
       label: 'hole',
       isStatic: true,
       isSensor: true, 
       render: { fillStyle: '#000000' }
     });
 
-    // 3. Sand Trap (Yellow)
-    const sandTrap = Matter.Bodies.rectangle(w / 2, h / 2 + 50, w * 0.6, 80, {
-      label: 'sand',
-      isStatic: true,
-      isSensor: true,
-      render: { fillStyle: '#e6c27a' }
+    // 3. Generate Level Obstacles Dynamically
+    const dynamicObstacles = level.obstacles.map(obs => {
+      if (obs.type === 'sand') {
+        return Matter.Bodies.rectangle(w * obs.x, h * obs.y, w * obs.w, h * obs.h, {
+          label: 'sand', isStatic: true, isSensor: true, render: { fillStyle: '#e6c27a' }
+        });
+      } else if (obs.type === 'water') {
+        return Matter.Bodies.rectangle(w * obs.x, h * obs.y, w * obs.w, h * obs.h, {
+          label: 'water', isStatic: true, isSensor: true, render: { fillStyle: '#3498db' }
+        });
+      } else {
+        // Solid Wall
+        return Matter.Bodies.rectangle(w * obs.x, h * obs.y, w * obs.w, h * obs.h, {
+          label: 'wall', isStatic: true, restitution: 0.6, render: { fillStyle: '#1a3317' }
+        });
+      }
     });
 
-    // 4. Water Hazard (Blue)
-    const waterHazard = Matter.Bodies.rectangle(w / 2, h / 2 - 80, w * 0.4, 60, {
-      label: 'water',
-      isStatic: true,
-      isSensor: true,
-      render: { fillStyle: '#3498db' }
-    });
-
-    // Outer Walls
+    // 4. Outer Boundaries
     const walls = [
       Matter.Bodies.rectangle(w/2, 0, w, 50, { isStatic: true, render: { fillStyle: '#1a3317' } }), 
       Matter.Bodies.rectangle(w/2, h, w, 50, { isStatic: true, render: { fillStyle: '#1a3317' } }), 
@@ -95,7 +141,7 @@ export default function GolfGame() {
       Matter.Bodies.rectangle(0, h/2, 50, h, { isStatic: true, render: { fillStyle: '#1a3317' } })  
     ];
 
-    Matter.World.add(engine.world, [hole, sandTrap, waterHazard, ball, ...walls]);
+    Matter.World.add(engine.world, [hole, ball, ...dynamicObstacles, ...walls]);
     Matter.Render.run(render);
     
     const runner = Matter.Runner.create();
@@ -109,18 +155,21 @@ export default function GolfGame() {
         
         // WIN CONDITION: Ball hits Hole
         if ((bodyA.label === 'ball' && bodyB.label === 'hole') || (bodyB.label === 'ball' && bodyA.label === 'hole')) {
-          setGameWon(true);
-          Matter.Body.setVelocity(ballRef.current!, { x: 0, y: 0 });
+          if (!holeCompletedRef.current) {
+            holeCompletedRef.current = true;
+            setHoleCompleted(true);
+            Matter.Body.setVelocity(ballRef.current!, { x: 0, y: 0 });
+          }
         }
 
         // SAND TRAP: Increase friction heavily
         if ((bodyA.label === 'ball' && bodyB.label === 'sand') || (bodyB.label === 'ball' && bodyA.label === 'sand')) {
-          ballRef.current!.frictionAir = 0.15; 
+          if (ballRef.current) ballRef.current.frictionAir = 0.15; 
         }
 
         // WATER HAZARD: +1 Penalty and Reset Position
         if ((bodyA.label === 'ball' && bodyB.label === 'water') || (bodyB.label === 'ball' && bodyA.label === 'water')) {
-          setStrokes(prev => prev + 1); // Penalty stroke
+          setHoleStrokes(prev => prev + 1); // Penalty stroke
           Matter.Body.setVelocity(ballRef.current!, { x: 0, y: 0 });
           Matter.Body.setPosition(ballRef.current!, { 
             x: lastShotPos.current.x, 
@@ -136,7 +185,7 @@ export default function GolfGame() {
       for (let i = 0; i < pairs.length; i++) {
         const { bodyA, bodyB } = pairs[i];
         if ((bodyA.label === 'ball' && bodyB.label === 'sand') || (bodyB.label === 'ball' && bodyA.label === 'sand')) {
-          ballRef.current!.frictionAir = 0.03; 
+          if (ballRef.current) ballRef.current.frictionAir = 0.03; 
         }
       }
     });
@@ -144,8 +193,10 @@ export default function GolfGame() {
     return { render, runner, engine };
   };
 
+  // Re-initialize engine whenever the current hole changes
   useEffect(() => {
-    const gameSetup = initGame();
+    holeCompletedRef.current = false;
+    const gameSetup = initGame(currentHole);
     return () => {
       if (gameSetup) {
         Matter.Render.stop(gameSetup.render);
@@ -155,11 +206,11 @@ export default function GolfGame() {
         Matter.Engine.clear(gameSetup.engine);
       }
     };
-  }, []);
+  }, [currentHole]);
 
   // --- CONTROLS ---
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (!ballRef.current || gameWon) return;
+    if (!ballRef.current || holeCompleted || courseCompleted) return;
     setIsAiming(true);
     const rect = sceneRef.current?.getBoundingClientRect();
     if (rect) {
@@ -175,7 +226,7 @@ export default function GolfGame() {
   };
 
   const handlePointerUp = () => {
-    if (!isAiming || !ballRef.current || gameWon) return;
+    if (!isAiming || !ballRef.current || holeCompleted || courseCompleted) return;
     setIsAiming(false);
     
     const dx = dragStart.x - currentDrag.x;
@@ -185,25 +236,37 @@ export default function GolfGame() {
       // Save position for water resets BEFORE shooting
       lastShotPos.current = { x: ballRef.current.position.x, y: ballRef.current.position.y };
       
-      setStrokes(prev => prev + 1);
+      setHoleStrokes(prev => prev + 1);
       
-      // Cap maximum power so they can't shoot infinitely hard
-      const maxForce = 0.08;
+      // Calculate Force
       let forceX = dx * 0.0005;
       let forceY = dy * 0.0005;
       
-      // Apply force to the ball
       Matter.Body.applyForce(ballRef.current, ballRef.current.position, { x: forceX, y: forceY });
     }
   };
 
-  const restartGame = () => {
-    setGameWon(false);
-    setStrokes(0);
-    initGame();
+  // --- LEVEL PROGRESSION ---
+  const advanceToNextHole = () => {
+    setTotalStrokes(prev => prev + holeStrokes);
+    setHoleStrokes(0);
+    setHoleCompleted(false);
+
+    if (currentHole + 1 < COURSE.length) {
+      setCurrentHole(prev => prev + 1);
+    } else {
+      setCourseCompleted(true);
+    }
   };
 
-  // --- CALCULATE AIMING LINE COLOR ---
+  const restartCourse = () => {
+    setCourseCompleted(false);
+    setHoleCompleted(false);
+    setTotalStrokes(0);
+    setHoleStrokes(0);
+    setCurrentHole(0);
+  };
+
   const getAimColor = () => {
     const dist = Math.sqrt(Math.pow(dragStart.x - currentDrag.x, 2) + Math.pow(dragStart.y - currentDrag.y, 2));
     if (dist > 150) return "#ff3333"; // Red (Max Power)
@@ -215,14 +278,32 @@ export default function GolfGame() {
   return (
     <div className="flex flex-col items-center justify-center p-4 w-full h-full text-white">
       
-      <div className="absolute top-8 right-8 z-[101] bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 shadow-lg">
-        <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest text-center">Strokes</p>
-        <p className="text-2xl font-black text-white text-center leading-none">{strokes}</p>
+      {/* 🏆 MULTI-HOLE HUD */}
+      <div className="absolute top-16 left-6 right-6 z-[101] flex justify-between items-start pointer-events-none">
+        
+        <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 shadow-lg pointer-events-auto">
+          <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest text-center">Hole {currentHole + 1} / {COURSE.length}</p>
+          <p className="text-sm font-black text-white text-center">{COURSE[currentHole].name}</p>
+        </div>
+
+        <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 shadow-lg pointer-events-auto flex gap-4">
+          <div>
+            <p className="text-[9px] text-white/60 font-bold uppercase tracking-widest text-center">Strokes</p>
+            <p className="text-xl font-black text-white text-center leading-none">{holeStrokes}</p>
+          </div>
+          <div className="w-[1px] bg-white/20"></div>
+          <div>
+            <p className="text-[9px] text-white/60 font-bold uppercase tracking-widest text-center">Total</p>
+            <p className="text-xl font-black text-indigo-400 text-center leading-none">{totalStrokes}</p>
+          </div>
+        </div>
+
       </div>
 
+      {/* 🎮 PHYSICS CANVAS */}
       <div 
         ref={sceneRef} 
-        className="rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 relative touch-none"
+        className="rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 relative touch-none mt-10"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -241,13 +322,29 @@ export default function GolfGame() {
           </svg>
         )}
 
-        {gameWon && (
+        {/* 🟢 HOLE COMPLETED OVERLAY */}
+        {holeCompleted && !courseCompleted && (
           <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center animate-fade-in">
-            <h2 className="text-4xl font-black text-white mb-2 tracking-tight">HOLE IN {strokes}!</h2>
-            <p className="text-white/70 text-sm font-bold uppercase tracking-widest mb-6">Course Completed</p>
+            <h2 className="text-4xl font-black text-white mb-2 tracking-tight">HOLE IN {holeStrokes}!</h2>
             <button 
-              onClick={restartGame}
-              className="bg-[#c3f400] text-black px-6 py-3 rounded-full font-black text-sm uppercase tracking-widest hover:scale-105 transition-transform shadow-[0_0_20px_rgba(195,244,0,0.4)]"
+              onClick={advanceToNextHole}
+              className="mt-6 bg-[#c3f400] text-black px-6 py-3 rounded-full font-black text-sm uppercase tracking-widest hover:scale-105 transition-transform shadow-[0_0_20px_rgba(195,244,0,0.4)]"
+            >
+              Next Hole
+            </button>
+          </div>
+        )}
+
+        {/* 🏁 COURSE COMPLETED OVERLAY (Prep for Phase 3) */}
+        {courseCompleted && (
+          <div className="absolute inset-0 z-20 bg-[#091428] backdrop-blur-lg flex flex-col items-center justify-center animate-fade-in border border-indigo-500/30">
+            <span className="material-symbols-outlined text-5xl text-amber-400 mb-2">emoji_events</span>
+            <h2 className="text-3xl font-black text-white tracking-tight">COURSE CLEARED</h2>
+            <p className="text-white/70 text-sm font-bold uppercase tracking-widest mb-6 mt-1">Final Score: {totalStrokes + holeStrokes} Strokes</p>
+            
+            <button 
+              onClick={restartCourse}
+              className="bg-indigo-600 text-white px-6 py-3 rounded-full font-black text-sm uppercase tracking-widest hover:scale-105 transition-transform shadow-[0_0_20px_rgba(79,70,229,0.5)]"
             >
               Play Again
             </button>
@@ -255,11 +352,6 @@ export default function GolfGame() {
         )}
       </div>
       
-      {!gameWon && (
-        <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mt-6 text-center z-10">
-          Avoid the Sand (Yellow) and Water (Blue)
-        </p>
-      )}
     </div>
   );
 }
