@@ -21,6 +21,9 @@ import NeuralDuel from "../components/games/NeuralDuel";
 import BiometricOverride from "../components/games/BiometricOverride"; 
 import AuthView from "../components/AuthView";
 
+// 1. IMPORT THE GOLF GAME HERE
+import GolfGame from "../components/games/GolfGame";
+
 export default function Home() {
   const [session, setSession] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -152,6 +155,17 @@ export default function Home() {
         <NeuralDuel onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://biometric-override" ? (
         <BiometricOverride onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+      ) : playingGame === "native://golf-game" ? (
+        /* 2. GOLF GAME ADDED HERE WITH A CLOSE BUTTON */
+        <div className="fixed inset-0 z-[100] bg-black">
+          <button 
+            onClick={() => { setPlayingGame(null); setActiveMatchId(null); }} 
+            className="absolute top-12 left-6 z-[101] w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white border border-white/20 shadow-md backdrop-blur-md"
+          >
+            <span className="material-symbols-outlined text-xl">close</span>
+          </button>
+          <GolfGame />
+        </div>
       ) : playingGame ? (
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : null}
@@ -192,7 +206,6 @@ export default function Home() {
         </header>
 
         {/* COMPACT VIEWPORT CONTAINER PORTAL */}
-        {/* Uses exact inline CSS calc to ensure flawless clearance of the header regardless of Tailwind compiler */}
         <main 
           className="flex-1 overflow-y-auto no-scrollbar pb-[96px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10"
           style={{ paddingTop: 'calc(env(safe-area-inset-top) + 84px)' }}
