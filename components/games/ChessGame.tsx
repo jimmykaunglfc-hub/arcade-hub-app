@@ -10,7 +10,6 @@ interface ChessGameProps {
   preloadedMatchId?: string | null;
 }
 
-// 🛡️ Helper to map pieces to Unicode symbols for the graveyard
 const PIECE_SYMBOLS: Record<string, string> = {
   p: "♙",
   n: "♘",
@@ -25,15 +24,14 @@ const PIECE_SYMBOLS: Record<string, string> = {
 };
 
 export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps) {
-  // 🎮 VIEW STATES
+  // 🎮 VIEW & NOTIFICATION STATES
   const [view, setView] = useState<"menu" | "host" | "play">(
     preloadedMatchId ? "play" : "menu"
   );
-  const [matchId, setMatchId] = useState<string | null>(
-    preloadedMatchId || null
-  );
+  const [matchId, setMatchId] = useState<string | null>(preloadedMatchId || null);
   const [joinInput, setJoinInput] = useState("");
   const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   // ♟️ ENGINE STATES
   const [game, setGame] = useState(new Chess());
@@ -61,14 +59,17 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
   const [oppReaction, setOppReaction] = useState<string | null>(null);
   const [showReactionMenu, setShowReactionMenu] = useState(false);
 
-  // 1. Init Session
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) setMyUserId(session.user.id);
     });
   }, []);
 
-  // 2. Network Sync
   useEffect(() => {
     if (!matchId || !myUserId) return;
 
@@ -82,12 +83,8 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
         setGame(updatedGame);
         setFen(updatedGame.fen());
         setMoveSquares({
-          [payload.payload.lastMove.from]: {
-            backgroundColor: "rgba(255, 255, 0, 0.4)",
-          },
-          [payload.payload.lastMove.to]: {
-            backgroundColor: "rgba(255, 255, 0, 0.4)",
-          },
+          [payload.payload.lastMove.from]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
+          [payload.payload.lastMove.to]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
         });
         updateGameStatus(updatedGame);
       })
@@ -121,14 +118,11 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     if (view === "host" && opponentConnected) setView("play");
   }, [opponentConnected, view]);
 
-  // 3. Status & Game Over Logic
   const updateGameStatus = (currentGame: Chess) => {
     setIsCheck(currentGame.isCheck());
-
     if (currentGame.isGameOver()) {
       let reason = "Game Over";
       let winner = null;
-
       if (currentGame.isCheckmate()) {
         winner = currentGame.turn() === "w" ? "Black" : "White";
         reason = "by Checkmate";
@@ -137,20 +131,17 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
       } else if (currentGame.isStalemate()) {
         reason = "by Stalemate";
       }
-
       setGameOver({ isOver: true, winner, reason });
     } else {
       setGameOver({ isOver: false, winner: null, reason: "" });
     }
   };
 
-  // 4. Graveyard Calculation
   const capturedPieces = useMemo(() => {
     const counts = {
       w: { p: 0, n: 0, b: 0, r: 0, q: 0 },
       b: { p: 0, n: 0, b: 0, r: 0, q: 0 },
     };
-    
     game.board().forEach((row) =>
       row.forEach((piece) => {
         if (piece) counts[piece.color][piece.type as keyof typeof counts.w]++;
@@ -169,37 +160,25 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
         bCaptured.push(PIECE_SYMBOLS[type]);
       }
     }
-    
     return { wCaptured, bCaptured };
   }, [fen, game]);
 
-  // 5. Highlight Move Options (Tap to Move Visualizers)
   const getMoveOptions = (square: Square) => {
     const moves = game.moves({ square, verbose: true });
     if (moves.length === 0) {
       setOptionSquares({});
       return false;
     }
-
     const newSquares: any = {};
     moves.forEach((move) => {
       const targetSquare = move.to as Square;
-      if (game.get(targetSquare)) {
-        newSquares[targetSquare] = {
-          background:
-            "radial-gradient(circle, rgba(239, 68, 68, 0.8) 25%, transparent 25%)",
-          borderRadius: "50%",
-        };
-      } else {
-        newSquares[targetSquare] = {
-          background:
-            "radial-gradient(circle, rgba(255, 255, 255, 0.35) 20%, transparent 20%)",
-          borderRadius: "50%",
-        };
-      }
+      newSquares[targetSquare] = {
+        background: game.get(targetSquare)
+          ? "radial-gradient(circle, rgba(239, 68, 68, 0.8) 25%, transparent 25%)"
+          : "radial-gradient(circle, rgba(255, 255, 255, 0.35) 20%, transparent 20%)",
+        borderRadius: "50%",
+      };
     });
-
-    // Premium glowing highlight for the selected piece
     newSquares[square] = {
       backgroundColor: "rgba(99, 102, 241, 0.6)",
       boxShadow: "inset 0 0 15px rgba(255, 255, 255, 0.3)",
@@ -209,23 +188,24 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     return true;
   };
 
-  // 6. Execution Logic
   const executeMove = (
     source: Square,
     target: Square,
     piecePromotion: string = "q"
   ) => {
-    if (gameOver.isOver || (matchId && !opponentConnected)) return false;
+    if (gameOver.isOver) return false;
+    if (matchId && !opponentConnected) {
+      showToast("Waiting for opponent to connect!");
+      return false;
+    }
 
     const gameCopy = new Chess(game.fen());
-
     try {
       const move = gameCopy.move({
         from: source,
         to: target,
         promotion: piecePromotion,
       });
-      
       if (move === null) return false;
 
       setGame(gameCopy);
@@ -236,7 +216,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
         [source]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
         [target]: { backgroundColor: "rgba(255, 255, 0, 0.4)" },
       });
-
       updateGameStatus(gameCopy);
 
       if (channel && matchId) {
@@ -255,18 +234,19 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     }
   };
 
-  // 7. TAP-TO-MOVE HANDLER
   const onSquareClick = (square: string) => {
     if (gameOver.isOver) return;
-    const sq = square as Square;
+    if (matchId && !opponentConnected) {
+      showToast("Waiting for opponent to connect!");
+      return;
+    }
 
-    // A. Tap a target move dot to execute
+    const sq = square as Square;
     if (sourceSquare && (optionSquares as any)[sq]) {
       executeMove(sourceSquare, sq, "q");
       return;
     }
 
-    // B. Tap one of our pieces to select it
     const piece = game.get(sq);
     const isMyTurn = matchId
       ? (playerColor === "white" && game.turn() === "w") ||
@@ -277,13 +257,11 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
       setSourceSquare(sq);
       getMoveOptions(sq);
     } else {
-      // C. Tapped an empty square or an invalid piece - clear selection
       setSourceSquare(null);
       setOptionSquares({});
     }
   };
 
-  // 8. DRAG-AND-DROP HANDLER
   const onDrop = (sourceSquare: string, targetSquare: string, piece: string) => {
     if (gameOver.isOver) return false;
 
@@ -291,7 +269,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
       ? (playerColor === "white" && game.turn() === "w") ||
         (playerColor === "black" && game.turn() === "b")
       : true;
-      
     if (!isMyTurn) return false;
 
     const promotion = piece && piece.length >= 2 ? piece[1].toLowerCase() : "q";
@@ -311,7 +288,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     setMoveSquares({});
     setOptionSquares({});
     setSourceSquare(null);
-    
     if (channel && matchId) {
       channel.send({
         type: "broadcast",
@@ -325,7 +301,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     setShowReactionMenu(false);
     setMyReaction(emoji);
     setTimeout(() => setMyReaction(null), 3500);
-    
     if (channel && matchId) {
       channel.send({
         type: "broadcast",
@@ -343,6 +318,9 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
   const currentTurnColor = game.turn() === "w" ? "white" : "black";
   const myTurnActive = matchId ? playerColor === currentTurnColor : true;
   const oppTurnActive = matchId ? playerColor !== currentTurnColor : true;
+
+  // 🔥 AUTO-FLIP: Ensure Local Play automatically flips perspective based on whose turn it is.
+  const displayOrientation = matchId ? playerColor : currentTurnColor;
 
   const checkSquares: any = {};
   if (isCheck) {
@@ -363,9 +341,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     }
   }
 
-  // ============================================================================
-  // MENUS
-  // ============================================================================
   if (view === "menu") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6">
@@ -381,7 +356,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
           <p className="font-caps text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-8 uppercase">
             Select Engagement Mode
           </p>
-          
           <div className="w-full space-y-3">
             <button
               onClick={() => {
@@ -404,7 +378,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
                 chevron_right
               </span>
             </button>
-            
             <button
               onClick={() => {
                 setMatchId(null);
@@ -425,7 +398,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
               </span>
             </button>
           </div>
-          
           <div className="w-full flex items-center gap-4 my-6 opacity-40">
             <div className="flex-1 h-px bg-white/20"></div>
             <span className="font-caps text-[9px] font-bold tracking-widest uppercase">
@@ -433,7 +405,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
             </span>
             <div className="flex-1 h-px bg-white/20"></div>
           </div>
-          
           <div className="w-full flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5">
             <input
               type="text"
@@ -456,7 +427,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
               JOIN
             </button>
           </div>
-          
           <button
             onClick={onClose}
             className="mt-8 flex items-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-caps text-[10px] font-bold tracking-widest"
@@ -494,21 +464,18 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
             <span className="material-symbols-outlined text-lg">face</span>
           </button>
         </div>
-        
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-8 shadow-2xl border border-white/5 flex flex-col items-center text-center">
             <div className="relative w-16 h-16 mb-6">
               <div className="absolute inset-0 border-4 border-indigo-500/20 rounded-full"></div>
               <div className="absolute inset-0 border-4 border-indigo-500 rounded-full border-t-transparent animate-spin"></div>
             </div>
-            
             <h3 className="font-headline font-black text-xl tracking-tight mb-8">
               AWAITING OPPONENT
             </h3>
             <p className="font-caps text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-3 uppercase">
               Share This Room Code
             </p>
-            
             <div className="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-2xl p-2 pl-6 mb-6">
               <span className="font-headline font-bold text-2xl tracking-[0.3em] text-indigo-300">
                 {matchId}
@@ -527,7 +494,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
                 {copied ? "COPIED" : "COPY"}
               </button>
             </div>
-            
             <button
               onClick={handleExit}
               className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5"
@@ -540,12 +506,15 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     );
   }
 
-  // ============================================================================
-  // VIEW 3: LIVE PREMIUM BOARD
-  // ============================================================================
   return (
     <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white">
-      {/* 🏆 GAME OVER MODAL */}
+      {/* ⚠️ TOAST NOTIFICATION FOR LOCKED MOVES */}
+      {toast && (
+        <div className="absolute top-24 z-[300] bg-red-500/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl font-headline font-bold text-sm shadow-2xl animate-fade-in border border-red-400">
+          {toast}
+        </div>
+      )}
+
       {gameOver.isOver && (
         <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in">
           <div className="w-full max-w-[340px] bg-[#18181b] border border-white/10 rounded-[32px] p-8 flex flex-col items-center text-center shadow-2xl">
@@ -554,14 +523,12 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
                 {gameOver.winner ? "emoji_events" : "handshake"}
               </span>
             </div>
-            
             <h2 className="font-headline font-black text-3xl mb-1 uppercase tracking-tight">
               {gameOver.winner ? `${gameOver.winner} Wins!` : "It's a Draw!"}
             </h2>
             <p className="font-caps text-[10px] font-bold text-neutral-400 tracking-[0.2em] uppercase mb-8">
               {gameOver.reason}
             </p>
-
             <button
               onClick={resetGame}
               className="w-full bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl py-4 font-headline font-bold text-sm tracking-widest shadow-lg shadow-indigo-500/20 transition-transform active:scale-95 mb-3"
@@ -578,7 +545,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
         </div>
       )}
 
-      {/* HEADER TOP BAR */}
       <div className="w-full max-w-[400px] flex items-start justify-between px-4 pt-safe absolute top-0 mt-4 z-10">
         <button
           onClick={matchId ? handleExit : onClose}
@@ -588,7 +554,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
             arrow_back
           </span>
         </button>
-        
         <div className="flex flex-col items-center">
           <h2 className="font-headline font-black text-sm uppercase tracking-[0.2em] text-indigo-400">
             {matchId ? "Live Arena" : "Local Play"}
@@ -609,7 +574,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
               : `${currentTurnColor} to move`}
           </span>
         </div>
-        
         <button
           onClick={resetGame}
           className="w-10 h-10 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10"
@@ -621,7 +585,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
       </div>
 
       <div className="w-full max-w-[400px] flex flex-col gap-4 px-4 w-full pt-10">
-        {/* OPPONENT INFO PLATE */}
         <div
           className={`w-full bg-[#18181b] border rounded-2xl p-3 flex flex-col relative transition-all duration-300 shadow-lg ${
             (matchId && !oppTurnActive) ||
@@ -643,18 +606,17 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
                     ? opponentConnected
                       ? "Opponent"
                       : "Awaiting Opponent..."
-                    : "Player 2"}
+                    : "Player 2 (Local)"}
                 </h3>
                 <p className="text-[10px] font-bold tracking-widest uppercase text-neutral-500">
                   {matchId
-                    ? playerColor === "white"
-                      ? "Playing Black"
-                      : "Playing White"
-                    : "Local Co-op"}
+                    ? `Playing ${playerColor === "white" ? "Black" : "White"}`
+                    : game.turn() === "b"
+                    ? "To Move"
+                    : "Waiting..."}
                 </p>
               </div>
             </div>
-            
             {oppReaction && (
               <div className="absolute right-4 -bottom-4 z-20 animate-fade-in">
                 <div className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl rounded-full px-3 py-1.5 text-2xl animate-bounce">
@@ -663,7 +625,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
               </div>
             )}
           </div>
-          
           <div className="w-full flex flex-wrap gap-1 mt-2 min-h-[20px] text-lg opacity-70 px-1">
             {(matchId
               ? playerColor === "white"
@@ -678,24 +639,19 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
           </div>
         </div>
 
-        {/* CHESS BOARD WRAPPER */}
         <div className="w-full p-2 bg-[#18181b] rounded-[24px] shadow-2xl border border-white/10 relative overflow-hidden pointer-events-auto">
-          {/* 🔥 Fix: Added pointer-events-none so it doesn't swallow touch events */}
           <div className="absolute inset-0 bg-indigo-500/5 blur-2xl pointer-events-none"></div>
-
-          {/* 🔥 Fix: Added touch-none and select-none to forcibly stop mobile browsers from scrolling when you drag */}
-          <div className="relative rounded-[16px] overflow-hidden border border-white/5 touch-none select-none">
+          <div className="relative rounded-[16px] overflow-hidden border border-white/5">
+            {/* 🔥 TYPE FIX: Spread 'as any' wrapper successfully circumvents strict react-chessboard v5 props */}
             <Chessboard
-              position={fen}
-              onSquareClick={onSquareClick}
-              // 🔥 Fix: Explicitly mapped back in to support tapping pieces
-              onPieceClick={(piece: string, square: string) =>
-                onSquareClick(square)
-              }
-              onPieceDrop={onDrop}
-              arePiecesDraggable={true}
-              boardOrientation={playerColor}
               {...({
+                position: fen,
+                onSquareClick: onSquareClick,
+                onPieceClick: (piece: string, square: string) =>
+                  onSquareClick(square),
+                onPieceDrop: onDrop,
+                arePiecesDraggable: true,
+                boardOrientation: displayOrientation,
                 customDarkSquareStyle: { backgroundColor: "#312e81" },
                 customLightSquareStyle: { backgroundColor: "#c7d2fe" },
                 customSquareStyles: {
@@ -708,7 +664,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
           </div>
         </div>
 
-        {/* PLAYER INFO PLATE */}
         <div
           className={`w-full bg-[#18181b] border rounded-2xl p-3 flex flex-col relative transition-all duration-300 shadow-lg ${
             myTurnActive
@@ -728,11 +683,12 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
                 <p className="text-[10px] font-bold tracking-widest uppercase text-indigo-400">
                   {matchId
                     ? `Playing ${playerColor === "white" ? "White" : "Black"}`
-                    : "Player 1"}
+                    : game.turn() === "w"
+                    ? "To Move"
+                    : "Waiting..."}
                 </p>
               </div>
             </div>
-            
             {matchId && (
               <button
                 onClick={() => setShowReactionMenu(!showReactionMenu)}
@@ -751,7 +707,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
               </button>
             )}
           </div>
-          
           <div className="w-full flex flex-wrap gap-1 mt-2 min-h-[20px] text-lg opacity-70 px-1">
             {(matchId
               ? playerColor === "white"
