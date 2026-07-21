@@ -639,16 +639,21 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
           </div>
         </div>
 
-        <div className="w-full p-2 bg-[#18181b] rounded-[24px] shadow-2xl border border-white/10 relative overflow-hidden pointer-events-auto">
+        {/* 🔥 FIX: Explicit inline styles block the browser from stealing touch events and throwing the DevTools Intervention Error */}
+        <div
+          className="w-full p-2 bg-[#18181b] rounded-[24px] shadow-2xl border border-white/10 relative overflow-hidden pointer-events-auto"
+          style={{ touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }}
+        >
           <div className="absolute inset-0 bg-indigo-500/5 blur-2xl pointer-events-none"></div>
-          <div className="relative rounded-[16px] overflow-hidden border border-white/5">
-            {/* 🔥 TYPE FIX: Spread 'as any' wrapper successfully circumvents strict react-chessboard v5 props */}
+          <div
+            className="relative rounded-[16px] overflow-hidden border border-white/5"
+            style={{ touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }}
+          >
             <Chessboard
               {...({
                 position: fen,
                 onSquareClick: onSquareClick,
-                onPieceClick: (piece: string, square: string) =>
-                  onSquareClick(square),
+                onPieceClick: (piece: string, square: string) => onSquareClick(square),
                 onPieceDrop: onDrop,
                 arePiecesDraggable: true,
                 boardOrientation: displayOrientation,
