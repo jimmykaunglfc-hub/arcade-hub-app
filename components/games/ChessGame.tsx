@@ -9,20 +9,20 @@ interface ChessGameProps {
   preloadedMatchId?: string | null;
 }
 
-// ♟️ HIGH-DEFINITION INLINE SVG CHESS PIECES (0ms Latency, 100% Offline & Mobile Ready)
+// ♟️ HIGH-DEFINITION LICHESS CDN VECTORS (CORS-Safe, 100% Reliable Asset Delivery)
 const PIECE_SVGS: Record<string, string> = {
-  wp: "https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg",
-  wn: "https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg",
-  wb: "https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg",
-  wr: "https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg",
-  wq: "https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg",
-  wk: "https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg",
-  bp: "https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg",
-  bn: "https://upload.wikimedia.org/wikipedia/commons/ef/ef2/Chess_ndt45.svg",
-  bb: "https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg",
-  br: "https://upload.wikimedia.org/wikipedia/commons/ff/ff7/Chess_rdt45.svg",
-  bq: "https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg",
-  bk: "https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg",
+  wp: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/wP.svg",
+  wn: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/wN.svg",
+  wb: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/wB.svg",
+  wr: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/wR.svg",
+  wq: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/wQ.svg",
+  wk: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/wK.svg",
+  bp: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/bP.svg",
+  bn: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/bN.svg",
+  bb: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/bB.svg",
+  br: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/bR.svg",
+  bq: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/bQ.svg",
+  bk: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/bK.svg",
 };
 
 const PIECE_SYMBOLS: Record<string, string> = {
@@ -165,7 +165,9 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
   }, [fen, game]);
 
   const currentTurnColor = game.turn() === "w" ? "white" : "black";
-  const displayOrientation = matchId ? playerColor : currentTurnColor;
+  
+  // 🎯 LOCAL PASS & PLAY: Keep board stationary ("white") so phone sits flat between 2 players
+  const displayOrientation = matchId ? playerColor : "white";
 
   // Execute Move Engine
   const makeMove = (source: Square, target: Square): boolean => {
@@ -461,14 +463,14 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
 
       <div className="w-full max-w-[400px] flex flex-col gap-4 px-4 pt-16">
         {/* Opponent Card */}
-        <div className={`w-full bg-[#18181b] border rounded-2xl p-3 flex flex-col relative transition-all duration-300 shadow-lg ${currentTurnColor === (displayOrientation === "white" ? "black" : "white") ? "border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]" : "border-white/5"}`}>
+        <div className={`w-full bg-[#18181b] border rounded-2xl p-3 flex flex-col relative transition-all duration-300 shadow-lg ${currentTurnColor === "black" ? "border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]" : "border-white/5"}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-neutral-400">{matchId ? "person" : "robot_2"}</span>
               </div>
               <div>
-                <h3 className="font-headline text-sm font-bold">{matchId ? (opponentConnected ? "Opponent" : "Awaiting Opponent...") : "Player 2 (Local)"}</h3>
+                <h3 className="font-headline text-sm font-bold">{matchId ? (opponentConnected ? "Opponent" : "Awaiting Opponent...") : "Player 2 (Black)"}</h3>
                 <p className="text-[10px] font-bold tracking-widest uppercase text-neutral-500">
                   {matchId ? `Playing ${playerColor === "white" ? "Black" : "White"}` : (game.turn() === "b" ? "To Move" : "Waiting...")}
                 </p>
@@ -536,7 +538,7 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
                       />
                     )}
 
-                    {/* Legal Move Indicators (Dots & Capture Rings) */}
+                    {/* Legal Move Indicators */}
                     {isLegalMove && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         {piece ? (
@@ -554,14 +556,14 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
         </div>
 
         {/* Player Card */}
-        <div className={`w-full bg-[#18181b] border rounded-2xl p-3 flex flex-col relative transition-all duration-300 shadow-lg ${currentTurnColor === displayOrientation ? "border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]" : "border-white/5"}`}>
+        <div className={`w-full bg-[#18181b] border rounded-2xl p-3 flex flex-col relative transition-all duration-300 shadow-lg ${currentTurnColor === "white" ? "border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]" : "border-white/5"}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-indigo-400">face</span>
               </div>
               <div>
-                <h3 className="font-headline text-sm font-bold">You</h3>
+                <h3 className="font-headline text-sm font-bold">Player 1 (White)</h3>
                 <p className="text-[10px] font-bold tracking-widest uppercase text-indigo-400">
                   {matchId ? `Playing ${playerColor === "white" ? "White" : "Black"}` : (game.turn() === "w" ? "To Move" : "Waiting...")}
                 </p>
