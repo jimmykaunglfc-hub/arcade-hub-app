@@ -135,8 +135,10 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     return { wCaptured, bCaptured };
   }, [fen]);
 
-  // 5. Highlight Move Options (Target Dots)
+  // 5. Highlight Move Options (Tap to Move Visualizers)
   const getMoveOptions = (square: Square) => {
+    // game.moves automatically evaluates checks! If a king is in check, 
+    // it will ONLY return moves that resolve the check.
     const moves = game.moves({ square, verbose: true });
     if (moves.length === 0) {
       setOptionSquares({});
@@ -199,15 +201,18 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     }
   };
 
+  // STRICT TAP-TO-MOVE HANDLER
   const onSquareClick = (square: string) => {
     if (gameOver.isOver) return;
     const sq = square as Square;
 
+    // 1. If we already selected a piece and tapped a valid target move dot, execute it.
     if (sourceSquare && (optionSquares as any)[sq]) {
       executeMove(sourceSquare, sq, "q");
       return;
     }
 
+    // 2. Otherwise, check if they tapped one of their own pieces to select it.
     const piece = game.get(sq);
     const isMyTurn = matchId ? ((playerColor === "white" && game.turn() === "w") || (playerColor === "black" && game.turn() === "b")) : true;
 
@@ -215,24 +220,10 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
       setSourceSquare(sq);
       getMoveOptions(sq);
     } else {
+      // 3. Tapped an empty square or an invalid piece - clear selection.
       setSourceSquare(null);
       setOptionSquares({});
     }
-  };
-
-  const onDrop = (args: any, ...rest: any[]) => {
-    if (gameOver.isOver) return false;
-    const sourceSquare = (args?.sourceSquare || args) as Square;
-    const targetSquare = (args?.targetSquare || rest[0]) as Square;
-    const piece = args?.piece || rest[1];
-    
-    if (matchId) {
-      const isMyTurn = (playerColor === "white" && game.turn() === "w") || (playerColor === "black" && game.turn() === "b");
-      if (!isMyTurn) return false;
-    }
-
-    const promotion = piece && typeof piece === 'string' ? piece[1].toLowerCase() : "q";
-    return executeMove(sourceSquare, targetSquare, promotion);
   };
 
   const resetGame = () => {
@@ -243,6 +234,7 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     setGameOver({ isOver: false, winner: null, reason: "" });
     setMoveSquares({});
     setOptionSquares({});
+    setSourceSquare(null);
     
     if (channel && matchId) {
       channel.send({ type: "broadcast", event: "board_update", payload: { fen: newGame.fen(), lastMove: { from: null, to: null } } });
@@ -440,28 +432,21 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
           <div className="absolute inset-0 bg-indigo-500/5 blur-2xl"></div> 
           
           <div className="relative rounded-[16px] overflow-hidden border border-white/5">
+            {/* Note: props spread with 'as any' to bypass react-chessboard v5 strict type errors */}
             <Chessboard 
-              options={{
+              {...({
                 position: fen,
-                onPieceDrop: onDrop,
                 onSquareClick: onSquareClick,
-                onPieceDragBegin: (args: any) => {
-                  if (gameOver.isOver) return;
-                  const square = (args?.sourceSquare || args?.square || args) as Square;
-                  if (typeof square === 'string') {
-                    setSourceSquare(square);
-                    getMoveOptions(square);
-                  }
-                },
+                arePiecesDraggable: false,
                 boardOrientation: playerColor,
                 customDarkSquareStyle: { backgroundColor: "#312e81" }, 
                 customLightSquareStyle: { backgroundColor: "#c7d2fe" }, 
                 customSquareStyles: {
+                  ...checkSquares,
                   ...moveSquares,
                   ...optionSquares,
-                  ...checkSquares // Injects red glow if King is in check!
                 }
-              } as any}
+              } as any)}
             />
           </div>
         </div>
