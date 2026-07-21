@@ -226,6 +226,21 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     }
   };
 
+  const onDrop = (args: any, ...rest: any[]) => {
+    if (gameOver.isOver) return false;
+    const sourceSquare = (args?.sourceSquare || args) as Square;
+    const targetSquare = (args?.targetSquare || rest[0]) as Square;
+    const piece = args?.piece || rest[1];
+    
+    if (matchId) {
+      const isMyTurn = (playerColor === "white" && game.turn() === "w") || (playerColor === "black" && game.turn() === "b");
+      if (!isMyTurn) return false;
+    }
+
+    const promotion = piece && typeof piece === 'string' ? piece[1].toLowerCase() : "q";
+    return executeMove(sourceSquare, targetSquare, promotion);
+  };
+
   const resetGame = () => {
     const newGame = new Chess();
     setGame(newGame);
