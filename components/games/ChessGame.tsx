@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Chess, Square } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { supabase } from "../../lib/supabaseClient";
@@ -24,6 +24,8 @@ const PIECE_SYMBOLS: Record<string, string> = {
 };
 
 export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps) {
+  const boardWrapperRef = useRef<HTMLDivElement>(null);
+
   // 🎮 VIEW & NOTIFICATION STATES
   const [view, setView] = useState<"menu" | "host" | "play">(
     preloadedMatchId ? "play" : "menu"
@@ -64,7 +66,28 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     setTimeout(() => setToast(null), 3000);
   };
 
-  // 🔥 GLOBAL SCROLL LOCK: Makes the view feel like a native app and stops bounce effects
+  // 🔥 THE JAVASCRIPT THREAD FIX: Non-passive touch interception
+  useEffect(() => {
+    const wrapper = boardWrapperRef.current;
+    if (!wrapper || view !== "play") return;
+
+    const handleTouchMove = (e: TouchEvent) => {
+      // Strictly prevents the browser from assuming a scroll gesture is happening.
+      // This stops the uncancelable intervention error you saw in the DevTools console.
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    };
+
+    // Binding with { passive: false } is mandatory to override modern browser scroll optimization
+    wrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
+
+    return () => {
+      wrapper.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, [view]);
+
+  // 🔥 GLOBAL SCROLL LOCK
   useEffect(() => {
     if (view === "play") {
       document.body.style.overflow = "hidden";
@@ -333,8 +356,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
   const currentTurnColor = game.turn() === "w" ? "white" : "black";
   const myTurnActive = matchId ? playerColor === currentTurnColor : true;
   const oppTurnActive = matchId ? playerColor !== currentTurnColor : true;
-
-  // Type-safe display orientation calculation
   const displayOrientation = matchId ? playerColor : currentTurnColor;
 
   const checkSquares: any = {};
@@ -523,13 +544,12 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
 
   return (
     <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white">
-      {/* 🔥 INJECTED CSS: Forces aggressive touch prevention on all deeply nested SVGs/divs inside the board */}
+      {/* Fallback inline style for touch suppression */}
       <style dangerouslySetInnerHTML={{
         __html: `
         #mobile-board-lock, #mobile-board-lock * {
           touch-action: none !important;
-          user-select: none !important;
-          -webkit-user-select: none !important;
+          -webkit-touch-callout: none !important;
         }
       `}} />
 
@@ -663,9 +683,10 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
           </div>
         </div>
 
-        {/* 🔥 FIX: id="mobile-board-lock" links this wrapper to the CSS rule defined above */}
+        {/* 🔥 FIX: Attaching the useRef to aggressively block browser intervention */}
         <div
           id="mobile-board-lock"
+          ref={boardWrapperRef}
           className="w-full p-2 bg-[#18181b] rounded-[24px] shadow-2xl border border-white/10 relative overflow-hidden pointer-events-auto"
         >
           <div className="absolute inset-0 bg-indigo-500/5 blur-2xl pointer-events-none"></div>
