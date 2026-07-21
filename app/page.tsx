@@ -18,7 +18,8 @@ import Carrom from "../components/games/Carrom";
 import NexusBreach from "../components/games/NexusBreach"; 
 import LiarsDice from "../components/games/LiarsDice"; 
 import NeuralDuel from "../components/games/NeuralDuel"; 
-import BiometricOverride from "../components/games/BiometricOverride"; 
+import BiometricOverride from "../components/games/BiometricOverride";
+import ChessGame from "../components/games/ChessGame"; 
 import AuthView from "../components/AuthView";
 
 export default function Home() {
@@ -140,6 +141,8 @@ export default function Home() {
       {/* 🎮 NATIVE ENGINE ROUTER */}
       {playingGame === "native://glitch-deck" ? (
         <GlitchDeck onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+      ) : playingGame === "native://chess" ? (
+        <ChessGame onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
       ) : playingGame === "native://checkers" ? (
         <Checkers onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
       ) : playingGame === "native://carrom" ? (
