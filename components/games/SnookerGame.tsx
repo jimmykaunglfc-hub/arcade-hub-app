@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { supabase } from "../../lib/supabaseClient";
 
 const BALL_TYPES = {
   Red: { points: 1, color: "#ff2a2a", spec: "#ffe4e4" },
@@ -30,11 +31,28 @@ interface Ball {
 
 interface SnookerGameProps {
   onClose?: () => void;
+  preloadedMatchId?: string | null;
 }
 
-export default function SnookerGame({ onClose }: SnookerGameProps) {
+export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // 🎮 VIEW & MATCHMAKING STATES
+  const [view, setView] = useState<"menu" | "host" | "play">(
+    preloadedMatchId ? "play" : "menu"
+  );
+  const [matchId, setMatchId] = useState<string | null>(preloadedMatchId || null);
+  const [joinInput, setJoinInput] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // 🌐 MULTIPLAYER NETWORK STATES
+  const [channel, setChannel] = useState<any>(null);
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+  const [myRole, setMyRole] = useState<"player1" | "player2">("player1");
+  const [opponentConnected, setOpponentConnected] = useState(false);
  
+  // 🎱 GAME LOGIC STATES
   const [scores, setScores] = useState({ player1: 0, player2: 0 });
   const [currentTurn, setCurrentTurn] = useState<"player1" | "player2">("player1");
   const [nextRequiredBall, setNextRequiredBall] = useState<string>("Red");
@@ -87,12 +105,91 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
     { x: tableWidth - 20, y: tableHeight - 20 }
   ];
 
-  const handleExitToHome = () => {
-    if (onClose) {
-      onClose();
-    } else if (typeof window !== "undefined") {
-      window.location.href = "/";
-    }
+  const showToastMessage = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setMyUserId(session.user.id);
+    });
+  }, []);
+
+  // Supabase Realtime Synchronization
+  useEffect(() => {
+    if (!matchId || !myUserId) return;
+
+    const matchChannel = supabase.channel(`snooker_match_${matchId}`, {
+      config: { broadcast: { self: false }, presence: { key: myUserId } },
+    });
+
+    matchChannel
+      .on("broadcast", { event: "shot" }, (payload) => {
+        const { angle, power, spin, cueX, cueY } = payload.payload;
+        setAimAngle(angle);
+        setSpinOffset(spin);
+
+        const cueBall = ballsRef.current.find(b => b.isCue);
+        if (cueBall) {
+          cueBall.x = cueX;
+          cueBall.y = cueY;
+          const impulseSpeed = (power / 100) * 22;
+          cueBall.vx = Math.cos(angle) * impulseSpeed;
+          cueBall.vy = Math.sin(angle) * impulseSpeed;
+          cueBall.spinX = spin.x;
+          cueBall.spinY = spin.y;
+        }
+
+        setIsBallInHand(false);
+        setIsMoving(true);
+      })
+      .on("broadcast", { event: "cue_place" }, (payload) => {
+        const { x, y } = payload.payload;
+        const cueBall = ballsRef.current.find(b => b.isCue);
+        if (cueBall) {
+          cueBall.x = x;
+          cueBall.y = y;
+        }
+      })
+      .on("broadcast", { event: "table_sync" }, (payload) => {
+        const { balls, scores, currentTurn, nextRequiredBall, gamePhase, colorSeqIndex } = payload.payload;
+        if (balls) ballsRef.current = balls;
+        if (scores) setScores(scores);
+        if (currentTurn) setCurrentTurn(currentTurn);
+        if (nextRequiredBall) setNextRequiredBall(nextRequiredBall);
+        if (gamePhase) setGamePhase(gamePhase);
+        if (colorSeqIndex !== undefined) setColorSeqIndex(colorSeqIndex);
+      })
+      .on("presence", { event: "sync" }, () => {
+        const state = matchChannel.presenceState();
+        const users = Object.keys(state);
+        setOpponentConnected(users.length > 1);
+        if (users.length > 0) {
+          setMyRole(users.sort()[0] === myUserId ? "player1" : "player2");
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await matchChannel.track({ online_at: new Date().toISOString() });
+        }
+      });
+
+    setChannel(matchChannel);
+    return () => {
+      matchChannel.untrack();
+      supabase.removeChannel(matchChannel);
+    };
+  }, [matchId, myUserId]);
+
+  useEffect(() => {
+    if (view === "host" && opponentConnected) setView("play");
+  }, [opponentConnected, view]);
+
+  const handleExit = () => {
+    if (matchId) setMatchId(null);
+    setView("menu");
+    if (onClose) onClose();
   };
 
   const respotColorBall = useCallback((colorName: string) => {
@@ -141,46 +238,50 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
     const isCuePotted = tracking.firstHitBallType === "FOUL_SCRATCH";
     const isFoul = isCuePotted || tracking.firstHitBallType === "";
 
+    let newScores = { ...scores };
+    let newTurn = currentTurn;
+    let newNextBall = nextRequiredBall;
+    let newPhase = gamePhase;
+    let newSeqIndex = colorSeqIndex;
+
     if (gamePhase === "REDS") {
       if (isFoul) {
         if (tracking.colorsPotted.length > 0) {
           tracking.colorsPotted.forEach(c => respotColorBall(c));
         }
-        penalty = 4; turnSwitched = true; setNextRequiredBall("Red");
+        penalty = 4; turnSwitched = true; newNextBall = "Red";
       } else if (nextRequiredBall === "Red") {
         if (tracking.firstHitBallType !== "Red") {
           if (tracking.colorsPotted.length > 0) {
             tracking.colorsPotted.forEach(c => respotColorBall(c));
           }
-          penalty = 4; turnSwitched = true; setNextRequiredBall("Red");
+          penalty = 4; turnSwitched = true; newNextBall = "Red";
         } else if (tracking.colorsPotted.length > 0) {
           tracking.colorsPotted.forEach(c => respotColorBall(c));
-          penalty = 4; turnSwitched = true; setNextRequiredBall("Red");
+          penalty = 4; turnSwitched = true; newNextBall = "Red";
         } else if (tracking.redsPotted > 0) {
-          setScores(prev => ({ ...prev, [currentTurn]: prev[currentTurn] + tracking.redsPotted }));
-         
+          newScores[currentTurn] += tracking.redsPotted;
           if (redsLeft === 0) {
-            setGamePhase("LAST_RED_COLOR");
-            setNextRequiredBall("Color");
+            newPhase = "LAST_RED_COLOR";
+            newNextBall = "Color";
           } else {
-            setNextRequiredBall("Color");
+            newNextBall = "Color";
           }
         } else {
-          turnSwitched = true; setNextRequiredBall("Red");
+          turnSwitched = true; newNextBall = "Red";
         }
       } else {
         if (tracking.firstHitBallType === "Red" || tracking.redsPotted > 0 || tracking.colorsPotted.length !== 1) {
           if (tracking.colorsPotted.length > 0) {
             tracking.colorsPotted.forEach(c => respotColorBall(c));
           }
-          penalty = 4; turnSwitched = true; setNextRequiredBall("Red");
+          penalty = 4; turnSwitched = true; newNextBall = "Red";
         } else {
           const colorName = tracking.colorsPotted[0];
           const pts = BALL_TYPES[colorName as keyof typeof BALL_TYPES]?.points || 2;
-          setScores(prev => ({ ...prev, [currentTurn]: prev[currentTurn] + pts }));
-         
+          newScores[currentTurn] += pts;
           respotColorBall(colorName);
-          setNextRequiredBall("Red");
+          newNextBall = "Red";
         }
       }
     } else if (gamePhase === "LAST_RED_COLOR") {
@@ -189,19 +290,17 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
           tracking.colorsPotted.forEach(c => respotColorBall(c));
         }
         penalty = 4; turnSwitched = true;
-        setGamePhase("COLORS_SEQUENCE");
-        setColorSeqIndex(0);
-        setNextRequiredBall("Yellow");
+        newPhase = "COLORS_SEQUENCE";
+        newSeqIndex = 0;
+        newNextBall = "Yellow";
       } else {
         const colorName = tracking.colorsPotted[0];
         const pts = BALL_TYPES[colorName as keyof typeof BALL_TYPES]?.points || 2;
-        setScores(prev => ({ ...prev, [currentTurn]: prev[currentTurn] + pts }));
-
+        newScores[currentTurn] += pts;
         respotColorBall(colorName);
-
-        setGamePhase("COLORS_SEQUENCE");
-        setColorSeqIndex(0);
-        setNextRequiredBall("Yellow");
+        newPhase = "COLORS_SEQUENCE";
+        newSeqIndex = 0;
+        newNextBall = "Yellow";
       }
     } else if (gamePhase === "COLORS_SEQUENCE") {
       const targetColor = COLOR_SEQUENCE[colorSeqIndex];
@@ -213,12 +312,11 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
         penalty = 4; turnSwitched = true;
       } else if (tracking.colorsPotted.length === 1 && tracking.colorsPotted[0] === targetColor) {
         const pts = BALL_TYPES[targetColor as keyof typeof BALL_TYPES]?.points || 2;
-        setScores(prev => ({ ...prev, [currentTurn]: prev[currentTurn] + pts }));
-
+        newScores[currentTurn] += pts;
         const nextIdx = colorSeqIndex + 1;
-        setColorSeqIndex(nextIdx);
+        newSeqIndex = nextIdx;
         if (nextIdx < COLOR_SEQUENCE.length) {
-          setNextRequiredBall(COLOR_SEQUENCE[nextIdx]);
+          newNextBall = COLOR_SEQUENCE[nextIdx];
         }
       } else {
         if (tracking.colorsPotted.length > 0) {
@@ -229,14 +327,36 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
     }
 
     if (turnSwitched) {
-      setScores(prev => ({ ...prev, [opponent]: prev[opponent] + penalty }));
-      setCurrentTurn(opponent);
+      newScores[opponent] += penalty;
+      newTurn = opponent;
     }
+
+    setScores(newScores);
+    setCurrentTurn(newTurn);
+    setNextRequiredBall(newNextBall);
+    setGamePhase(newPhase);
+    setColorSeqIndex(newSeqIndex);
 
     setUiPower(0);
     isDraggingPower.current = false;
     turnTrackingRef.current = { redsPotted: 0, colorsPotted: [], firstHitBallType: "" };
-  }, [currentTurn, nextRequiredBall, gamePhase, colorSeqIndex, scores, respotColorBall]);
+
+    // Synchronize full state over Supabase broadcast
+    if (channel && matchId) {
+      channel.send({
+        type: "broadcast",
+        event: "table_sync",
+        payload: {
+          balls: ballsRef.current,
+          scores: newScores,
+          currentTurn: newTurn,
+          nextRequiredBall: newNextBall,
+          gamePhase: newPhase,
+          colorSeqIndex: newSeqIndex
+        }
+      });
+    }
+  }, [currentTurn, nextRequiredBall, gamePhase, colorSeqIndex, scores, respotColorBall, channel, matchId]);
 
   const initBalls = useCallback(() => {
     const balls: Ball[] = [];
@@ -294,11 +414,13 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      initBalls();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [initBalls]);
+    if (view === "play") {
+      const timer = setTimeout(() => {
+        initBalls();
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [view, initBalls]);
 
   // Spin Canvas Render
   useEffect(() => {
@@ -373,6 +495,7 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
 
   // Canvas Physics Engine Loop
   useEffect(() => {
+    if (view !== "play") return;
     const canvas = canvasRef.current;
     if (!canvas || isPortrait) return;
     const ctx = canvas.getContext("2d");
@@ -645,10 +768,17 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
 
     engineLoop();
     return () => cancelAnimationFrame(animId);
-  }, [aimAngle, uiPower, nextRequiredBall, isBallInHand, isMoving, isPortrait, evaluateTurnEnd]);
+  }, [aimAngle, uiPower, nextRequiredBall, isBallInHand, isMoving, isPortrait, view, evaluateTurnEnd]);
+
+  const isMyTurnActive = matchId ? currentTurn === myRole : true;
 
   const handleCanvasInteraction = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (isMoving) return;
+    if (isMoving || !isMyTurnActive) return;
+    if (matchId && !opponentConnected) {
+      showToastMessage("Waiting for opponent to join!");
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -671,12 +801,24 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
           if (currentDistance < ballRadius * 2) { isOverlapping = true; overlapBall = b; }
         });
 
-        if (!isOverlapping) {
-          cueBall.x = clickX; cueBall.y = clickY;
-        } else if (overlapBall) {
+        let newX = clickX;
+        let newY = clickY;
+
+        if (isOverlapping && overlapBall) {
           const angle = Math.atan2(clickY - (overlapBall as Ball).y, clickX - (overlapBall as Ball).x);
-          cueBall.x = (overlapBall as Ball).x + Math.cos(angle) * (ballRadius * 2);
-          cueBall.y = (overlapBall as Ball).y + Math.sin(angle) * (ballRadius * 2);
+          newX = (overlapBall as Ball).x + Math.cos(angle) * (ballRadius * 2);
+          newY = (overlapBall as Ball).y + Math.sin(angle) * (ballRadius * 2);
+        }
+
+        cueBall.x = newX;
+        cueBall.y = newY;
+
+        if (channel && matchId) {
+          channel.send({
+            type: "broadcast",
+            event: "cue_place",
+            payload: { x: newX, y: newY }
+          });
         }
       }
     } else {
@@ -689,7 +831,7 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
   };
 
   const handleWheelPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isMoving || isBallInHand) return;
+    if (isMoving || isBallInHand || !isMyTurnActive) return;
     wheelDragStartY.current = e.clientY;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -708,7 +850,11 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
   };
 
   const handlePowerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isMoving || isBallInHand) return;
+    if (isMoving || isBallInHand || !isMyTurnActive) return;
+    if (matchId && !opponentConnected) {
+      showToastMessage("Waiting for opponent to connect!");
+      return;
+    }
     isDraggingPower.current = true;
     powerDragStartY.current = e.clientY;
     initialUiPower.current = uiPower;
@@ -752,6 +898,20 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
     cueBall.spinX = spinOffset.x;
     cueBall.spinY = spinOffset.y;
 
+    if (channel && matchId) {
+      channel.send({
+        type: "broadcast",
+        event: "shot",
+        payload: {
+          angle: aimAngle,
+          power: finalPower,
+          spin: spinOffset,
+          cueX: cueBall.x,
+          cueY: cueBall.y
+        }
+      });
+    }
+
     setIsMoving(true);
     setUiPower(0);
   };
@@ -760,9 +920,141 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
     ? BALL_TYPES.Red.color
     : (BALL_TYPES[targetedColor as keyof typeof BALL_TYPES]?.color || BALL_TYPES.Yellow.color);
 
+  // 1️⃣ LOBBY / MENU VIEW
+  if (view === "menu") {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6">
+        <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col items-center relative overflow-hidden">
+          <div className="w-16 h-16 bg-cyan-500/10 rounded-2xl flex items-center justify-center mb-4 border border-cyan-500/20 shadow-inner">
+            <span className="material-symbols-outlined text-3xl text-cyan-400">sports_bar</span>
+          </div>
+          <h1 className="font-headline font-black text-2xl tracking-tight mb-1">Snooker Arena</h1>
+          <p className="font-caps text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-8 uppercase">Select Engagement Mode</p>
+          
+          <div className="w-full space-y-3">
+            <button
+              onClick={() => {
+                setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase());
+                setView("host");
+              }}
+              className="w-full bg-cyan-500 hover:bg-cyan-400 text-black rounded-2xl py-4 px-5 flex items-center justify-between transition-all active:scale-95 shadow-lg shadow-cyan-500/20"
+            >
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-lg">language</span>
+                <span className="font-headline font-bold text-sm tracking-wide">HOST NETWORK MATCH</span>
+              </div>
+              <span className="material-symbols-outlined text-lg opacity-50">chevron_right</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setMatchId(null);
+                setView("play");
+              }}
+              className="w-full bg-white/5 hover:bg-white/10 text-white rounded-2xl py-4 px-5 flex items-center justify-between transition-all active:scale-95 border border-white/5"
+            >
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-lg text-neutral-400">group</span>
+                <span className="font-headline font-bold text-sm tracking-wide text-neutral-200">LOCAL PASS & PLAY</span>
+              </div>
+              <span className="material-symbols-outlined text-lg opacity-50">chevron_right</span>
+            </button>
+          </div>
+
+          <div className="w-full flex items-center gap-4 my-6 opacity-40">
+            <div className="flex-1 h-px bg-white/20"></div>
+            <span className="font-caps text-[9px] font-bold tracking-widest uppercase">Or Join Room</span>
+            <div className="flex-1 h-px bg-white/20"></div>
+          </div>
+
+          <div className="w-full flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5">
+            <input
+              type="text"
+              placeholder="CODE"
+              value={joinInput}
+              onChange={(e) => setJoinInput(e.target.value)}
+              className="flex-1 bg-transparent border-none text-center font-headline font-bold tracking-widest text-white placeholder-neutral-600 focus:outline-none uppercase"
+              maxLength={8}
+            />
+            <button
+              onClick={() => {
+                if (joinInput.length >= 4) {
+                  setMatchId(joinInput.trim().toUpperCase());
+                  setView("play");
+                }
+              }}
+              disabled={joinInput.length < 4}
+              className="bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white px-5 py-3 rounded-xl font-headline font-bold text-xs tracking-wider transition-all"
+            >
+              JOIN
+            </button>
+          </div>
+
+          <button onClick={handleExit} className="mt-8 flex items-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-caps text-[10px] font-bold tracking-widest">
+            <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 2️⃣ HOST WAITING VIEW
+  if (view === "host") {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white">
+        <div className="flex justify-between items-center p-6 bg-gradient-to-b from-black/50 to-transparent">
+          <button onClick={handleExit} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
+          <div className="text-center">
+            <h2 className="font-headline font-black text-sm uppercase tracking-widest">Snooker Room</h2>
+            <div className="flex items-center justify-center gap-1.5 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+              <span className="font-caps text-[9px] font-bold tracking-widest text-cyan-400">CONNECTING...</span>
+            </div>
+          </div>
+          <div className="w-10 h-10"></div>
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center px-6">
+          <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-8 shadow-2xl border border-white/5 flex flex-col items-center text-center">
+            <div className="relative w-16 h-16 mb-6">
+              <div className="absolute inset-0 border-4 border-cyan-500/20 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-cyan-400 rounded-full border-t-transparent animate-spin"></div>
+            </div>
+            <h3 className="font-headline font-black text-xl tracking-tight mb-8">AWAITING OPPONENT</h3>
+            <p className="font-caps text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-3 uppercase">Share This Room Code</p>
+            
+            <div className="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-2xl p-2 pl-6 mb-6">
+              <span className="font-headline font-bold text-2xl tracking-[0.3em] text-cyan-300">{matchId}</span>
+              <button
+                onClick={() => { navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider"
+              >
+                <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
+                {copied ? "COPIED" : "COPY"}
+              </button>
+            </div>
+
+            <button onClick={handleExit} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5">
+              CANCEL MATCH
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3️⃣ GAMEPLAY CANVAS ARENA
   return (
     <div className="fixed inset-0 w-screen h-screen bg-slate-950 flex flex-col justify-center items-center overflow-hidden touch-none select-none z-[9999] p-2 md:p-4">
-     
+      
+      {toast && (
+        <div className="absolute top-16 z-[99999] bg-red-500/90 backdrop-blur-md text-white px-6 py-2.5 rounded-2xl font-headline font-bold text-xs shadow-2xl animate-fade-in border border-red-400">
+          {toast}
+        </div>
+      )}
+
       {/* SPIN SELECTOR MODAL */}
       {showSpinModal && (
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-[999999] flex justify-center items-center p-4">
@@ -824,12 +1116,16 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
       {/* HUD HEADER */}
       <div className="w-full max-w-[840px] flex justify-between items-center bg-slate-900 border border-slate-700/60 p-2 px-4 rounded-xl shadow-xl mb-2 text-white flex-shrink-0">
         <div className="text-center min-w-[80px]">
-          <span className={`text-[9px] uppercase tracking-wider block font-black ${currentTurn === "player1" ? "text-cyan-400" : "text-neutral-500"}`}>Player 1</span>
+          <span className={`text-[9px] uppercase tracking-wider block font-black ${currentTurn === "player1" ? "text-cyan-400 animate-pulse" : "text-neutral-500"}`}>
+            {matchId ? (myRole === "player1" ? "You (P1)" : "Opponent (P1)") : "Player 1"}
+          </span>
           <p className="text-base font-black font-mono">{scores.player1} <span className="text-[10px] text-neutral-400 font-normal">pts</span></p>
         </div>
 
         <div className="flex items-center gap-2 bg-black/50 px-4 py-1.5 rounded-lg border border-white/5">
-          <span className="text-[8px] text-neutral-400 font-bold uppercase tracking-widest">TARGET</span>
+          <span className="text-[8px] text-neutral-400 font-bold uppercase tracking-widest">
+            {matchId && !opponentConnected ? "WAITING..." : "TARGET"}
+          </span>
           <div
             className="w-5 h-5 rounded-full shadow-md transition-colors duration-200 border border-white/20"
             style={{
@@ -840,12 +1136,14 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
 
         <div className="flex items-center gap-4">
           <div className="text-center min-w-[80px]">
-            <span className={`text-[9px] uppercase tracking-wider block font-black ${currentTurn === "player2" ? "text-pink-400" : "text-neutral-500"}`}>Player 2</span>
+            <span className={`text-[9px] uppercase tracking-wider block font-black ${currentTurn === "player2" ? "text-pink-400 animate-pulse" : "text-neutral-500"}`}>
+              {matchId ? (myRole === "player2" ? "You (P2)" : "Opponent (P2)") : "Player 2"}
+            </span>
             <p className="text-base font-black font-mono">{scores.player2} <span className="text-[10px] text-neutral-400 font-normal">pts</span></p>
           </div>
          
           <button
-            onClick={handleExitToHome}
+            onClick={handleExit}
             className="pointer-events-auto bg-rose-600 border border-rose-500 hover:bg-rose-500 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all text-white cursor-pointer shadow-md flex items-center gap-1"
           >
             EXIT ❌
@@ -856,7 +1154,7 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
       {/* WORKSPACE GRID */}
       <div className="w-full max-w-[860px] flex justify-center items-center gap-2 md:gap-4 flex-1 overflow-hidden">
        
-        {/* 1. PULL POWER CONTROLLER */}
+        {/* PULL POWER CONTROLLER */}
         <div className="flex flex-col items-center justify-center bg-slate-900 border border-slate-700/60 px-2 py-4 rounded-xl h-[70vh] max-h-[340px] w-[45px] md:w-[50px] shadow-lg relative flex-shrink-0">
           <span className="text-[7px] font-bold text-neutral-400 uppercase tracking-widest mb-2">PULL</span>
          
@@ -870,7 +1168,7 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
               onPointerMove={handlePowerPointerMove}
               onPointerUp={handlePowerPointerUp}
               onPointerCancel={handlePowerPointerUp}
-              className="w-[26px] h-[26px] bg-amber-500 hover:bg-amber-400 border-[3px] border-slate-900 rounded-full absolute shadow-md active:scale-95 transition-transform"
+              className={`w-[26px] h-[26px] bg-amber-500 hover:bg-amber-400 border-[3px] border-slate-900 rounded-full absolute shadow-md active:scale-95 transition-transform ${!isMyTurnActive ? 'opacity-30 cursor-not-allowed' : ''}`}
               style={{
                 top: `calc(${uiPower}% - 13px)`,
                 touchAction: "none"
@@ -887,10 +1185,10 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
             height={tableHeight}
             onPointerDown={handleCanvasInteraction}
             onPointerMove={handleCanvasInteraction}
-            onPointerUp={() => { if(isBallInHand) setIsBallInHand(false); }}
+            onPointerUp={() => { if(isBallInHand && isMyTurnActive) setIsBallInHand(false); }}
             className="w-full h-auto shadow-2xl rounded-xl border-2 border-amber-950 bg-emerald-900 cursor-crosshair max-h-[74vh] object-contain"
           />
-          {isBallInHand && (
+          {isBallInHand && isMyTurnActive && (
             <div className="absolute top-2 bg-amber-500/90 text-black font-black text-[9px] md:text-[10px] uppercase px-4 py-1.5 rounded-full pointer-events-none tracking-widest animate-pulse shadow-lg">
               🖐️ PLACE CUE BALL INSIDE D-ZONE
             </div>
@@ -906,7 +1204,7 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
             onPointerMove={handleWheelPointerMove}
             onPointerUp={handleWheelPointerUp}
             onPointerCancel={handleWheelPointerUp}
-            className={`h-[65%] w-[30px] rounded-lg border-[3px] border-slate-700 bg-slate-800 overflow-hidden cursor-ns-resize shadow-inner relative transition-opacity ${isBallInHand || isMoving ? 'opacity-40' : 'opacity-100'}`}
+            className={`h-[65%] w-[30px] rounded-lg border-[3px] border-slate-700 bg-slate-800 overflow-hidden cursor-ns-resize shadow-inner relative transition-opacity ${isBallInHand || isMoving || !isMyTurnActive ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}
           >
             <div
               className="absolute inset-0 w-full h-[200%]"
@@ -919,8 +1217,9 @@ export default function SnookerGame({ onClose }: SnookerGameProps) {
           </div>
 
           <button
-            onClick={() => setShowSpinModal(true)}
-            className="w-8 h-8 rounded-full bg-slate-800 border-2 border-cyan-400 flex items-center justify-center active:scale-95 transition-all shadow-md relative group mt-1 cursor-pointer"
+            onClick={() => { if(isMyTurnActive) setShowSpinModal(true); }}
+            disabled={!isMyTurnActive}
+            className={`w-8 h-8 rounded-full bg-slate-800 border-2 border-cyan-400 flex items-center justify-center active:scale-95 transition-all shadow-md relative group mt-1 cursor-pointer ${!isMyTurnActive ? 'opacity-30 cursor-not-allowed' : ''}`}
             title="Set Spin / English"
           >
             <div className="w-4 h-4 rounded-full bg-white relative flex items-center justify-center">

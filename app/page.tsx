@@ -149,7 +149,7 @@ export default function Home() {
       ) : playingGame === "native://carrom" ? (
         <Carrom onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
       ) : playingGame === "native://snooker" ? (
-        <SnookerGame onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <SnookerGame onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
       ) : playingGame === "native://nexus-breach" ? (
         <NexusBreach onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://liars-dice" ? (

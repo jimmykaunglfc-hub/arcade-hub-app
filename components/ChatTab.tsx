@@ -152,7 +152,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
     await supabase.from("direct_messages").insert([payload]);
   };
 
-  const handleSendGameInvite = async (gameType: "checkers" | "carrom" | "chess", mode?: "freestyle" | "classic") => {
+  const handleSendGameInvite = async (gameType: "checkers" | "carrom" | "chess" | "snooker", mode?: "freestyle" | "classic") => {
     setShowGameSelector(false);
     setInviteStep("game");
     if (!myUserId || !activeChat) return;
@@ -199,6 +199,24 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
         message_type: 'game_invite', 
         match_id: generatedUUID, 
         game_name: "Grandmaster Chess", 
+        invite_status: "pending"
+      }]);
+    }
+    // Snooker Logic
+    else if (gameType === "snooker") {
+      const generatedUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+
+      await supabase.from("direct_messages").insert([{
+        sender_id: myUserId, 
+        receiver_id: activeChat.id, 
+        content: `Challenged you to Snooker 3D`,
+        message_type: 'game_invite', 
+        match_id: generatedUUID, 
+        game_name: "Snooker 3D", 
         invite_status: "pending"
       }]);
     }
@@ -406,6 +424,16 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                   </button>
                 </div>
                 
+                <button onClick={() => handleSendGameInvite("snooker")} className="w-full flex items-center justify-between p-3 bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors">
+                   <div className="flex items-center gap-3">
+                     <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center text-white">
+                       <span className="material-symbols-outlined text-xl">sports_bar</span>
+                     </div>
+                     <h4 className="font-headline text-xs font-bold text-neutral-900 dark:text-primary">Snooker 3D</h4>
+                   </div>
+                   <span className="material-symbols-outlined text-neutral-300 dark:text-white/40 text-sm">chevron_right</span>
+                </button>
+
                 <button onClick={() => handleSendGameInvite("chess")} className="w-full flex items-center justify-between p-3 bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors">
                    <div className="flex items-center gap-3">
                      <div className="w-9 h-9 bg-gradient-to-br from-purple-500 to-indigo-600 dark:from-purple-400 dark:to-indigo-500 rounded-lg flex items-center justify-center text-white dark:text-background">
@@ -496,13 +524,16 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
           const isMe = msg.sender_id === myUserId;
           const isCarrom = msg.game_name?.includes("Carrom");
           const isChess = msg.game_name?.includes("Chess");
-          const gameIcon = isCarrom ? "radio_button_checked" : isChess ? "psychology" : "grid_4x4";
+          const isSnooker = msg.game_name?.includes("Snooker");
+          const gameIcon = isCarrom ? "radio_button_checked" : isChess ? "psychology" : isSnooker ? "sports_bar" : "grid_4x4";
           
           const targetUrl = msg.game_name?.includes("Checkers") 
             ? "native://checkers" 
             : isChess 
               ? "native://chess" 
-              : "native://carrom";
+              : isSnooker
+                ? "native://snooker"
+                : "native://carrom";
 
           return (
             <div key={msg.id} className={`flex items-start w-full ${isMe ? "justify-end" : "justify-start"}`}>
@@ -521,7 +552,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                 {msg.message_type === 'game_invite' && (
                   <div className="w-56 rounded-2xl overflow-hidden shadow-md p-4 flex flex-col items-center gap-2 text-center bg-white/90 dark:bg-white/5 border border-neutral-200 dark:border-white/10">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10">
-                      <span className={`material-symbols-outlined text-2xl ${isCarrom ? "text-amber-500" : isChess ? "text-purple-500" : "text-indigo-500 dark:text-tertiary-container"}`} style={{fontVariationSettings:"'FILL' 1"}}>{gameIcon}</span>
+                      <span className={`material-symbols-outlined text-2xl ${isCarrom ? "text-amber-500" : isChess ? "text-purple-500" : isSnooker ? "text-emerald-500" : "text-indigo-500 dark:text-tertiary-container"}`} style={{fontVariationSettings:"'FILL' 1"}}>{gameIcon}</span>
                     </div>
                     <div>
                       <h4 className="font-headline text-xs font-extrabold text-neutral-900 dark:text-primary leading-tight">{msg.game_name}</h4>
