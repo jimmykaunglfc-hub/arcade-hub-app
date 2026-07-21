@@ -162,13 +162,19 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
       }
     });
     
-    newSquares[square] = { background: "rgba(99, 102, 241, 0.5)" }; // Source highlight
+    // Premium glowing highlight for the selected piece
+    newSquares[square] = { 
+      backgroundColor: "rgba(99, 102, 241, 0.6)",
+      boxShadow: "inset 0 0 15px rgba(255, 255, 255, 0.3)",
+      borderRadius: "20%"
+    }; 
     setOptionSquares(newSquares);
     return true;
   };
 
   // 6. Execution Logic
   const executeMove = (source: Square, target: Square, piecePromotion: string = "q") => {
+    // 🛑 Block moves if game is over or opponent hasn't joined the room yet
     if (gameOver.isOver || (matchId && !opponentConnected)) return false;
     
     const gameCopy = new Chess(game.fen());
@@ -201,18 +207,18 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     }
   };
 
-  // STRICT TAP-TO-MOVE HANDLER
+  // 🔥 7. STRICT TAP-TO-MOVE HANDLER
   const onSquareClick = (square: string) => {
     if (gameOver.isOver) return;
     const sq = square as Square;
 
-    // 1. If we already selected a piece and tapped a valid target move dot, execute it.
+    // A. If we already selected a piece and tapped a valid target move dot, execute it.
     if (sourceSquare && (optionSquares as any)[sq]) {
       executeMove(sourceSquare, sq, "q");
       return;
     }
 
-    // 2. Otherwise, check if they tapped one of their own pieces to select it.
+    // B. Otherwise, check if they tapped one of their own pieces to select it.
     const piece = game.get(sq);
     const isMyTurn = matchId ? ((playerColor === "white" && game.turn() === "w") || (playerColor === "black" && game.turn() === "b")) : true;
 
@@ -220,25 +226,10 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
       setSourceSquare(sq);
       getMoveOptions(sq);
     } else {
-      // 3. Tapped an empty square or an invalid piece - clear selection.
+      // C. Tapped an empty square or an invalid piece - clear selection.
       setSourceSquare(null);
       setOptionSquares({});
     }
-  };
-
-  const onDrop = (args: any, ...rest: any[]) => {
-    if (gameOver.isOver) return false;
-    const sourceSquare = (args?.sourceSquare || args) as Square;
-    const targetSquare = (args?.targetSquare || rest[0]) as Square;
-    const piece = args?.piece || rest[1];
-    
-    if (matchId) {
-      const isMyTurn = (playerColor === "white" && game.turn() === "w") || (playerColor === "black" && game.turn() === "b");
-      if (!isMyTurn) return false;
-    }
-
-    const promotion = piece && typeof piece === 'string' ? piece[1].toLowerCase() : "q";
-    return executeMove(sourceSquare, targetSquare, promotion);
   };
 
   const resetGame = () => {
@@ -397,8 +388,8 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
           <h2 className="font-headline font-black text-sm uppercase tracking-[0.2em] text-indigo-400">
             {matchId ? "Live Arena" : "Local Play"}
           </h2>
-          <span className={`font-caps text-[9px] font-bold uppercase tracking-widest mt-0.5 ${isCheck ? "text-red-400 animate-pulse" : "text-neutral-500"}`}>
-            {isCheck ? "⚠️ CHECK ⚠️" : `${currentTurnColor} to move`}
+          <span className={`font-caps text-[9px] font-bold uppercase tracking-widest mt-0.5 ${matchId && !opponentConnected ? "text-amber-400 animate-pulse" : isCheck ? "text-red-400 animate-pulse" : "text-neutral-500"}`}>
+            {matchId && !opponentConnected ? "WAITING FOR OPPONENT" : isCheck ? "⚠️ CHECK ⚠️" : `${currentTurnColor} to move`}
           </span>
         </div>
         <button onClick={resetGame} className="w-10 h-10 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10">
@@ -420,7 +411,9 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
                  <span className="material-symbols-outlined text-neutral-400">{matchId ? "person" : "robot_2"}</span>
               </div>
               <div>
-                <h3 className="font-headline text-sm font-bold">{matchId ? "Opponent" : "Player 2"}</h3>
+                <h3 className="font-headline text-sm font-bold">
+                  {matchId ? (opponentConnected ? "Opponent" : "Awaiting Opponent...") : "Player 2"}
+                </h3>
                 <p className="text-[10px] font-bold tracking-widest uppercase text-neutral-500">
                   {matchId ? (playerColor === "white" ? "Playing Black" : "Playing White") : "Local Co-op"}
                 </p>
@@ -451,7 +444,12 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
             <Chessboard 
               {...({
                 position: fen,
+                // Fire when an empty square is tapped
                 onSquareClick: onSquareClick,
+                // 🔥 FIRE THIS WHEN A PIECE IS TAPPED!
+                onPieceClick: (piece: string, square: string) => onSquareClick(square),
+                // Force disable drag-to-move
+                isDraggablePiece: () => false,
                 arePiecesDraggable: false,
                 boardOrientation: playerColor,
                 customDarkSquareStyle: { backgroundColor: "#312e81" }, 
