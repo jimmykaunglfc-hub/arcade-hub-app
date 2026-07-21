@@ -64,6 +64,21 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     setTimeout(() => setToast(null), 3000);
   };
 
+  // 🔥 GLOBAL SCROLL LOCK: Makes the view feel like a native app and stops bounce effects
+  useEffect(() => {
+    if (view === "play") {
+      document.body.style.overflow = "hidden";
+      document.body.style.overscrollBehavior = "none";
+    } else {
+      document.body.style.overflow = "";
+      document.body.style.overscrollBehavior = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.overscrollBehavior = "";
+    };
+  }, [view]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) setMyUserId(session.user.id);
@@ -319,7 +334,7 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
   const myTurnActive = matchId ? playerColor === currentTurnColor : true;
   const oppTurnActive = matchId ? playerColor !== currentTurnColor : true;
 
-  // 🔥 AUTO-FLIP: Ensure Local Play automatically flips perspective based on whose turn it is.
+  // Type-safe display orientation calculation
   const displayOrientation = matchId ? playerColor : currentTurnColor;
 
   const checkSquares: any = {};
@@ -508,7 +523,16 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
 
   return (
     <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white">
-      {/* ⚠️ TOAST NOTIFICATION FOR LOCKED MOVES */}
+      {/* 🔥 INJECTED CSS: Forces aggressive touch prevention on all deeply nested SVGs/divs inside the board */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        #mobile-board-lock, #mobile-board-lock * {
+          touch-action: none !important;
+          user-select: none !important;
+          -webkit-user-select: none !important;
+        }
+      `}} />
+
       {toast && (
         <div className="absolute top-24 z-[300] bg-red-500/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl font-headline font-bold text-sm shadow-2xl animate-fade-in border border-red-400">
           {toast}
@@ -639,16 +663,13 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
           </div>
         </div>
 
-        {/* 🔥 FIX: Explicit inline styles block the browser from stealing touch events and throwing the DevTools Intervention Error */}
+        {/* 🔥 FIX: id="mobile-board-lock" links this wrapper to the CSS rule defined above */}
         <div
+          id="mobile-board-lock"
           className="w-full p-2 bg-[#18181b] rounded-[24px] shadow-2xl border border-white/10 relative overflow-hidden pointer-events-auto"
-          style={{ touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }}
         >
           <div className="absolute inset-0 bg-indigo-500/5 blur-2xl pointer-events-none"></div>
-          <div
-            className="relative rounded-[16px] overflow-hidden border border-white/5"
-            style={{ touchAction: "none", WebkitUserSelect: "none", userSelect: "none" }}
-          >
+          <div className="relative rounded-[16px] overflow-hidden border border-white/5">
             <Chessboard
               {...({
                 position: fen,
