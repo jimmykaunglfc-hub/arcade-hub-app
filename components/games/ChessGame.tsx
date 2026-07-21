@@ -25,6 +25,9 @@ const PIECE_SYMBOLS: Record<string, string> = {
 
 export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps) {
   const boardWrapperRef = useRef<HTMLDivElement>(null);
+  
+  // Delay rendering to force the TouchBackend to load correctly on mobile
+  const [isClient, setIsClient] = useState(false);
 
   // 🎮 VIEW & NOTIFICATION STATES
   const [view, setView] = useState<"menu" | "host" | "play">(
@@ -66,28 +69,29 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     setTimeout(() => setToast(null), 3000);
   };
 
-  // 🔥 THE JAVASCRIPT THREAD FIX: Non-passive touch interception
+  useEffect(() => {
+    // Activate the client render flag immediately on mount
+    setIsClient(true);
+  }, []);
+
+  // Strict Javascript intervention blocker
   useEffect(() => {
     const wrapper = boardWrapperRef.current;
-    if (!wrapper || view !== "play") return;
+    if (!wrapper || view !== "play" || !isClient) return;
 
     const handleTouchMove = (e: TouchEvent) => {
-      // Strictly prevents the browser from assuming a scroll gesture is happening.
-      // This stops the uncancelable intervention error you saw in the DevTools console.
       if (e.cancelable) {
         e.preventDefault();
       }
     };
 
-    // Binding with { passive: false } is mandatory to override modern browser scroll optimization
     wrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
-
     return () => {
       wrapper.removeEventListener("touchmove", handleTouchMove);
     };
-  }, [view]);
+  }, [view, isClient]);
 
-  // 🔥 GLOBAL SCROLL LOCK
+  // SCROLL LOCK
   useEffect(() => {
     if (view === "play") {
       document.body.style.overflow = "hidden";
@@ -358,6 +362,9 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
   const oppTurnActive = matchId ? playerColor !== currentTurnColor : true;
   const displayOrientation = matchId ? playerColor : currentTurnColor;
 
+  // Typecasting the component to any completely circumvents the ts(2322) error for the 'position' prop
+  const SafeChessboard = Chessboard as any;
+
   const checkSquares: any = {};
   if (isCheck) {
     const board = game.board();
@@ -544,12 +551,13 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
 
   return (
     <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white">
-      {/* Fallback inline style for touch suppression */}
       <style dangerouslySetInnerHTML={{
         __html: `
         #mobile-board-lock, #mobile-board-lock * {
           touch-action: none !important;
           -webkit-touch-callout: none !important;
+          user-select: none !important;
+          -webkit-user-select: none !important;
         }
       `}} />
 
@@ -683,7 +691,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
           </div>
         </div>
 
-        {/* 🔥 FIX: Attaching the useRef to aggressively block browser intervention */}
         <div
           id="mobile-board-lock"
           ref={boardWrapperRef}
@@ -691,23 +698,29 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
         >
           <div className="absolute inset-0 bg-indigo-500/5 blur-2xl pointer-events-none"></div>
           <div className="relative rounded-[16px] overflow-hidden border border-white/5">
-            <Chessboard
-              {...({
-                position: fen,
-                onSquareClick: onSquareClick,
-                onPieceClick: (piece: string, square: string) => onSquareClick(square),
-                onPieceDrop: onDrop,
-                arePiecesDraggable: true,
-                boardOrientation: displayOrientation,
-                customDarkSquareStyle: { backgroundColor: "#312e81" },
-                customLightSquareStyle: { backgroundColor: "#c7d2fe" },
-                customSquareStyles: {
+            {isClient ? (
+              <SafeChessboard
+                position={fen}
+                onSquareClick={onSquareClick}
+                onPieceClick={(piece: string, square: string) => onSquareClick(square)}
+                onPieceDrop={onDrop}
+                arePiecesDraggable={true}
+                boardOrientation={displayOrientation}
+                customDarkSquareStyle={{ backgroundColor: "#312e81" }}
+                customLightSquareStyle={{ backgroundColor: "#c7d2fe" }}
+                customSquareStyles={{
                   ...checkSquares,
                   ...moveSquares,
                   ...optionSquares,
-                },
-              } as any)}
-            />
+                }}
+              />
+            ) : (
+              <div className="w-full aspect-square flex items-center justify-center bg-white/5">
+                <span className="material-symbols-outlined animate-spin text-indigo-500 text-3xl">
+                  refresh
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
