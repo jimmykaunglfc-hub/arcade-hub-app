@@ -125,20 +125,18 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     }));
     
     const starting = { p:8, n:2, b:2, r:2, q:1 };
-    const wCaptured = []; // White pieces captured by Black
-    const bCaptured = []; // Black pieces captured by White
+    const wCaptured = [];
+    const bCaptured = []; 
 
     for (const type of ['q', 'r', 'b', 'n', 'p'] as const) {
       for (let i = 0; i < starting[type] - counts.w[type]; i++) wCaptured.push(PIECE_SYMBOLS[type.toUpperCase()]);
       for (let i = 0; i < starting[type] - counts.b[type]; i++) bCaptured.push(PIECE_SYMBOLS[type]);
     }
     return { wCaptured, bCaptured };
-  }, [fen]);
+  }, [fen, game]);
 
   // 5. Highlight Move Options (Tap to Move Visualizers)
   const getMoveOptions = (square: Square) => {
-    // game.moves automatically evaluates checks! If a king is in check, 
-    // it will ONLY return moves that resolve the check.
     const moves = game.moves({ square, verbose: true });
     if (moves.length === 0) {
       setOptionSquares({});
@@ -148,7 +146,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     const newSquares: any = {};
     moves.forEach((move) => {
       const targetSquare = move.to as Square;
-      // Is it a capture?
       if (game.get(targetSquare)) {
         newSquares[targetSquare] = {
           background: "radial-gradient(circle, rgba(239, 68, 68, 0.8) 25%, transparent 25%)",
@@ -174,7 +171,6 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
 
   // 6. Execution Logic
   const executeMove = (source: Square, target: Square, piecePromotion: string = "q") => {
-    // 🛑 Block moves if game is over or opponent hasn't joined the room yet
     if (gameOver.isOver || (matchId && !opponentConnected)) return false;
     
     const gameCopy = new Chess(game.fen());
@@ -207,7 +203,7 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     }
   };
 
-  // 🔥 7. STRICT TAP-TO-MOVE HANDLER
+  // 🔥 7. TAP-TO-MOVE HANDLER
   const onSquareClick = (square: string) => {
     if (gameOver.isOver) return;
     const sq = square as Square;
@@ -232,6 +228,19 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     }
   };
 
+  // 🔥 8. DRAG-AND-DROP HANDLER (Required to keep mobile touch events alive)
+  const onDrop = (sourceSquare: string, targetSquare: string, piece: string) => {
+    if (gameOver.isOver) return false;
+    
+    const isMyTurn = matchId ? ((playerColor === "white" && game.turn() === "w") || (playerColor === "black" && game.turn() === "b")) : true;
+    if (!isMyTurn) return false;
+
+    // Extract the piece type for promotion (e.g., 'wQ' -> 'q')
+    const promotion = piece && piece.length >= 2 ? piece[1].toLowerCase() : "q";
+    
+    return executeMove(sourceSquare as Square, targetSquare as Square, promotion);
+  };
+
   const resetGame = () => {
     const newGame = new Chess();
     setGame(newGame);
@@ -254,12 +263,15 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     if (channel && matchId) channel.send({ type: "broadcast", event: "reaction", payload: { emoji } });
   };
 
-  // Turn detection for neon borders
+  const handleExit = () => {
+    if (matchId) setMatchId(null);
+    setView("menu");
+  };
+
   const currentTurnColor = game.turn() === "w" ? "white" : "black";
   const myTurnActive = matchId ? playerColor === currentTurnColor : true;
   const oppTurnActive = matchId ? playerColor !== currentTurnColor : true;
 
-  // King Check Highlighting Logic
   const checkSquares: any = {};
   if (isCheck) {
     const board = game.board();
@@ -319,7 +331,7 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white">
         <div className="flex justify-between items-center p-6 bg-gradient-to-b from-black/50 to-transparent">
-          <button onClick={() => { setView("menu"); setMatchId(null); }} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"><span className="material-symbols-outlined text-lg">close</span></button>
+          <button onClick={handleExit} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"><span className="material-symbols-outlined text-lg">close</span></button>
           <div className="text-center">
             <h2 className="font-headline font-black text-sm uppercase tracking-widest">Chess Matrix</h2>
             <div className="flex items-center justify-center gap-1.5 mt-1">
@@ -340,7 +352,7 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
               <span className="font-headline font-bold text-2xl tracking-[0.3em] text-indigo-300">{matchId}</span>
               <button onClick={() => { navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider"><span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>{copied ? "COPIED" : "COPY"}</button>
             </div>
-            <button onClick={() => { setView("menu"); setMatchId(null); }} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5">CANCEL MATCH</button>
+            <button onClick={handleExit} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5">CANCEL MATCH</button>
           </div>
         </div>
       </div>
@@ -372,7 +384,7 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
             <button onClick={resetGame} className="w-full bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl py-4 font-headline font-bold text-sm tracking-widest shadow-lg shadow-indigo-500/20 transition-transform active:scale-95 mb-3">
               PLAY AGAIN
             </button>
-            <button onClick={() => matchId ? setView("menu") : onClose()} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-xl py-4 font-headline font-bold text-sm tracking-widest border border-white/5 transition-colors">
+            <button onClick={matchId ? handleExit : onClose} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-xl py-4 font-headline font-bold text-sm tracking-widest border border-white/5 transition-colors">
               EXIT ARENA
             </button>
           </div>
@@ -381,7 +393,7 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
 
       {/* HEADER TOP BAR */}
       <div className="w-full max-w-[400px] flex items-start justify-between px-4 pt-safe absolute top-0 mt-4 z-10">
-        <button onClick={() => matchId ? setView("menu") : onClose()} className="w-10 h-10 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10">
+        <button onClick={matchId ? handleExit : onClose} className="w-10 h-10 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10">
           <span className="material-symbols-outlined text-white">arrow_back</span>
         </button>
         <div className="flex flex-col items-center">
@@ -440,18 +452,13 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
           <div className="absolute inset-0 bg-indigo-500/5 blur-2xl"></div> 
           
           <div className="relative rounded-[16px] overflow-hidden border border-white/5">
-            {/* Note: props spread with 'as any' to bypass react-chessboard v5 strict type errors */}
             <Chessboard 
+              position={fen}
+              onSquareClick={onSquareClick}
+              onPieceDrop={onDrop}
+              arePiecesDraggable={true} // 🔥 CRITICAL FIX: Leaves mobile touch listeners intact!
+              boardOrientation={playerColor}
               {...({
-                position: fen,
-                // Fire when an empty square is tapped
-                onSquareClick: onSquareClick,
-                // 🔥 FIRE THIS WHEN A PIECE IS TAPPED!
-                onPieceClick: (piece: string, square: string) => onSquareClick(square),
-                // Force disable drag-to-move
-                isDraggablePiece: () => false,
-                arePiecesDraggable: false,
-                boardOrientation: playerColor,
                 customDarkSquareStyle: { backgroundColor: "#312e81" }, 
                 customLightSquareStyle: { backgroundColor: "#c7d2fe" }, 
                 customSquareStyles: {
