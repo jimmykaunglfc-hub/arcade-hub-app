@@ -20,6 +20,7 @@ import LiarsDice from "../components/games/LiarsDice";
 import NeuralDuel from "../components/games/NeuralDuel"; 
 import BiometricOverride from "../components/games/BiometricOverride";
 import ChessGame from "../components/games/ChessGame"; 
+import SnookerGame from "../components/games/SnookerGame";
 import AuthView from "../components/AuthView";
 
 export default function Home() {
@@ -147,6 +148,8 @@ export default function Home() {
         <Checkers onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
       ) : playingGame === "native://carrom" ? (
         <Carrom onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
+      ) : playingGame === "native://snooker" ? (
+        <SnookerGame onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://nexus-breach" ? (
         <NexusBreach onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://liars-dice" ? (

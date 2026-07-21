@@ -25,18 +25,35 @@ export default function GamesTab({
   const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [dbGames, setDbGames] = useState<any[]>([]);
   const [featuredGame, setFeaturedGame] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
+
+  // Helper for clean native routing slugs (e.g. "Snooker" -> "native://snooker")
+  const formatGameSlug = (title: string) => {
+    const slug = title
+      .toLowerCase()
+      .replace(/'/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return `native://${slug}`;
+  };
 
   // Fetch data from Control Core
   const fetchLiveArcadeData = async () => {
     setLoading(true);
     
     // 1. Fetch Categories
-    const { data: catData } = await supabase.from("game_categories").select("*").order("name");
+    const { data: catData } = await supabase
+      .from("game_categories")
+      .select("*")
+      .order("name");
     if (catData) setDbCategories(catData);
 
     // 2. Fetch Active Games
-    const { data: gameData } = await supabase.from("games").select("*").eq("status", "active").order("created_at", { ascending: false });
+    const { data: gameData } = await supabase
+      .from("games")
+      .select("*")
+      .eq("status", "active")
+      .order("created_at", { ascending: false });
     
     if (gameData) {
       setDbGames(gameData);
@@ -65,7 +82,7 @@ export default function GamesTab({
       genre: g.description || "Arcade Game",
       playersOnline: g.entry_fee === 0 ? "Local Party" : "Live PvP", 
       bgImage: g.image_url,
-      url: `native://${g.title.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-')}`,
+      url: formatGameSlug(g.title),
       entry_fee: g.entry_fee
     }));
     
@@ -77,7 +94,7 @@ export default function GamesTab({
     };
   }).filter(cat => cat.games.length > 0);
 
-  const uncategorizedGames = dbGames.filter(g => !g.category || g.category === 'Uncategorized');
+  const uncategorizedGames = dbGames.filter(g => !g.category || g.category === "Uncategorized");
   if (uncategorizedGames.length > 0) {
     formattedCategories.push({
       id: "uncategorized",
@@ -89,7 +106,7 @@ export default function GamesTab({
         genre: g.description || "Arcade Game",
         playersOnline: g.entry_fee === 0 ? "Local Party" : "Live PvP",
         bgImage: g.image_url,
-        url: `native://${g.title.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-')}`,
+        url: formatGameSlug(g.title),
         entry_fee: g.entry_fee
       }))
     });
@@ -216,7 +233,7 @@ export default function GamesTab({
               {featuredGame.description || "Jump into the action and climb the community boards."}
             </p>
             <button 
-              onClick={() => executeLaunchEngine(`native://${featuredGame.title.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-')}`, featuredGame.entry_fee)}
+              onClick={() => executeLaunchEngine(formatGameSlug(featuredGame.title), featuredGame.entry_fee)}
               className="gradient-pill-primary font-caps text-[9px] font-extrabold uppercase tracking-widest px-4 py-2 rounded-full shadow-md flex items-center justify-center gap-1 mt-2"
             >
               Play Now {featuredGame.entry_fee > 0 && `(${featuredGame.entry_fee} PTS)`}
@@ -255,10 +272,10 @@ export default function GamesTab({
                     <span className="material-symbols-outlined text-xs">arrow_back_ios_new</span>
                   </button>
                 )}
-                {category.icon.startsWith('http') ? (
+                {category.icon && category.icon.startsWith("http") ? (
                   <img src={category.icon} alt={category.name} className="w-5 h-5 object-contain opacity-80" />
                 ) : (
-                  <span className="material-symbols-outlined text-base opacity-70">{category.icon}</span>
+                  <span className="material-symbols-outlined text-base opacity-70">{category.icon || "sports_esports"}</span>
                 )}
                 <h2 className="font-headline text-sm font-black tracking-tight">{category.name}</h2>
               </div>
