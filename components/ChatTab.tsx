@@ -300,10 +300,10 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   // ============================================================================
   if (activeView === "hub") {
     return (
-      <div className="w-full animate-fade-in text-neutral-800 dark:text-on-surface flex flex-col gap-4 pb-6">
+      <div className="w-full animate-fade-in text-on-surface flex flex-col gap-4 pb-6">
         
         {/* ADAPTIVE HUB SWITCHER BAR */}
-        <div className="bg-white/50 dark:bg-surface-container/50 backdrop-blur-md p-1 rounded-xl flex items-center border border-neutral-200 dark:border-white/5 shadow-sm">
+        <div className="bg-surface/50 backdrop-blur-md p-1 rounded-xl flex items-center border border-surface-container-highest shadow-sm">
           {[
             { id: "dms", label: "Messages" },
             { id: "groups", label: "Groups" },
@@ -314,8 +314,8 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
               onClick={() => setHubTab(tab.id as any)}
               className={`flex-1 py-1.5 font-caps text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${
                 hubTab === tab.id 
-                  ? "bg-white dark:bg-surface-container-high text-indigo-600 dark:text-primary shadow-sm" 
-                  : "text-neutral-400 dark:text-on-surface-variant hover:text-neutral-900 dark:hover:text-primary"
+                  ? "bg-surface-container-high text-primary shadow-sm" 
+                  : "text-on-surface-variant hover:text-primary"
               }`}
             >
               {tab.label}
@@ -325,31 +325,31 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
 
         {hubTab === "dms" && (
           <div className="flex flex-col gap-2">
-            <h3 className="font-caps text-[9px] font-bold text-neutral-400 dark:text-on-surface-variant uppercase tracking-widest px-1">Active Conversations</h3>
+            <h3 className="font-caps text-[9px] font-bold text-on-surface-variant uppercase tracking-widest px-1">Active Conversations</h3>
             {friends.length === 0 ? (
-              <div className="p-8 text-center bg-white/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 backdrop-blur-xl rounded-2xl shadow-sm">
-                <span className="material-symbols-outlined text-3xl text-neutral-300 dark:text-white/20 mb-2">chat_bubble</span>
-                <p className="font-body text-xs text-neutral-400 dark:text-on-surface-variant font-medium">Your inbox is empty.<br/>Connect via the Network tab.</p>
+              <div className="p-8 text-center bg-surface/80 border border-surface-container-highest backdrop-blur-xl rounded-2xl shadow-sm">
+                <span className="material-symbols-outlined text-3xl text-surface-container-highest mb-2">chat_bubble</span>
+                <p className="font-body text-xs text-on-surface-variant font-medium">Your inbox is empty.<br/>Connect via the Network tab.</p>
               </div>
             ) : (
-              <div className="bg-white/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 backdrop-blur-xl rounded-2xl overflow-hidden shadow-sm divide-y divide-neutral-100 dark:divide-white/5">
+              <div className="bg-surface/80 border border-surface-container-highest backdrop-blur-xl rounded-2xl overflow-hidden shadow-sm divide-y divide-surface-container-highest">
                 {friends.map((friend) => (
                   <button 
                     key={friend.id}
                     onClick={() => openChat(friend)}
-                    className="w-full p-3.5 flex items-center justify-between transition-all hover:bg-neutral-50 dark:hover:bg-white/5 text-left"
+                    className="w-full p-3.5 flex items-center justify-between transition-all hover:bg-surface-variant text-left"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full overflow-hidden relative bg-neutral-100 dark:bg-surface-container shrink-0 shadow-inner">
+                      <div className="w-10 h-10 rounded-full overflow-hidden relative bg-surface-container shrink-0 shadow-inner">
                         <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover" unoptimized />
-                        <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-neutral-900 rounded-full"></div>
+                        <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-surface-container-highest rounded-full"></div>
                       </div>
                       <div>
-                        <h4 className="font-headline text-sm font-extrabold tracking-tight text-neutral-900 dark:text-primary">{friend.username}</h4>
-                        <p className="font-body text-[10px] text-neutral-400 dark:text-on-surface-variant font-medium truncate mt-0.5">Tap to open secure comms...</p>
+                        <h4 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">{friend.username}</h4>
+                        <p className="font-body text-[10px] text-on-surface-variant font-medium truncate mt-0.5">Tap to open secure comms...</p>
                       </div>
                     </div>
-                    <span className="material-symbols-outlined text-neutral-300 dark:text-white/20 text-md">chevron_right</span>
+                    <span className="material-symbols-outlined text-surface-container-highest text-md">chevron_right</span>
                   </button>
                 ))}
               </div>
@@ -359,45 +359,45 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
 
         {hubTab === "groups" && (
           <div className="flex flex-col gap-2">
-            <h3 className="font-caps text-[9px] font-bold text-neutral-400 dark:text-on-surface-variant uppercase tracking-widest px-1">Discover Communities</h3>
-            <div className="bg-white/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 backdrop-blur-xl rounded-2xl p-4 flex items-center gap-3 shadow-sm hover:bg-neutral-50 dark:hover:bg-white/5 cursor-pointer">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-tertiary-container/10 border border-indigo-100 dark:border-tertiary-container/30 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-indigo-600 dark:text-tertiary-container text-base">grid_4x4</span>
+            <h3 className="font-caps text-[9px] font-bold text-on-surface-variant uppercase tracking-widest px-1">Discover Communities</h3>
+            <div className="bg-surface/80 border border-surface-container-highest backdrop-blur-xl rounded-2xl p-4 flex items-center gap-3 shadow-sm hover:bg-surface-variant cursor-pointer">
+              <div className="w-10 h-10 rounded-xl bg-primary-container/10 border border-primary-container/30 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-primary text-base">grid_4x4</span>
               </div>
               <div className="flex-1">
-                <h4 className="font-headline text-sm font-extrabold tracking-tight text-neutral-900 dark:text-primary">Global Checkers Hub</h4>
-                <p className="font-body text-[10px] text-neutral-400 dark:text-on-surface-variant font-medium mt-0.5">2,140 Members • 14 Online</p>
+                <h4 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">Global Checkers Hub</h4>
+                <p className="font-body text-[10px] text-on-surface-variant font-medium mt-0.5">2,140 Members • 14 Online</p>
               </div>
-              <button className="px-3 py-1.5 bg-neutral-100 dark:bg-white/10 text-indigo-600 dark:text-primary font-caps text-[9px] font-bold uppercase rounded-lg border border-neutral-200 dark:border-white/5">Join</button>
+              <button className="px-3 py-1.5 bg-surface-container-highest text-primary font-caps text-[9px] font-bold uppercase rounded-lg border border-surface-container-highest">Join</button>
             </div>
           </div>
         )}
 
         {hubTab === "network" && (
           <div className="flex flex-col gap-4">
-            <div className="bg-gradient-to-br from-indigo-500/5 to-indigo-500/10 dark:from-tertiary-container/20 dark:to-primary-container/5 rounded-2xl p-5 border border-neutral-200 dark:border-white/10 shadow-sm relative overflow-hidden">
-              <h3 className="font-caps text-[9px] font-bold uppercase tracking-widest text-neutral-400 dark:text-on-surface-variant mb-1">Your Network ID</h3>
+            <div className="bg-gradient-to-br from-primary-container/20 to-primary-container/5 rounded-2xl p-5 border border-primary/20 shadow-sm relative overflow-hidden">
+              <h3 className="font-caps text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Your Network ID</h3>
               <div className="flex items-end justify-between relative z-10">
-                <p className="font-headline text-xl font-extrabold tracking-tight text-neutral-900 dark:text-white">{myUsername || "Loading..."}</p>
-                <button onClick={handleCopyId} className="w-9 h-9 bg-white/80 dark:bg-white/10 border border-neutral-200 dark:border-white/10 rounded-lg flex items-center justify-center text-indigo-600 dark:text-primary shadow-sm">
+                <p className="font-headline text-xl font-extrabold tracking-tight text-on-surface">{myUsername || "Loading..."}</p>
+                <button onClick={handleCopyId} className="w-9 h-9 bg-surface/80 border border-surface-container-highest rounded-lg flex items-center justify-center text-primary shadow-sm">
                   <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
                 </button>
               </div>
             </div>
 
-            <div className="bg-white/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 backdrop-blur-xl rounded-2xl p-4 shadow-sm">
-              <h3 className="font-caps text-[9px] font-bold uppercase tracking-widest text-neutral-400 dark:text-on-surface-variant mb-2 px-1">Add Connection</h3>
+            <div className="bg-surface/80 border border-surface-container-highest backdrop-blur-xl rounded-2xl p-4 shadow-sm">
+              <h3 className="font-caps text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-2 px-1">Add Connection</h3>
               <form onSubmit={handleAddFriend} className="flex gap-2">
                 <input 
                   type="text" 
                   placeholder="Enter Network ID..."
                   value={searchTarget}
                   onChange={(e) => setSearchTarget(e.target.value)}
-                  className="flex-1 bg-neutral-50 dark:bg-surface-container-high border border-neutral-200 dark:border-white/10 rounded-xl px-3 py-2.5 font-body text-xs focus:outline-none focus:border-indigo-500 dark:focus-within:border-surface-tint text-neutral-900 dark:text-primary placeholder-neutral-400 dark:placeholder-on-surface-variant"
+                  className="flex-1 bg-surface-container-high border border-surface-container-highest rounded-xl px-3 py-2.5 font-body text-xs focus:outline-none focus:border-primary text-on-surface placeholder-on-surface-variant transition-colors"
                 />
                 <button type="submit" className="px-4 gradient-pill-primary font-caps font-bold text-[9px] uppercase tracking-wider rounded-xl shadow-sm">Invite</button>
               </form>
-              {inviteStatus && <p className="font-body text-[10px] text-indigo-600 dark:text-surface-tint font-bold mt-2 px-1">{inviteStatus}</p>}
+              {inviteStatus && <p className="font-body text-[10px] text-primary font-bold mt-2 px-1">{inviteStatus}</p>}
             </div>
           </div>
         )}
@@ -409,59 +409,59 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   // VIEW 2: FULL COMPACT CONSOLE ACTIVE THREAD
   // ============================================================================
   return (
-    <div className="w-full flex flex-col h-[calc(100vh-204px)] animate-fade-in text-neutral-800 dark:text-on-background relative">
+    <div className="w-full flex flex-col h-[calc(100vh-204px)] animate-fade-in text-on-background relative">
       
       {/* 🎮 CHALLENGE CHOOSE FLOATING INTERFACE */}
       {showGameSelector && (
-        <div className="absolute inset-0 bg-neutral-950/40 dark:bg-black/70 backdrop-blur-sm flex items-end justify-center p-2 z-50 rounded-2xl animate-fade-in">
-          <div className="bg-white dark:bg-surface-container-high w-full rounded-2xl p-4 flex flex-col gap-3 border border-neutral-200 dark:border-white/10 shadow-2xl">
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-end justify-center p-2 z-50 rounded-2xl animate-fade-in">
+          <div className="bg-surface-container-high w-full rounded-2xl p-4 flex flex-col gap-3 border border-surface-container-highest shadow-2xl">
             {inviteStep === "game" && (
               <>
                 <div className="flex justify-between items-center px-1">
-                  <h3 className="font-headline text-sm font-black uppercase text-neutral-900 dark:text-primary">Select Arena</h3>
-                  <button onClick={() => setShowGameSelector(false)} className="w-7 h-7 bg-neutral-100 dark:bg-white/10 border border-neutral-200 dark:border-white/5 rounded-full flex items-center justify-center text-neutral-400">
+                  <h3 className="font-headline text-sm font-black uppercase text-on-surface">Select Arena</h3>
+                  <button onClick={() => setShowGameSelector(false)} className="w-7 h-7 bg-surface/50 border border-surface-container-highest rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-variant">
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
                 </div>
                 
-                <button onClick={() => handleSendGameInvite("snooker")} className="w-full flex items-center justify-between p-3 bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors">
+                <button onClick={() => handleSendGameInvite("snooker")} className="w-full flex items-center justify-between p-3 bg-surface/50 border border-surface-container-highest rounded-xl hover:bg-surface-variant transition-colors">
                    <div className="flex items-center gap-3">
                      <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center text-white">
                        <span className="material-symbols-outlined text-xl">sports_bar</span>
                      </div>
-                     <h4 className="font-headline text-xs font-bold text-neutral-900 dark:text-primary">Snooker 3D</h4>
+                     <h4 className="font-headline text-xs font-bold text-on-surface">Snooker 3D</h4>
                    </div>
-                   <span className="material-symbols-outlined text-neutral-300 dark:text-white/40 text-sm">chevron_right</span>
+                   <span className="material-symbols-outlined text-surface-container-highest text-sm">chevron_right</span>
                 </button>
 
-                <button onClick={() => handleSendGameInvite("chess")} className="w-full flex items-center justify-between p-3 bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors">
+                <button onClick={() => handleSendGameInvite("chess")} className="w-full flex items-center justify-between p-3 bg-surface/50 border border-surface-container-highest rounded-xl hover:bg-surface-variant transition-colors">
                    <div className="flex items-center gap-3">
-                     <div className="w-9 h-9 bg-gradient-to-br from-purple-500 to-indigo-600 dark:from-purple-400 dark:to-indigo-500 rounded-lg flex items-center justify-center text-white dark:text-background">
+                     <div className="w-9 h-9 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-lg flex items-center justify-center text-white">
                        <span className="material-symbols-outlined text-xl">psychology</span>
                      </div>
-                     <h4 className="font-headline text-xs font-bold text-neutral-900 dark:text-primary">Grandmaster Chess</h4>
+                     <h4 className="font-headline text-xs font-bold text-on-surface">Grandmaster Chess</h4>
                    </div>
-                   <span className="material-symbols-outlined text-neutral-300 dark:text-white/40 text-sm">chevron_right</span>
+                   <span className="material-symbols-outlined text-surface-container-highest text-sm">chevron_right</span>
                 </button>
 
-                <button onClick={() => setInviteStep("carrom_mode")} className="w-full flex items-center justify-between p-3 bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors">
+                <button onClick={() => setInviteStep("carrom_mode")} className="w-full flex items-center justify-between p-3 bg-surface/50 border border-surface-container-highest rounded-xl hover:bg-surface-variant transition-colors">
                    <div className="flex items-center gap-3">
                      <div className="w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center text-white">
                        <span className="material-symbols-outlined text-xl">radio_button_checked</span>
                      </div>
-                     <h4 className="font-headline text-xs font-bold text-neutral-900 dark:text-primary">Carrom Matrix</h4>
+                     <h4 className="font-headline text-xs font-bold text-on-surface">Carrom Matrix</h4>
                    </div>
-                   <span className="material-symbols-outlined text-neutral-300 dark:text-white/40 text-sm">chevron_right</span>
+                   <span className="material-symbols-outlined text-surface-container-highest text-sm">chevron_right</span>
                 </button>
                 
-                <button onClick={() => handleSendGameInvite("checkers")} className="w-full flex items-center justify-between p-3 bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl hover:bg-neutral-100 dark:hover:bg-white/10 transition-colors">
+                <button onClick={() => handleSendGameInvite("checkers")} className="w-full flex items-center justify-between p-3 bg-surface/50 border border-surface-container-highest rounded-xl hover:bg-surface-variant transition-colors">
                    <div className="flex items-center gap-3">
-                     <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-blue-500 dark:from-cyan-400 dark:to-blue-500 rounded-lg flex items-center justify-center text-white dark:text-background">
+                     <div className="w-9 h-9 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-lg flex items-center justify-center text-white">
                        <span className="material-symbols-outlined text-xl">grid_4x4</span>
                      </div>
-                     <h4 className="font-headline text-xs font-bold text-neutral-900 dark:text-primary">Neon Checkers</h4>
+                     <h4 className="font-headline text-xs font-bold text-on-surface">Neon Checkers</h4>
                    </div>
-                   <span className="material-symbols-outlined text-neutral-300 dark:text-white/40 text-sm">chevron_right</span>
+                   <span className="material-symbols-outlined text-surface-container-highest text-sm">chevron_right</span>
                 </button>
               </>
             )}
@@ -469,15 +469,15 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
               <>
                 <div className="flex justify-between items-center px-1">
                   <div className="flex items-center gap-1.5">
-                    <button onClick={() => setInviteStep("game")} className="text-neutral-400 hover:text-indigo-600"><span className="material-symbols-outlined text-sm">arrow_back</span></button>
-                    <h3 className="font-headline text-sm font-black uppercase text-neutral-900 dark:text-primary">Rule Mode</h3>
+                    <button onClick={() => setInviteStep("game")} className="text-on-surface-variant hover:text-primary"><span className="material-symbols-outlined text-sm">arrow_back</span></button>
+                    <h3 className="font-headline text-sm font-black uppercase text-on-surface">Rule Mode</h3>
                   </div>
                 </div>
-                <button onClick={() => handleSendGameInvite("carrom", "freestyle")} className="w-full p-3 bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl text-left font-headline text-xs text-neutral-900 dark:text-primary flex justify-between items-center hover:bg-neutral-100">
+                <button onClick={() => handleSendGameInvite("carrom", "freestyle")} className="w-full p-3 bg-surface/50 border border-surface-container-highest rounded-xl text-left font-headline text-xs text-on-surface flex justify-between items-center hover:bg-surface-variant">
                   <span>Freestyle Mode (Fast)</span>
                   <span className="material-symbols-outlined text-xs text-amber-500">send</span>
                 </button>
-                <button onClick={() => handleSendGameInvite("carrom", "classic")} className="w-full p-3 bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl text-left font-headline text-xs text-neutral-900 dark:text-primary flex justify-between items-center hover:bg-neutral-100">
+                <button onClick={() => handleSendGameInvite("carrom", "classic")} className="w-full p-3 bg-surface/50 border border-surface-container-highest rounded-xl text-left font-headline text-xs text-on-surface flex justify-between items-center hover:bg-surface-variant">
                   <span>Classic Mode (Tactical)</span>
                   <span className="material-symbols-outlined text-xs text-amber-500">send</span>
                 </button>
@@ -488,23 +488,23 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       )}
 
       {/* 📞 HEADER CONSOLE BAR ROW */}
-      <div className="shrink-0 w-full bg-white/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 backdrop-blur-xl rounded-2xl p-2.5 flex items-center justify-between shadow-sm">
+      <div className="shrink-0 w-full bg-surface/80 border border-surface-container-highest backdrop-blur-xl rounded-2xl p-2.5 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2.5">
           <button 
             onClick={() => setActiveView("hub")} 
-            className="w-8 h-8 rounded-xl bg-neutral-50 dark:bg-white/5 hover:bg-neutral-100 dark:hover:bg-white/10 border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-primary flex items-center justify-center transition-transform active:scale-90"
+            className="w-8 h-8 rounded-xl bg-surface-container-high hover:bg-surface-variant border border-surface-container-highest text-on-surface flex items-center justify-center transition-transform active:scale-90"
           >
             <span className="material-symbols-outlined text-base">arrow_back</span>
           </button>
           
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full overflow-hidden relative bg-neutral-100 dark:bg-surface-container border border-neutral-200 dark:border-white/10">
+            <div className="w-8 h-8 rounded-full overflow-hidden relative bg-surface-container border border-surface-container-highest">
               <Image src={activeChat?.avatar_url || ""} alt="User" fill className="object-cover" unoptimized />
             </div>
             <div>
-              <h3 className="font-headline text-xs font-extrabold text-neutral-900 dark:text-primary leading-tight">{activeChat?.username}</h3>
-              <span className="font-caps text-[8px] text-indigo-600 dark:text-surface-tint font-bold uppercase tracking-widest flex items-center gap-0.5 mt-0.5">
-                <span className="w-1 h-1 bg-indigo-500 dark:bg-surface-tint rounded-full animate-pulse"></span> Comms Online
+              <h3 className="font-headline text-xs font-extrabold text-on-surface leading-tight">{activeChat?.username}</h3>
+              <span className="font-caps text-[8px] text-primary font-bold uppercase tracking-widest flex items-center gap-0.5 mt-0.5">
+                <span className="w-1 h-1 bg-primary rounded-full animate-pulse"></span> Comms Online
               </span>
             </div>
           </div>
@@ -512,7 +512,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
 
         <button 
           onClick={() => setActiveView("hub")}
-          className="font-caps text-[9px] font-black text-red-500 dark:text-red-400 border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 px-3 py-1.5 rounded-xl hover:bg-red-100 dark:hover:bg-red-500/20 active:scale-95 transition-all"
+          className="font-caps text-[9px] font-black text-red-500 border border-red-500/20 bg-red-500/10 px-3 py-1.5 rounded-xl hover:bg-red-500/20 active:scale-95 transition-all"
         >
           Quit Chat
         </button>
@@ -542,32 +542,32 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                 {msg.message_type === 'text' && (
                   <div className={`px-3.5 py-2.5 font-body text-xs shadow-sm border leading-relaxed ${
                     isMe 
-                      ? "bg-indigo-600 dark:bg-primary-container text-white dark:text-neutral-950 border-transparent rounded-2xl rounded-tr-sm" 
-                      : "bg-white/90 dark:bg-white/5 text-neutral-800 dark:text-on-surface border-neutral-200 dark:border-white/5 rounded-2xl rounded-tl-sm"
+                      ? "bg-primary text-on-primary border-transparent rounded-2xl rounded-tr-sm" 
+                      : "bg-surface border-surface-container-highest text-on-surface rounded-2xl rounded-tl-sm"
                   }`}>
                     <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                   </div>
                 )}
 
                 {msg.message_type === 'game_invite' && (
-                  <div className="w-56 rounded-2xl overflow-hidden shadow-md p-4 flex flex-col items-center gap-2 text-center bg-white/90 dark:bg-white/5 border border-neutral-200 dark:border-white/10">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10">
-                      <span className={`material-symbols-outlined text-2xl ${isCarrom ? "text-amber-500" : isChess ? "text-purple-500" : isSnooker ? "text-emerald-500" : "text-indigo-500 dark:text-tertiary-container"}`} style={{fontVariationSettings:"'FILL' 1"}}>{gameIcon}</span>
+                  <div className="w-56 rounded-2xl overflow-hidden shadow-md p-4 flex flex-col items-center gap-2 text-center bg-surface border border-surface-container-highest">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-surface-container-high border border-surface-container-highest">
+                      <span className={`material-symbols-outlined text-2xl ${isCarrom ? "text-amber-500" : isChess ? "text-purple-500" : isSnooker ? "text-emerald-500" : "text-primary"}`} style={{fontVariationSettings:"'FILL' 1"}}>{gameIcon}</span>
                     </div>
                     <div>
-                      <h4 className="font-headline text-xs font-extrabold text-neutral-900 dark:text-primary leading-tight">{msg.game_name}</h4>
-                      <p className="font-caps text-[8px] text-neutral-400 dark:text-on-surface-variant font-bold uppercase tracking-widest mt-0.5">Match Challenge</p>
+                      <h4 className="font-headline text-xs font-extrabold text-on-surface leading-tight">{msg.game_name}</h4>
+                      <p className="font-caps text-[8px] text-on-surface-variant font-bold uppercase tracking-widest mt-0.5">Match Challenge</p>
                     </div>
 
                     <div className="w-full mt-2">
                       {msg.invite_status === 'pending' && (
                         isMe ? (
-                          <div className="font-caps text-[8px] font-bold uppercase py-1.5 rounded-lg border border-neutral-200 dark:border-white/10 text-neutral-400 dark:text-on-surface-variant bg-neutral-50 dark:bg-white/5">Awaiting...</div>
+                          <div className="font-caps text-[8px] font-bold uppercase py-1.5 rounded-lg border border-surface-container-highest text-on-surface-variant bg-surface-container-high">Awaiting...</div>
                         ) : (
                           <div className="flex gap-2">
                             <button 
                               onClick={() => updateInviteStatus(msg.id, 'declined')} 
-                              className="flex-1 py-1.5 bg-neutral-100 dark:bg-white/5 text-neutral-700 dark:text-primary font-caps font-bold text-[8px] uppercase tracking-widest rounded-lg border border-neutral-200 dark:border-white/5"
+                              className="flex-1 py-1.5 bg-surface-container-high text-on-surface font-caps font-bold text-[8px] uppercase tracking-widest rounded-lg border border-surface-container-highest hover:opacity-80 transition-opacity"
                             >
                               Decline
                             </button>
@@ -587,7 +587,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                           </div>
                         )
                       )}
-                      {msg.invite_status === 'declined' && <div className="font-caps text-[8px] text-red-500 font-bold uppercase py-1.5 bg-red-50 dark:bg-red-500/10 rounded-lg border border-red-200 dark:border-red-500/20">Declined</div>}
+                      {msg.invite_status === 'declined' && <div className="font-caps text-[8px] text-red-500 font-bold uppercase py-1.5 bg-red-500/10 rounded-lg border border-red-500/20">Declined</div>}
                       {msg.invite_status === 'accepted' && (
                         <button 
                           onClick={() => {
@@ -597,7 +597,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                             }
                             onPlay?.(targetUrl, msg.match_id!);
                           }}
-                          className="w-full py-2 bg-indigo-600 dark:bg-primary text-white dark:text-background font-headline font-extrabold text-[10px] uppercase tracking-wider rounded-lg flex items-center justify-center gap-1 shadow-sm"
+                          className="w-full py-2 bg-primary text-on-primary font-headline font-extrabold text-[10px] uppercase tracking-wider rounded-lg flex items-center justify-center gap-1 shadow-sm transition-transform active:scale-95"
                         >
                           <span className="material-symbols-outlined text-sm">play_arrow</span>
                           Enter Arena
@@ -606,7 +606,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                     </div>
                   </div>
                 )}
-                <span className="font-caps text-[8px] block mt-1 px-1 text-neutral-400 dark:text-on-surface-variant font-bold tracking-widest">{formatTime(msg.created_at)}</span>
+                <span className="font-caps text-[8px] block mt-1 px-1 text-on-surface-variant font-bold tracking-widest">{formatTime(msg.created_at)}</span>
               </div>
             </div>
           );
@@ -615,12 +615,12 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       </div>
 
       {/* 📥 INLINE DOCK DECK INPUT TRAILER */}
-      <div className="shrink-0 w-full bg-white/90 dark:bg-surface-container/90 backdrop-blur-md border border-neutral-200 dark:border-white/10 rounded-2xl p-2 flex items-center gap-2 shadow-xl relative z-20 mb-1">
+      <div className="shrink-0 w-full bg-surface/90 backdrop-blur-md border border-surface-container-highest rounded-2xl p-2 flex items-center gap-2 shadow-xl relative z-20 mb-1">
         
         <button
           type="button"
           onClick={() => { setShowGameSelector(true); setInviteStep("game"); }}
-          className="w-9 h-9 bg-neutral-50 dark:bg-white/5 hover:bg-neutral-100 dark:hover:bg-white/10 text-indigo-600 dark:text-primary border border-neutral-200 dark:border-white/10 rounded-xl flex items-center justify-center active:scale-90 transition-all shrink-0"
+          className="w-9 h-9 bg-surface-container-high hover:bg-surface-variant text-primary border border-surface-container-highest rounded-xl flex items-center justify-center active:scale-90 transition-all shrink-0"
         >
           <span className="material-symbols-outlined text-lg">swords</span>
         </button>
@@ -628,26 +628,26 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
         <button
           type="button"
           onClick={() => alert("Media Vault and interactive emoji reaction assets initializing...")}
-          className="w-9 h-9 bg-neutral-50 dark:bg-white/5 hover:bg-neutral-100 dark:hover:bg-white/10 text-neutral-400 dark:text-on-surface-variant border border-neutral-200 dark:border-white/5 rounded-xl flex items-center justify-center active:scale-90 transition-all shrink-0"
+          className="w-9 h-9 bg-surface-container-high hover:bg-surface-variant text-on-surface-variant border border-surface-container-highest rounded-xl flex items-center justify-center active:scale-90 transition-all shrink-0"
         >
           <span className="material-symbols-outlined text-lg">add</span>
         </button>
         
-        <form onSubmit={handleSendText} className="flex-1 flex items-center bg-neutral-50 dark:bg-surface-container-highest border border-neutral-200 dark:border-white/5 rounded-xl pr-1 focus-within:border-indigo-500 dark:focus-within:border-surface-tint focus-within:ring-1 focus-within:ring-indigo-500 dark:focus-within:ring-surface-tint transition-all overflow-hidden shadow-inner">
+        <form onSubmit={handleSendText} className="flex-1 flex items-center bg-surface-container-highest border border-surface-container-highest rounded-xl pr-1 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all overflow-hidden shadow-inner">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Message..."
-            className="flex-1 bg-transparent border-none font-body text-xs text-neutral-900 dark:text-primary placeholder-neutral-400 dark:placeholder-on-surface-variant focus:outline-none px-3 py-2.5 w-full"
+            className="flex-1 bg-transparent border-none font-body text-xs text-on-surface placeholder-on-surface-variant focus:outline-none px-3 py-2.5 w-full"
           />
           <button
             type="submit"
             disabled={!newMessage.trim()}
             className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0 ${
               newMessage.trim() 
-                ? "bg-indigo-600 dark:bg-primary-container text-white dark:text-neutral-950 active:scale-90 shadow-sm" 
-                : "bg-transparent text-neutral-200 dark:text-white/10 cursor-not-allowed"
+                ? "bg-primary text-on-primary active:scale-90 shadow-sm" 
+                : "bg-transparent text-on-surface-variant cursor-not-allowed"
             }`}
           >
             <span className="material-symbols-outlined text-sm font-bold">arrow_upward</span>

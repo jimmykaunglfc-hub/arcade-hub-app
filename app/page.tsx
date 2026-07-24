@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
 
+import HomeTab from "../components/HomeTab"; // Added HomeTab
 import GamesTab from "../components/GamesTab";
-import LeaderboardTab from "../components/LeaderboardTab";
 import ChatTab from "../components/ChatTab";
 import ShopTab from "../components/ShopTab";
 import ProfileTab from "../components/ProfileTab";
@@ -27,7 +27,9 @@ export default function Home() {
   const [session, setSession] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [rewardClaimed, setRewardClaimed] = useState(false);
-  const [activeTab, setActiveTab] = useState("Games");
+  
+  // Set "Home" as the default active tab
+  const [activeTab, setActiveTab] = useState("Home");
   
   // Real-Time Point Engine States
   const [userPoints, setUserPoints] = useState<number>(0);
@@ -120,8 +122,8 @@ export default function Home() {
 
   if (checkingAuth) {
     return (
-      <div className="fixed inset-0 bg-[#eef2f6] dark:bg-background flex items-center justify-center transition-colors">
-        <span className="text-xs font-bold text-neutral-500 dark:text-on-surface-variant uppercase tracking-widest animate-pulse">
+      <div className="fixed inset-0 bg-background flex items-center justify-center transition-colors duration-300">
+        <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest animate-pulse">
           Syncing Session Matrix...
         </span>
       </div>
@@ -162,34 +164,34 @@ export default function Home() {
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : null}
 
-      {/* 📱 STABILIZED APP SHELL */}
-      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-[#eef2f6] dark:bg-background text-[#091428] dark:text-on-background font-body overflow-hidden animate-fade-in transition-colors duration-300"}>
+      {/* 📱 SEMANTIC APP SHELL */}
+      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden animate-fade-in transition-colors duration-300"}>
         
         {/* PREMIUM COMPACT HEADER BLOCK */}
         <header 
-          className="fixed top-0 left-0 right-0 z-50 bg-white/70 dark:bg-surface/60 backdrop-blur-xl border-b border-neutral-200/60 dark:border-white/10 shadow-sm transition-colors duration-300"
+          className="fixed top-0 left-0 right-0 z-50 bg-surface/70 backdrop-blur-xl border-b border-surface-container-highest shadow-sm transition-colors duration-300"
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
           <div className="w-full max-w-xl mx-auto flex justify-between items-center px-6 h-14 box-border">
             
             {/* Top Left Component Node */}
             <div className="flex items-center gap-2">
-               <div className="relative w-7 h-7 rounded-full bg-white dark:bg-surface-container-high border border-neutral-200 dark:border-white/10 overflow-hidden flex items-center justify-center shadow-sm">
+               <div className="relative w-7 h-7 rounded-full bg-surface-container-high border border-surface-container-highest overflow-hidden flex items-center justify-center shadow-sm">
                  <Image src="/joeyoke-logo.png" alt="Joe Yoke Logo" fill className="object-contain p-1" unoptimized />
                </div>
-               <span className="font-headline text-xs font-black tracking-widest text-[#091428] dark:text-primary uppercase">
+               <span className="font-headline text-xs font-black tracking-widest text-primary uppercase">
                  Joe Yoke
                </span>
             </div>
 
             {/* Top Right Component Node */}
             <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-neutral-200 dark:border-white/5 bg-white/90 dark:bg-white/5 text-[#091428] dark:text-primary shadow-sm h-7 box-border">
-                <span className="material-symbols-outlined text-amber-500 dark:text-secondary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-surface-container-highest bg-surface-container-high text-primary shadow-sm h-7 box-border">
+                <span className="material-symbols-outlined text-secondary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
                 <span className="tracking-wide">{userPoints.toLocaleString()}</span>
               </div>
               
-              <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-neutral-200/50 dark:hover:bg-white/5 transition-colors text-neutral-400 select-none">
+              <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-container-highest transition-colors text-on-surface-variant select-none">
                 <span className="material-symbols-outlined text-lg">notifications</span>
               </button>
             </div>
@@ -206,6 +208,14 @@ export default function Home() {
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
             <>
+              {activeTab === "Home" && (
+                <HomeTab 
+                  currentPoints={userPoints}
+                  userId={myUserId}
+                  onPlay={(url) => setPlayingGame(url)} 
+                />
+              )}
+
               {activeTab === "Games" && (
                 <GamesTab 
                   rewardClaimed={rewardClaimed} 
@@ -215,7 +225,6 @@ export default function Home() {
                   onPlay={(url) => setPlayingGame(url)} 
                 />
               )}
-              {activeTab === "Ranks" && <LeaderboardTab />}
               
               {activeTab === "Chat" && (
                 <ChatTab 
@@ -238,20 +247,21 @@ export default function Home() {
         </main>
 
         {/* FROSTED BOTTOM NAVIGATION SHIELD */}
-        <nav className="shrink-0 fixed bottom-0 left-0 w-full z-50 bg-white/80 dark:bg-surface/85 backdrop-blur-xl border-t border-neutral-200 dark:border-white/10 px-6 pb-safe pt-1.5 flex justify-between items-center h-[82px] shadow-lg transition-colors duration-300">
-          {["Games", "Ranks", "Chat", "Shop", "Profile"].map((tab) => {
+        <nav className="shrink-0 fixed bottom-0 left-0 w-full z-50 bg-surface/85 backdrop-blur-xl border-t border-surface-container-highest px-6 pb-safe pt-1.5 flex justify-between items-center h-[82px] shadow-lg transition-colors duration-300">
+          {/* Updated Tab List: Removed "Ranks", Added "Home" at the start */}
+          {["Home", "Games", "Chat", "Shop", "Profile"].map((tab) => {
             const isActive = activeTab === tab;
             return (
               <button 
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`flex flex-col items-center justify-center w-14 transition-all duration-300 active:scale-95 ${
-                  isActive ? "text-indigo-600 dark:text-primary-container font-extrabold" : "text-neutral-400 dark:text-on-surface-variant hover:text-neutral-900 dark:hover:text-white"
+                  isActive ? "text-primary font-extrabold" : "text-on-surface-variant hover:text-on-surface"
                 }`}
               >
-                <div className={`flex items-center justify-center w-12 h-9 rounded-full transition-all duration-300 ${isActive ? "bg-indigo-50 dark:bg-primary-container/10" : "bg-transparent"}`}>
+                <div className={`flex items-center justify-center w-12 h-9 rounded-full transition-all duration-300 ${isActive ? "bg-primary-container/30" : "bg-transparent"}`}>
                   <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>
-                    {tab === "Games" ? "sports_esports" : tab === "Ranks" ? "leaderboard" : tab === "Chat" ? "forum" : tab === "Shop" ? "storefront" : "person"}
+                    {tab === "Home" ? "home" : tab === "Games" ? "sports_esports" : tab === "Chat" ? "forum" : tab === "Shop" ? "storefront" : "person"}
                   </span>
                 </div>
                 <span className={`font-caps text-[9px] font-bold tracking-widest mt-1 transition-all duration-300 ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 h-0 overflow-hidden"}`}>

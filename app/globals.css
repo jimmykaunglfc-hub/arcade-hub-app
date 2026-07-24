@@ -3,8 +3,51 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* ☀️ LIGHT MODE TOKENS */
+    --background: #eef2f6;
+    --on-background: #091428;
+    --surface: #ffffff;
+    --on-surface: #091428;
+    --surface-variant: #f8fafc;
+    --on-surface-variant: #64748b;
+    --surface-container: #ffffff;
+    --surface-container-high: #f1f5f9;
+    --surface-container-highest: #e2e8f0;
+    
+    --primary: #4f46e5; /* Indigo 600 */
+    --on-primary: #ffffff;
+    --primary-container: #e0e7ff; /* Indigo 100 */
+    
+    --secondary: #f59e0b; /* Amber 500 */
+    --tertiary-container: #ede9fe; /* Violet 100 */
+    --surface-tint: #4f46e5;
+  }
+
+  .dark {
+    /* 🌙 DARK MODE TOKENS */
+    --background: #09090b;
+    --on-background: #fafafa;
+    --surface: #121214;
+    --on-surface: #fafafa;
+    --surface-variant: #27272a;
+    --on-surface-variant: #a1a1aa;
+    --surface-container: #18181b;
+    --surface-container-high: #27272a;
+    --surface-container-highest: #3f3f46;
+    
+    --primary: #818cf8; /* Indigo 400 */
+    --on-primary: #09090b;
+    --primary-container: #3730a3; /* Indigo 800 */
+    
+    --secondary: #fbbf24; /* Amber 400 */
+    --tertiary-container: #4c1d95; /* Violet 900 */
+    --surface-tint: #818cf8;
+  }
+}
+
+@layer base {
   /* 🔒 NATIVE APP VIEWPORT LOCK & PROTECTION RESETS */
-  /* Blocks rubber-banding, selection callouts, and highlight flashes globally */
   html, body {
     overscroll-behavior-y: none; 
     height: 100%;
@@ -21,24 +64,19 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* 🌌 NEW STITCH UI FOUNDATION */
+  /* 🌌 NEW UI FOUNDATION */
   body {
-    /* Pulls directly from your new tailwind.config.ts setup */
-    @apply bg-background text-on-background font-body overflow-x-hidden;
+    @apply bg-background text-on-background overflow-x-hidden transition-colors duration-300;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   /* 🖼️ NATIVE IMAGE PROPERTY HARDENING */
   img {
-    /* Prevents the iOS long-press context popup from firing on assets */
     -webkit-touch-callout: none;
-    
-    /* Disables web-style transparent ghost image dragging mechanics */
     -webkit-user-drag: none;
   }
 
   /* ⌨️ SYSTEM EXCEPTIONS */
-  /* Explicitly re-enables focus selecting so keyboard typing and inputs still work */
   input, textarea {
     -webkit-user-select: text;
     -moz-user-select: text;
@@ -48,7 +86,6 @@
 }
 
 /* 📜 PREMIUM SCROLLING MECHANICS */
-/* Hides scrollbars while keeping functionality intact for flex containers */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -66,8 +103,13 @@
 }
 
 .gradient-pill-primary {
-  background: linear-gradient(135deg, #c3f400 0%, #7df4ff 100%);
-  color: #161e00;
+  background: linear-gradient(135deg, var(--primary) 0%, #a5b4fc 100%);
+  color: #ffffff;
+}
+
+.dark .gradient-pill-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, #3730a3 100%);
+  color: #fafafa;
 }
 
 .game-card-gradient {
@@ -75,7 +117,6 @@
 }
 
 /* 🤩 FLOATING EMOJI ANIMATION */
-/* Handles the interactive WebSockets reaction logic for the game boards */
 @keyframes float-up {
   0% { transform: translateY(0) scale(0.8); opacity: 0; }
   10% { opacity: 1; transform: translateY(-20px) scale(1.2); }

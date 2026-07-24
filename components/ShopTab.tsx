@@ -11,9 +11,9 @@ const COIN_PACKAGES = [
 
 const COSMETIC_ITEMS = [
   { id: "cos_1", title: "Neon Glow Striker", type: "Carrom Striker", price: 2500, icon: "radio_button_checked", color: "text-amber-500" },
-  { id: "cos_2", title: "Obsidian Matrix Board", type: "Arena Skin", price: 8000, icon: "grid_4x4", color: "text-indigo-600 dark:text-indigo-400" },
+  { id: "cos_2", title: "Obsidian Matrix Board", type: "Arena Skin", price: 8000, icon: "grid_4x4", color: "text-indigo-500" },
   { id: "cos_3", title: "Crown VIP Badge", type: "Profile Badge", price: 1500, icon: "workspace_premium", color: "text-yellow-500" },
-  { id: "cos_4", title: "Holographic Dice", type: "3D Asset", price: 4000, icon: "casino", color: "text-emerald-600 dark:text-emerald-400" },
+  { id: "cos_4", title: "Holographic Dice", type: "3D Asset", price: 4000, icon: "casino", color: "text-emerald-500" },
 ];
 
 interface ShopTabProps {
@@ -115,38 +115,38 @@ export default function ShopTab({ userId }: ShopTabProps) {
   };
 
   return (
-    <div className="w-full flex flex-col gap-4 pb-12 animate-fade-in text-neutral-800 dark:text-on-background">
+    <div className="w-full flex flex-col gap-4 pb-12 animate-fade-in text-on-surface">
       
-      {/* 🎡 DAILY REWARD: FORTUNE WHEEL (Theme Adaptive Layout) */}
-      <section className="bg-white/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 backdrop-blur-xl rounded-[24px] p-5 flex flex-col items-center text-center relative overflow-hidden shadow-sm transition-colors duration-300">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-indigo-500/5 dark:bg-primary-container/10 blur-3xl rounded-full pointer-events-none"></div>
+      {/* 🎡 DAILY REWARD: FORTUNE WHEEL */}
+      <section className="bg-surface/80 border border-surface-container-highest backdrop-blur-xl rounded-[24px] p-5 flex flex-col items-center text-center relative overflow-hidden shadow-sm transition-colors duration-300">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-primary-container/20 blur-3xl rounded-full pointer-events-none"></div>
         
-        <h2 className="font-headline text-base font-black text-neutral-900 dark:text-primary tracking-tight relative z-10">Daily Fortune Wheel</h2>
-        <p className="font-body text-[11px] text-neutral-500 dark:text-on-surface-variant relative z-10">Spin the matrix core module to extract free tokens.</p>
+        <h2 className="font-headline text-base font-black text-on-surface tracking-tight relative z-10">Daily Fortune Wheel</h2>
+        <p className="font-body text-[11px] text-on-surface-variant relative z-10">Spin the matrix core module to extract free tokens.</p>
 
         {/* 3D Core Spinner Layout Block */}
         <div className="relative w-36 h-36 mt-4 mb-4 flex items-center justify-center z-10">
-          <div className={`w-full h-full rounded-full border-4 border-neutral-200 dark:border-surface-container-high bg-neutral-50 dark:bg-surface-container flex items-center justify-center relative shadow-inner transition-transform duration-[2.5s] ease-out ${isSpinning ? "rotate-[1440deg]" : ""}`}>
-            <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg_90deg,rgba(79,70,229,0.04)_90deg_180deg,transparent_180deg_270deg,rgba(79,70,229,0.04)_270deg_360deg)]"></div>
+          <div className={`w-full h-full rounded-full border-4 border-surface-container-highest bg-surface-container flex items-center justify-center relative shadow-inner transition-transform duration-[2.5s] ease-out ${isSpinning ? "rotate-[1440deg]" : ""}`}>
+            <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg_90deg,rgba(150,150,150,0.05)_90deg_180deg,transparent_180deg_270deg,rgba(150,150,150,0.05)_270deg_360deg)]"></div>
             
-            <div className="w-12 h-12 bg-white dark:bg-surface border-2 border-indigo-600 dark:border-primary-container rounded-full z-20 flex items-center justify-center shadow-md">
-              <span className="material-symbols-outlined text-indigo-600 dark:text-primary-container text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
+            <div className="w-12 h-12 bg-surface border-2 border-primary rounded-full z-20 flex items-center justify-center shadow-md">
+              <span className="material-symbols-outlined text-primary text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
             </div>
 
             {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
-              <div key={deg} className="absolute w-1.5 h-1.5 bg-neutral-300 dark:bg-secondary rounded-full" style={{ transform: `rotate(${deg}deg) translateY(-54px)` }}></div>
+              <div key={deg} className="absolute w-1.5 h-1.5 bg-on-surface-variant rounded-full" style={{ transform: `rotate(${deg}deg) translateY(-54px)` }}></div>
             ))}
           </div>
           
-          <div className="absolute -top-2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[14px] border-t-indigo-600 dark:border-t-primary-container z-30"></div>
+          <div className="absolute -top-2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[14px] border-t-primary z-30"></div>
         </div>
 
         {/* Dynamic Action Trigger Blocks */}
         <div className="h-10 flex items-center justify-center w-full z-10">
           {spinReward ? (
             <div className="animate-fade-in flex flex-col items-center">
-              <span className="font-headline text-lg font-black text-indigo-600 dark:text-primary-container">+{spinReward} PTS</span>
-              <span className="font-caps text-[8px] tracking-widest text-neutral-400 uppercase font-bold mt-0.5">Ledger Transferred</span>
+              <span className="font-headline text-lg font-black text-primary">+{spinReward} PTS</span>
+              <span className="font-caps text-[8px] tracking-widest text-on-surface-variant uppercase font-bold mt-0.5">Ledger Transferred</span>
             </div>
           ) : (
             <button 
@@ -155,7 +155,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
               className={`w-full max-w-[200px] py-2.5 rounded-xl font-headline text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
                 canSpin && !isSpinning && userId
                   ? "gradient-pill-primary shadow-md hover:scale-[0.98] active:scale-95" 
-                  : "bg-neutral-100 dark:bg-white/5 text-neutral-400 border border-neutral-200 dark:border-white/10 cursor-not-allowed"
+                  : "bg-surface-container-highest text-on-surface-variant border border-surface-container-highest cursor-not-allowed"
               }`}
             >
               {isSpinning ? "Extracting..." : canSpin ? "Spin Core" : `Cooldown: ${timeLeft}`}
@@ -165,13 +165,13 @@ export default function ShopTab({ userId }: ShopTabProps) {
       </section>
 
       {/* 🏬 STOREFRONT CATEGORY SWITCHER */}
-      <div className="bg-white/50 dark:bg-surface-container/50 backdrop-blur-md p-1 rounded-xl flex items-center border border-neutral-200 dark:border-white/5 shadow-sm transition-colors duration-300">
+      <div className="bg-surface/50 backdrop-blur-md p-1 rounded-xl flex items-center border border-surface-container-highest shadow-sm transition-colors duration-300">
         <button
           onClick={() => setActiveCategory("points")}
           className={`flex-1 py-2 font-caps text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 ${
             activeCategory === "points" 
-              ? "bg-white dark:bg-surface-container-high text-indigo-600 dark:text-primary shadow-sm" 
-              : "text-neutral-400 hover:text-indigo-600 dark:hover:text-white"
+              ? "bg-surface-container-high text-primary shadow-sm" 
+              : "text-on-surface-variant hover:text-primary"
           }`}
         >
           <span className="material-symbols-outlined text-sm">monetization_on</span>
@@ -181,8 +181,8 @@ export default function ShopTab({ userId }: ShopTabProps) {
           onClick={() => setActiveCategory("cosmetics")}
           className={`flex-1 py-2 font-caps text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 ${
             activeCategory === "cosmetics" 
-              ? "bg-white dark:bg-surface-container-high text-indigo-600 dark:text-primary shadow-sm" 
-              : "text-neutral-400 hover:text-indigo-600 dark:hover:text-white"
+              ? "bg-surface-container-high text-primary shadow-sm" 
+              : "text-on-surface-variant hover:text-primary"
           }`}
         >
           <span className="material-symbols-outlined text-sm">auto_awesome</span>
@@ -193,20 +193,20 @@ export default function ShopTab({ userId }: ShopTabProps) {
       {/* 🪙 COMPACT HIGH-CONTRAST STORE ITEMS GRID */}
       <div className="grid grid-cols-2 gap-3">
         {activeCategory === "points" && COIN_PACKAGES.map((pack) => (
-          <div key={pack.id} className="bg-white/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-2xl p-4 flex flex-col items-center text-center relative overflow-hidden shadow-sm transition-colors duration-300">
+          <div key={pack.id} className="bg-surface/80 border border-surface-container-highest rounded-2xl p-4 flex flex-col items-center text-center relative overflow-hidden shadow-sm transition-colors duration-300 hover:bg-surface-variant cursor-pointer group">
             {pack.popular && (
-              <div className="absolute top-0 w-full bg-indigo-600 dark:bg-primary-container text-white dark:text-neutral-950 font-caps text-[7px] font-bold py-0.5 uppercase tracking-widest">
+              <div className="absolute top-0 w-full bg-primary-container text-primary font-caps text-[7px] font-bold py-0.5 uppercase tracking-widest border-b border-primary/20">
                 Popular
               </div>
             )}
-            <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/5 flex items-center justify-center mt-2 mb-2">
-              <span className="material-symbols-outlined text-xl text-indigo-600 dark:text-surface-tint" style={{ fontVariationSettings: "'FILL' 1" }}>toll</span>
+            <div className="w-10 h-10 rounded-xl bg-surface-container-highest border border-surface-container-highest flex items-center justify-center mt-2 mb-2 group-hover:bg-primary-container/20 transition-colors">
+              <span className="material-symbols-outlined text-xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>toll</span>
             </div>
-            <h3 className="font-headline text-xs font-black text-neutral-900 dark:text-white">{pack.amount.toLocaleString()} PTS</h3>
-            <p className="font-caps text-[8px] text-neutral-400 dark:text-on-surface-variant uppercase mt-0.5 tracking-wider">{pack.title}</p>
+            <h3 className="font-headline text-xs font-black text-on-surface">{pack.amount.toLocaleString()} PTS</h3>
+            <p className="font-caps text-[8px] text-on-surface-variant uppercase mt-0.5 tracking-wider">{pack.title}</p>
             <button 
               onClick={() => executePaymentGateway(pack.title, pack.amount)}
-              className="mt-3 w-full py-2 bg-neutral-100 dark:bg-white/10 text-indigo-600 dark:text-primary font-headline text-[11px] font-bold rounded-lg border border-neutral-200 dark:border-white/5 active:scale-[0.97] transition-transform"
+              className="mt-3 w-full py-2 bg-surface-container-highest text-primary font-headline text-[11px] font-bold rounded-lg border border-surface-container-highest active:scale-[0.97] transition-transform hover:bg-primary/10 hover:border-primary/30"
             >
               {pack.price}
             </button>
@@ -214,15 +214,15 @@ export default function ShopTab({ userId }: ShopTabProps) {
         ))}
 
         {activeCategory === "cosmetics" && COSMETIC_ITEMS.map((item) => (
-          <div key={item.id} className="bg-white/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-2xl p-4 flex flex-col items-center text-center shadow-sm transition-colors duration-300">
-            <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/5 flex items-center justify-center mb-2">
+          <div key={item.id} className="bg-surface/80 border border-surface-container-highest rounded-2xl p-4 flex flex-col items-center text-center shadow-sm transition-colors duration-300 hover:bg-surface-variant cursor-pointer group">
+            <div className="w-10 h-10 rounded-xl bg-surface-container-highest border border-surface-container-highest flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
               <span className={`material-symbols-outlined text-xl ${item.color}`} style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
             </div>
-            <h3 className="font-headline text-[11px] font-bold text-neutral-900 dark:text-white leading-tight h-6 flex items-center truncate max-w-full">{item.title}</h3>
-            <p className="font-caps text-[7px] text-neutral-400 dark:text-on-surface-variant mt-0.5 uppercase tracking-wider">{item.type}</p>
+            <h3 className="font-headline text-[11px] font-bold text-on-surface leading-tight h-6 flex items-center justify-center text-center w-full">{item.title}</h3>
+            <p className="font-caps text-[7px] text-on-surface-variant mt-0.5 uppercase tracking-wider">{item.type}</p>
             <button 
               onClick={() => alert("Balance deduction hook and visual asset ownership check routing initialized...")}
-              className="mt-3 w-full py-2 bg-neutral-100 dark:bg-white/10 text-indigo-600 dark:text-primary font-headline text-[10px] font-bold rounded-lg border border-neutral-200 dark:border-white/5 flex items-center justify-center gap-0.5 active:scale-[0.97] transition-transform"
+              className="mt-3 w-full py-2 bg-surface-container-highest text-primary font-headline text-[10px] font-bold rounded-lg border border-surface-container-highest flex items-center justify-center gap-0.5 active:scale-[0.97] transition-transform hover:bg-primary/10 hover:border-primary/30"
             >
               <span className="material-symbols-outlined text-xs">monetization_on</span>
               {item.price.toLocaleString()}

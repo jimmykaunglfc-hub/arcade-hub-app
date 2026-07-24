@@ -1,7 +1,7 @@
-// tailwind.config.ts
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class", // Enables manual or system dark mode switching
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -10,31 +10,36 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        "background": "#061426",
-        "surface": "#061426",
-        "surface-container": "#132033",
-        "surface-container-high": "#1d2a3e",
-        "surface-container-low": "#0e1c2f",
-        "surface-container-lowest": "#020e21",
-        "surface-tint": "#abd600",
-        "primary-container": "#c3f400",
-        "tertiary-container": "#7df4ff",
-        "on-background": "#d6e3fe",
-        "on-surface": "#d6e3fe",
-        "on-surface-variant": "#c4c9ac",
-        "secondary": "#ffc07a",
+        background: "var(--background)",
+        "on-background": "var(--on-background)",
+        surface: "var(--surface)",
+        "on-surface": "var(--on-surface)",
+        "surface-variant": "var(--surface-variant)",
+        "on-surface-variant": "var(--on-surface-variant)",
+        "surface-container": "var(--surface-container)",
+        "surface-container-high": "var(--surface-container-high)",
+        "surface-container-highest": "var(--surface-container-highest)",
+        primary: "var(--primary)",
+        "on-primary": "var(--on-primary)",
+        "primary-container": "var(--primary-container)",
+        secondary: "var(--secondary)",
+        "tertiary-container": "var(--tertiary-container)",
+        "surface-tint": "var(--surface-tint)",
       },
       fontFamily: {
-        headline: ["Plus Jakarta Sans", "sans-serif"],
-        body: ["Inter", "sans-serif"],
-        caps: ["JetBrains Mono", "monospace"],
+        headline: ["var(--font-headline)", "sans-serif"],
+        body: ["var(--font-body)", "sans-serif"],
+        caps: ["var(--font-caps)", "sans-serif"],
       },
-      spacing: {
-        "element-gap": "12px",
-        "section-margin": "32px",
-        "container-padding": "20px",
-        "safe-area-top": "44px",
-      }
+      animation: {
+        "fade-in": "fadeIn 0.3s ease-out forwards",
+      },
+      keyframes: {
+        fadeIn: {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+      },
     },
   },
   plugins: [],

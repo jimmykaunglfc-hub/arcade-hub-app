@@ -196,21 +196,21 @@ export default function GamesTab({
       
       {/* 🎁 REWARD MULTIPLIER HUD */}
       {!isolatedCategory && (
-        <section className={`bg-white/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 backdrop-blur-xl rounded-2xl p-3.5 flex items-center justify-between transition-all duration-300 ${rewardClaimed ? "opacity-50" : "shadow-sm border-indigo-500/20"}`}>
+        <section className={`bg-surface/80 backdrop-blur-xl rounded-2xl p-3.5 flex items-center justify-between transition-all duration-300 ${rewardClaimed ? "opacity-50 border border-surface-container-highest" : "shadow-sm border border-primary/20"}`}>
           <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 flex items-center justify-center rounded-xl border border-neutral-200 dark:border-white/10 transition-all ${rewardClaimed ? "bg-neutral-100 dark:bg-white/5 text-neutral-400" : "bg-indigo-600 dark:bg-primary-container text-white dark:text-neutral-950 shadow-sm"}`}>
+            <div className={`w-9 h-9 flex items-center justify-center rounded-xl border border-surface-container-highest transition-all ${rewardClaimed ? "bg-surface-container-highest text-on-surface-variant" : "bg-primary text-on-primary shadow-sm"}`}>
               <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>card_giftcard</span>
             </div>
             <div>
-              <h3 className={`font-caps text-[9px] uppercase tracking-wider ${rewardClaimed ? "text-neutral-400" : "text-indigo-600 dark:text-surface-tint"}`}>Daily Multiplier</h3>
-              <p className="font-headline text-xs font-bold tracking-tight mt-0.5 text-neutral-900 dark:text-white">{rewardClaimed ? "Credits Synced" : "Claim +250 Credits"}</p>
+              <h3 className={`font-caps text-[9px] uppercase tracking-wider ${rewardClaimed ? "text-on-surface-variant" : "text-primary"}`}>Daily Multiplier</h3>
+              <p className="font-headline text-xs font-bold tracking-tight mt-0.5 text-on-surface">{rewardClaimed ? "Credits Synced" : "Claim +250 Credits"}</p>
             </div>
           </div>
           
           <button
             onClick={handleDailyCheckIn}
             disabled={rewardClaimed || claiming}
-            className={`h-8 px-3 rounded-lg font-headline text-[11px] font-bold uppercase tracking-wider transition-all ${rewardClaimed ? "bg-neutral-100 dark:bg-white/5 text-neutral-400 border border-neutral-200 dark:border-white/10 cursor-not-allowed" : "gradient-pill-primary shadow-md"}`}
+            className={`h-8 px-3 rounded-lg font-headline text-[11px] font-bold uppercase tracking-wider transition-all ${rewardClaimed ? "bg-surface-container-highest text-on-surface-variant border border-surface-container-highest cursor-not-allowed" : "gradient-pill-primary shadow-md"}`}
           >
             {claiming ? "Syncing..." : rewardClaimed ? "Claimed" : "Claim"}
           </button>
@@ -219,22 +219,22 @@ export default function GamesTab({
 
       {/* 🎯 DYNAMIC HERO HUB BANNER */}
       {!isolatedCategory && featuredGame && (
-        <section className="relative w-full rounded-[20px] overflow-hidden bg-white/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 backdrop-blur-xl min-h-[220px] flex items-center justify-between p-5 shadow-sm transition-colors duration-300">
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 dark:from-tertiary-container/10 to-transparent pointer-events-none"></div>
+        <section className="relative w-full rounded-[20px] overflow-hidden bg-surface/80 border border-surface-container-highest backdrop-blur-xl min-h-[220px] flex items-center justify-between p-5 shadow-sm transition-colors duration-300">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary-container/20 to-transparent pointer-events-none"></div>
           
           <div className="relative z-10 max-w-[210px] space-y-2">
-            <span className="inline-flex items-center font-caps text-[8px] px-1.5 py-0.5 rounded bg-indigo-500/10 dark:bg-primary-container/20 text-indigo-600 dark:text-primary-fixed font-bold uppercase tracking-widest border border-indigo-500/10 dark:border-primary-container/10">
+            <span className="inline-flex items-center font-caps text-[8px] px-1.5 py-0.5 rounded bg-primary-container/30 text-primary font-bold uppercase tracking-widest border border-primary/10">
               Featured Arena
             </span>
-            <h1 className="font-headline text-xl font-black text-[#091428] dark:text-white leading-tight">
+            <h1 className="font-headline text-xl font-black text-on-surface leading-tight">
               {featuredGame.title}
             </h1>
-            <p className="font-body text-[10px] text-neutral-500 dark:text-on-surface-variant leading-snug line-clamp-2">
+            <p className="font-body text-[10px] text-on-surface-variant leading-snug line-clamp-2">
               {featuredGame.description || "Jump into the action and climb the community boards."}
             </p>
             <button 
               onClick={() => executeLaunchEngine(formatGameSlug(featuredGame.title), featuredGame.entry_fee)}
-              className="gradient-pill-primary font-caps text-[9px] font-extrabold uppercase tracking-widest px-4 py-2 rounded-full shadow-md flex items-center justify-center gap-1 mt-2"
+              className="gradient-pill-primary font-caps text-[9px] font-extrabold uppercase tracking-widest px-4 py-2 rounded-full shadow-md flex items-center justify-center gap-1 mt-2 transition-transform active:scale-95"
             >
               Play Now {featuredGame.entry_fee > 0 && `(${featuredGame.entry_fee} PTS)`}
               <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
@@ -263,11 +263,11 @@ export default function GamesTab({
         {displayedCategories.map((category) => (
           <section key={category.id} className="space-y-2">
             <div className="flex justify-between items-end px-1">
-              <div className="flex items-center gap-2 text-[#091428] dark:text-white">
+              <div className="flex items-center gap-2 text-on-surface">
                 {isolatedCategory && (
                   <button 
                     onClick={() => setIsolatedCategory(null)} 
-                    className="w-6 h-6 rounded-full bg-neutral-200 dark:bg-white/10 flex items-center justify-center mr-0.5 text-[#091428] dark:text-primary"
+                    className="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center mr-0.5 text-on-surface hover:bg-surface-variant transition-colors"
                   >
                     <span className="material-symbols-outlined text-xs">arrow_back_ios_new</span>
                   </button>
@@ -282,7 +282,7 @@ export default function GamesTab({
               {!isolatedCategory && (
                 <button 
                   onClick={() => setIsolatedCategory(category.id)} 
-                  className="font-caps text-[9px] text-indigo-600 dark:text-surface-tint tracking-widest uppercase font-bold"
+                  className="font-caps text-[9px] text-primary tracking-widest uppercase font-bold hover:opacity-80 transition-opacity"
                 >
                   See All
                 </button>
@@ -299,8 +299,8 @@ export default function GamesTab({
                     key={game.id} 
                     onClick={() => executeLaunchEngine(game.url, game.entry_fee)}
                     className={isolatedCategory 
-                      ? "relative w-full h-[180px] rounded-[16px] overflow-hidden group cursor-pointer border border-neutral-200 dark:border-white/5 shadow-sm"
-                      : "relative min-w-[210px] w-[58vw] md:min-w-[230px] h-[255px] rounded-[20px] overflow-hidden snap-start flex-shrink-0 group cursor-pointer border border-neutral-200 dark:border-white/5 shadow-sm"
+                      ? "relative w-full h-[180px] rounded-[16px] overflow-hidden group cursor-pointer border border-surface-container-highest shadow-sm"
+                      : "relative min-w-[210px] w-[58vw] md:min-w-[230px] h-[255px] rounded-[20px] overflow-hidden snap-start flex-shrink-0 group cursor-pointer border border-surface-container-highest shadow-sm"
                     }
                   >
                     <div className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" style={{ backgroundImage: `url('${game.bgImage}')` }}></div>
