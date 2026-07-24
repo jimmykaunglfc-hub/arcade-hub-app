@@ -299,7 +299,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       <div className="w-full animate-fade-in text-on-surface flex flex-col gap-2 pb-6">
         
         {/* ADAPTIVE HUB SWITCHER BAR */}
-        <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-3 -mx-5 px-5">
+        <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-3">
           {[
             { id: "dms", label: "Messages" },
             { id: "groups", label: "Groups" },

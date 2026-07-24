@@ -3,14 +3,16 @@
 @tailwind utilities;
 
 @layer base {
-  /* ☀️ LIGHT MODE TOKENS (Matches image_cbb418.jpg) */
+  /* ☀️ LIGHT MODE TOKENS */
   :root {
-    --background: #F6F7F9;
+    --background: #FFFFFF; /* FIXED: Pure white background */
     --on-background: #0B0F19;
-    --surface: #FFFFFF;
+    
+    --surface: #F6F7F9; /* FIXED: Light grey cards to contrast with white bg */
     --on-surface: #0B0F19;
-    --surface-variant: #F0F2F5; 
+    --surface-variant: #EAEFF5; 
     --on-surface-variant: #6C7A8E;
+    
     --surface-container: #FFFFFF;
     --surface-container-high: #EAEFF5;
     --surface-container-highest: #E2E7ED;
@@ -25,14 +27,16 @@
     --surface-tint: #88E000;
   }
 
-  /* 🌙 DARK MODE TOKENS (Matches image_cbb3de.jpg) */
+  /* 🌙 DARK MODE TOKENS */
   .dark {
     --background: #070A12; /* Deep Dark Navy */
     --on-background: #FFFFFF;
+    
     --surface: #121824; /* Dark Surface Card */
     --on-surface: #FFFFFF;
     --surface-variant: #182030; 
     --on-surface-variant: #8E9BAE;
+    
     --surface-container: #121824;
     --surface-container-high: #1E283C;
     --surface-container-highest: #25324B;

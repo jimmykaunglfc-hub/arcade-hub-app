@@ -29,7 +29,7 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
     <div className="w-full pb-6 animate-fade-in">
       
       {/* 🏆 HERO CARD: CURRENT SEASON */}
-      <section className="w-full bg-primary text-on-primary rounded-[24px] p-6 shadow-[0_8px_32px_rgba(157,255,0,0.15)] transition-all duration-300">
+      <section className="w-full bg-primary text-on-primary rounded-[24px] p-6 shadow-sm transition-all duration-300">
         <div className="flex items-center gap-1.5 mb-2 opacity-80">
           <span className="material-symbols-outlined text-sm">emoji_events</span>
           <span className="font-caps text-[10px] font-bold uppercase tracking-widest">
@@ -40,25 +40,26 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
         <h1 className="font-headline text-3xl font-black leading-tight tracking-tight">
           Diamond II
         </h1>
-        <p className="font-body text-xs font-medium text-on-primary/70 mt-1">
+        <p className="font-body text-xs font-medium text-on-primary opacity-80 mt-1">
           Top 4% of players globally
         </p>
 
         {/* Stats Row */}
-        <div className="flex justify-between items-center mt-6 pt-4 border-t border-on-primary/10">
+        {/* FIXED: Replaced border-on-primary/10 with standard black/10 since on-primary is dark */}
+        <div className="flex justify-between items-center mt-6 pt-4 border-t border-black/10">
           <div className="flex flex-col items-start">
             <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">Win Rate</span>
             <span className="font-headline text-lg font-black mt-0.5">64.2%</span>
           </div>
           
-          <div className="w-px h-8 bg-on-primary/10"></div>
+          <div className="w-px h-8 bg-black/10"></div>
           
           <div className="flex flex-col items-center">
             <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">KDA</span>
             <span className="font-headline text-lg font-black mt-0.5">3.8</span>
           </div>
           
-          <div className="w-px h-8 bg-on-primary/10"></div>
+          <div className="w-px h-8 bg-black/10"></div>
           
           <div className="flex flex-col items-end">
             <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">Hours</span>
@@ -89,8 +90,8 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
             onClick={() => alert("Spin wheel logic routing...")}
             className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
           >
-            {/* Translucent Purple Circle */}
-            <div className="w-14 h-14 rounded-full bg-secondary/20 flex items-center justify-center">
+            {/* FIXED: Replaced bg-secondary/20 with semantic bg-secondary-container */}
+            <div className="w-14 h-14 rounded-full bg-secondary-container flex items-center justify-center shadow-sm">
               <span className="material-symbols-outlined text-secondary text-[24px]">casino</span>
             </div>
             <span className="font-headline text-sm font-bold text-on-surface">Spin</span>
@@ -100,9 +101,9 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
             onClick={() => alert("Detailed stats routing...")}
             className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
           >
-            {/* Translucent Blue Circle */}
-            <div className="w-14 h-14 rounded-full bg-blue-500/20 flex items-center justify-center">
-              <span className="material-symbols-outlined text-blue-400 text-[24px]">polyline</span>
+            {/* FIXED: Replaced bg-blue-500/20 with a solid container fallback to prevent opacity breaking */}
+            <div className="w-14 h-14 rounded-full bg-surface-container-highest flex items-center justify-center shadow-sm">
+              <span className="material-symbols-outlined text-blue-500 text-[24px]">polyline</span>
             </div>
             <span className="font-headline text-sm font-bold text-on-surface">Stats</span>
           </button>
