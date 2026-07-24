@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 interface GamesTabProps {
-  rewardClaimed: boolean;
+  rewardClaimed: boolean; // Kept for prop signature compatibility
   setRewardClaimed: (status: boolean) => void;
   currentPoints: number;
   userId: string | null;
@@ -12,22 +12,18 @@ interface GamesTabProps {
 }
 
 export default function GamesTab({ 
-  rewardClaimed, 
-  setRewardClaimed, 
   currentPoints, 
   userId, 
   onPlay 
 }: GamesTabProps) {
-  const [isolatedCategory, setIsolatedCategory] = useState<string | null>(null);
-  const [claiming, setClaiming] = useState(false);
-
+  const [activeCategory, setActiveCategory] = useState<string>("All");
+  
   // Dynamic States
   const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [dbGames, setDbGames] = useState<any[]>([]);
-  const [featuredGame, setFeaturedGame] = useState<any>(null);
   const [, setLoading] = useState(true);
 
-  // Helper for clean native routing slugs (e.g. "Snooker" -> "native://snooker")
+  // Helper for clean native routing slugs
   const formatGameSlug = (title: string) => {
     const slug = title
       .toLowerCase()
@@ -57,14 +53,6 @@ export default function GamesTab({
     
     if (gameData) {
       setDbGames(gameData);
-      
-      // 3. FEATURED GAME LOGIC: Find manually featured game, OR fallback to the newest active game
-      const manuallyFeatured = gameData.find((g: any) => g.is_featured);
-      if (manuallyFeatured) {
-        setFeaturedGame(manuallyFeatured);
-      } else if (gameData.length > 0) {
-        setFeaturedGame(gameData[0]); 
-      }
     }
     
     setLoading(false);
@@ -74,113 +62,27 @@ export default function GamesTab({
     fetchLiveArcadeData();
   }, []);
 
-  // Format data for UI grouping
-  const formattedCategories = dbCategories.map(cat => {
-    const catGames = dbGames.filter(g => g.category === cat.name).map(g => ({
-      id: g.id,
-      title: g.title,
-      genre: g.description || "Arcade Game",
-      playersOnline: g.entry_fee === 0 ? "Local Party" : "Live PvP", 
-      bgImage: g.image_url,
-      url: formatGameSlug(g.title),
-      entry_fee: g.entry_fee
-    }));
-    
-    return {
-      id: cat.id,
-      name: cat.name,
-      icon: cat.icon_url, 
-      games: catGames
-    };
-  }).filter(cat => cat.games.length > 0);
-
-  const uncategorizedGames = dbGames.filter(g => !g.category || g.category === "Uncategorized");
-  if (uncategorizedGames.length > 0) {
-    formattedCategories.push({
-      id: "uncategorized",
-      name: "Uncategorized",
-      icon: "sports_esports",
-      games: uncategorizedGames.map(g => ({
-        id: g.id,
-        title: g.title,
-        genre: g.description || "Arcade Game",
-        playersOnline: g.entry_fee === 0 ? "Local Party" : "Live PvP",
-        bgImage: g.image_url,
-        url: formatGameSlug(g.title),
-        entry_fee: g.entry_fee
-      }))
-    });
-  }
-
-  const displayedCategories = isolatedCategory 
-    ? formattedCategories.filter(c => c.id === isolatedCategory) 
-    : formattedCategories;
-
-  // --- EARN POINTS LINKED TO LEDGER ---
-  const handleDailyCheckIn = async () => {
-    if (rewardClaimed || !userId || claiming) return;
-    setClaiming(true);
-
-    try {
-      const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("points")
-        .eq("id", userId)
-        .single();
-        
-      const startingPoints = currentProfile?.points ?? 0;
-      const prizeAmount = 250;
-
-      // 1. Update Profile Balance
-      await supabase.from("profiles")
-        .update({
-          points: startingPoints + prizeAmount,
-          last_login_claim: new Date().toISOString()
-        })
-        .eq("id", userId);
-
-      // 2. Log to Economy Transaction Ledger
-      await supabase.from("transactions").insert({
-        user_id: userId,
-        amount: prizeAmount,
-        transaction_type: "daily_reward",
-        description: "Claimed daily entry matrix allowance multiplier rewards"
-      });
-
-      setRewardClaimed(true);
-      alert(`Success! +${prizeAmount} credits successfully minted and signed to ledger.`);
-    } catch (err) {
-      console.error("Ledger communication error:", err);
-    } finally {
-      setClaiming(false);
-    }
-  };
-
   // --- SPEND POINTS LINKED TO LEDGER ---
   const executeLaunchEngine = async (url: string, entryFee: number = 0) => {
     if (currentPoints < entryFee && entryFee > 0) {
-      alert("Matchmaking Halted: You have depleted your network credits. Spin the Shop core wheel or purchase a points voucher to resume online multiplayer matches.");
+      alert("Matchmaking Halted: You have depleted your network credits. Visit the Store to resume online matches.");
       return;
     }
 
-    // If the game charges credits, dynamically process ledger entry before execution
     if (entryFee > 0 && userId) {
       try {
-        // 1. Deduct cost from account balance
         const { error: profileError } = await supabase.from("profiles")
           .update({ points: currentPoints - entryFee })
           .eq("id", userId);
 
         if (profileError) throw profileError;
 
-        // 2. Write receipt record into transaction history
         await supabase.from("transactions").insert({
           user_id: userId,
           amount: -entryFee,
           transaction_type: "match_fee",
           description: `Authorized arena connection payload for game route: ${url}`
         });
-
       } catch (err) {
         console.error("Economy connection ledger synchronization failed:", err);
         alert("Network Handshake Aborted: Security engine could not securely clear entry cost from ledger nodes.");
@@ -191,143 +93,94 @@ export default function GamesTab({
     onPlay(url);
   };
 
+  // Filter games based on selected category pill
+  const filteredGames = activeCategory === "All" 
+    ? dbGames 
+    : dbGames.filter(g => g.category === activeCategory);
+
   return (
-    <div className="space-y-4 w-full pb-6">
+    <div className="w-full pb-6 animate-fade-in">
       
-      {/* 🎁 REWARD MULTIPLIER HUD */}
-      {!isolatedCategory && (
-        <section className={`bg-surface/80 backdrop-blur-xl rounded-2xl p-3.5 flex items-center justify-between transition-all duration-300 ${rewardClaimed ? "opacity-50 border border-surface-container-highest" : "shadow-sm border border-primary/20"}`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 flex items-center justify-center rounded-xl border border-surface-container-highest transition-all ${rewardClaimed ? "bg-surface-container-highest text-on-surface-variant" : "bg-primary text-on-primary shadow-sm"}`}>
-              <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>card_giftcard</span>
-            </div>
-            <div>
-              <h3 className={`font-caps text-[9px] uppercase tracking-wider ${rewardClaimed ? "text-on-surface-variant" : "text-primary"}`}>Daily Multiplier</h3>
-              <p className="font-headline text-xs font-bold tracking-tight mt-0.5 text-on-surface">{rewardClaimed ? "Credits Synced" : "Claim +250 Credits"}</p>
-            </div>
-          </div>
-          
+      {/* 🏷️ HORIZONTAL CATEGORY PILLS */}
+      <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 mb-6 -mx-5 px-5">
+        <button
+          onClick={() => setActiveCategory("All")}
+          className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all ${
+            activeCategory === "All" 
+              ? "bg-primary text-black" 
+              : "bg-surface text-on-surface-variant hover:text-white"
+          }`}
+        >
+          All
+        </button>
+        {dbCategories.map((cat) => (
           <button
-            onClick={handleDailyCheckIn}
-            disabled={rewardClaimed || claiming}
-            className={`h-8 px-3 rounded-lg font-headline text-[11px] font-bold uppercase tracking-wider transition-all ${rewardClaimed ? "bg-surface-container-highest text-on-surface-variant border border-surface-container-highest cursor-not-allowed" : "gradient-pill-primary shadow-md"}`}
+            key={cat.id}
+            onClick={() => setActiveCategory(cat.name)}
+            className={`px-5 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all ${
+              activeCategory === cat.name 
+                ? "bg-primary text-black" 
+                : "bg-surface text-on-surface-variant hover:text-white"
+            }`}
           >
-            {claiming ? "Syncing..." : rewardClaimed ? "Claimed" : "Claim"}
+            {cat.name}
           </button>
-        </section>
-      )}
+        ))}
+      </div>
 
-      {/* 🎯 DYNAMIC HERO HUB BANNER */}
-      {!isolatedCategory && featuredGame && (
-        <section className="relative w-full rounded-[20px] overflow-hidden bg-surface/80 border border-surface-container-highest backdrop-blur-xl min-h-[220px] flex items-center justify-between p-5 shadow-sm transition-colors duration-300">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary-container/20 to-transparent pointer-events-none"></div>
-          
-          <div className="relative z-10 max-w-[210px] space-y-2">
-            <span className="inline-flex items-center font-caps text-[8px] px-1.5 py-0.5 rounded bg-primary-container/30 text-primary font-bold uppercase tracking-widest border border-primary/10">
-              Featured Arena
-            </span>
-            <h1 className="font-headline text-xl font-black text-on-surface leading-tight">
-              {featuredGame.title}
-            </h1>
-            <p className="font-body text-[10px] text-on-surface-variant leading-snug line-clamp-2">
-              {featuredGame.description || "Jump into the action and climb the community boards."}
-            </p>
-            <button 
-              onClick={() => executeLaunchEngine(formatGameSlug(featuredGame.title), featuredGame.entry_fee)}
-              className="gradient-pill-primary font-caps text-[9px] font-extrabold uppercase tracking-widest px-4 py-2 rounded-full shadow-md flex items-center justify-center gap-1 mt-2 transition-transform active:scale-95"
-            >
-              Play Now {featuredGame.entry_fee > 0 && `(${featuredGame.entry_fee} PTS)`}
-              <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
-            </button>
-          </div>
-          
-          {/* True CSS Mask for a flawless seamless fade */}
-          <div 
-            className="absolute right-0 bottom-0 w-[55%] h-full pointer-events-none overflow-hidden rounded-r-[20px]"
-            style={{ 
-              WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 40%)',
-              maskImage: 'linear-gradient(to right, transparent 0%, black 40%)'
-            }}
-          >
-            <img 
-              alt="Featured Game Cover" 
-              className="w-full h-full object-cover opacity-90 drop-shadow-2xl" 
-              src={featuredGame.image_url}
-            />
-          </div>
-        </section>
-      )}
-
-      {/* 🎰 ARCADE ROWS SCROLLER MODULE */}
+      {/* 🎮 TRENDING GAMES GRID */}
       <div className="space-y-4">
-        {displayedCategories.map((category) => (
-          <section key={category.id} className="space-y-2">
-            <div className="flex justify-between items-end px-1">
-              <div className="flex items-center gap-2 text-on-surface">
-                {isolatedCategory && (
-                  <button 
-                    onClick={() => setIsolatedCategory(null)} 
-                    className="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center mr-0.5 text-on-surface hover:bg-surface-variant transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-xs">arrow_back_ios_new</span>
-                  </button>
-                )}
-                {category.icon && category.icon.startsWith("http") ? (
-                  <img src={category.icon} alt={category.name} className="w-5 h-5 object-contain opacity-80" />
-                ) : (
-                  <span className="material-symbols-outlined text-base opacity-70">{category.icon || "sports_esports"}</span>
-                )}
-                <h2 className="font-headline text-sm font-black tracking-tight">{category.name}</h2>
-              </div>
-              {!isolatedCategory && (
-                <button 
-                  onClick={() => setIsolatedCategory(category.id)} 
-                  className="font-caps text-[9px] text-primary tracking-widest uppercase font-bold hover:opacity-80 transition-opacity"
-                >
-                  See All
-                </button>
-              )}
-            </div>
+        <h2 className="font-headline text-xl font-bold text-white tracking-wide">
+          Trending Games
+        </h2>
+        
+        <div className="grid grid-cols-2 gap-4">
+          {filteredGames.map((game, index) => {
+            const isPremium = game.entry_fee > 0;
+            // Provide a fallback color if image is missing to match mockups
+            const fallbackColors = ["bg-[#B259FF]", "bg-[#00A86B]", "bg-[#3B82F6]"];
+            const bgClass = fallbackColors[index % fallbackColors.length];
 
-            <div className={isolatedCategory ? "grid grid-cols-2 gap-3 animate-fade-in" : "flex gap-3 overflow-x-auto no-scrollbar pb-1 pr-4 snap-x"}>
-              {category.games.map((game) => {
-                const isOnlineGame = game.entry_fee > 0;
-                const isLockedOut = currentPoints < game.entry_fee && isOnlineGame;
-
-                return (
-                  <div 
-                    key={game.id} 
-                    onClick={() => executeLaunchEngine(game.url, game.entry_fee)}
-                    className={isolatedCategory 
-                      ? "relative w-full h-[180px] rounded-[16px] overflow-hidden group cursor-pointer border border-surface-container-highest shadow-sm"
-                      : "relative min-w-[210px] w-[58vw] md:min-w-[230px] h-[255px] rounded-[20px] overflow-hidden snap-start flex-shrink-0 group cursor-pointer border border-surface-container-highest shadow-sm"
-                    }
-                  >
-                    <div className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" style={{ backgroundImage: `url('${game.bgImage}')` }}></div>
-                    <div className="absolute inset-0 game-card-gradient"></div>
-                    
-                    <div className="absolute top-3 right-3 bg-black/40 border border-white/10 px-1.5 py-0.5 rounded-md backdrop-blur-sm z-20">
-                      <span className="text-[8px] font-caps text-white font-bold flex items-center gap-1 uppercase tracking-wider">
-                        <span className={`w-1 h-1 rounded-full ${isLockedOut ? "bg-red-500" : !isOnlineGame ? "bg-amber-400" : "bg-primary-container animate-pulse"}`}></span>
-                        {isLockedOut ? "CREDITS EXP" : game.playersOnline}
-                      </span>
+            return (
+              <div 
+                key={game.id} 
+                onClick={() => executeLaunchEngine(formatGameSlug(game.title), game.entry_fee)}
+                className="bg-surface rounded-[24px] p-3 flex flex-col gap-3 cursor-pointer hover:bg-surface-variant active:scale-[0.97] transition-all"
+              >
+                {/* Image Placeholder Match */}
+                <div className={`relative w-full aspect-square rounded-[16px] overflow-hidden ${bgClass}`}>
+                  {game.image_url && (
+                    <div 
+                      className="absolute inset-0 bg-cover bg-center mix-blend-overlay opacity-80" 
+                      style={{ backgroundImage: `url('${game.image_url}')` }}
+                    />
+                  )}
+                  
+                  {isPremium && (
+                    <div className="absolute top-2 right-2 bg-white/20 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                      <span className="material-symbols-outlined text-white text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
+                      <span className="text-white font-bold text-[9px] uppercase tracking-wider">Gems</span>
                     </div>
+                  )}
+                </div>
 
-                    <div className="absolute bottom-0 w-full p-4 flex justify-between items-end z-20">
-                      <div className="max-w-[130px]">
-                        <h3 className="font-headline text-xs font-black text-white truncate">{game.title}</h3>
-                        <p className="font-caps text-[8px] text-neutral-300 tracking-wider uppercase mt-0.5 truncate">{game.genre}</p>
-                      </div>
-                      <button className={`w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-white transition-all shadow-md ${isLockedOut ? "bg-red-500/20 text-red-400" : "bg-white/10 backdrop-blur-md group-hover:bg-primary-container group-hover:text-neutral-950"}`}>
-                        <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>{isLockedOut ? "lock" : "play_arrow"}</span>
-                      </button>
+                {/* Game Information */}
+                <div className="px-1 pb-1">
+                  <h3 className="font-headline text-sm font-bold text-white truncate">{game.title}</h3>
+                  <div className="flex justify-between items-center mt-1">
+                    <span className="font-body text-[11px] text-on-surface-variant truncate pr-2">
+                      {game.category || "Arcade"}
+                    </span>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <span className="material-symbols-outlined text-[#F59E0B] text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                      <span className="text-white font-bold text-[11px]">4.8</span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
     </div>

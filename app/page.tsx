@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
 
-import HomeTab from "../components/HomeTab"; // Added HomeTab
+import HomeTab from "../components/HomeTab"; 
 import GamesTab from "../components/GamesTab";
 import ChatTab from "../components/ChatTab";
 import ShopTab from "../components/ShopTab";
@@ -28,11 +28,12 @@ export default function Home() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [rewardClaimed, setRewardClaimed] = useState(false);
   
-  // Set "Home" as the default active tab
-  const [activeTab, setActiveTab] = useState("Home");
+  // Set "Home" as the default active tab. Updated names to match mockups.
+  const [activeTab, setActiveTab] = useState("Home"); 
   
   // Real-Time Point Engine States
   const [userPoints, setUserPoints] = useState<number>(0);
+  const [userGems, setUserGems] = useState<number>(45); // Placeholder for Gems based on mockup
   const [myUserId, setMyUserId] = useState<string | null>(null);
 
   const [playingGame, setPlayingGame] = useState<string | null>(null);
@@ -40,14 +41,9 @@ export default function Home() {
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
-    const cachedTheme = localStorage.getItem("app_theme");
-    if (cachedTheme === "light") {
-      setIsDarkMode(false);
-      document.documentElement.classList.remove("dark");
-    } else {
-      setIsDarkMode(true);
-      document.documentElement.classList.add("dark");
-    }
+    // Forcing dark mode internally to match the new UI palette
+    setIsDarkMode(true);
+    document.documentElement.classList.add("dark");
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -109,15 +105,8 @@ export default function Home() {
   };
 
   const toggleTheme = () => {
-    if (isDarkMode) {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("app_theme", "light");
-      setIsDarkMode(false);
-    } else {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("app_theme", "dark");
-      setIsDarkMode(true);
-    }
+    // Theme toggling kept for logic, but styles will remain dark high-contrast
+    setIsDarkMode(!isDarkMode);
   };
 
   if (checkingAuth) {
@@ -164,47 +153,53 @@ export default function Home() {
         <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : null}
 
-      {/* 📱 SEMANTIC APP SHELL */}
-      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden animate-fade-in transition-colors duration-300"}>
+      {/* 📱 SOLID APP SHELL */}
+      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden"}>
         
-        {/* PREMIUM COMPACT HEADER BLOCK */}
+        {/* NEW HIGH-CONTRAST HEADER */}
         <header 
-          className="fixed top-0 left-0 right-0 z-50 bg-surface/70 backdrop-blur-xl border-b border-surface-container-highest shadow-sm transition-colors duration-300"
+          className="fixed top-0 left-0 right-0 z-50 bg-background flex justify-between items-center px-5 h-[90px]"
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
-          <div className="w-full max-w-xl mx-auto flex justify-between items-center px-6 h-14 box-border">
+          <div className="flex items-center gap-3">
+            {/* User Avatar Circle */}
+            <div className="w-[42px] h-[42px] rounded-full bg-primary text-black flex items-center justify-center font-headline font-black text-sm">
+              JY
+            </div>
             
-            {/* Top Left Component Node */}
-            <div className="flex items-center gap-2">
-               <div className="relative w-7 h-7 rounded-full bg-surface-container-high border border-surface-container-highest overflow-hidden flex items-center justify-center shadow-sm">
-                 <Image src="/joeyoke-logo.png" alt="Joe Yoke Logo" fill className="object-contain p-1" unoptimized />
-               </div>
-               <span className="font-headline text-xs font-black tracking-widest text-primary uppercase">
-                 Joe Yoke
-               </span>
-            </div>
-
-            {/* Top Right Component Node */}
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border border-surface-container-highest bg-surface-container-high text-primary shadow-sm h-7 box-border">
-                <span className="material-symbols-outlined text-secondary text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>monetization_on</span>
-                <span className="tracking-wide">{userPoints.toLocaleString()}</span>
+            <div className="flex flex-col">
+              <h1 className="font-headline text-lg font-bold text-white leading-tight">Joe Yoke</h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                {/* Points Pill (Green) */}
+                <div className="flex items-center gap-1 bg-surface px-2 py-0.5 rounded-md">
+                  <span className="material-symbols-outlined text-primary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
+                  <span className="text-primary text-[11px] font-bold">{userPoints.toLocaleString()}</span>
+                </div>
+                {/* Gems Pill (Purple) */}
+                <div className="flex items-center gap-1 bg-surface px-2 py-0.5 rounded-md">
+                  <span className="material-symbols-outlined text-secondary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
+                  <span className="text-secondary text-[11px] font-bold">{userGems}</span>
+                </div>
               </div>
-              
-              <button className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-container-highest transition-colors text-on-surface-variant select-none">
-                <span className="material-symbols-outlined text-lg">notifications</span>
-              </button>
             </div>
+          </div>
 
+          <div className="flex items-center gap-2.5">
+            <button className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface-variant hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[18px]">light_mode</span>
+            </button>
+            <button className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface-variant hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[18px]">notifications</span>
+            </button>
           </div>
         </header>
 
-        {/* COMPACT VIEWPORT CONTAINER PORTAL */}
+        {/* MAIN CONTENT AREA */}
         <main 
-          className="flex-1 overflow-y-auto no-scrollbar pb-[96px] px-4 md:px-6 space-y-4 max-w-xl mx-auto w-full z-10"
-          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 84px)' }}
+          className="flex-1 overflow-y-auto no-scrollbar pb-[100px] px-5 w-full z-10"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 100px)' }}
         >
-          {!session && (activeTab === "Chat" || activeTab === "Shop" || activeTab === "Profile") ? (
+          {!session && (activeTab === "Chats" || activeTab === "Store" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
             <>
@@ -216,7 +211,8 @@ export default function Home() {
                 />
               )}
 
-              {activeTab === "Games" && (
+              {/* Mapped "Explore" to GamesTab */}
+              {activeTab === "Explore" && (
                 <GamesTab 
                   rewardClaimed={rewardClaimed} 
                   setRewardClaimed={(status) => setRewardClaimed(status)}
@@ -226,7 +222,8 @@ export default function Home() {
                 />
               )}
               
-              {activeTab === "Chat" && (
+              {/* Mapped "Chats" to ChatTab */}
+              {activeTab === "Chats" && (
                 <ChatTab 
                   currentPoints={userPoints}
                   userId={myUserId}
@@ -237,7 +234,8 @@ export default function Home() {
                 />
               )}
               
-              {activeTab === "Shop" && <ShopTab userId={myUserId} />}
+              {/* Mapped "Store" to ShopTab */}
+              {activeTab === "Store" && <ShopTab userId={myUserId} />}
               
               {activeTab === "Profile" && (
                 <ProfileTab isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
@@ -246,26 +244,32 @@ export default function Home() {
           )}
         </main>
 
-        {/* FROSTED BOTTOM NAVIGATION SHIELD */}
-        <nav className="shrink-0 fixed bottom-0 left-0 w-full z-50 bg-surface/85 backdrop-blur-xl border-t border-surface-container-highest px-6 pb-safe pt-1.5 flex justify-between items-center h-[82px] shadow-lg transition-colors duration-300">
-          {/* Updated Tab List: Removed "Ranks", Added "Home" at the start */}
-          {["Home", "Games", "Chat", "Shop", "Profile"].map((tab) => {
-            const isActive = activeTab === tab;
+        {/* NEW SOLID BOTTOM NAVIGATION */}
+        <nav className="fixed bottom-0 left-0 w-full z-50 bg-background border-t border-surface-container-high px-2 pb-safe pt-1 flex justify-around items-center h-[76px]">
+          {[
+            { id: "Home", icon: "home" },
+            { id: "Explore", icon: "explore" }, 
+            { id: "Store", icon: "local_mall" },
+            { id: "Chats", icon: "chat_bubble" },
+            { id: "Profile", icon: "person" }
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
             return (
               <button 
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex flex-col items-center justify-center w-14 transition-all duration-300 active:scale-95 ${
-                  isActive ? "text-primary font-extrabold" : "text-on-surface-variant hover:text-on-surface"
-                }`}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className="relative flex flex-col items-center justify-center w-16 h-full transition-all"
               >
-                <div className={`flex items-center justify-center w-12 h-9 rounded-full transition-all duration-300 ${isActive ? "bg-primary-container/30" : "bg-transparent"}`}>
-                  <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>
-                    {tab === "Home" ? "home" : tab === "Games" ? "sports_esports" : tab === "Chat" ? "forum" : tab === "Shop" ? "storefront" : "person"}
-                  </span>
-                </div>
-                <span className={`font-caps text-[9px] font-bold tracking-widest mt-1 transition-all duration-300 ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 h-0 overflow-hidden"}`}>
-                  {tab}
+                {/* Active Top Line Indicator */}
+                {isActive && (
+                  <div className="absolute top-[-5px] left-1/2 -translate-x-1/2 w-[30px] h-[3px] bg-primary rounded-b-md"></div>
+                )}
+                
+                <span className={`material-symbols-outlined mt-1 text-[24px] ${isActive ? "text-primary" : "text-on-surface-variant"}`} style={{ fontVariationSettings: isActive ? "'FILL' 0" : "'FILL' 0" }}>
+                  {tab.icon}
+                </span>
+                <span className={`text-[10px] font-bold mt-1 tracking-wide ${isActive ? "text-primary" : "text-on-surface-variant"}`}>
+                  {tab.id}
                 </span>
               </button>
             );

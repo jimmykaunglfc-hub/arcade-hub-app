@@ -4,45 +4,45 @@
 
 @layer base {
   :root {
-    /* ☀️ LIGHT MODE TOKENS */
-    --background: #eef2f6;
-    --on-background: #091428;
-    --surface: #ffffff;
-    --on-surface: #091428;
-    --surface-variant: #f8fafc;
-    --on-surface-variant: #64748b;
-    --surface-container: #ffffff;
-    --surface-container-high: #f1f5f9;
-    --surface-container-highest: #e2e8f0;
+    /* 🌌 NEW MOCKUP TOKENS (Forcing Dark High-Contrast) */
+    --background: #0B0F19; /* Deep Navy Background */
+    --on-background: #ffffff;
+    --surface: #151A27; /* Lighter Navy for Cards/Containers */
+    --on-surface: #ffffff;
+    --surface-variant: #1F2536; 
+    --on-surface-variant: #9CA3AF;
+    --surface-container: #151A27;
+    --surface-container-high: #1F2536;
+    --surface-container-highest: #2A3143;
     
-    --primary: #4f46e5; /* Indigo 600 */
-    --on-primary: #ffffff;
-    --primary-container: #e0e7ff; /* Indigo 100 */
+    --primary: #9DFF00; /* Neon Green Accent */
+    --on-primary: #000000;
+    --primary-container: rgba(157, 255, 0, 0.1); 
     
-    --secondary: #f59e0b; /* Amber 500 */
-    --tertiary-container: #ede9fe; /* Violet 100 */
-    --surface-tint: #4f46e5;
+    --secondary: #B259FF; /* Gem Purple Accent */
+    --tertiary-container: rgba(178, 89, 255, 0.1);
+    --surface-tint: #9DFF00;
   }
 
   .dark {
-    /* 🌙 DARK MODE TOKENS */
-    --background: #09090b;
-    --on-background: #fafafa;
-    --surface: #121214;
-    --on-surface: #fafafa;
-    --surface-variant: #27272a;
-    --on-surface-variant: #a1a1aa;
-    --surface-container: #18181b;
-    --surface-container-high: #27272a;
-    --surface-container-highest: #3f3f46;
+    /* 🌙 Mirroring the exact same tokens so toggling doesn't break the new UI */
+    --background: #0B0F19;
+    --on-background: #ffffff;
+    --surface: #151A27;
+    --on-surface: #ffffff;
+    --surface-variant: #1F2536;
+    --on-surface-variant: #9CA3AF;
+    --surface-container: #151A27;
+    --surface-container-high: #1F2536;
+    --surface-container-highest: #2A3143;
     
-    --primary: #818cf8; /* Indigo 400 */
-    --on-primary: #09090b;
-    --primary-container: #3730a3; /* Indigo 800 */
+    --primary: #9DFF00;
+    --on-primary: #000000;
+    --primary-container: rgba(157, 255, 0, 0.1);
     
-    --secondary: #fbbf24; /* Amber 400 */
-    --tertiary-container: #4c1d95; /* Violet 900 */
-    --surface-tint: #818cf8;
+    --secondary: #B259FF;
+    --tertiary-container: rgba(178, 89, 255, 0.1);
+    --surface-tint: #9DFF00;
   }
 }
 
@@ -53,20 +53,16 @@
     height: 100%;
     overflow: hidden; 
     -webkit-overflow-scrolling: auto;
-
-    /* Completely blocks native browser text selection menus */
-    -webkit-user-select: none;  /* iOS Safari & WebViews */
-    -moz-user-select: none;     /* Firefox */
-    -ms-user-select: none;      /* Edge/IE */
-    user-select: none;          /* Standard */
-
-    /* Eliminates the dark grey tap accent box feedback on iOS/Android */
+    -webkit-user-select: none;  
+    -moz-user-select: none;     
+    -ms-user-select: none;      
+    user-select: none;          
     -webkit-tap-highlight-color: transparent;
   }
 
   /* 🌌 NEW UI FOUNDATION */
   body {
-    @apply bg-background text-on-background overflow-x-hidden transition-colors duration-300;
+    @apply bg-background text-on-background overflow-x-hidden;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
@@ -92,38 +88,4 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
-
-/* 🧊 GLASSMORPHISM & UI COMPONENTS */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.gradient-pill-primary {
-  background: linear-gradient(135deg, var(--primary) 0%, #a5b4fc 100%);
-  color: #ffffff;
-}
-
-.dark .gradient-pill-primary {
-  background: linear-gradient(135deg, var(--primary) 0%, #3730a3 100%);
-  color: #fafafa;
-}
-
-.game-card-gradient {
-  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 40%, transparent 100%);
-}
-
-/* 🤩 FLOATING EMOJI ANIMATION */
-@keyframes float-up {
-  0% { transform: translateY(0) scale(0.8); opacity: 0; }
-  10% { opacity: 1; transform: translateY(-20px) scale(1.2); }
-  90% { opacity: 1; }
-  100% { transform: translateY(-150px) scale(1); opacity: 0; }
-}
-
-.animate-float-up {
-  animation: float-up 2.5s ease-out forwards;
 }

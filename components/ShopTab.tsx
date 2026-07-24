@@ -4,16 +4,17 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 const COIN_PACKAGES = [
-  { id: "pack_1", title: "Starter Pouch", amount: 1000, price: "$0.99", popular: false },
-  { id: "pack_2", title: "Arcade Chest", amount: 5000, price: "$3.99", popular: true },
-  { id: "pack_3", title: "Matrix Vault", amount: 12000, price: "$8.99", popular: false },
+  { id: "pack_1", title: "Starter Pouch", amount: 1000, price: "$0.99", popular: false, type: "points" },
+  { id: "pack_2", title: "Arcade Chest", amount: 5000, price: "$3.99", popular: true, type: "points" },
+  { id: "pack_3", title: "Matrix Vault", amount: 12000, price: "$8.99", popular: false, type: "points" },
+  { id: "pack_4", title: "Gem Handful", amount: 50, price: "$4.99", popular: false, type: "gems" },
 ];
 
 const COSMETIC_ITEMS = [
-  { id: "cos_1", title: "Neon Glow Striker", type: "Carrom Striker", price: 2500, icon: "radio_button_checked", color: "text-amber-500" },
-  { id: "cos_2", title: "Obsidian Matrix Board", type: "Arena Skin", price: 8000, icon: "grid_4x4", color: "text-indigo-500" },
-  { id: "cos_3", title: "Crown VIP Badge", type: "Profile Badge", price: 1500, icon: "workspace_premium", color: "text-yellow-500" },
-  { id: "cos_4", title: "Holographic Dice", type: "3D Asset", price: 4000, icon: "casino", color: "text-emerald-500" },
+  { id: "cos_1", title: "Neon Glow Striker", type: "Carrom", price: 2500, icon: "radio_button_checked", color: "text-[#9DFF00]" },
+  { id: "cos_2", title: "Obsidian Board", type: "Chess", price: 8000, icon: "grid_4x4", color: "text-white" },
+  { id: "cos_3", title: "Crown Badge", type: "Profile", price: 1500, icon: "workspace_premium", color: "text-[#B259FF]" },
+  { id: "cos_4", title: "Holographic Dice", type: "3D Asset", price: 4000, icon: "casino", color: "text-[#3B82F6]" },
 ];
 
 interface ShopTabProps {
@@ -21,7 +22,7 @@ interface ShopTabProps {
 }
 
 export default function ShopTab({ userId }: ShopTabProps) {
-  const [activeCategory, setActiveCategory] = useState<"points" | "cosmetics">("points");
+  const [activeCategory, setActiveCategory] = useState<"currency" | "cosmetics">("currency");
   
   // Fortune Wheel Engine Hooks
   const [canSpin, setCanSpin] = useState(true);
@@ -29,7 +30,6 @@ export default function ShopTab({ userId }: ShopTabProps) {
   const [spinReward, setSpinReward] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>("00:00:00");
 
-  // Sync hourly countdown loops if wheel lock checks trigger
   useEffect(() => {
     if (canSpin) return;
     
@@ -50,13 +50,11 @@ export default function ShopTab({ userId }: ShopTabProps) {
     return () => clearInterval(interval);
   }, [canSpin]);
 
-  // Handle core modular claims and atomically increment balance values inside the database
   const handleSpinWheel = async () => {
     if (!canSpin || isSpinning || !userId) return;
     setIsSpinning(true);
     setSpinReward(null);
 
-    // Simulate physics rotation delay tracks
     setTimeout(async () => {
       const rewards = [50, 100, 250, 500, 1000];
       const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
@@ -85,7 +83,6 @@ export default function ShopTab({ userId }: ShopTabProps) {
     }, 2500);
   };
 
-  // Google Pay / Apple Pay secure sandbox authorization simulation
   const executePaymentGateway = async (packTitle: string, pointAmount: number) => {
     if (!userId) return;
     
@@ -115,116 +112,121 @@ export default function ShopTab({ userId }: ShopTabProps) {
   };
 
   return (
-    <div className="w-full flex flex-col gap-4 pb-12 animate-fade-in text-on-surface">
+    <div className="w-full flex flex-col gap-6 pb-12 animate-fade-in">
       
-      {/* 🎡 DAILY REWARD: FORTUNE WHEEL */}
-      <section className="bg-surface/80 border border-surface-container-highest backdrop-blur-xl rounded-[24px] p-5 flex flex-col items-center text-center relative overflow-hidden shadow-sm transition-colors duration-300">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-primary-container/20 blur-3xl rounded-full pointer-events-none"></div>
-        
-        <h2 className="font-headline text-base font-black text-on-surface tracking-tight relative z-10">Daily Fortune Wheel</h2>
-        <p className="font-body text-[11px] text-on-surface-variant relative z-10">Spin the matrix core module to extract free tokens.</p>
+      {/* 🎡 DAILY REWARD: FORTUNE WHEEL (SOLID STYLING) */}
+      <section className="bg-surface rounded-[24px] p-6 flex flex-col items-center text-center relative overflow-hidden">
+        <h2 className="font-headline text-lg font-black text-white tracking-wide">Daily Fortune Wheel</h2>
+        <p className="font-body text-xs text-on-surface-variant mt-1">Spin the matrix core module to extract free tokens.</p>
 
         {/* 3D Core Spinner Layout Block */}
-        <div className="relative w-36 h-36 mt-4 mb-4 flex items-center justify-center z-10">
-          <div className={`w-full h-full rounded-full border-4 border-surface-container-highest bg-surface-container flex items-center justify-center relative shadow-inner transition-transform duration-[2.5s] ease-out ${isSpinning ? "rotate-[1440deg]" : ""}`}>
-            <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg_90deg,rgba(150,150,150,0.05)_90deg_180deg,transparent_180deg_270deg,rgba(150,150,150,0.05)_270deg_360deg)]"></div>
+        <div className="relative w-40 h-40 mt-6 mb-6 flex items-center justify-center">
+          <div className={`w-full h-full rounded-full border-4 border-surface-variant bg-background flex items-center justify-center relative transition-transform duration-[2.5s] ease-out ${isSpinning ? "rotate-[1440deg]" : ""}`}>
+            <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg_90deg,rgba(157,255,0,0.05)_90deg_180deg,transparent_180deg_270deg,rgba(157,255,0,0.05)_270deg_360deg)]"></div>
             
-            <div className="w-12 h-12 bg-surface border-2 border-primary rounded-full z-20 flex items-center justify-center shadow-md">
-              <span className="material-symbols-outlined text-primary text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
+            <div className="w-14 h-14 bg-surface-variant border-2 border-primary rounded-full z-20 flex items-center justify-center shadow-md">
+              <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
             </div>
 
+            {/* Wheel Pegs */}
             {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
-              <div key={deg} className="absolute w-1.5 h-1.5 bg-on-surface-variant rounded-full" style={{ transform: `rotate(${deg}deg) translateY(-54px)` }}></div>
+              <div key={deg} className="absolute w-2 h-2 bg-on-surface-variant rounded-full" style={{ transform: `rotate(${deg}deg) translateY(-64px)` }}></div>
             ))}
           </div>
           
-          <div className="absolute -top-2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[14px] border-t-primary z-30"></div>
+          {/* Wheel Pointer */}
+          <div className="absolute -top-3 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[16px] border-t-primary z-30 drop-shadow-md"></div>
         </div>
 
         {/* Dynamic Action Trigger Blocks */}
-        <div className="h-10 flex items-center justify-center w-full z-10">
+        <div className="h-12 flex items-center justify-center w-full">
           {spinReward ? (
-            <div className="animate-fade-in flex flex-col items-center">
-              <span className="font-headline text-lg font-black text-primary">+{spinReward} PTS</span>
-              <span className="font-caps text-[8px] tracking-widest text-on-surface-variant uppercase font-bold mt-0.5">Ledger Transferred</span>
+            <div className="animate-fade-in flex flex-col items-center bg-primary-container px-6 py-2 rounded-xl border border-primary/20">
+              <span className="font-headline text-xl font-black text-primary">+{spinReward} PTS</span>
+              <span className="font-caps text-[9px] tracking-widest text-primary uppercase font-bold mt-0.5">Transferred</span>
             </div>
           ) : (
             <button 
               onClick={handleSpinWheel}
               disabled={!canSpin || isSpinning || !userId}
-              className={`w-full max-w-[200px] py-2.5 rounded-xl font-headline text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+              className={`w-full max-w-[220px] py-3 rounded-full font-headline text-sm font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
                 canSpin && !isSpinning && userId
-                  ? "gradient-pill-primary shadow-md hover:scale-[0.98] active:scale-95" 
-                  : "bg-surface-container-highest text-on-surface-variant border border-surface-container-highest cursor-not-allowed"
+                  ? "bg-primary text-black hover:bg-[#a6ff1a] active:scale-95" 
+                  : "bg-surface-variant text-on-surface-variant cursor-not-allowed"
               }`}
             >
-              {isSpinning ? "Extracting..." : canSpin ? "Spin Core" : `Cooldown: ${timeLeft}`}
+              {isSpinning ? "Extracting..." : canSpin ? "Spin Core" : `Ready in ${timeLeft}`}
             </button>
           )}
         </div>
       </section>
 
       {/* 🏬 STOREFRONT CATEGORY SWITCHER */}
-      <div className="bg-surface/50 backdrop-blur-md p-1 rounded-xl flex items-center border border-surface-container-highest shadow-sm transition-colors duration-300">
+      <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
         <button
-          onClick={() => setActiveCategory("points")}
-          className={`flex-1 py-2 font-caps text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-            activeCategory === "points" 
-              ? "bg-surface-container-high text-primary shadow-sm" 
-              : "text-on-surface-variant hover:text-primary"
+          onClick={() => setActiveCategory("currency")}
+          className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all ${
+            activeCategory === "currency" 
+              ? "bg-primary text-black" 
+              : "bg-surface text-on-surface-variant hover:text-white"
           }`}
         >
-          <span className="material-symbols-outlined text-sm">monetization_on</span>
-          Buy Points
+          Currency
         </button>
         <button
           onClick={() => setActiveCategory("cosmetics")}
-          className={`flex-1 py-2 font-caps text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+          className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all ${
             activeCategory === "cosmetics" 
-              ? "bg-surface-container-high text-primary shadow-sm" 
-              : "text-on-surface-variant hover:text-primary"
+              ? "bg-primary text-black" 
+              : "bg-surface text-on-surface-variant hover:text-white"
           }`}
         >
-          <span className="material-symbols-outlined text-sm">auto_awesome</span>
           Cosmetics
         </button>
       </div>
 
-      {/* 🪙 COMPACT HIGH-CONTRAST STORE ITEMS GRID */}
-      <div className="grid grid-cols-2 gap-3">
-        {activeCategory === "points" && COIN_PACKAGES.map((pack) => (
-          <div key={pack.id} className="bg-surface/80 border border-surface-container-highest rounded-2xl p-4 flex flex-col items-center text-center relative overflow-hidden shadow-sm transition-colors duration-300 hover:bg-surface-variant cursor-pointer group">
-            {pack.popular && (
-              <div className="absolute top-0 w-full bg-primary-container text-primary font-caps text-[7px] font-bold py-0.5 uppercase tracking-widest border-b border-primary/20">
-                Popular
+      {/* 🪙 HIGH-CONTRAST STORE ITEMS GRID */}
+      <div className="grid grid-cols-2 gap-4">
+        {activeCategory === "currency" && COIN_PACKAGES.map((pack) => {
+          const isGems = pack.type === "gems";
+          return (
+            <div key={pack.id} className="bg-surface rounded-[24px] p-4 flex flex-col items-center text-center relative hover:bg-surface-variant transition-colors cursor-pointer group border border-transparent hover:border-surface-container-highest active:scale-[0.98]">
+              {pack.popular && (
+                <div className="absolute top-0 w-full bg-primary text-black font-caps text-[9px] font-extrabold py-1 rounded-t-[24px] uppercase tracking-widest">
+                  Best Value
+                </div>
+              )}
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mt-4 mb-3 transition-transform group-hover:scale-105 ${isGems ? 'bg-[#271533]' : 'bg-[#182816]'}`}>
+                <span className={`material-symbols-outlined text-3xl ${isGems ? 'text-secondary' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
+                  {isGems ? 'diamond' : 'bolt'}
+                </span>
               </div>
-            )}
-            <div className="w-10 h-10 rounded-xl bg-surface-container-highest border border-surface-container-highest flex items-center justify-center mt-2 mb-2 group-hover:bg-primary-container/20 transition-colors">
-              <span className="material-symbols-outlined text-xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>toll</span>
+              <h3 className="font-headline text-lg font-black text-white">{pack.amount.toLocaleString()}</h3>
+              <p className={`font-caps text-[9px] uppercase mt-0.5 tracking-wider font-bold ${isGems ? 'text-secondary' : 'text-primary'}`}>
+                {isGems ? 'Gems' : 'PTS'}
+              </p>
+              <button 
+                onClick={() => executePaymentGateway(pack.title, pack.amount)}
+                className="mt-4 w-full py-2.5 bg-background text-white font-headline text-xs font-bold rounded-xl active:scale-[0.97] transition-colors hover:bg-surface-container-highest"
+              >
+                {pack.price}
+              </button>
             </div>
-            <h3 className="font-headline text-xs font-black text-on-surface">{pack.amount.toLocaleString()} PTS</h3>
-            <p className="font-caps text-[8px] text-on-surface-variant uppercase mt-0.5 tracking-wider">{pack.title}</p>
-            <button 
-              onClick={() => executePaymentGateway(pack.title, pack.amount)}
-              className="mt-3 w-full py-2 bg-surface-container-highest text-primary font-headline text-[11px] font-bold rounded-lg border border-surface-container-highest active:scale-[0.97] transition-transform hover:bg-primary/10 hover:border-primary/30"
-            >
-              {pack.price}
-            </button>
-          </div>
-        ))}
+          );
+        })}
 
         {activeCategory === "cosmetics" && COSMETIC_ITEMS.map((item) => (
-          <div key={item.id} className="bg-surface/80 border border-surface-container-highest rounded-2xl p-4 flex flex-col items-center text-center shadow-sm transition-colors duration-300 hover:bg-surface-variant cursor-pointer group">
-            <div className="w-10 h-10 rounded-xl bg-surface-container-highest border border-surface-container-highest flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
-              <span className={`material-symbols-outlined text-xl ${item.color}`} style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
+          <div key={item.id} className="bg-surface rounded-[24px] p-4 flex flex-col items-center text-center hover:bg-surface-variant transition-colors cursor-pointer group active:scale-[0.98]">
+            <div className="w-14 h-14 rounded-[16px] bg-background flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+              <span className={`material-symbols-outlined text-2xl ${item.color}`} style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
             </div>
-            <h3 className="font-headline text-[11px] font-bold text-on-surface leading-tight h-6 flex items-center justify-center text-center w-full">{item.title}</h3>
-            <p className="font-caps text-[7px] text-on-surface-variant mt-0.5 uppercase tracking-wider">{item.type}</p>
+            <h3 className="font-headline text-sm font-bold text-white leading-tight h-10 flex items-center justify-center text-center w-full">{item.title}</h3>
+            <p className="font-caps text-[9px] text-on-surface-variant mt-1 uppercase tracking-wider">{item.type}</p>
             <button 
               onClick={() => alert("Balance deduction hook and visual asset ownership check routing initialized...")}
-              className="mt-3 w-full py-2 bg-surface-container-highest text-primary font-headline text-[10px] font-bold rounded-lg border border-surface-container-highest flex items-center justify-center gap-0.5 active:scale-[0.97] transition-transform hover:bg-primary/10 hover:border-primary/30"
+              className="mt-4 w-full py-2.5 bg-background text-primary font-headline text-xs font-bold rounded-xl flex items-center justify-center gap-1 active:scale-[0.97] transition-colors hover:bg-surface-container-highest"
             >
-              <span className="material-symbols-outlined text-xs">monetization_on</span>
+              <span className="material-symbols-outlined text-[14px]">bolt</span>
               {item.price.toLocaleString()}
             </button>
           </div>
