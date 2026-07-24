@@ -176,22 +176,22 @@ export default function Home() {
         >
           <div className="flex items-center gap-3">
             {/* User Avatar Circle */}
-            <div className="w-[42px] h-[42px] rounded-full bg-primary text-on-primary flex items-center justify-center font-headline font-black text-sm">
+            <div className="w-[42px] h-[42px] rounded-full bg-primary text-on-primary flex items-center justify-center font-headline font-black text-sm shadow-sm">
               JY
             </div>
             
             <div className="flex flex-col">
               <h1 className="font-headline text-lg font-bold text-on-background leading-tight">Joe Yoke</h1>
               <div className="flex items-center gap-2 mt-0.5">
-                {/* Points Pill (Green) */}
-                <div className="flex items-center gap-1 bg-surface px-2 py-0.5 rounded-md shadow-sm border border-surface-container-highest">
+                {/* Points Pill */}
+                <div className="flex items-center gap-1 bg-primary-container px-2.5 py-0.5 rounded-full">
                   <span className="material-symbols-outlined text-primary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
-                  <span className="text-primary text-[11px] font-bold">{userPoints.toLocaleString()}</span>
+                  <span className="text-on-background text-[11px] font-extrabold">{userPoints.toLocaleString()}</span>
                 </div>
-                {/* Gems Pill (Purple) */}
-                <div className="flex items-center gap-1 bg-surface px-2 py-0.5 rounded-md shadow-sm border border-surface-container-highest">
+                {/* Gems Pill */}
+                <div className="flex items-center gap-1 bg-secondary-container px-2.5 py-0.5 rounded-full">
                   <span className="material-symbols-outlined text-secondary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
-                  <span className="text-secondary text-[11px] font-bold">{userGems}</span>
+                  <span className="text-on-background text-[11px] font-extrabold">{userGems}</span>
                 </div>
               </div>
             </div>
@@ -200,11 +200,11 @@ export default function Home() {
           <div className="flex items-center gap-2.5">
             <button 
               onClick={toggleTheme}
-              className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors border border-surface-container-highest shadow-sm"
+              className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface hover:opacity-80 transition-opacity border border-surface-container-highest shadow-sm"
             >
               <span className="material-symbols-outlined text-[18px]">{isDarkMode ? "light_mode" : "dark_mode"}</span>
             </button>
-            <button className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors border border-surface-container-highest shadow-sm">
+            <button className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface hover:opacity-80 transition-opacity border border-surface-container-highest shadow-sm">
               <span className="material-symbols-outlined text-[18px]">notifications</span>
             </button>
           </div>
@@ -261,7 +261,7 @@ export default function Home() {
         </main>
 
         {/* NEW SOLID BOTTOM NAVIGATION */}
-        <nav className="fixed bottom-0 left-0 w-full z-50 bg-background border-t border-surface-container-high px-2 pb-safe pt-1 flex justify-around items-center h-[76px] transition-colors duration-300">
+        <nav className="fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-surface-container-highest px-2 pb-safe pt-1 flex justify-around items-center h-[76px] transition-colors duration-300">
           {[
             { id: "Home", icon: "home" },
             { id: "Explore", icon: "explore" }, 
@@ -278,7 +278,7 @@ export default function Home() {
               >
                 {/* Active Top Line Indicator */}
                 {isActive && (
-                  <div className="absolute top-[-5px] left-1/2 -translate-x-1/2 w-[30px] h-[3px] bg-primary rounded-b-md"></div>
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32px] h-[3px] bg-primary rounded-b-md"></div>
                 )}
                 
                 <span className={`material-symbols-outlined mt-1 text-[24px] ${isActive ? "text-primary" : "text-on-surface-variant"}`} style={{ fontVariationSettings: isActive ? "'FILL' 0" : "'FILL' 0" }}>

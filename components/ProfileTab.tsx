@@ -95,7 +95,8 @@ export default function ProfileTab({ isDarkMode, onToggleTheme }: ProfileTabProp
         </div>
 
         <div className="mt-5 z-10">
-          <span className="bg-primary-container text-primary text-[10px] font-caps font-bold uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-1.5 border border-primary/20">
+          {/* FIXED: Replaced border-primary/20 with solid border-primary for correct CSS Variable parsing */}
+          <span className="bg-primary-container text-primary text-[10px] font-caps font-bold uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-1.5 border border-primary">
             <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
             Verified Account
           </span>

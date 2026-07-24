@@ -407,7 +407,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       
       {/* 🎮 CHALLENGE CHOOSE FLOATING INTERFACE */}
       {showGameSelector && (
-        <div className="absolute inset-0 bg-background/90 flex items-end justify-center pb-2 z-50 rounded-2xl animate-fade-in">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-center pb-2 z-50 rounded-2xl animate-fade-in">
           <div className="bg-surface w-full rounded-[24px] p-5 flex flex-col gap-3 shadow-2xl border border-surface-container-highest">
             {inviteStep === "game" && (
               <>
@@ -430,7 +430,8 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
 
                 <button onClick={() => handleSendGameInvite("chess")} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
                    <div className="flex items-center gap-4">
-                     <div className="w-10 h-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary">
+                     {/* FIXED: Swapped hex-opacity bg-secondary/10 for semantic bg-secondary-container */}
+                     <div className="w-10 h-10 bg-secondary-container rounded-xl flex items-center justify-center text-secondary">
                        <span className="material-symbols-outlined text-[20px]">psychology</span>
                      </div>
                      <h4 className="font-headline text-xs font-bold text-on-surface">Grandmaster Chess</h4>
@@ -536,7 +537,8 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                 {msg.message_type === 'text' && (
                   <div className={`px-4 py-3 font-body text-[13px] leading-relaxed shadow-sm border ${
                     isMe 
-                      ? "bg-primary border-primary/20 text-on-primary rounded-[20px] rounded-tr-[4px]" 
+                      /* FIXED: Replaced border-primary/20 which breaks tailwind, now using solid border-primary */
+                      ? "bg-primary border-primary text-on-primary rounded-[20px] rounded-tr-[4px]" 
                       : "bg-surface border-surface-container-highest text-on-surface rounded-[20px] rounded-tl-[4px]"
                   }`}>
                     <p className="whitespace-pre-wrap break-words">{msg.content}</p>

@@ -23,6 +23,7 @@ const config: Config = {
         "on-primary": "var(--on-primary)",
         "primary-container": "var(--primary-container)",
         secondary: "var(--secondary)",
+        "secondary-container": "var(--secondary-container)",
         "tertiary-container": "var(--tertiary-container)",
         "surface-tint": "var(--surface-tint)",
       },

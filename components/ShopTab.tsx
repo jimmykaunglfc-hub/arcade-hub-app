@@ -141,7 +141,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
         {/* Dynamic Action Trigger Blocks */}
         <div className="h-12 flex items-center justify-center w-full">
           {spinReward ? (
-            <div className="animate-fade-in flex flex-col items-center bg-primary-container px-6 py-2 rounded-xl border border-primary/20">
+            <div className="animate-fade-in flex flex-col items-center bg-primary-container px-6 py-2 rounded-xl border border-surface-container-highest">
               <span className="font-headline text-xl font-black text-primary">+{spinReward} PTS</span>
               <span className="font-caps text-[9px] tracking-widest text-primary uppercase font-bold mt-0.5">Transferred</span>
             </div>
@@ -151,7 +151,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
               disabled={!canSpin || isSpinning || !userId}
               className={`w-full max-w-[220px] py-3 rounded-full font-headline text-sm font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
                 canSpin && !isSpinning && userId
-                  ? "bg-primary text-on-primary hover:opacity-90 active:scale-95" 
+                  ? "bg-primary text-on-primary hover:opacity-90 active:scale-95 shadow-sm" 
                   : "bg-surface-variant text-on-surface-variant cursor-not-allowed"
               }`}
             >
@@ -192,11 +192,12 @@ export default function ShopTab({ userId }: ShopTabProps) {
           return (
             <div key={pack.id} className="bg-surface rounded-[24px] p-4 flex flex-col items-center text-center relative hover:bg-surface-variant transition-colors cursor-pointer group border border-surface-container-highest shadow-sm active:scale-[0.98]">
               {pack.popular && (
-                <div className="absolute top-0 w-full bg-primary text-on-primary font-caps text-[9px] font-extrabold py-1 rounded-t-[24px] uppercase tracking-widest">
+                <div className="absolute top-0 w-full bg-primary text-on-primary font-caps text-[9px] font-extrabold py-1 rounded-t-[24px] uppercase tracking-widest shadow-sm">
                   Best Value
                 </div>
               )}
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mt-4 mb-3 transition-transform group-hover:scale-105 ${isGems ? 'bg-secondary/10' : 'bg-primary-container'}`}>
+              {/* FIXED: Replaced bg-secondary/10 with semantic bg-secondary-container */}
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mt-4 mb-3 transition-transform group-hover:scale-105 ${isGems ? 'bg-secondary-container' : 'bg-primary-container'}`}>
                 <span className={`material-symbols-outlined text-3xl ${isGems ? 'text-secondary' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
                   {isGems ? 'diamond' : 'bolt'}
                 </span>

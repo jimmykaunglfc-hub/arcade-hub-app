@@ -3,46 +3,48 @@
 @tailwind utilities;
 
 @layer base {
-  /* ☀️ LIGHT MODE TOKENS */
+  /* ☀️ LIGHT MODE TOKENS (Matches image_cbb418.jpg) */
   :root {
-    --background: #F3F4F6; /* Light Gray */
+    --background: #F6F7F9;
     --on-background: #0B0F19;
-    --surface: #FFFFFF; /* White cards so they pop against gray */
+    --surface: #FFFFFF;
     --on-surface: #0B0F19;
-    --surface-variant: #E5E7EB; 
-    --on-surface-variant: #6B7280;
+    --surface-variant: #F0F2F5; 
+    --on-surface-variant: #6C7A8E;
     --surface-container: #FFFFFF;
-    --surface-container-high: #F9FAFB;
-    --surface-container-highest: #E5E7EB;
+    --surface-container-high: #EAEFF5;
+    --surface-container-highest: #E2E7ED;
     
-    --primary: #84CC00; /* Slightly darker lime for light mode text readability */
-    --on-primary: #ffffff;
-    --primary-container: rgba(132, 204, 0, 0.15); 
+    --primary: #88E000; /* Electric Lime */
+    --on-primary: #0B0F19;
+    --primary-container: #E5F9C6; 
     
-    --secondary: #9333EA; /* Darker purple for light mode */
+    --secondary: #9333EA; /* Purple */
+    --secondary-container: #F3E8FF;
     --tertiary-container: rgba(147, 51, 234, 0.1);
-    --surface-tint: #84CC00;
+    --surface-tint: #88E000;
   }
 
-  /* 🌙 DARK MODE TOKENS (Matches image_cad733.jpg exactly) */
+  /* 🌙 DARK MODE TOKENS (Matches image_cbb3de.jpg) */
   .dark {
-    --background: #0B0F19; /* Deep Navy Background */
-    --on-background: #ffffff;
-    --surface: #151A27; /* Lighter Navy for Cards (Separates buttons from background) */
-    --on-surface: #ffffff;
-    --surface-variant: #1F2536; 
-    --on-surface-variant: #9CA3AF;
-    --surface-container: #151A27;
-    --surface-container-high: #1F2536;
-    --surface-container-highest: #2A3143;
+    --background: #070A12; /* Deep Dark Navy */
+    --on-background: #FFFFFF;
+    --surface: #121824; /* Dark Surface Card */
+    --on-surface: #FFFFFF;
+    --surface-variant: #182030; 
+    --on-surface-variant: #8E9BAE;
+    --surface-container: #121824;
+    --surface-container-high: #1E283C;
+    --surface-container-highest: #25324B;
     
-    --primary: #9DFF00; /* Neon Lime Accent */
-    --on-primary: #000000;
-    --primary-container: rgba(157, 255, 0, 0.1); 
+    --primary: #88E000; /* Electric Lime Accent */
+    --on-primary: #0B0F19;
+    --primary-container: rgba(136, 224, 0, 0.15); 
     
     --secondary: #B259FF; /* Gem Purple Accent */
+    --secondary-container: rgba(178, 89, 255, 0.15);
     --tertiary-container: rgba(178, 89, 255, 0.1);
-    --surface-tint: #9DFF00;
+    --surface-tint: #88E000;
   }
 }
 
