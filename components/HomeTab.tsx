@@ -29,7 +29,10 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
     <div className="w-full pb-6 animate-fade-in">
       
       {/* 🏆 HERO CARD: CURRENT SEASON */}
-      <section className="w-full bg-primary text-on-primary rounded-[24px] p-6 shadow-sm transition-all duration-300">
+      <section 
+        className="w-full bg-primary text-on-primary rounded-[24px] p-6 shadow-sm transition-all duration-300"
+        style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)' }}
+      >
         <div className="flex items-center gap-1.5 mb-2 opacity-80">
           <span className="material-symbols-outlined text-sm">emoji_events</span>
           <span className="font-caps text-[10px] font-bold uppercase tracking-widest">

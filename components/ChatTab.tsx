@@ -299,25 +299,25 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       <div className="w-full animate-fade-in text-on-surface flex flex-col gap-2 pb-6">
         
         {/* ADAPTIVE HUB SWITCHER BAR */}
-        <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-3">
-          {[
-            { id: "dms", label: "Messages" },
-            { id: "groups", label: "Groups" },
-            { id: "network", label: "Network" }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setHubTab(tab.id as any)}
-              className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
-                hubTab === tab.id 
-                  ? "bg-primary text-on-primary" 
-                  : "bg-surface text-on-surface-variant hover:text-on-surface border border-surface-container-highest"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+<div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-3">
+  {[
+    { id: "dms", label: "Messages" },
+    { id: "groups", label: "Groups" },
+    { id: "network", label: "Network" }
+  ].map((tab) => (
+    <button
+      key={tab.id}
+      onClick={() => setHubTab(tab.id as any)}
+      className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
+        hubTab === tab.id 
+          ? "bg-primary text-on-primary" 
+          : "bg-surface text-on-surface-variant hover:text-on-surface border border-surface-container-highest"
+      }`}
+    >
+      {tab.label}
+    </button>
+  ))}
+</div>
 
         {hubTab === "dms" && (
           <div className="flex flex-col gap-3">
