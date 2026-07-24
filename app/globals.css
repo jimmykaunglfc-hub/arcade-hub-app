@@ -3,11 +3,32 @@
 @tailwind utilities;
 
 @layer base {
+  /* ☀️ LIGHT MODE TOKENS */
   :root {
-    /* 🌌 NEW MOCKUP TOKENS (Forcing Dark High-Contrast) */
+    --background: #F3F4F6; /* Light Gray */
+    --on-background: #0B0F19;
+    --surface: #FFFFFF; /* White cards so they pop against gray */
+    --on-surface: #0B0F19;
+    --surface-variant: #E5E7EB; 
+    --on-surface-variant: #6B7280;
+    --surface-container: #FFFFFF;
+    --surface-container-high: #F9FAFB;
+    --surface-container-highest: #E5E7EB;
+    
+    --primary: #84CC00; /* Slightly darker lime for light mode text readability */
+    --on-primary: #ffffff;
+    --primary-container: rgba(132, 204, 0, 0.15); 
+    
+    --secondary: #9333EA; /* Darker purple for light mode */
+    --tertiary-container: rgba(147, 51, 234, 0.1);
+    --surface-tint: #84CC00;
+  }
+
+  /* 🌙 DARK MODE TOKENS (Matches image_cad733.jpg exactly) */
+  .dark {
     --background: #0B0F19; /* Deep Navy Background */
     --on-background: #ffffff;
-    --surface: #151A27; /* Lighter Navy for Cards/Containers */
+    --surface: #151A27; /* Lighter Navy for Cards (Separates buttons from background) */
     --on-surface: #ffffff;
     --surface-variant: #1F2536; 
     --on-surface-variant: #9CA3AF;
@@ -15,7 +36,7 @@
     --surface-container-high: #1F2536;
     --surface-container-highest: #2A3143;
     
-    --primary: #9DFF00; /* Neon Green Accent */
+    --primary: #9DFF00; /* Neon Lime Accent */
     --on-primary: #000000;
     --primary-container: rgba(157, 255, 0, 0.1); 
     
@@ -23,31 +44,9 @@
     --tertiary-container: rgba(178, 89, 255, 0.1);
     --surface-tint: #9DFF00;
   }
-
-  .dark {
-    /* 🌙 Mirroring the exact same tokens so toggling doesn't break the new UI */
-    --background: #0B0F19;
-    --on-background: #ffffff;
-    --surface: #151A27;
-    --on-surface: #ffffff;
-    --surface-variant: #1F2536;
-    --on-surface-variant: #9CA3AF;
-    --surface-container: #151A27;
-    --surface-container-high: #1F2536;
-    --surface-container-highest: #2A3143;
-    
-    --primary: #9DFF00;
-    --on-primary: #000000;
-    --primary-container: rgba(157, 255, 0, 0.1);
-    
-    --secondary: #B259FF;
-    --tertiary-container: rgba(178, 89, 255, 0.1);
-    --surface-tint: #9DFF00;
-  }
 }
 
 @layer base {
-  /* 🔒 NATIVE APP VIEWPORT LOCK & PROTECTION RESETS */
   html, body {
     overscroll-behavior-y: none; 
     height: 100%;
@@ -60,19 +59,16 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* 🌌 NEW UI FOUNDATION */
   body {
-    @apply bg-background text-on-background overflow-x-hidden;
+    @apply bg-background text-on-background overflow-x-hidden transition-colors duration-300;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
-  /* 🖼️ NATIVE IMAGE PROPERTY HARDENING */
   img {
     -webkit-touch-callout: none;
     -webkit-user-drag: none;
   }
 
-  /* ⌨️ SYSTEM EXCEPTIONS */
   input, textarea {
     -webkit-user-select: text;
     -moz-user-select: text;
@@ -81,7 +77,6 @@
   }
 }
 
-/* 📜 PREMIUM SCROLLING MECHANICS */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

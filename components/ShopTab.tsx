@@ -11,10 +11,10 @@ const COIN_PACKAGES = [
 ];
 
 const COSMETIC_ITEMS = [
-  { id: "cos_1", title: "Neon Glow Striker", type: "Carrom", price: 2500, icon: "radio_button_checked", color: "text-[#9DFF00]" },
-  { id: "cos_2", title: "Obsidian Board", type: "Chess", price: 8000, icon: "grid_4x4", color: "text-white" },
-  { id: "cos_3", title: "Crown Badge", type: "Profile", price: 1500, icon: "workspace_premium", color: "text-[#B259FF]" },
-  { id: "cos_4", title: "Holographic Dice", type: "3D Asset", price: 4000, icon: "casino", color: "text-[#3B82F6]" },
+  { id: "cos_1", title: "Neon Glow Striker", type: "Carrom", price: 2500, icon: "radio_button_checked", color: "text-primary" },
+  { id: "cos_2", title: "Obsidian Board", type: "Chess", price: 8000, icon: "grid_4x4", color: "text-on-surface" },
+  { id: "cos_3", title: "Crown Badge", type: "Profile", price: 1500, icon: "workspace_premium", color: "text-secondary" },
+  { id: "cos_4", title: "Holographic Dice", type: "3D Asset", price: 4000, icon: "casino", color: "text-blue-500" },
 ];
 
 interface ShopTabProps {
@@ -112,19 +112,19 @@ export default function ShopTab({ userId }: ShopTabProps) {
   };
 
   return (
-    <div className="w-full flex flex-col gap-6 pb-12 animate-fade-in">
+    <div className="w-full flex flex-col gap-6 pb-12 animate-fade-in text-on-surface">
       
-      {/* 🎡 DAILY REWARD: FORTUNE WHEEL (SOLID STYLING) */}
-      <section className="bg-surface rounded-[24px] p-6 flex flex-col items-center text-center relative overflow-hidden">
-        <h2 className="font-headline text-lg font-black text-white tracking-wide">Daily Fortune Wheel</h2>
+      {/* 🎡 DAILY REWARD: FORTUNE WHEEL */}
+      <section className="bg-surface border border-surface-container-highest rounded-[24px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm">
+        <h2 className="font-headline text-lg font-black text-on-surface tracking-wide">Daily Fortune Wheel</h2>
         <p className="font-body text-xs text-on-surface-variant mt-1">Spin the matrix core module to extract free tokens.</p>
 
         {/* 3D Core Spinner Layout Block */}
         <div className="relative w-40 h-40 mt-6 mb-6 flex items-center justify-center">
-          <div className={`w-full h-full rounded-full border-4 border-surface-variant bg-background flex items-center justify-center relative transition-transform duration-[2.5s] ease-out ${isSpinning ? "rotate-[1440deg]" : ""}`}>
-            <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg_90deg,rgba(157,255,0,0.05)_90deg_180deg,transparent_180deg_270deg,rgba(157,255,0,0.05)_270deg_360deg)]"></div>
+          <div className={`w-full h-full rounded-full border-4 border-surface-container-highest bg-surface-container-high flex items-center justify-center relative transition-transform duration-[2.5s] ease-out ${isSpinning ? "rotate-[1440deg]" : ""}`}>
+            <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg_90deg,var(--primary-container)_90deg_180deg,transparent_180deg_270deg,var(--primary-container)_270deg_360deg)]"></div>
             
-            <div className="w-14 h-14 bg-surface-variant border-2 border-primary rounded-full z-20 flex items-center justify-center shadow-md">
+            <div className="w-14 h-14 bg-surface border-2 border-primary rounded-full z-20 flex items-center justify-center shadow-md">
               <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
             </div>
 
@@ -151,7 +151,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
               disabled={!canSpin || isSpinning || !userId}
               className={`w-full max-w-[220px] py-3 rounded-full font-headline text-sm font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
                 canSpin && !isSpinning && userId
-                  ? "bg-primary text-black hover:bg-[#a6ff1a] active:scale-95" 
+                  ? "bg-primary text-on-primary hover:opacity-90 active:scale-95" 
                   : "bg-surface-variant text-on-surface-variant cursor-not-allowed"
               }`}
             >
@@ -165,20 +165,20 @@ export default function ShopTab({ userId }: ShopTabProps) {
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
         <button
           onClick={() => setActiveCategory("currency")}
-          className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all ${
+          className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
             activeCategory === "currency" 
-              ? "bg-primary text-black" 
-              : "bg-surface text-on-surface-variant hover:text-white"
+              ? "bg-primary text-on-primary" 
+              : "bg-surface text-on-surface-variant hover:text-on-surface border border-surface-container-highest"
           }`}
         >
           Currency
         </button>
         <button
           onClick={() => setActiveCategory("cosmetics")}
-          className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all ${
+          className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
             activeCategory === "cosmetics" 
-              ? "bg-primary text-black" 
-              : "bg-surface text-on-surface-variant hover:text-white"
+              ? "bg-primary text-on-primary" 
+              : "bg-surface text-on-surface-variant hover:text-on-surface border border-surface-container-highest"
           }`}
         >
           Cosmetics
@@ -190,24 +190,24 @@ export default function ShopTab({ userId }: ShopTabProps) {
         {activeCategory === "currency" && COIN_PACKAGES.map((pack) => {
           const isGems = pack.type === "gems";
           return (
-            <div key={pack.id} className="bg-surface rounded-[24px] p-4 flex flex-col items-center text-center relative hover:bg-surface-variant transition-colors cursor-pointer group border border-transparent hover:border-surface-container-highest active:scale-[0.98]">
+            <div key={pack.id} className="bg-surface rounded-[24px] p-4 flex flex-col items-center text-center relative hover:bg-surface-variant transition-colors cursor-pointer group border border-surface-container-highest shadow-sm active:scale-[0.98]">
               {pack.popular && (
-                <div className="absolute top-0 w-full bg-primary text-black font-caps text-[9px] font-extrabold py-1 rounded-t-[24px] uppercase tracking-widest">
+                <div className="absolute top-0 w-full bg-primary text-on-primary font-caps text-[9px] font-extrabold py-1 rounded-t-[24px] uppercase tracking-widest">
                   Best Value
                 </div>
               )}
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mt-4 mb-3 transition-transform group-hover:scale-105 ${isGems ? 'bg-[#271533]' : 'bg-[#182816]'}`}>
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mt-4 mb-3 transition-transform group-hover:scale-105 ${isGems ? 'bg-secondary/10' : 'bg-primary-container'}`}>
                 <span className={`material-symbols-outlined text-3xl ${isGems ? 'text-secondary' : 'text-primary'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
                   {isGems ? 'diamond' : 'bolt'}
                 </span>
               </div>
-              <h3 className="font-headline text-lg font-black text-white">{pack.amount.toLocaleString()}</h3>
+              <h3 className="font-headline text-lg font-black text-on-surface">{pack.amount.toLocaleString()}</h3>
               <p className={`font-caps text-[9px] uppercase mt-0.5 tracking-wider font-bold ${isGems ? 'text-secondary' : 'text-primary'}`}>
                 {isGems ? 'Gems' : 'PTS'}
               </p>
               <button 
                 onClick={() => executePaymentGateway(pack.title, pack.amount)}
-                className="mt-4 w-full py-2.5 bg-background text-white font-headline text-xs font-bold rounded-xl active:scale-[0.97] transition-colors hover:bg-surface-container-highest"
+                className="mt-4 w-full py-2.5 bg-surface-container-high text-on-surface font-headline text-xs font-bold rounded-xl active:scale-[0.97] transition-colors hover:bg-surface-container-highest"
               >
                 {pack.price}
               </button>
@@ -216,15 +216,15 @@ export default function ShopTab({ userId }: ShopTabProps) {
         })}
 
         {activeCategory === "cosmetics" && COSMETIC_ITEMS.map((item) => (
-          <div key={item.id} className="bg-surface rounded-[24px] p-4 flex flex-col items-center text-center hover:bg-surface-variant transition-colors cursor-pointer group active:scale-[0.98]">
-            <div className="w-14 h-14 rounded-[16px] bg-background flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+          <div key={item.id} className="bg-surface rounded-[24px] p-4 flex flex-col items-center text-center hover:bg-surface-variant transition-colors cursor-pointer group border border-surface-container-highest shadow-sm active:scale-[0.98]">
+            <div className="w-14 h-14 rounded-[16px] bg-surface-container-high flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
               <span className={`material-symbols-outlined text-2xl ${item.color}`} style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
             </div>
-            <h3 className="font-headline text-sm font-bold text-white leading-tight h-10 flex items-center justify-center text-center w-full">{item.title}</h3>
+            <h3 className="font-headline text-sm font-bold text-on-surface leading-tight h-10 flex items-center justify-center text-center w-full">{item.title}</h3>
             <p className="font-caps text-[9px] text-on-surface-variant mt-1 uppercase tracking-wider">{item.type}</p>
             <button 
               onClick={() => alert("Balance deduction hook and visual asset ownership check routing initialized...")}
-              className="mt-4 w-full py-2.5 bg-background text-primary font-headline text-xs font-bold rounded-xl flex items-center justify-center gap-1 active:scale-[0.97] transition-colors hover:bg-surface-container-highest"
+              className="mt-4 w-full py-2.5 bg-surface-container-high text-primary font-headline text-xs font-bold rounded-xl flex items-center justify-center gap-1 active:scale-[0.97] transition-colors hover:bg-surface-container-highest"
             >
               <span className="material-symbols-outlined text-[14px]">bolt</span>
               {item.price.toLocaleString()}

@@ -99,16 +99,16 @@ export default function GamesTab({
     : dbGames.filter(g => g.category === activeCategory);
 
   return (
-    <div className="w-full pb-6 animate-fade-in">
+    <div className="w-full pb-6 animate-fade-in text-on-surface">
       
       {/* 🏷️ HORIZONTAL CATEGORY PILLS */}
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 mb-6 -mx-5 px-5">
         <button
           onClick={() => setActiveCategory("All")}
-          className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all ${
+          className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
             activeCategory === "All" 
-              ? "bg-primary text-black" 
-              : "bg-surface text-on-surface-variant hover:text-white"
+              ? "bg-primary text-on-primary" 
+              : "bg-surface text-on-surface-variant hover:text-on-surface border border-surface-container-highest"
           }`}
         >
           All
@@ -117,10 +117,10 @@ export default function GamesTab({
           <button
             key={cat.id}
             onClick={() => setActiveCategory(cat.name)}
-            className={`px-5 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all ${
+            className={`px-5 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
               activeCategory === cat.name 
-                ? "bg-primary text-black" 
-                : "bg-surface text-on-surface-variant hover:text-white"
+                ? "bg-primary text-on-primary" 
+                : "bg-surface text-on-surface-variant hover:text-on-surface border border-surface-container-highest"
             }`}
           >
             {cat.name}
@@ -130,50 +130,49 @@ export default function GamesTab({
 
       {/* 🎮 TRENDING GAMES GRID */}
       <div className="space-y-4">
-        <h2 className="font-headline text-xl font-bold text-white tracking-wide">
+        <h2 className="font-headline text-xl font-bold text-on-surface tracking-wide">
           Trending Games
         </h2>
         
         <div className="grid grid-cols-2 gap-4">
-          {filteredGames.map((game, index) => {
+          {filteredGames.map((game) => {
             const isPremium = game.entry_fee > 0;
-            // Provide a fallback color if image is missing to match mockups
-            const fallbackColors = ["bg-[#B259FF]", "bg-[#00A86B]", "bg-[#3B82F6]"];
-            const bgClass = fallbackColors[index % fallbackColors.length];
 
             return (
               <div 
                 key={game.id} 
                 onClick={() => executeLaunchEngine(formatGameSlug(game.title), game.entry_fee)}
-                className="bg-surface rounded-[24px] p-3 flex flex-col gap-3 cursor-pointer hover:bg-surface-variant active:scale-[0.97] transition-all"
+                className="bg-surface border border-surface-container-highest rounded-[24px] p-3 flex flex-col gap-3 cursor-pointer hover:bg-surface-variant active:scale-[0.97] transition-all shadow-sm"
               >
-                {/* Image Placeholder Match */}
-                <div className={`relative w-full aspect-square rounded-[16px] overflow-hidden ${bgClass}`}>
-                  {game.image_url && (
+                {/* Image Placeholder / Banner */}
+                <div className="relative w-full aspect-square rounded-[16px] overflow-hidden bg-surface-container-high flex items-center justify-center">
+                  {game.image_url ? (
                     <div 
-                      className="absolute inset-0 bg-cover bg-center mix-blend-overlay opacity-80" 
+                      className="absolute inset-0 bg-cover bg-center" 
                       style={{ backgroundImage: `url('${game.image_url}')` }}
                     />
+                  ) : (
+                    <span className="material-symbols-outlined text-4xl text-on-surface-variant/40">sports_esports</span>
                   )}
                   
                   {isPremium && (
-                    <div className="absolute top-2 right-2 bg-white/20 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                      <span className="material-symbols-outlined text-white text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
-                      <span className="text-white font-bold text-[9px] uppercase tracking-wider">Gems</span>
+                    <div className="absolute top-2 right-2 bg-surface/90 text-secondary border border-surface-container-highest px-2 py-1 rounded-full flex items-center gap-1 shadow-md">
+                      <span className="material-symbols-outlined text-secondary text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
+                      <span className="font-bold text-[9px] uppercase tracking-wider">Gems</span>
                     </div>
                   )}
                 </div>
 
                 {/* Game Information */}
                 <div className="px-1 pb-1">
-                  <h3 className="font-headline text-sm font-bold text-white truncate">{game.title}</h3>
+                  <h3 className="font-headline text-sm font-bold text-on-surface truncate">{game.title}</h3>
                   <div className="flex justify-between items-center mt-1">
                     <span className="font-body text-[11px] text-on-surface-variant truncate pr-2">
                       {game.category || "Arcade"}
                     </span>
                     <div className="flex items-center gap-0.5 shrink-0">
-                      <span className="material-symbols-outlined text-[#F59E0B] text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                      <span className="text-white font-bold text-[11px]">4.8</span>
+                      <span className="material-symbols-outlined text-amber-500 text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                      <span className="text-on-surface font-bold text-[11px]">4.8</span>
                     </div>
                   </div>
                 </div>

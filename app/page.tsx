@@ -41,9 +41,15 @@ export default function Home() {
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
-    // Forcing dark mode internally to match the new UI palette
-    setIsDarkMode(true);
-    document.documentElement.classList.add("dark");
+    // Check local storage for theme preference
+    const cachedTheme = localStorage.getItem("app_theme");
+    if (cachedTheme === "light") {
+      setIsDarkMode(false);
+      document.documentElement.classList.remove("dark");
+    } else {
+      setIsDarkMode(true);
+      document.documentElement.classList.add("dark");
+    }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -105,8 +111,15 @@ export default function Home() {
   };
 
   const toggleTheme = () => {
-    // Theme toggling kept for logic, but styles will remain dark high-contrast
-    setIsDarkMode(!isDarkMode);
+    if (isDarkMode) {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("app_theme", "light");
+      setIsDarkMode(false);
+    } else {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("app_theme", "dark");
+      setIsDarkMode(true);
+    }
   };
 
   if (checkingAuth) {
@@ -154,29 +167,29 @@ export default function Home() {
       ) : null}
 
       {/* 📱 SOLID APP SHELL */}
-      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden"}>
+      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden transition-colors duration-300"}>
         
         {/* NEW HIGH-CONTRAST HEADER */}
         <header 
-          className="fixed top-0 left-0 right-0 z-50 bg-background flex justify-between items-center px-5 h-[90px]"
+          className="fixed top-0 left-0 right-0 z-50 bg-background flex justify-between items-center px-5 h-[90px] transition-colors duration-300"
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
           <div className="flex items-center gap-3">
             {/* User Avatar Circle */}
-            <div className="w-[42px] h-[42px] rounded-full bg-primary text-black flex items-center justify-center font-headline font-black text-sm">
+            <div className="w-[42px] h-[42px] rounded-full bg-primary text-on-primary flex items-center justify-center font-headline font-black text-sm">
               JY
             </div>
             
             <div className="flex flex-col">
-              <h1 className="font-headline text-lg font-bold text-white leading-tight">Joe Yoke</h1>
+              <h1 className="font-headline text-lg font-bold text-on-background leading-tight">Joe Yoke</h1>
               <div className="flex items-center gap-2 mt-0.5">
                 {/* Points Pill (Green) */}
-                <div className="flex items-center gap-1 bg-surface px-2 py-0.5 rounded-md">
+                <div className="flex items-center gap-1 bg-surface px-2 py-0.5 rounded-md shadow-sm border border-surface-container-highest">
                   <span className="material-symbols-outlined text-primary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
                   <span className="text-primary text-[11px] font-bold">{userPoints.toLocaleString()}</span>
                 </div>
                 {/* Gems Pill (Purple) */}
-                <div className="flex items-center gap-1 bg-surface px-2 py-0.5 rounded-md">
+                <div className="flex items-center gap-1 bg-surface px-2 py-0.5 rounded-md shadow-sm border border-surface-container-highest">
                   <span className="material-symbols-outlined text-secondary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
                   <span className="text-secondary text-[11px] font-bold">{userGems}</span>
                 </div>
@@ -185,10 +198,13 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface-variant hover:text-white transition-colors">
-              <span className="material-symbols-outlined text-[18px]">light_mode</span>
+            <button 
+              onClick={toggleTheme}
+              className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors border border-surface-container-highest shadow-sm"
+            >
+              <span className="material-symbols-outlined text-[18px]">{isDarkMode ? "light_mode" : "dark_mode"}</span>
             </button>
-            <button className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface-variant hover:text-white transition-colors">
+            <button className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors border border-surface-container-highest shadow-sm">
               <span className="material-symbols-outlined text-[18px]">notifications</span>
             </button>
           </div>
@@ -245,7 +261,7 @@ export default function Home() {
         </main>
 
         {/* NEW SOLID BOTTOM NAVIGATION */}
-        <nav className="fixed bottom-0 left-0 w-full z-50 bg-background border-t border-surface-container-high px-2 pb-safe pt-1 flex justify-around items-center h-[76px]">
+        <nav className="fixed bottom-0 left-0 w-full z-50 bg-background border-t border-surface-container-high px-2 pb-safe pt-1 flex justify-around items-center h-[76px] transition-colors duration-300">
           {[
             { id: "Home", icon: "home" },
             { id: "Explore", icon: "explore" }, 
