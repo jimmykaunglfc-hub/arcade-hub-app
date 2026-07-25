@@ -100,13 +100,14 @@ export default function HomeTab({
         className="w-full bg-primary text-on-primary rounded-[24px] p-6 shadow-sm transition-all duration-300"
         style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)' }}
       >
-        {/* 👇 UPDATED: Side-by-side flex layout for Badge (Left) and Text (Right) */}
-        <div className="flex items-center gap-5">
+        {/* 👇 UPDATED: Increased gap to 8 (2rem) to push text right */}
+        <div className="flex items-center gap-8">
           
-          {/* LEFT: Large Rank Badge */}
+          {/* LEFT: Much Larger Rank Badge */}
           <div className="flex items-center justify-center shrink-0">
+            {/* 👇 UPDATED: text-[88px] for a bigger badge and stronger drop-shadow */}
             <span 
-              className="material-symbols-outlined text-[64px] drop-shadow-sm opacity-90" 
+              className="material-symbols-outlined text-[88px] drop-shadow-md opacity-90" 
               style={{ fontVariationSettings: "'FILL' 1" }}
             >
               {currentRankIcon}
