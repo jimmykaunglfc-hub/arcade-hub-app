@@ -9,7 +9,6 @@ interface HomeTabProps {
   onPlay: (url: string) => void;
   onNavigate: (tabId: string) => void;
   
-  // 👇 NEW: Define the Rank Data interface
   rankData?: {
     tier: string;
     percentile: number;
@@ -58,6 +57,21 @@ export default function HomeTab({
     setShowDailyReward(false);
   };
 
+  // 👇 NEW: Helper function to map rank tiers to specific Material Icons
+  const getRankIcon = (tier: string) => {
+    if (!tier || tier === "Unranked") return "help_center";
+    if (tier.includes("Bronze")) return "shield";                  // A basic shield
+    if (tier.includes("Silver")) return "workspace_premium";       // A premium ribbon
+    if (tier.includes("Gold")) return "emoji_events";              // A classic trophy
+    if (tier.includes("Platinum")) return "stars";                 // A glowing starburst
+    if (tier.includes("Diamond")) return "diamond";                // A literal diamond
+    if (tier.includes("Master")) return "local_fire_department";   // Blazing fire for top tier
+    return "emoji_events"; 
+  };
+
+  const currentTier = rankData?.tier || "Unranked";
+  const currentRankIcon = getRankIcon(currentTier);
+
   return (
     <div className="w-full pb-6 animate-fade-in relative">
       
@@ -88,21 +102,23 @@ export default function HomeTab({
         style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)' }}
       >
         <div className="flex items-center gap-1.5 mb-2 opacity-80">
-          <span className="material-symbols-outlined text-sm">emoji_events</span>
+          {/* 👇 UPDATED: Uses the dynamic icon helper and applies a solid fill */}
+          <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
+            {currentRankIcon}
+          </span>
           <span className="font-caps text-[10px] font-bold uppercase tracking-widest">
             Current Season
           </span>
         </div>
         
-        {/* 👇 UPDATED: Dynamic Tier & Percentile */}
         <h1 className="font-headline text-3xl font-black leading-tight tracking-tight">
-          {rankData?.tier || "Unranked"}
+          {currentTier}
         </h1>
         <p className="font-body text-xs font-medium text-on-primary opacity-80 mt-1">
           {rankData?.percentile ? `Top ${rankData.percentile}% of players globally` : "Play matches to get ranked"}
         </p>
 
-        {/* 👇 UPDATED: Dynamic Stats Row */}
+        {/* Stats Row */}
         <div className="flex justify-between items-center mt-6 pt-4 border-t border-black/10">
           <div className="flex flex-col items-start">
             <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">Win Rate</span>
@@ -251,7 +267,12 @@ export default function HomeTab({
               </div>
               <div className="flex justify-between items-center p-4 bg-background rounded-[16px] border border-surface-container-highest">
                 <span className="font-body text-sm text-on-surface-variant">Current Rank</span>
-                <span className="font-headline text-base font-bold text-primary">{rankData?.tier || "Unranked"}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[16px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    {currentRankIcon}
+                  </span>
+                  <span className="font-headline text-base font-bold text-primary">{currentTier}</span>
+                </div>
               </div>
             </div>
           </div>
