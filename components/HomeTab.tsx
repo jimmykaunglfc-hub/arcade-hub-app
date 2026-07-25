@@ -11,6 +11,9 @@ interface HomeTabProps {
 
 export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps) {
   const [username, setUsername] = useState<string>("Player");
+  
+  // NEW: State to manage the visibility of the daily login banner
+  const [showDailyReward, setShowDailyReward] = useState<boolean>(true);
 
   useEffect(() => {
     if (!userId) return;
@@ -25,9 +28,38 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
     fetchUser();
   }, [userId]);
 
+  // NEW: Handler for claiming points
+  const handleClaimPoints = () => {
+    // TODO: Add your Supabase backend logic here to increment user points
+    // supabase.rpc('increment_points', { user_id: userId, amount: 50 })
+    
+    setShowDailyReward(false);
+  };
+
   return (
     <div className="w-full pb-6 animate-fade-in">
       
+      {/* 🎁 NEW: DAILY LOGIN BANNER */}
+      {showDailyReward && (
+        <section className="w-full bg-gradient-to-r from-[#FF9D00] to-[#FF6B00] rounded-[24px] p-4 mb-5 shadow-sm flex items-center justify-between transition-all duration-300">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-[16px] bg-white/20 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-white text-[24px]">redeem</span>
+            </div>
+            <div className="flex flex-col items-start">
+              <h2 className="font-headline text-[15px] font-bold text-white leading-tight">Daily Login</h2>
+              <p className="font-body text-[12px] font-medium text-white/90 mt-0.5">+50 Points to play!</p>
+            </div>
+          </div>
+          <button 
+            onClick={handleClaimPoints}
+            className="bg-white text-[#FF6B00] font-headline text-[13px] font-bold px-5 py-2.5 rounded-full hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+          >
+            Claim
+          </button>
+        </section>
+      )}
+
       {/* 🏆 HERO CARD: CURRENT SEASON */}
       <section 
         className="w-full bg-primary text-on-primary rounded-[24px] p-6 shadow-sm transition-all duration-300"
@@ -48,7 +80,6 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
         </p>
 
         {/* Stats Row */}
-        {/* FIXED: Replaced border-on-primary/10 with standard black/10 since on-primary is dark */}
         <div className="flex justify-between items-center mt-6 pt-4 border-t border-black/10">
           <div className="flex flex-col items-start">
             <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">Win Rate</span>
@@ -82,7 +113,6 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
             onClick={() => onPlay("native://snooker")}
             className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
           >
-            {/* Solid Lime Circle with Dark Icon */}
             <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-sm">
               <span className="material-symbols-outlined text-on-primary text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
             </div>
@@ -93,7 +123,6 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
             onClick={() => alert("Spin wheel logic routing...")}
             className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
           >
-            {/* FIXED: Replaced bg-secondary/20 with semantic bg-secondary-container */}
             <div className="w-14 h-14 rounded-full bg-secondary-container flex items-center justify-center shadow-sm">
               <span className="material-symbols-outlined text-secondary text-[24px]">casino</span>
             </div>
@@ -104,7 +133,6 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
             onClick={() => alert("Detailed stats routing...")}
             className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
           >
-            {/* FIXED: Replaced bg-blue-500/20 with a solid container fallback to prevent opacity breaking */}
             <div className="w-14 h-14 rounded-full bg-surface-container-highest flex items-center justify-center shadow-sm">
               <span className="material-symbols-outlined text-blue-500 text-[24px]">polyline</span>
             </div>
