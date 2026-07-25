@@ -17,7 +17,7 @@
     --surface-container-high: #EAEFF5;
     --surface-container-highest: #E2E7ED;
     
-    --primary: #88E000; /* Electric Lime */
+    --primary: #CCFF00; /* Electric Lime */
     --on-primary: #0B0F19;
     --primary-container: #E5F9C6; 
     
@@ -41,7 +41,7 @@
     --surface-container-high: #1E283C;
     --surface-container-highest: #25324B;
     
-    --primary: #88E000; /* Electric Lime Accent */
+    --primary: #CCFF00; /* Electric Lime Accent */
     --on-primary: #0B0F19;
     --primary-container: rgba(136, 224, 0, 0.15); 
     
