@@ -3,17 +3,28 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
+// 1. UPDATED PROPS: Added onNavigate and matchHistory
 interface HomeTabProps {
   currentPoints: number;
   userId: string | null;
   onPlay: (url: string) => void;
+  onNavigate: (tabId: string) => void; 
+  matchHistory?: Array<{
+    id: string;
+    gameName: string;
+    result: string;
+    reward: string;
+    timeAgo: string;
+    isVictory: boolean;
+  }>;
 }
 
-export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps) {
+export default function HomeTab({ currentPoints, userId, onPlay, onNavigate, matchHistory = [] }: HomeTabProps) {
   const [username, setUsername] = useState<string>("Player");
-  
-  // NEW: State to manage the visibility of the daily login banner
   const [showDailyReward, setShowDailyReward] = useState<boolean>(true);
+  
+  // NEW: State to control the Stats Modal
+  const [showStatsModal, setShowStatsModal] = useState<boolean>(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -28,18 +39,15 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
     fetchUser();
   }, [userId]);
 
-  // NEW: Handler for claiming points
   const handleClaimPoints = () => {
     // TODO: Add your Supabase backend logic here to increment user points
-    // supabase.rpc('increment_points', { user_id: userId, amount: 50 })
-    
     setShowDailyReward(false);
   };
 
   return (
-    <div className="w-full pb-6 animate-fade-in">
+    <div className="w-full pb-6 animate-fade-in relative">
       
-      {/* 🎁 NEW: DAILY LOGIN BANNER */}
+      {/* 🎁 DAILY LOGIN BANNER */}
       {showDailyReward && (
         <section className="w-full bg-gradient-to-r from-[#FF9D00] to-[#FF6B00] rounded-[24px] p-4 mb-5 shadow-sm flex items-center justify-between transition-all duration-300">
           <div className="flex items-center gap-3">
@@ -109,8 +117,9 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
         </h2>
         <div className="grid grid-cols-3 gap-3">
           
+          {/* ACTION: PLAY -> Routes to Explore */}
           <button 
-            onClick={() => onPlay("native://snooker")}
+            onClick={() => onNavigate("explore")}
             className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
           >
             <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-sm">
@@ -119,8 +128,9 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
             <span className="font-headline text-sm font-bold text-on-surface">Play</span>
           </button>
 
+          {/* ACTION: SPIN -> Routes to Store */}
           <button 
-            onClick={() => alert("Spin wheel logic routing...")}
+            onClick={() => onNavigate("store")}
             className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
           >
             <div className="w-14 h-14 rounded-full bg-secondary-container flex items-center justify-center shadow-sm">
@@ -129,8 +139,9 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
             <span className="font-headline text-sm font-bold text-on-surface">Spin</span>
           </button>
 
+          {/* ACTION: STATS -> Opens Modal */}
           <button 
-            onClick={() => alert("Detailed stats routing...")}
+            onClick={() => setShowStatsModal(true)}
             className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
           >
             <div className="w-14 h-14 rounded-full bg-surface-container-highest flex items-center justify-center shadow-sm">
@@ -148,63 +159,93 @@ export default function HomeTab({ currentPoints, userId, onPlay }: HomeTabProps)
           <h2 className="font-headline text-lg font-bold text-on-surface tracking-wide">
             Recent Matches
           </h2>
-          <button className="font-headline text-xs font-bold text-primary hover:opacity-80 transition-opacity">
-            See All
-          </button>
+          {matchHistory.length > 0 && (
+            <button className="font-headline text-xs font-bold text-primary hover:opacity-80 transition-opacity">
+              See All
+            </button>
+          )}
         </div>
         
         <div className="flex flex-col gap-3">
           
-          <button className="w-full bg-surface border border-surface-container-highest rounded-[20px] p-4 flex items-center justify-between hover:bg-surface-variant transition-colors active:scale-[0.98] shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-[14px] bg-primary-container flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-primary text-[22px]">emoji_events</span>
+          {/* CONDITION: If user has no matches, show an inviting Empty State */}
+          {matchHistory.length === 0 ? (
+            <div className="w-full bg-surface border border-surface-container-highest rounded-[20px] p-8 flex flex-col items-center text-center shadow-sm">
+              <div className="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center mb-4">
+                <span className="material-symbols-outlined text-[32px] text-on-surface-variant">sports_esports</span>
               </div>
-              <div className="text-left">
-                <h3 className="font-headline text-sm font-bold text-on-surface leading-tight">Ranked Match</h3>
-                <p className="font-body text-[11px] text-on-surface-variant mt-0.5">Victory • +24 LP</p>
-              </div>
+              <h3 className="font-headline text-base font-bold text-on-surface mb-1">No Matches Yet</h3>
+              <p className="font-body text-xs text-on-surface-variant mb-5">
+                Jump into the arcade to start building your legacy and climbing the ranks.
+              </p>
+              <button 
+                onClick={() => onNavigate("explore")}
+                className="bg-primary text-on-primary font-headline text-sm font-bold px-6 py-2.5 rounded-full hover:opacity-90 active:scale-95 transition-all shadow-sm"
+              >
+                Find a Game
+              </button>
             </div>
-            <div className="flex flex-col items-end justify-center gap-1">
-              <span className="font-body text-[10px] text-on-surface-variant">2h ago</span>
-              <span className="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
-            </div>
-          </button>
-
-          <button className="w-full bg-surface border border-surface-container-highest rounded-[20px] p-4 flex items-center justify-between hover:bg-surface-variant transition-colors active:scale-[0.98] shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-[14px] bg-primary-container flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-primary text-[22px]">emoji_events</span>
-              </div>
-              <div className="text-left">
-                <h3 className="font-headline text-sm font-bold text-on-surface leading-tight">Grandmaster Chess</h3>
-                <p className="font-body text-[11px] text-on-surface-variant mt-0.5">Victory • +15 Gems</p>
-              </div>
-            </div>
-            <div className="flex flex-col items-end justify-center gap-1">
-              <span className="font-body text-[10px] text-on-surface-variant">5h ago</span>
-              <span className="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
-            </div>
-          </button>
-
-          <button className="w-full bg-surface border border-surface-container-highest rounded-[20px] p-4 flex items-center justify-between hover:bg-surface-variant transition-colors active:scale-[0.98] shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-[14px] bg-primary-container flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-primary text-[22px]">emoji_events</span>
-              </div>
-              <div className="text-left">
-                <h3 className="font-headline text-sm font-bold text-on-surface leading-tight">Pro Table Tennis</h3>
-                <p className="font-body text-[11px] text-on-surface-variant mt-0.5">Defeat • -8 LP</p>
-              </div>
-            </div>
-            <div className="flex flex-col items-end justify-center gap-1">
-              <span className="font-body text-[10px] text-on-surface-variant">1d ago</span>
-              <span className="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
-            </div>
-          </button>
-
+          ) : (
+            /* CONDITION: If user HAS matches, render them */
+            matchHistory.map((match) => (
+              <button key={match.id} className="w-full bg-surface border border-surface-container-highest rounded-[20px] p-4 flex items-center justify-between hover:bg-surface-variant transition-colors active:scale-[0.98] shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-[14px] flex items-center justify-center shrink-0 ${match.isVictory ? 'bg-primary-container text-primary' : 'bg-surface-container-highest text-on-surface-variant'}`}>
+                    <span className="material-symbols-outlined text-[22px]">emoji_events</span>
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-headline text-sm font-bold text-on-surface leading-tight">{match.gameName}</h3>
+                    <p className="font-body text-[11px] text-on-surface-variant mt-0.5">{match.result} • {match.reward}</p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end justify-center gap-1">
+                  <span className="font-body text-[10px] text-on-surface-variant">{match.timeAgo}</span>
+                  <span className="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
+                </div>
+              </button>
+            ))
+          )}
         </div>
       </section>
+
+      {/* 📊 STATS MODAL OVERLAY */}
+      {showStatsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm transition-opacity">
+          <div className="w-full max-w-sm bg-surface rounded-[24px] p-6 shadow-2xl animate-fade-in border border-surface-container-highest relative">
+            
+            {/* Close Button */}
+            <button 
+              onClick={() => setShowStatsModal(false)}
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-highest text-on-surface hover:bg-surface-variant transition-colors"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+
+            <div className="flex flex-col items-center text-center mt-2 mb-6">
+              <div className="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center mb-3">
+                <span className="material-symbols-outlined text-[32px] text-blue-500">polyline</span>
+              </div>
+              <h2 className="font-headline text-xl font-bold text-on-surface">Player Statistics</h2>
+              <p className="font-body text-sm text-on-surface-variant">Lifetime gameplay record</p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-center p-4 bg-background rounded-[16px] border border-surface-container-highest">
+                <span className="font-body text-sm text-on-surface-variant">Total Points</span>
+                <span className="font-headline text-base font-bold text-on-surface">{currentPoints.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center p-4 bg-background rounded-[16px] border border-surface-container-highest">
+                <span className="font-body text-sm text-on-surface-variant">Games Played</span>
+                <span className="font-headline text-base font-bold text-on-surface">{matchHistory.length > 0 ? matchHistory.length * 14 : 0}</span>
+              </div>
+              <div className="flex justify-between items-center p-4 bg-background rounded-[16px] border border-surface-container-highest">
+                <span className="font-body text-sm text-on-surface-variant">Current Rank</span>
+                <span className="font-headline text-base font-bold text-primary">Diamond II</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
