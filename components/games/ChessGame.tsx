@@ -7,7 +7,6 @@ import { supabase } from "../../lib/supabaseClient";
 interface ChessGameProps {
   onClose: () => void;
   preloadedMatchId?: string | null;
-  // 👇 NEW: Matchmaking prop structure
   opponent?: { name: string; isBot: boolean } | null;
 }
 
@@ -35,11 +34,17 @@ const PIECE_SYMBOLS: Record<string, string> = {
 export default function ChessGame({ onClose, preloadedMatchId, opponent }: ChessGameProps) {
   const boardRef = useRef<HTMLDivElement>(null);
 
-  // 🎮 VIEW & MATCH STATES
-  const [view, setView] = useState<"menu" | "host" | "play">(
-    preloadedMatchId || opponent?.isBot ? "play" : "menu"
+  // 1. Detect bot mode synchronously
+  const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
+
+  // 2. Initialize view and matchId immediately based on bot detection
+  const [view, setView] = useState<"menu" | "host" | "play" | "searching" | "confirmed">(
+    isBotMode || preloadedMatchId ? "play" : "menu"
   );
-  const [matchId, setMatchId] = useState<string | null>(preloadedMatchId || null);
+  const [matchId, setMatchId] = useState<string | null>(
+    preloadedMatchId || (isBotMode ? `bot_match_${Date.now()}` : null)
+  );
+  
   const [joinInput, setJoinInput] = useState("");
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -87,17 +92,14 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
 
   // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {
-    if (opponent?.isBot) {
-      setMatchId(preloadedMatchId || `bot_match_${Date.now()}`);
-      setPlayerColor("white");
-      setView("play");
+    if (isBotMode && opponent?.name) {
       showToast(`Playing against ${opponent.name}`);
     }
-  }, [opponent, preloadedMatchId]);
+  }, [isBotMode, opponent]);
 
   // 📡 Supabase Sync (Only active for human network matches)
   useEffect(() => {
-    if (!matchId || !myUserId || opponent?.isBot) return;
+    if (!matchId || !myUserId || opponent?.isBot || view === "searching" || view === "confirmed") return;
 
     const matchChannel = supabase.channel(`chess_match_${matchId}`, {
       config: { broadcast: { self: false }, presence: { key: myUserId } },
@@ -135,11 +137,12 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
       supabase.removeChannel(matchChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchId, myUserId, opponent]);
+  }, [matchId, myUserId, opponent, view]);
 
   // 🤖 LOCAL JOE YOKE BOT ENGINE (Greedy Logic)
   useEffect(() => {
-    const isBotMatch = opponent?.isBot;
+    const isBotMatch = opponent?.isBot || matchId?.startsWith("bot_");
+    
     // The Bot acts when it is Black's turn and the game isn't over
     if (isBotMatch && view === "play" && game.turn() === "b" && !gameOver.isOver) {
       const botTimer = setTimeout(() => {
@@ -159,7 +162,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
       return () => clearTimeout(botTimer);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fen, game, gameOver, opponent, view]);
+  }, [fen, game, gameOver, opponent, view, matchId]);
 
   useEffect(() => {
     if (view === "host" && opponentConnected) setView("play");
@@ -203,14 +206,16 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   const currentTurnColor = game.turn() === "w" ? "white" : "black";
   
   // 🎯 LOCAL PASS & PLAY: Keep board stationary ("white") so phone sits flat between 2 players
-  const displayOrientation = matchId && !opponent?.isBot ? playerColor : "white";
+  const displayOrientation = matchId && (!opponent?.isBot && !matchId?.startsWith("bot_")) ? playerColor : "white";
 
   // Execute Move Engine
   const makeMove = (source: Square, target: Square): boolean => {
     if (gameOver.isOver) return false;
     
+    const isBotMatch = opponent?.isBot || matchId?.startsWith("bot_");
+
     // Prevent human moving if opponent hasn't joined (ignoring Bot matches)
-    if (matchId && !opponent?.isBot && !opponentConnected) {
+    if (matchId && !isBotMatch && !opponentConnected) {
       showToast("Waiting for opponent to connect!");
       return false;
     }
@@ -227,7 +232,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
       setLastMove({ from: source, to: target });
       updateGameStatus(gameCopy);
 
-      if (channel && matchId && !opponent?.isBot) {
+      if (channel && matchId && !isBotMatch) {
         channel.send({
           type: "broadcast",
           event: "board_update",
@@ -268,7 +273,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     if (!sq) return;
 
     // Check Turn Rights (In Bot Match, player is ALWAYS white)
-    const isBotMatch = opponent?.isBot;
+    const isBotMatch = opponent?.isBot || matchId?.startsWith("bot_");
     const isMyTurn = matchId
       ? isBotMatch
         ? game.turn() === "w" 
@@ -322,7 +327,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     setSelectedSquare(null);
     setLegalMoves([]);
     setLastMove(null);
-    if (channel && matchId && !opponent?.isBot) {
+    if (channel && matchId && !opponent?.isBot && !matchId?.startsWith("bot_")) {
       channel.send({
         type: "broadcast",
         event: "board_update",
@@ -336,73 +341,189 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     setView("menu");
   };
 
+  // --- NEW FAKE MATCHMAKING FLOW FOR BOT INTEGRATION ---
+  const startOnlineMatchmaking = () => {
+    setView("searching");
+    setTimeout(() => {
+      setView(prev => {
+        if (prev === "searching") return "confirmed";
+        return prev;
+      });
+    }, 2800); // Wait ~3s for radar animation
+  };
+
+  const enterBotMatch = () => {
+    setMatchId(`bot_match_${Date.now()}`);
+    setPlayerColor("white");
+    setView("play");
+    showToast(`Playing against Joe Yoke Bot`);
+  };
+
   const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
   const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
   const boardFiles = displayOrientation === "white" ? files : [...files].reverse();
   const boardRanks = displayOrientation === "white" ? ranks : [...ranks].reverse();
 
+  // =========================================
+  // LOBBY MENU: MODERN DARK ARENA HUB
+  // =========================================
   if (view === "menu") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6">
-        <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col items-center relative overflow-hidden">
-          <div className="w-16 h-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center mb-4 border border-indigo-500/20 shadow-inner">
-            <span className="material-symbols-outlined text-3xl text-indigo-400">psychology</span>
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6 animate-fade-in">
+        <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
+          
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
+              <span className="material-symbols-outlined text-2xl text-neutral-300">workspace_premium</span>
+            </div>
+            <div>
+              <h1 className="font-headline font-black text-xl tracking-tight text-white">Chess Arena</h1>
+              <p className="text-xs text-neutral-400 font-medium mt-0.5">Select engagement mode</p>
+            </div>
           </div>
-          <h1 className="font-headline font-black text-2xl tracking-tight mb-1">Chess Arena</h1>
-          <p className="font-caps text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-8 uppercase">Select Engagement Mode</p>
-          <div className="w-full space-y-3">
-            <button
-              onClick={() => { setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }}
-              className="w-full bg-indigo-500 hover:bg-indigo-400 text-white rounded-2xl py-4 px-5 flex items-center justify-between transition-all active:scale-95 shadow-lg shadow-indigo-500/20"
-            >
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-lg">language</span>
-                <span className="font-headline font-bold text-sm tracking-wide">HOST NETWORK MATCH</span>
+
+          {/* Online Match Button (CCFF00 Theme) */}
+          <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
+                <span className="material-symbols-outlined text-xl">search</span>
               </div>
-              <span className="material-symbols-outlined text-lg opacity-50">chevron_right</span>
-            </button>
-            <button
-              onClick={() => { setMatchId(null); setView("play"); }}
-              className="w-full bg-white/5 hover:bg-white/10 text-white rounded-2xl py-4 px-5 flex items-center justify-between transition-all active:scale-95 border border-white/5"
-            >
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-lg text-neutral-400">group</span>
-                <span className="font-headline font-bold text-sm tracking-wide text-neutral-200">LOCAL PASS & PLAY</span>
+              <div className="flex flex-col items-end gap-2">
+                <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Popular</span>
+                <div className="w-7 h-7 rounded-full bg-[#CCFF00] flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
+                  <span className="material-symbols-outlined text-sm font-black">arrow_forward</span>
+                </div>
               </div>
-              <span className="material-symbols-outlined text-lg opacity-50">chevron_right</span>
+            </div>
+            <h3 className="font-headline font-black text-lg text-white mb-1 group-hover:text-[#CCFF00] transition-colors">Find Online Match</h3>
+            <p className="text-xs text-neutral-400 font-medium leading-relaxed">Ranked & casual global<br/>matchmaking</p>
+          </button>
+
+          {/* Private & Offline Match Buttons */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <button onClick={() => { setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+              <div className="flex justify-between items-start w-full">
+                <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
+                  <span className="material-symbols-outlined text-lg">dns</span>
+                </div>
+                <span className="bg-teal-500/10 text-teal-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Private</span>
+              </div>
+              <div>
+                <h3 className="font-headline font-bold text-sm text-white mb-0.5">Host Match</h3>
+                <p className="text-[10px] text-neutral-400 font-medium">Create room code</p>
+              </div>
+            </button>
+
+            <button onClick={() => { setMatchId(null); setView("play"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+              <div className="flex justify-between items-start w-full">
+                <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
+                  <span className="material-symbols-outlined text-lg">sports_esports</span>
+                </div>
+                <span className="bg-pink-500/10 text-pink-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Offline</span>
+              </div>
+              <div>
+                <h3 className="font-headline font-bold text-sm text-white mb-0.5">Pass & Play</h3>
+                <p className="text-[10px] text-neutral-400 font-medium">Local device</p>
+              </div>
             </button>
           </div>
-          <div className="w-full flex items-center gap-4 my-6 opacity-40">
-            <div className="flex-1 h-px bg-white/20"></div>
-            <span className="font-caps text-[9px] font-bold tracking-widest uppercase">Or Join Room</span>
-            <div className="flex-1 h-px bg-white/20"></div>
-          </div>
-          <div className="w-full flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5">
+
+          {/* Join Room Input */}
+          <div className="w-full flex items-center gap-2 bg-[#09090b] border border-white/10 p-1.5 rounded-2xl mb-6">
+            <div className="pl-3 text-neutral-500 flex items-center justify-center">
+              <span className="material-symbols-outlined text-lg">vpn_key</span>
+            </div>
             <input
               type="text"
-              placeholder="CODE"
+              placeholder="ENTER ROOM CODE..."
               value={joinInput}
-              onChange={(e) => setJoinInput(e.target.value)}
-              className="flex-1 bg-transparent border-none text-center font-headline font-bold tracking-widest text-white placeholder-neutral-600 focus:outline-none uppercase"
-              maxLength={8}
+              onChange={(e) => setJoinInput(e.target.value.toUpperCase())}
+              className="flex-1 bg-transparent text-sm font-headline font-bold text-white placeholder-neutral-600 focus:outline-none uppercase tracking-widest"
+              maxLength={6}
             />
             <button
               onClick={() => { if (joinInput.length >= 4) { setMatchId(joinInput.trim().toUpperCase()); setView("play"); } }}
               disabled={joinInput.length < 4}
-              className="bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white px-5 py-3 rounded-xl font-headline font-bold text-xs tracking-wider transition-all"
+              className="bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
             >
-              JOIN
+              Join
             </button>
           </div>
-          <button onClick={onClose} className="mt-8 flex items-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-caps text-[10px] font-bold tracking-widest">
+
+          <button onClick={onClose} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
             <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
           </button>
+
         </div>
       </div>
     );
   }
 
+  // =========================================
+  // 📡 LOCATING OPPONENT SCREEN
+  // =========================================
+  if (view === "searching") {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
+        <div className="relative w-32 h-32 flex items-center justify-center mb-8">
+          <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
+          <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
+          <div className="absolute inset-8 border border-[#CCFF00]/10 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '1s' }}></div>
+          <div className="w-16 h-16 bg-[#CCFF00]/10 rounded-full flex items-center justify-center border border-[#CCFF00]/20 relative z-10">
+            <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
+          </div>
+        </div>
+        <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
+        <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
+        <button onClick={() => setView("menu")} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+          Abort Search
+        </button>
+      </div>
+    );
+  }
+
+  // =========================================
+  // 🤝 MATCH CONFIRMED SCREEN
+  // =========================================
+  if (view === "confirmed") {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
+        <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] px-4 py-1.5 rounded-full font-headline font-black text-xs tracking-widest mb-10 flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm">auto_awesome</span> MATCH CONFIRMED
+        </div>
+        
+        <div className="flex items-center gap-6 mb-8 relative">
+          <div className="w-20 h-20 bg-[#18181b] rounded-2xl border border-white/10 flex items-center justify-center rotate-[-5deg] shadow-2xl relative z-10">
+            <span className="material-symbols-outlined text-4xl text-white opacity-50">person</span>
+          </div>
+          
+          <div className="absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-[#CCFF00] flex items-center justify-center z-20 shadow-[0_0_20px_rgba(204,255,0,0.4)]">
+            <span className="material-symbols-outlined text-black text-sm font-black">close</span>
+          </div>
+          
+          <div className="w-20 h-20 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 flex items-center justify-center rotate-[5deg] shadow-2xl overflow-hidden relative z-10">
+            <span className="material-symbols-outlined text-4xl text-indigo-400">smart_toy</span>
+          </div>
+        </div>
+
+        <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
+        <h2 className="font-headline font-black text-3xl text-white mb-2">Joe Yoke Bot</h2>
+        <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
+          <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Expert • 2450 ELO
+        </p>
+
+        <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">
+          Enter Match <span className="material-symbols-outlined">arrow_forward</span>
+        </button>
+      </div>
+    );
+  }
+
+  // =========================================
+  // HOST WAITING SCREEN
+  // =========================================
   if (view === "host") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white">
@@ -446,6 +567,9 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     );
   }
 
+  // =========================================
+  // MAIN GAME BOARD
+  // =========================================
   return (
     <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white select-none">
       {toast && (
@@ -457,12 +581,12 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
       {gameOver.isOver && (
         <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in">
           <div className="w-full max-w-[340px] bg-[#18181b] border border-white/10 rounded-[32px] p-8 flex flex-col items-center text-center shadow-2xl">
-            <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-indigo-500/20">
-              <span className="material-symbols-outlined text-4xl text-white">{gameOver.winner ? "emoji_events" : "handshake"}</span>
+            <div className="w-20 h-20 bg-gradient-to-br from-[#CCFF00] to-green-500 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-[#CCFF00]/20">
+              <span className="material-symbols-outlined text-4xl text-black">{gameOver.winner ? "emoji_events" : "handshake"}</span>
             </div>
             <h2 className="font-headline font-black text-3xl mb-1 uppercase tracking-tight">{gameOver.winner ? `${gameOver.winner} Wins!` : "It's a Draw!"}</h2>
             <p className="font-caps text-[10px] font-bold text-neutral-400 tracking-[0.2em] uppercase mb-8">{gameOver.reason}</p>
-            <button onClick={resetGame} className="w-full bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl py-4 font-headline font-bold text-sm tracking-widest shadow-lg shadow-indigo-500/20 transition-transform active:scale-95 mb-3">
+            <button onClick={resetGame} className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black rounded-xl py-4 font-headline font-bold text-sm tracking-widest shadow-lg shadow-[#CCFF00]/20 transition-transform active:scale-95 mb-3">
               PLAY AGAIN
             </button>
             <button onClick={matchId ? handleExit : onClose} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-xl py-4 font-headline font-bold text-sm tracking-widest border border-white/5 transition-colors">
@@ -493,11 +617,11 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
           <span className="material-symbols-outlined text-white">arrow_back</span>
         </button>
         <div className="flex flex-col items-center">
-          <h2 className="font-headline font-black text-sm uppercase tracking-[0.2em] text-indigo-400">
-            {opponent?.isBot ? "Bot Match" : matchId ? "Live Arena" : "Local Play"}
+          <h2 className="font-headline font-black text-sm uppercase tracking-[0.2em] text-[#CCFF00]">
+            {(opponent?.isBot || matchId?.startsWith("bot_")) ? "Bot Match" : matchId ? "Live Arena" : "Local Play"}
           </h2>
-          <span className={`font-caps text-[9px] font-bold uppercase tracking-widest mt-0.5 ${matchId && !opponent?.isBot && !opponentConnected ? "text-amber-400 animate-pulse" : isCheck ? "text-red-400 animate-pulse" : "text-neutral-500"}`}>
-            {matchId && !opponent?.isBot && !opponentConnected ? "WAITING FOR OPPONENT" : isCheck ? "⚠️ CHECK ⚠️" : `${currentTurnColor} to move`}
+          <span className={`font-caps text-[9px] font-bold uppercase tracking-widest mt-0.5 ${matchId && !opponent?.isBot && !matchId?.startsWith("bot_") && !opponentConnected ? "text-amber-400 animate-pulse" : isCheck ? "text-red-400 animate-pulse" : "text-neutral-500"}`}>
+            {matchId && !opponent?.isBot && !matchId?.startsWith("bot_") && !opponentConnected ? "WAITING FOR OPPONENT" : isCheck ? "⚠️ CHECK ⚠️" : `${currentTurnColor} to move`}
           </span>
         </div>
         <button onClick={resetGame} className="w-10 h-10 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10">
@@ -507,20 +631,20 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
 
       <div className="w-full max-w-[400px] flex flex-col gap-4 px-4 pt-16">
         {/* Opponent Card */}
-        <div className={`w-full bg-[#18181b] border rounded-2xl p-3 flex flex-col relative transition-all duration-300 shadow-lg ${currentTurnColor === "black" ? "border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]" : "border-white/5"}`}>
+        <div className={`w-full bg-[#18181b] border rounded-2xl p-3 flex flex-col relative transition-all duration-300 shadow-lg ${currentTurnColor === "black" ? "border-[#CCFF00] shadow-[0_0_15px_rgba(204,255,0,0.2)]" : "border-white/5"}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 relative">
                 <span className="material-symbols-outlined text-neutral-400">
-                  {opponent?.isBot ? "smart_toy" : matchId ? "person" : "robot_2"}
+                  {(opponent?.isBot || matchId?.startsWith("bot_")) ? "smart_toy" : matchId ? "person" : "robot_2"}
                 </span>
-                {opponent?.isBot && (
+                {(opponent?.isBot || matchId?.startsWith("bot_")) && (
                   <span className="absolute -bottom-2 bg-indigo-500 text-white text-[8px] px-1.5 py-0.5 rounded uppercase font-black tracking-wider shadow-sm">BOT</span>
                 )}
               </div>
               <div>
                 <h3 className="font-headline text-sm font-bold">
-                  {opponent?.isBot ? opponent.name : matchId ? (opponentConnected ? "Opponent" : "Awaiting Opponent...") : "Player 2 (Black)"}
+                  {(opponent?.isBot || matchId?.startsWith("bot_")) ? "Joe Yoke Bot" : matchId ? (opponentConnected ? "Opponent" : "Awaiting Opponent...") : "Player 2 (Black)"}
                 </h3>
                 <p className="text-[10px] font-bold tracking-widest uppercase text-neutral-500">
                   {matchId ? `Playing ${playerColor === "white" ? "Black" : "White"}` : (game.turn() === "b" ? "To Move" : "Waiting...")}
@@ -570,10 +694,10 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
                     }`}
                   >
                     {/* Last Move Highlight */}
-                    {isLastMove && <div className="absolute inset-0 bg-yellow-400/40 pointer-events-none" />}
+                    {isLastMove && <div className="absolute inset-0 bg-[#CCFF00]/40 pointer-events-none" />}
 
                     {/* Selected Highlight */}
-                    {isSelected && <div className="absolute inset-0 bg-indigo-500/60 shadow-[inset_0_0_12px_rgba(255,255,255,0.5)] pointer-events-none" />}
+                    {isSelected && <div className="absolute inset-0 bg-[#CCFF00]/60 shadow-[inset_0_0_12px_rgba(255,255,255,0.5)] pointer-events-none" />}
 
                     {/* Check Highlight */}
                     {isKingInCheck && <div className="absolute inset-0 bg-red-500/80 animate-pulse pointer-events-none" />}
@@ -595,7 +719,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
                         {piece ? (
                           <div className="w-full h-full border-4 border-red-500/80 rounded-full animate-pulse" />
                         ) : (
-                          <div className="w-3.5 h-3.5 bg-indigo-500/80 rounded-full shadow-lg shadow-indigo-500/50" />
+                          <div className="w-3.5 h-3.5 bg-[#CCFF00] rounded-full shadow-lg shadow-[#CCFF00]/50" />
                         )}
                       </div>
                     )}
@@ -607,20 +731,20 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
         </div>
 
         {/* Player Card */}
-        <div className={`w-full bg-[#18181b] border rounded-2xl p-3 flex flex-col relative transition-all duration-300 shadow-lg ${currentTurnColor === "white" ? "border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]" : "border-white/5"}`}>
+        <div className={`w-full bg-[#18181b] border rounded-2xl p-3 flex flex-col relative transition-all duration-300 shadow-lg ${currentTurnColor === "white" ? "border-[#CCFF00] shadow-[0_0_15px_rgba(204,255,0,0.2)]" : "border-white/5"}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-indigo-400">face</span>
+              <div className="w-10 h-10 rounded-xl bg-[#CCFF00]/20 border border-[#CCFF00]/30 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[#CCFF00]">face</span>
               </div>
               <div>
                 <h3 className="font-headline text-sm font-bold">Player 1 (White)</h3>
-                <p className="text-[10px] font-bold tracking-widest uppercase text-indigo-400">
+                <p className="text-[10px] font-bold tracking-widest uppercase text-[#CCFF00]">
                   {matchId ? `Playing ${playerColor === "white" ? "White" : "Black"}` : (game.turn() === "w" ? "To Move" : "Waiting...")}
                 </p>
               </div>
             </div>
-            {matchId && !opponent?.isBot && (
+            {matchId && !opponent?.isBot && !matchId?.startsWith("bot_") && (
               <button
                 onClick={() => setShowReactionMenu(!showReactionMenu)}
                 className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center text-neutral-400 hover:text-white relative"

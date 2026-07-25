@@ -32,18 +32,23 @@ interface Ball {
 interface SnookerGameProps {
   onClose?: () => void;
   preloadedMatchId?: string | null;
-  // 👇 NEW: Matchmaking prop structure
   opponent?: { name: string; isBot: boolean } | null;
 }
 
 export default function SnookerGame({ onClose, preloadedMatchId, opponent }: SnookerGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // 🎮 VIEW & MATCHMAKING STATES
-  const [view, setView] = useState<"menu" | "host" | "play">(
-    preloadedMatchId || opponent?.isBot ? "play" : "menu"
+  // 1. Detect bot mode synchronously
+  const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
+
+  // 2. Initialize view and matchId immediately based on bot detection
+  const [view, setView] = useState<"menu" | "host" | "play" | "searching" | "confirmed">(
+    isBotMode || preloadedMatchId ? "play" : "menu"
   );
-  const [matchId, setMatchId] = useState<string | null>(preloadedMatchId || null);
+  const [matchId, setMatchId] = useState<string | null>(
+    preloadedMatchId || (isBotMode ? `bot_match_${Date.now()}` : null)
+  );
+  
   const [joinInput, setJoinInput] = useState("");
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -120,17 +125,14 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {
-    if (opponent?.isBot) {
-      setMatchId(preloadedMatchId || `bot_match_${Date.now()}`);
-      setMyRole("player1");
-      setView("play");
+    if (isBotMode && opponent?.name) {
       showToastMessage(`Playing against ${opponent.name}`);
     }
-  }, [opponent, preloadedMatchId]);
+  }, [isBotMode, opponent]);
 
-  // 📡 Supabase Realtime Synchronization (Avoid if Bot)
+  // 📡 Supabase Realtime Synchronization
   useEffect(() => {
-    if (!matchId || !myUserId || opponent?.isBot) return;
+    if (!matchId || !myUserId || opponent?.isBot || view === "searching" || view === "confirmed") return;
 
     const matchChannel = supabase.channel(`snooker_match_${matchId}`, {
       config: { broadcast: { self: false }, presence: { key: myUserId } },
@@ -192,7 +194,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       matchChannel.untrack();
       supabase.removeChannel(matchChannel);
     };
-  }, [matchId, myUserId, opponent]);
+  }, [matchId, myUserId, opponent, view]);
 
   useEffect(() => {
     if (view === "host" && opponentConnected) setView("play");
@@ -200,7 +202,8 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   // 🤖 LOCAL JOE YOKE BOT ENGINE (Snooker Geometry AI)
   useEffect(() => {
-    const isBotMatch = opponent?.isBot;
+    const isBotMatch = opponent?.isBot || matchId?.startsWith("bot_");
+    
     if (isBotMatch && view === "play" && currentTurn === "player2" && !winner && !isMoving) {
       const botTimer = setTimeout(() => {
         const balls = ballsRef.current;
@@ -271,12 +274,30 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
       return () => clearTimeout(botTimer);
     }
-  }, [currentTurn, isMoving, isBallInHand, winner, view, opponent, gamePhase, nextRequiredBall, colorSeqIndex]);
+  }, [currentTurn, isMoving, isBallInHand, winner, view, opponent, gamePhase, nextRequiredBall, colorSeqIndex, matchId]);
 
   const handleExit = () => {
     if (matchId) setMatchId(null);
     setView("menu");
     if (onClose) onClose();
+  };
+
+  // --- NEW FAKE MATCHMAKING FLOW FOR BOT INTEGRATION ---
+  const startOnlineMatchmaking = () => {
+    setView("searching");
+    setTimeout(() => {
+      setView(prev => {
+        if (prev === "searching") return "confirmed";
+        return prev;
+      });
+    }, 2800); // Wait ~3s for radar animation
+  };
+
+  const enterBotMatch = () => {
+    setMatchId(`bot_match_${Date.now()}`);
+    setMyRole("player1");
+    setView("play");
+    showToastMessage(`Playing against Joe Yoke Bot`);
   };
 
   const respotColorBall = useCallback((colorName: string) => {
@@ -429,7 +450,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     turnTrackingRef.current = { redsPotted: 0, colorsPotted: [], firstHitBallType: "" };
 
     // Synchronize full state over Supabase broadcast
-    if (channel && matchId && !opponent?.isBot) {
+    if (channel && matchId && !opponent?.isBot && !matchId?.startsWith("bot_")) {
       channel.send({
         type: "broadcast",
         event: "table_sync",
@@ -861,7 +882,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   const handleCanvasInteraction = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (isMoving || !isMyTurnActive) return;
-    if (matchId && !opponent?.isBot && !opponentConnected) {
+    if (matchId && !opponent?.isBot && !matchId?.startsWith("bot_") && !opponentConnected) {
       showToastMessage("Waiting for opponent to join!");
       return;
     }
@@ -900,7 +921,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         cueBall.x = newX;
         cueBall.y = newY;
 
-        if (channel && matchId && !opponent?.isBot) {
+        if (channel && matchId && !opponent?.isBot && !matchId?.startsWith("bot_")) {
           channel.send({
             type: "broadcast",
             event: "cue_place",
@@ -938,7 +959,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   const handlePowerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isMoving || isBallInHand || !isMyTurnActive) return;
-    if (matchId && !opponent?.isBot && !opponentConnected) {
+    if (matchId && !opponent?.isBot && !matchId?.startsWith("bot_") && !opponentConnected) {
       showToastMessage("Waiting for opponent to connect!");
       return;
     }
@@ -985,7 +1006,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     cueBall.spinX = spinOffset.x;
     cueBall.spinY = spinOffset.y;
 
-    if (channel && matchId && !opponent?.isBot) {
+    if (channel && matchId && !opponent?.isBot && !matchId?.startsWith("bot_")) {
       channel.send({
         type: "broadcast",
         event: "shot",
@@ -1007,61 +1028,84 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     ? BALL_TYPES.Red.color
     : (BALL_TYPES[targetedColor as keyof typeof BALL_TYPES]?.color || BALL_TYPES.Yellow.color);
 
-  // 1️⃣ LOBBY / MENU VIEW
+
+  // =========================================
+  // 1️⃣ LOBBY / MENU VIEW (MODERN DARK UI)
+  // =========================================
   if (view === "menu") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6">
-        <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col items-center relative overflow-hidden">
-          <div className="w-16 h-16 bg-cyan-500/10 rounded-2xl flex items-center justify-center mb-4 border border-cyan-500/20 shadow-inner">
-            <span className="material-symbols-outlined text-3xl text-cyan-400">sports_bar</span>
-          </div>
-          <h1 className="font-headline font-black text-2xl tracking-tight mb-1">Snooker Arena</h1>
-          <p className="font-caps text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-8 uppercase">Select Engagement Mode</p>
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6 animate-fade-in">
+        <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
           
-          <div className="w-full space-y-3">
-            <button
-              onClick={() => {
-                setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase());
-                setView("host");
-              }}
-              className="w-full bg-cyan-500 hover:bg-cyan-400 text-black rounded-2xl py-4 px-5 flex items-center justify-between transition-all active:scale-95 shadow-lg shadow-cyan-500/20"
-            >
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-lg">language</span>
-                <span className="font-headline font-bold text-sm tracking-wide">HOST NETWORK MATCH</span>
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
+              <span className="material-symbols-outlined text-2xl text-neutral-300">sports_bar</span>
+            </div>
+            <div>
+              <h1 className="font-headline font-black text-xl tracking-tight text-white">Snooker Arena</h1>
+              <p className="text-xs text-neutral-400 font-medium mt-0.5">Select engagement mode</p>
+            </div>
+          </div>
+
+          {/* Online Match Button (CCFF00 Theme) */}
+          <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
+                <span className="material-symbols-outlined text-xl">search</span>
               </div>
-              <span className="material-symbols-outlined text-lg opacity-50">chevron_right</span>
+              <div className="flex flex-col items-end gap-2">
+                <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Popular</span>
+                <div className="w-7 h-7 rounded-full bg-[#CCFF00] flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
+                  <span className="material-symbols-outlined text-sm font-black">arrow_forward</span>
+                </div>
+              </div>
+            </div>
+            <h3 className="font-headline font-black text-lg text-white mb-1 group-hover:text-[#CCFF00] transition-colors">Find Online Match</h3>
+            <p className="text-xs text-neutral-400 font-medium leading-relaxed">Ranked & casual global<br/>matchmaking</p>
+          </button>
+
+          {/* Private & Offline Match Buttons */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <button onClick={() => { setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+              <div className="flex justify-between items-start w-full">
+                <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
+                  <span className="material-symbols-outlined text-lg">dns</span>
+                </div>
+                <span className="bg-teal-500/10 text-teal-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Private</span>
+              </div>
+              <div>
+                <h3 className="font-headline font-bold text-sm text-white mb-0.5">Host Match</h3>
+                <p className="text-[10px] text-neutral-400 font-medium">Create room code</p>
+              </div>
             </button>
 
-            <button
-              onClick={() => {
-                setMatchId(null);
-                setView("play");
-              }}
-              className="w-full bg-white/5 hover:bg-white/10 text-white rounded-2xl py-4 px-5 flex items-center justify-between transition-all active:scale-95 border border-white/5"
-            >
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-lg text-neutral-400">group</span>
-                <span className="font-headline font-bold text-sm tracking-wide text-neutral-200">LOCAL PASS & PLAY</span>
+            <button onClick={() => { setMatchId(null); setView("play"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+              <div className="flex justify-between items-start w-full">
+                <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
+                  <span className="material-symbols-outlined text-lg">sports_esports</span>
+                </div>
+                <span className="bg-pink-500/10 text-pink-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Offline</span>
               </div>
-              <span className="material-symbols-outlined text-lg opacity-50">chevron_right</span>
+              <div>
+                <h3 className="font-headline font-bold text-sm text-white mb-0.5">Pass & Play</h3>
+                <p className="text-[10px] text-neutral-400 font-medium">Local device</p>
+              </div>
             </button>
           </div>
 
-          <div className="w-full flex items-center gap-4 my-6 opacity-40">
-            <div className="flex-1 h-px bg-white/20"></div>
-            <span className="font-caps text-[9px] font-bold tracking-widest uppercase">Or Join Room</span>
-            <div className="flex-1 h-px bg-white/20"></div>
-          </div>
-
-          <div className="w-full flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5">
+          {/* Join Room Input */}
+          <div className="w-full flex items-center gap-2 bg-[#09090b] border border-white/10 p-1.5 rounded-2xl mb-6">
+            <div className="pl-3 text-neutral-500 flex items-center justify-center">
+              <span className="material-symbols-outlined text-lg">vpn_key</span>
+            </div>
             <input
               type="text"
-              placeholder="CODE"
+              placeholder="ENTER ROOM CODE..."
               value={joinInput}
-              onChange={(e) => setJoinInput(e.target.value)}
-              className="flex-1 bg-transparent border-none text-center font-headline font-bold tracking-widest text-white placeholder-neutral-600 focus:outline-none uppercase"
-              maxLength={8}
+              onChange={(e) => setJoinInput(e.target.value.toUpperCase())}
+              className="flex-1 bg-transparent text-sm font-headline font-bold text-white placeholder-neutral-600 focus:outline-none uppercase tracking-widest"
+              maxLength={6}
             />
             <button
               onClick={() => {
@@ -1071,13 +1115,13 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                 }
               }}
               disabled={joinInput.length < 4}
-              className="bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white px-5 py-3 rounded-xl font-headline font-bold text-xs tracking-wider transition-all"
+              className="bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
             >
-              JOIN
+              Join
             </button>
           </div>
 
-          <button onClick={handleExit} className="mt-8 flex items-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-caps text-[10px] font-bold tracking-widest">
+          <button onClick={handleExit} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
             <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
           </button>
         </div>
@@ -1085,7 +1129,70 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     );
   }
 
+
+  // =========================================
+  // 📡 LOCATING OPPONENT SCREEN
+  // =========================================
+  if (view === "searching") {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
+        <div className="relative w-32 h-32 flex items-center justify-center mb-8">
+          <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
+          <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
+          <div className="absolute inset-8 border border-[#CCFF00]/10 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '1s' }}></div>
+          <div className="w-16 h-16 bg-[#CCFF00]/10 rounded-full flex items-center justify-center border border-[#CCFF00]/20 relative z-10">
+            <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
+          </div>
+        </div>
+        <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
+        <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
+        <button onClick={() => setView("menu")} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+          Abort Search
+        </button>
+      </div>
+    );
+  }
+
+  // =========================================
+  // 🤝 MATCH CONFIRMED SCREEN
+  // =========================================
+  if (view === "confirmed") {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
+        <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] px-4 py-1.5 rounded-full font-headline font-black text-xs tracking-widest mb-10 flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm">auto_awesome</span> MATCH CONFIRMED
+        </div>
+        
+        <div className="flex items-center gap-6 mb-8 relative">
+          <div className="w-20 h-20 bg-[#18181b] rounded-2xl border border-white/10 flex items-center justify-center rotate-[-5deg] shadow-2xl relative z-10">
+            <span className="material-symbols-outlined text-4xl text-white opacity-50">person</span>
+          </div>
+          
+          <div className="absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-[#CCFF00] flex items-center justify-center z-20 shadow-[0_0_20px_rgba(204,255,0,0.4)]">
+            <span className="material-symbols-outlined text-black text-sm font-black">close</span>
+          </div>
+          
+          <div className="w-20 h-20 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 flex items-center justify-center rotate-[5deg] shadow-2xl overflow-hidden relative z-10">
+            <span className="material-symbols-outlined text-4xl text-indigo-400">smart_toy</span>
+          </div>
+        </div>
+
+        <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
+        <h2 className="font-headline font-black text-3xl text-white mb-2">Joe Yoke Bot</h2>
+        <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
+          <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Expert • 2450 ELO
+        </p>
+
+        <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">
+          Enter Match <span className="material-symbols-outlined">arrow_forward</span>
+        </button>
+      </div>
+    );
+  }
+
+  // =========================================
   // 2️⃣ HOST WAITING VIEW
+  // =========================================
   if (view === "host") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white">
@@ -1132,12 +1239,14 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     );
   }
 
+  // =========================================
   // 3️⃣ GAMEPLAY CANVAS ARENA
+  // =========================================
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-slate-950 flex flex-col justify-center items-center overflow-hidden touch-none select-none z-[9999] p-2 md:p-4">
+    <div className="fixed inset-0 w-screen h-screen bg-[#09090b] flex flex-col justify-center items-center overflow-hidden touch-none select-none z-[9999] p-2 md:p-4 animate-fade-in">
       
       {toast && (
-        <div className="absolute top-16 z-[99999] bg-red-500/90 backdrop-blur-md text-white px-6 py-2.5 rounded-2xl font-headline font-bold text-xs shadow-2xl animate-fade-in border border-red-400">
+        <div className="absolute top-16 z-[99999] bg-[#CCFF00] text-black px-6 py-2.5 rounded-2xl font-headline font-bold text-xs shadow-2xl animate-fade-in border border-[#CCFF00]/50">
           {toast}
         </div>
       )}
@@ -1145,7 +1254,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       {/* SPIN SELECTOR MODAL */}
       {showSpinModal && (
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-[999999] flex justify-center items-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 flex flex-col items-center max-w-[280px] w-full shadow-2xl animate-fade-in">
+          <div className="bg-[#18181b] border border-white/10 rounded-2xl p-5 flex flex-col items-center max-w-[280px] w-full shadow-2xl animate-fade-in">
             <h3 className="text-white text-xs font-black uppercase tracking-widest mb-3">Cue Ball Strike Point</h3>
            
             <canvas
@@ -1163,7 +1272,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
             <button
               onClick={() => setShowSpinModal(false)}
-              className="w-full py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-black uppercase text-xs rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer"
+              className="w-full py-2 bg-[#CCFF00] hover:bg-[#b3e600] text-black font-black uppercase text-xs rounded-xl shadow-[0_4px_15px_rgba(204,255,0,0.2)] active:scale-95 transition-all cursor-pointer"
             >
               Done ✅
             </button>
@@ -1175,33 +1284,39 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       {winner && (
         <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col justify-center items-center z-[999999] p-6 text-center animate-fade-in">
           <div className="text-5xl mb-4">🏆</div>
-          <h2 className="text-3xl font-black text-amber-400 uppercase tracking-widest mb-2">{winner} Wins!</h2>
+          <h2 className="text-3xl font-black text-[#CCFF00] uppercase tracking-widest mb-2">{winner} Wins!</h2>
           <p className="text-slate-300 text-sm mb-6">Match Completed! Score: Player 1 ({scores.player1} pts) - Player 2 ({scores.player2} pts)</p>
           <button
             onClick={initBalls}
-            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-black uppercase tracking-wider rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer"
+            className="px-6 py-3 bg-[#CCFF00] hover:bg-[#b3e600] text-black font-black uppercase tracking-wider rounded-xl shadow-[0_4px_15px_rgba(204,255,0,0.2)] active:scale-95 transition-all cursor-pointer"
           >
             Play Again 🔄
+          </button>
+          <button
+            onClick={handleExit}
+            className="mt-4 px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-wider rounded-xl border border-white/10 active:scale-95 transition-all cursor-pointer"
+          >
+            Exit Arena
           </button>
         </div>
       )}
 
       {/* PORTRAIT OVERLAY */}
       {isPortrait && (
-        <div className="absolute inset-0 bg-slate-950 flex flex-col justify-center items-center z-[99999] p-6 text-center">
-          <div className="w-16 h-24 border-4 border-slate-700 rounded-2xl relative mb-6 flex items-center justify-center">
-            <div className="w-1 h-1 bg-slate-500 rounded-full absolute bottom-1"></div>
-            <span className="text-2xl text-cyan-400 rotate-90 block">🔄</span>
+        <div className="absolute inset-0 bg-[#09090b] flex flex-col justify-center items-center z-[99999] p-6 text-center">
+          <div className="w-16 h-24 border-4 border-white/20 rounded-2xl relative mb-6 flex items-center justify-center">
+            <div className="w-1 h-1 bg-neutral-500 rounded-full absolute bottom-1"></div>
+            <span className="text-2xl text-[#CCFF00] rotate-90 block">🔄</span>
           </div>
           <h2 className="text-lg font-black text-white uppercase tracking-wider mb-2">Landscape Mode Required</h2>
-          <p className="text-xs text-slate-400 max-w-[260px] leading-relaxed">
+          <p className="text-xs text-neutral-400 max-w-[260px] leading-relaxed">
             Please rotate your mobile device sideways (Horizontal) to get the optimal professional snooker gameplay view.
           </p>
         </div>
       )}
 
       {/* HUD HEADER */}
-      <div className="w-full max-w-[840px] flex justify-between items-center bg-slate-900 border border-slate-700/60 p-2 px-4 rounded-xl shadow-xl mb-2 text-white flex-shrink-0">
+      <div className="w-full max-w-[840px] flex justify-between items-center bg-[#18181b] border border-white/10 p-2 px-4 rounded-xl shadow-xl mb-2 text-white flex-shrink-0">
         <div className="text-center min-w-[80px]">
           <span className={`text-[9px] uppercase tracking-wider block font-black ${currentTurn === "player1" ? "text-cyan-400 animate-pulse" : "text-neutral-500"}`}>
             {matchId ? (myRole === "player1" ? "You (P1)" : "Opponent (P1)") : "Player 1"}
@@ -1211,7 +1326,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
         <div className="flex items-center gap-2 bg-black/50 px-4 py-1.5 rounded-lg border border-white/5">
           <span className="text-[8px] text-neutral-400 font-bold uppercase tracking-widest">
-            {matchId && !opponent?.isBot && !opponentConnected ? "WAITING..." : "TARGET"}
+            {matchId && !opponent?.isBot && !matchId?.startsWith("bot_") && !opponentConnected ? "WAITING..." : "TARGET"}
           </span>
           <div
             className="w-5 h-5 rounded-full shadow-md transition-colors duration-200 border border-white/20"
@@ -1224,9 +1339,9 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         <div className="flex items-center gap-4">
           <div className="text-center min-w-[80px] relative">
             <span className={`text-[9px] uppercase tracking-wider block font-black ${currentTurn === "player2" ? "text-pink-400 animate-pulse" : "text-neutral-500"}`}>
-              {opponent?.isBot ? opponent.name : matchId ? (myRole === "player2" ? "You (P2)" : "Opponent (P2)") : "Player 2"}
+              {(opponent?.isBot || matchId?.startsWith("bot_")) ? "Joe Yoke Bot" : matchId ? (myRole === "player2" ? "You (P2)" : "Opponent (P2)") : "Player 2"}
             </span>
-            {opponent?.isBot && (
+            {(opponent?.isBot || matchId?.startsWith("bot_")) && (
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[8px] px-1 rounded uppercase font-black tracking-wider">BOT</span>
             )}
             <p className="text-base font-black font-mono">{scores.player2} <span className="text-[10px] text-neutral-400 font-normal">pts</span></p>
@@ -1245,12 +1360,12 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       <div className="w-full max-w-[860px] flex justify-center items-center gap-2 md:gap-4 flex-1 overflow-hidden">
        
         {/* PULL POWER CONTROLLER */}
-        <div className="flex flex-col items-center justify-center bg-slate-900 border border-slate-700/60 px-2 py-4 rounded-xl h-[70vh] max-h-[340px] w-[45px] md:w-[50px] shadow-lg relative flex-shrink-0">
+        <div className="flex flex-col items-center justify-center bg-[#18181b] border border-white/10 px-2 py-4 rounded-xl h-[70vh] max-h-[340px] w-[45px] md:w-[50px] shadow-lg relative flex-shrink-0">
           <span className="text-[7px] font-bold text-neutral-400 uppercase tracking-widest mb-2">PULL</span>
          
-          <div className="h-[75%] w-[12px] bg-slate-950 rounded-full border border-slate-800 relative shadow-inner flex items-start justify-center cursor-ns-resize">
+          <div className="h-[75%] w-[12px] bg-[#09090b] rounded-full border border-white/5 relative shadow-inner flex items-start justify-center cursor-ns-resize">
             <div
-              className="w-full bg-gradient-to-b from-slate-600 via-amber-500 to-red-500 rounded-full absolute top-0 transition-all duration-75"
+              className="w-full bg-gradient-to-b from-[#CCFF00] via-amber-500 to-red-500 rounded-full absolute top-0 transition-all duration-75"
               style={{ height: `${uiPower}%` }}
             />
             <div
@@ -1258,7 +1373,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
               onPointerMove={handlePowerPointerMove}
               onPointerUp={handlePowerPointerUp}
               onPointerCancel={handlePowerPointerUp}
-              className={`w-[26px] h-[26px] bg-amber-500 hover:bg-amber-400 border-[3px] border-slate-900 rounded-full absolute shadow-md active:scale-95 transition-transform ${!isMyTurnActive ? 'opacity-30 cursor-not-allowed' : ''}`}
+              className={`w-[26px] h-[26px] bg-[#CCFF00] hover:bg-[#b3e600] border-[3px] border-[#18181b] rounded-full absolute shadow-[0_0_10px_rgba(204,255,0,0.5)] active:scale-95 transition-transform ${!isMyTurnActive ? 'opacity-30 cursor-not-allowed' : ''}`}
               style={{
                 top: `calc(${uiPower}% - 13px)`,
                 touchAction: "none"
@@ -1279,14 +1394,14 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             className="w-full h-auto shadow-2xl rounded-xl border-2 border-amber-950 bg-emerald-900 cursor-crosshair max-h-[74vh] object-contain"
           />
           {isBallInHand && isMyTurnActive && (
-            <div className="absolute top-2 bg-amber-500/90 text-black font-black text-[9px] md:text-[10px] uppercase px-4 py-1.5 rounded-full pointer-events-none tracking-widest animate-pulse shadow-lg">
+            <div className="absolute top-2 bg-[#CCFF00]/90 text-black font-black text-[9px] md:text-[10px] uppercase px-4 py-1.5 rounded-full pointer-events-none tracking-widest animate-pulse shadow-lg">
               🖐️ PLACE CUE BALL INSIDE D-ZONE
             </div>
           )}
         </div>
 
         {/* TUNE WHEEL & SPIN CONTROLLER */}
-        <div className="flex flex-col items-center justify-between bg-slate-900 border border-slate-700/60 px-2 py-3 rounded-xl h-[70vh] max-h-[340px] w-[45px] md:w-[50px] shadow-lg relative flex-shrink-0">
+        <div className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 px-2 py-3 rounded-xl h-[70vh] max-h-[340px] w-[45px] md:w-[50px] shadow-lg relative flex-shrink-0">
           <span className="text-[7px] font-bold text-neutral-400 uppercase tracking-widest mb-1">TUNE</span>
          
           <div
@@ -1294,12 +1409,12 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             onPointerMove={handleWheelPointerMove}
             onPointerUp={handleWheelPointerUp}
             onPointerCancel={handleWheelPointerUp}
-            className={`h-[65%] w-[30px] rounded-lg border-[3px] border-slate-700 bg-slate-800 overflow-hidden cursor-ns-resize shadow-inner relative transition-opacity ${isBallInHand || isMoving || !isMyTurnActive ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}
+            className={`h-[65%] w-[30px] rounded-lg border-[3px] border-white/10 bg-[#09090b] overflow-hidden cursor-ns-resize shadow-inner relative transition-opacity ${isBallInHand || isMoving || !isMyTurnActive ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}
           >
             <div
               className="absolute inset-0 w-full h-[200%]"
               style={{
-                background: "repeating-linear-gradient(to bottom, #334155, #334155 4px, #0f172a 4px, #0f172a 8px)",
+                background: "repeating-linear-gradient(to bottom, #333, #333 4px, #111 4px, #111 8px)",
                 transform: `translateY(${wheelPos % 8}px)`
               }}
             />
@@ -1309,7 +1424,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           <button
             onClick={() => { if(isMyTurnActive) setShowSpinModal(true); }}
             disabled={!isMyTurnActive}
-            className={`w-8 h-8 rounded-full bg-slate-800 border-2 border-cyan-400 flex items-center justify-center active:scale-95 transition-all shadow-md relative group mt-1 cursor-pointer ${!isMyTurnActive ? 'opacity-30 cursor-not-allowed' : ''}`}
+            className={`w-8 h-8 rounded-full bg-[#09090b] border-2 border-[#CCFF00] flex items-center justify-center active:scale-95 transition-all shadow-md relative group mt-1 cursor-pointer ${!isMyTurnActive ? 'opacity-30 cursor-not-allowed' : ''}`}
             title="Set Spin / English"
           >
             <div className="w-4 h-4 rounded-full bg-white relative flex items-center justify-center">
@@ -1329,7 +1444,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       <div className="w-full max-w-[840px] flex justify-between items-center mt-2 px-1 flex-shrink-0">
         <button
           onClick={initBalls}
-          className="ml-auto px-4 py-1 bg-slate-900 border border-slate-700/80 hover:bg-slate-800 text-neutral-300 text-[9px] font-black uppercase tracking-widest rounded-lg active:scale-95 transition-transform cursor-pointer"
+          className="ml-auto px-4 py-1.5 bg-[#18181b] border border-white/10 hover:bg-white/10 text-neutral-300 text-[9px] font-black uppercase tracking-widest rounded-lg active:scale-95 transition-transform cursor-pointer"
         >
           Reset Match
         </button>

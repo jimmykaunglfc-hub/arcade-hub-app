@@ -148,16 +148,24 @@ const renderRealisticHole = (cx: number, cy: number) => (
 interface CarromProps {
   onClose: () => void;
   preloadedMatchId?: string | null;
-  // 👇 NEW: Matchmaking prop structure
   opponent?: { name: string; isBot: boolean } | null;
 }
 
 export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromProps) {
   
-  const [playMode, setPlayMode] = useState<"menu" | "local" | "host" | "join" | "online" | "bot">(preloadedMatchId ? "join" : "menu");
+  // 1. Detect bot mode synchronously
+  const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
+
+  // 2. Direct state initialization based on detection
+  const [playMode, setPlayMode] = useState<"menu" | "local" | "host" | "join" | "online" | "bot" | "searching" | "confirmed">(
+    isBotMode ? "bot" : preloadedMatchId ? "join" : "menu"
+  );
   const [gameRuleMode, setGameRuleMode] = useState<GameMode>("freestyle");
   
-  const [matchId, setMatchId] = useState("");
+  const [matchId, setMatchId] = useState<string>(
+    preloadedMatchId || (isBotMode ? `bot_match_${Date.now()}` : "")
+  );
+
   const [roomCode, setRoomCode] = useState(""); 
   const [joinCode, setJoinCode] = useState("");
   const [copied, setCopied] = useState(false);
@@ -225,15 +233,16 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
   // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {
-    if (opponent?.isBot) {
-      setMatchId(preloadedMatchId || `bot_match_${Date.now()}`);
-      setMyPlayerRole(1);
-      setPlayMode("bot");
-      setToast({ msg: `Playing against ${opponent.name}`, type: 'success' });
+    if (isBotMode) {
+      if (opponent?.name) {
+        setToast({ msg: `Playing against ${opponent.name}`, type: 'success' });
+      }
       return;
     }
 
     if (preloadedMatchId && myUserId) {
+      if (preloadedMatchId.startsWith("bot_")) return; // double check skip for bots
+      
       const connectFromChat = async () => {
         let code = preloadedMatchId;
         let mode = "freestyle";
@@ -271,7 +280,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       };
       connectFromChat();
     }
-  }, [preloadedMatchId, myUserId, opponent]);
+  }, [preloadedMatchId, myUserId, opponent, isBotMode]);
 
   // 🤖 LOCAL JOE YOKE BOT ENGINE (Runs when turn === 2 in Bot Mode)
   useEffect(() => {
@@ -340,7 +349,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
   // 🎶 ATMOSPHERIC LOW-TONE BGM ENGINE
   useEffect(() => {
-    if (isMuted || playMode === "menu" || typeof window === 'undefined') return;
+    if (isMuted || playMode === "menu" || playMode === "searching" || playMode === "confirmed" || typeof window === 'undefined') return;
     try {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContext) return;
@@ -390,7 +399,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   }, [p1Slider, p2Slider, turn, shouldFlipBoard]);
 
   // 📡 STABILIZED MULTIPLAYER REAL-TIME SYNC HUB
-  const shouldConnect = matchId && myUserId && playMode !== "menu" && playMode !== "local" && playMode !== "bot";
+  const shouldConnect = matchId && myUserId && playMode !== "menu" && playMode !== "local" && playMode !== "bot" && playMode !== "searching" && playMode !== "confirmed";
 
   useEffect(() => {
     if (!shouldConnect) return;
@@ -511,6 +520,25 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     setMatchId(joinCode.toUpperCase()); 
     setMyPlayerRole(2); 
     setPlayMode("join");
+  };
+
+  // --- NEW FAKE MATCHMAKING FLOW FOR BOT INTEGRATION ---
+  const startOnlineMatchmaking = () => {
+    setPlayMode("searching");
+    setTimeout(() => {
+      // If the user hasn't cancelled the search, transition to confirmed
+      setPlayMode(prev => {
+        if (prev === "searching") return "confirmed";
+        return prev;
+      });
+    }, 2800); // Wait ~3s for radar animation
+  };
+
+  const enterBotMatch = () => {
+    setMatchId(`bot_match_${Date.now()}`);
+    setMyPlayerRole(1);
+    setPlayMode("bot");
+    setToast({ msg: `Playing against Joe Yoke Bot`, type: 'success' });
   };
 
   const physicsLoop = () => {
@@ -912,7 +940,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-neutral-100 dark:bg-neutral-950 flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors select-none">
+    <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center pt-safe animate-fade-in overflow-hidden transition-colors select-none">
       
       <style>{`
         @keyframes confetti-fall { 
@@ -926,81 +954,168 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         .animate-slide-down { animation: slide-down 0.3s ease-out forwards; }
       `}</style>
 
-      {/* 🛡️ ARENA LOBBY PANEL */}
+      {/* 🛡️ NEW ARENA LOBBY PANEL (MODERN UI) */}
       {playMode === "menu" && (
-        <div className="absolute inset-0 z-50 bg-neutral-100/90 dark:bg-neutral-950/90 backdrop-blur-xl flex items-center justify-center p-6">
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800/60 rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl flex flex-col gap-6 relative overflow-hidden">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-amber-500/10 dark:bg-amber-500/20 blur-3xl rounded-full pointer-events-none"></div>
-
-            <div className="text-center pt-2 relative z-10">
-              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-2xl flex items-center justify-center mb-3 shadow-[0_8px_16px_rgba(245,158,11,0.15)]">
-                <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>radio_button_checked</span>
-              </div>
-              <h2 className="text-2xl font-black text-neutral-900 dark:text-white tracking-tight">Carrom Arena</h2>
-            </div>
+        <div className="absolute inset-0 z-50 bg-[#09090b] flex items-center justify-center p-6">
+          <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
             
-            <div className="bg-neutral-100 dark:bg-neutral-800 p-1.5 rounded-xl flex items-center relative z-10">
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
+                <span className="material-symbols-outlined text-2xl text-neutral-300">sports_esports</span>
+              </div>
+              <div>
+                <h1 className="font-headline font-black text-xl tracking-tight text-white">Carrom Arena</h1>
+                <p className="text-xs text-neutral-400 font-medium mt-0.5">Select engagement mode</p>
+              </div>
+            </div>
+
+            {/* Rule Selector */}
+            <div className="bg-[#09090b] border border-white/5 p-1 rounded-xl flex items-center mb-6">
               <button 
                 onClick={() => setGameRuleMode("freestyle")} 
-                className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${gameRuleMode === "freestyle" ? "bg-white dark:bg-neutral-900 text-amber-600 dark:text-amber-500 shadow-sm" : "text-neutral-500"}`}
+                className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${gameRuleMode === "freestyle" ? "bg-[#18181b] text-white shadow-sm border border-white/10" : "text-neutral-500 hover:text-neutral-300"}`}
               >
                 Freestyle
               </button>
               <button 
                 onClick={() => setGameRuleMode("classic")} 
-                className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${gameRuleMode === "classic" ? "bg-white dark:bg-neutral-900 text-amber-600 dark:text-amber-500 shadow-sm" : "text-neutral-500"}`}
+                className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${gameRuleMode === "classic" ? "bg-[#18181b] text-white shadow-sm border border-white/10" : "text-neutral-500 hover:text-neutral-300"}`}
               >
                 Classic
               </button>
             </div>
 
-            <div className="space-y-3 relative z-10">
-              <button 
-                onClick={hostMatch} 
-                className="group w-full h-14 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs uppercase tracking-wider rounded-2xl active:scale-95 shadow-md flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined">language</span> 
-                Host Network Match
+            {/* Online Match Button (CCFF00 Theme) */}
+            <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
+              <div className="flex justify-between items-start mb-4">
+                <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
+                  <span className="material-symbols-outlined text-xl">search</span>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Popular</span>
+                  <div className="w-7 h-7 rounded-full bg-[#CCFF00] flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
+                    <span className="material-symbols-outlined text-sm font-black">arrow_forward</span>
+                  </div>
+                </div>
+              </div>
+              <h3 className="font-headline font-black text-lg text-white mb-1 group-hover:text-[#CCFF00] transition-colors">Find Online Match</h3>
+              <p className="text-xs text-neutral-400 font-medium leading-relaxed">Ranked & casual global<br/>matchmaking</p>
+            </button>
+
+            {/* Private & Offline Match Buttons */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <button onClick={hostMatch} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+                <div className="flex justify-between items-start w-full">
+                  <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
+                    <span className="material-symbols-outlined text-lg">dns</span>
+                  </div>
+                  <span className="bg-teal-500/10 text-teal-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Private</span>
+                </div>
+                <div>
+                  <h3 className="font-headline font-bold text-sm text-white mb-0.5">Host Match</h3>
+                  <p className="text-[10px] text-neutral-400 font-medium">Create room code</p>
+                </div>
               </button>
-              <button 
-                onClick={() => setPlayMode("local")} 
-                className="group w-full h-14 bg-neutral-50 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 font-bold text-xs uppercase tracking-wider rounded-2xl border border-neutral-200 dark:border-neutral-700 active:scale-95 flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined">group</span> 
-                Local Pass & Play
+
+              <button onClick={() => setPlayMode("local")} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+                <div className="flex justify-between items-start w-full">
+                  <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
+                    <span className="material-symbols-outlined text-lg">sports_esports</span>
+                  </div>
+                  <span className="bg-pink-500/10 text-pink-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Offline</span>
+                </div>
+                <div>
+                  <h3 className="font-headline font-bold text-sm text-white mb-0.5">Pass & Play</h3>
+                  <p className="text-[10px] text-neutral-400 font-medium">Local device</p>
+                </div>
               </button>
             </div>
 
-            <div className="bg-neutral-50 dark:bg-neutral-950 p-2 rounded-[1.25rem] border border-neutral-200 dark:border-neutral-800 flex items-center relative z-10">
-              <input 
-                type="text" 
-                maxLength={6} 
-                placeholder="CODE" 
-                value={joinCode} 
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())} 
-                className="flex-1 bg-transparent text-center text-lg font-black tracking-widest focus:outline-none uppercase"
+            {/* Join Room Input */}
+            <div className="w-full flex items-center gap-2 bg-[#09090b] border border-white/10 p-1.5 rounded-2xl mb-6">
+              <div className="pl-3 text-neutral-500 flex items-center justify-center">
+                <span className="material-symbols-outlined text-lg">vpn_key</span>
+              </div>
+              <input
+                type="text"
+                placeholder="ENTER ROOM CODE..."
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                className="flex-1 bg-transparent text-sm font-headline font-bold text-white placeholder-neutral-600 focus:outline-none uppercase tracking-widest"
+                maxLength={6}
               />
-              <button 
-                onClick={joinMatch} 
-                disabled={joinCode.length < 6} 
-                className="h-11 px-6 bg-neutral-900 dark:bg-white text-white dark:text-black font-black text-xs uppercase rounded-xl disabled:opacity-50"
+              <button
+                onClick={joinMatch}
+                disabled={joinCode.length < 6}
+                className="bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
               >
                 Join
               </button>
             </div>
 
-            <button 
-              onClick={onClose} 
-              className="w-full py-2 text-[10px] font-bold text-neutral-500 uppercase tracking-widest relative z-10"
-            >
-              Exit Arena
+            <button onClick={onClose} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
+              <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
             </button>
+
           </div>
         </div>
       )}
 
+      {/* 📡 LOCATING OPPONENT SCREEN */}
+      {playMode === "searching" && (
+        <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
+          <div className="relative w-32 h-32 flex items-center justify-center mb-8">
+            <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
+            <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
+            <div className="absolute inset-8 border border-[#CCFF00]/10 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '1s' }}></div>
+            <div className="w-16 h-16 bg-[#CCFF00]/10 rounded-full flex items-center justify-center border border-[#CCFF00]/20 relative z-10">
+              <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
+            </div>
+          </div>
+          <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
+          <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
+          <button onClick={() => setPlayMode("menu")} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+            Abort Search
+          </button>
+        </div>
+      )}
+
+      {/* 🤝 MATCH CONFIRMED SCREEN */}
+      {playMode === "confirmed" && (
+        <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
+          <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] px-4 py-1.5 rounded-full font-headline font-black text-xs tracking-widest mb-10 flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">auto_awesome</span> MATCH CONFIRMED
+          </div>
+          
+          <div className="flex items-center gap-6 mb-8 relative">
+            <div className="w-20 h-20 bg-[#18181b] rounded-2xl border border-white/10 flex items-center justify-center rotate-[-5deg] shadow-2xl relative z-10">
+              <span className="material-symbols-outlined text-4xl text-white opacity-50">person</span>
+            </div>
+            
+            <div className="absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-[#CCFF00] flex items-center justify-center z-20 shadow-[0_0_20px_rgba(204,255,0,0.4)]">
+              <span className="material-symbols-outlined text-black text-sm font-black">close</span>
+            </div>
+            
+            <div className="w-20 h-20 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 flex items-center justify-center rotate-[5deg] shadow-2xl overflow-hidden relative z-10">
+              <span className="material-symbols-outlined text-4xl text-indigo-400">smart_toy</span>
+            </div>
+          </div>
+
+          <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
+          <h2 className="font-headline font-black text-3xl text-white mb-2">Joe Yoke Bot</h2>
+          <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
+            <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Expert • 2450 ELO
+          </p>
+
+          <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">
+            Enter Match <span className="material-symbols-outlined">arrow_forward</span>
+          </button>
+        </div>
+      )}
+
       {/* ⚔️ HEADER HUB */}
-      {playMode !== "menu" && (
+      {playMode !== "menu" && playMode !== "searching" && playMode !== "confirmed" && (
         <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
           <button 
             onClick={onClose} 
@@ -1017,13 +1132,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                <div className="flex bg-neutral-200 dark:bg-neutral-800 p-0.5 rounded-md mt-1 scale-90 border border-neutral-300 dark:border-neutral-700">
                   <button 
                     onClick={() => updateOnlineRules("freestyle")} 
-                    className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'freestyle' ? 'bg-white dark:bg-neutral-900 text-amber-500 shadow-sm' : 'text-neutral-400'}`}
+                    className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'freestyle' ? 'bg-white dark:bg-neutral-900 text-[#CCFF00] shadow-sm' : 'text-neutral-400'}`}
                   >
                     Freestyle
                   </button>
                   <button 
                     onClick={() => updateOnlineRules("classic")} 
-                    className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'classic' ? 'bg-white dark:bg-neutral-900 text-amber-500 shadow-sm' : 'text-neutral-400'}`}
+                    className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'classic' ? 'bg-white dark:bg-neutral-900 text-[#CCFF00] shadow-sm' : 'text-neutral-400'}`}
                   >
                     Classic
                   </button>
@@ -1141,9 +1256,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
       {toast && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 animate-slide-down pointer-events-none">
-          <div className={`px-5 py-2.5 rounded-full shadow-lg border backdrop-blur-md flex items-center gap-2 ${toast.type === 'foul' ? 'bg-red-500/90 border-red-400 text-white' : toast.type === 'success' ? 'bg-emerald-500/90 border-emerald-400 text-white' : 'bg-neutral-900/90 border-neutral-700 text-white'}`}>
+          <div className={`px-5 py-2.5 rounded-full shadow-lg border backdrop-blur-md flex items-center gap-2 ${toast.type === 'foul' ? 'bg-red-500/90 border-red-400 text-white' : toast.type === 'success' ? 'bg-[#CCFF00]/90 border-[#CCFF00] text-black' : 'bg-neutral-900/90 border-neutral-700 text-white'}`}>
             <span className="material-symbols-outlined text-sm">{toast.type === 'foul' ? 'warning' : toast.type === 'success' ? 'check_circle' : 'info'}</span>
-            <span className="text-[10px] font-black uppercase tracking-widest">{toast.msg}</span>
+            <span className={`text-[10px] font-black uppercase tracking-widest ${toast.type === 'success' ? 'text-black' : 'text-white'}`}>{toast.msg}</span>
           </div>
         </div>
       )}
@@ -1175,10 +1290,10 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                   />
                 ))}
                 <div className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl flex flex-col items-center text-center z-50 animate-scale-up">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-yellow-600 text-white flex items-center justify-center mb-4 shadow-lg border-4 border-amber-200 dark:border-yellow-900 animate-bounce">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#CCFF00] to-green-500 text-black flex items-center justify-center mb-4 shadow-lg border-4 border-[#CCFF00] dark:border-green-900 animate-bounce">
                     <span className="material-symbols-outlined text-3xl">emoji_events</span>
                   </div>
-                  <h3 className="text-[10px] font-black text-amber-500 tracking-widest uppercase mb-1">Victory Sequence</h3>
+                  <h3 className="text-[10px] font-black text-[#CCFF00] tracking-widest uppercase mb-1">Victory Sequence</h3>
                   <h2 className="text-3xl font-black tracking-tight uppercase">Arena Cleared!</h2>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium mt-3 px-2 leading-relaxed">
                     {playMode === "online" || playMode === "bot" ? (winner === myPlayerRole ? "Incredible skill! You claimed complete server victory." : "The opponent cleared the board.") : `Player ${winner} has completely pocketed their target roster!`}
@@ -1192,7 +1307,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                     </button>
                     <button 
                       onClick={handleRematch} 
-                      className="flex-1 py-3 bg-amber-500 text-white font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-md hover:bg-amber-600"
+                      className="flex-1 py-3 bg-[#CCFF00] text-black font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-md hover:bg-[#b3e600]"
                     >
                       Play Next
                     </button>

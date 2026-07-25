@@ -9,7 +9,8 @@ interface GamesTabProps {
   setRewardClaimed: (status: boolean) => void;
   currentPoints: number;
   userId: string | null;
-  onPlay: (url: string, matchId?: string, opponent?: any) => void;
+  // 🎯 STRICT TYPING: Ensures the parent router receives the Bot flag
+  onPlay: (url: string, matchId?: string, opponent?: { name: string; isBot: boolean }) => void;
 }
 
 export default function GamesTab({ 
@@ -96,6 +97,8 @@ export default function GamesTab({
     const { url, entryFee } = searchGame;
     setSearchGame(null);
 
+    // 💰 ECONOMY CHECK: Deduct points if it's a premium game
+    // Note: You can add `&& !opponent.isBot` here if you want Bot matches to be free.
     if (entryFee > 0 && userId) {
       try {
         const { error: profileError } = await supabase.from("profiles")
@@ -117,6 +120,7 @@ export default function GamesTab({
       }
     }
 
+    // 🚀 ROUTE TO GAME WITH BOT/HUMAN DATA
     onPlay(url, matchId, opponent);
   };
 
