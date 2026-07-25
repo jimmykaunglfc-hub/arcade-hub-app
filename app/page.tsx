@@ -13,6 +13,7 @@ import ChatTab from "../components/ChatTab";
 import ShopTab from "../components/ShopTab";
 import ProfileTab from "../components/ProfileTab";
 import GlobalInviteListener from "../components/GlobalInviteListener";
+import JoeYokeLogo from "../components/JoeYokeLogo"; // 👈 IMPORTED LOGO
 
 import GamePlayer from "../components/GamePlayer";
 import GlitchDeck from "../components/games/GlitchDeck";
@@ -206,9 +207,8 @@ export default function Home() {
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
           <div className="flex items-center gap-3">
-            <div className="w-[42px] h-[42px] rounded-full bg-primary text-on-primary flex items-center justify-center font-headline font-black text-sm shadow-sm">
-              JY
-            </div>
+            {/* 👇 IMPLEMENTED: NEW DYNAMIC LOGO */}
+            <JoeYokeLogo className="w-[42px] h-[42px]" />
             
             <div className="flex flex-col">
               <h1 className="font-headline text-lg font-bold text-on-background leading-tight">Joe Yoke</h1>
