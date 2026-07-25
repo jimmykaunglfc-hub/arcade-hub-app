@@ -57,15 +57,14 @@ export default function HomeTab({
     setShowDailyReward(false);
   };
 
-  // 👇 NEW: Helper function to map rank tiers to specific Material Icons
   const getRankIcon = (tier: string) => {
     if (!tier || tier === "Unranked") return "help_center";
-    if (tier.includes("Bronze")) return "shield";                  // A basic shield
-    if (tier.includes("Silver")) return "workspace_premium";       // A premium ribbon
-    if (tier.includes("Gold")) return "emoji_events";              // A classic trophy
-    if (tier.includes("Platinum")) return "stars";                 // A glowing starburst
-    if (tier.includes("Diamond")) return "diamond";                // A literal diamond
-    if (tier.includes("Master")) return "local_fire_department";   // Blazing fire for top tier
+    if (tier.includes("Bronze")) return "shield";
+    if (tier.includes("Silver")) return "workspace_premium";
+    if (tier.includes("Gold")) return "emoji_events";
+    if (tier.includes("Platinum")) return "stars";
+    if (tier.includes("Diamond")) return "diamond";
+    if (tier.includes("Master")) return "local_fire_department";
     return "emoji_events"; 
   };
 
@@ -101,22 +100,36 @@ export default function HomeTab({
         className="w-full bg-primary text-on-primary rounded-[24px] p-6 shadow-sm transition-all duration-300"
         style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)' }}
       >
-        <div className="flex items-center gap-1.5 mb-2 opacity-80">
-          {/* 👇 UPDATED: Uses the dynamic icon helper and applies a solid fill */}
-          <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
-            {currentRankIcon}
-          </span>
-          <span className="font-caps text-[10px] font-bold uppercase tracking-widest">
-            Current Season
-          </span>
+        {/* 👇 UPDATED: Side-by-side flex layout for Badge (Left) and Text (Right) */}
+        <div className="flex items-center gap-5">
+          
+          {/* LEFT: Large Rank Badge */}
+          <div className="flex items-center justify-center shrink-0">
+            <span 
+              className="material-symbols-outlined text-[64px] drop-shadow-sm opacity-90" 
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              {currentRankIcon}
+            </span>
+          </div>
+
+          {/* RIGHT: Rank Details */}
+          <div className="flex flex-col">
+            <div className="opacity-80 mb-1">
+              <span className="font-caps text-[10px] font-bold uppercase tracking-widest">
+                Current Season
+              </span>
+            </div>
+            
+            <h1 className="font-headline text-3xl font-black leading-tight tracking-tight">
+              {currentTier}
+            </h1>
+            
+            <p className="font-body text-xs font-medium text-on-primary opacity-80 mt-1">
+              {rankData?.percentile ? `Top ${rankData.percentile}% of players globally` : "Play matches to get ranked"}
+            </p>
+          </div>
         </div>
-        
-        <h1 className="font-headline text-3xl font-black leading-tight tracking-tight">
-          {currentTier}
-        </h1>
-        <p className="font-body text-xs font-medium text-on-primary opacity-80 mt-1">
-          {rankData?.percentile ? `Top ${rankData.percentile}% of players globally` : "Play matches to get ranked"}
-        </p>
 
         {/* Stats Row */}
         <div className="flex justify-between items-center mt-6 pt-4 border-t border-black/10">
