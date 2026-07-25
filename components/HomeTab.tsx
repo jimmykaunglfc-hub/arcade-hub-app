@@ -3,12 +3,21 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-// 1. UPDATED PROPS: Added onNavigate and matchHistory
 interface HomeTabProps {
   currentPoints: number;
   userId: string | null;
   onPlay: (url: string) => void;
-  onNavigate: (tabId: string) => void; 
+  onNavigate: (tabId: string) => void;
+  
+  // 👇 NEW: Define the Rank Data interface
+  rankData?: {
+    tier: string;
+    percentile: number;
+    winRate: number;
+    kda: string; 
+    hoursPlayed: number;
+  } | null;
+
   matchHistory?: Array<{
     id: string;
     gameName: string;
@@ -19,11 +28,16 @@ interface HomeTabProps {
   }>;
 }
 
-export default function HomeTab({ currentPoints, userId, onPlay, onNavigate, matchHistory = [] }: HomeTabProps) {
+export default function HomeTab({ 
+  currentPoints, 
+  userId, 
+  onPlay, 
+  onNavigate, 
+  rankData = null, 
+  matchHistory = [] 
+}: HomeTabProps) {
   const [username, setUsername] = useState<string>("Player");
   const [showDailyReward, setShowDailyReward] = useState<boolean>(true);
-  
-  // NEW: State to control the Stats Modal
   const [showStatsModal, setShowStatsModal] = useState<boolean>(false);
 
   useEffect(() => {
@@ -40,7 +54,7 @@ export default function HomeTab({ currentPoints, userId, onPlay, onNavigate, mat
   }, [userId]);
 
   const handleClaimPoints = () => {
-    // TODO: Add your Supabase backend logic here to increment user points
+    // TODO: Add backend logic here
     setShowDailyReward(false);
   };
 
@@ -80,32 +94,39 @@ export default function HomeTab({ currentPoints, userId, onPlay, onNavigate, mat
           </span>
         </div>
         
+        {/* 👇 UPDATED: Dynamic Tier & Percentile */}
         <h1 className="font-headline text-3xl font-black leading-tight tracking-tight">
-          Diamond II
+          {rankData?.tier || "Unranked"}
         </h1>
         <p className="font-body text-xs font-medium text-on-primary opacity-80 mt-1">
-          Top 4% of players globally
+          {rankData?.percentile ? `Top ${rankData.percentile}% of players globally` : "Play matches to get ranked"}
         </p>
 
-        {/* Stats Row */}
+        {/* 👇 UPDATED: Dynamic Stats Row */}
         <div className="flex justify-between items-center mt-6 pt-4 border-t border-black/10">
           <div className="flex flex-col items-start">
             <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">Win Rate</span>
-            <span className="font-headline text-lg font-black mt-0.5">64.2%</span>
+            <span className="font-headline text-lg font-black mt-0.5">
+              {rankData?.winRate ? `${rankData.winRate}%` : "0%"}
+            </span>
           </div>
           
           <div className="w-px h-8 bg-black/10"></div>
           
           <div className="flex flex-col items-center">
             <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">KDA</span>
-            <span className="font-headline text-lg font-black mt-0.5">3.8</span>
+            <span className="font-headline text-lg font-black mt-0.5">
+              {rankData?.kda || "0.0"}
+            </span>
           </div>
           
           <div className="w-px h-8 bg-black/10"></div>
           
           <div className="flex flex-col items-end">
             <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">Hours</span>
-            <span className="font-headline text-lg font-black mt-0.5">142</span>
+            <span className="font-headline text-lg font-black mt-0.5">
+              {rankData?.hoursPlayed || "0"}
+            </span>
           </div>
         </div>
       </section>
@@ -116,8 +137,6 @@ export default function HomeTab({ currentPoints, userId, onPlay, onNavigate, mat
           Actions
         </h2>
         <div className="grid grid-cols-3 gap-3">
-          
-          {/* ACTION: PLAY -> Routes to Explore */}
           <button 
             onClick={() => onNavigate("explore")}
             className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
@@ -128,7 +147,6 @@ export default function HomeTab({ currentPoints, userId, onPlay, onNavigate, mat
             <span className="font-headline text-sm font-bold text-on-surface">Play</span>
           </button>
 
-          {/* ACTION: SPIN -> Routes to Store */}
           <button 
             onClick={() => onNavigate("store")}
             className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
@@ -139,7 +157,6 @@ export default function HomeTab({ currentPoints, userId, onPlay, onNavigate, mat
             <span className="font-headline text-sm font-bold text-on-surface">Spin</span>
           </button>
 
-          {/* ACTION: STATS -> Opens Modal */}
           <button 
             onClick={() => setShowStatsModal(true)}
             className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
@@ -149,7 +166,6 @@ export default function HomeTab({ currentPoints, userId, onPlay, onNavigate, mat
             </div>
             <span className="font-headline text-sm font-bold text-on-surface">Stats</span>
           </button>
-
         </div>
       </section>
 
@@ -167,8 +183,6 @@ export default function HomeTab({ currentPoints, userId, onPlay, onNavigate, mat
         </div>
         
         <div className="flex flex-col gap-3">
-          
-          {/* CONDITION: If user has no matches, show an inviting Empty State */}
           {matchHistory.length === 0 ? (
             <div className="w-full bg-surface border border-surface-container-highest rounded-[20px] p-8 flex flex-col items-center text-center shadow-sm">
               <div className="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center mb-4">
@@ -186,7 +200,6 @@ export default function HomeTab({ currentPoints, userId, onPlay, onNavigate, mat
               </button>
             </div>
           ) : (
-            /* CONDITION: If user HAS matches, render them */
             matchHistory.map((match) => (
               <button key={match.id} className="w-full bg-surface border border-surface-container-highest rounded-[20px] p-4 flex items-center justify-between hover:bg-surface-variant transition-colors active:scale-[0.98] shadow-sm">
                 <div className="flex items-center gap-4">
@@ -212,8 +225,6 @@ export default function HomeTab({ currentPoints, userId, onPlay, onNavigate, mat
       {showStatsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm transition-opacity">
           <div className="w-full max-w-sm bg-surface rounded-[24px] p-6 shadow-2xl animate-fade-in border border-surface-container-highest relative">
-            
-            {/* Close Button */}
             <button 
               onClick={() => setShowStatsModal(false)}
               className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-highest text-on-surface hover:bg-surface-variant transition-colors"
@@ -235,12 +246,12 @@ export default function HomeTab({ currentPoints, userId, onPlay, onNavigate, mat
                 <span className="font-headline text-base font-bold text-on-surface">{currentPoints.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center p-4 bg-background rounded-[16px] border border-surface-container-highest">
-                <span className="font-body text-sm text-on-surface-variant">Games Played</span>
-                <span className="font-headline text-base font-bold text-on-surface">{matchHistory.length > 0 ? matchHistory.length * 14 : 0}</span>
+                <span className="font-body text-sm text-on-surface-variant">Win Rate</span>
+                <span className="font-headline text-base font-bold text-on-surface">{rankData?.winRate ? `${rankData.winRate}%` : "N/A"}</span>
               </div>
               <div className="flex justify-between items-center p-4 bg-background rounded-[16px] border border-surface-container-highest">
                 <span className="font-body text-sm text-on-surface-variant">Current Rank</span>
-                <span className="font-headline text-base font-bold text-primary">Diamond II</span>
+                <span className="font-headline text-base font-bold text-primary">{rankData?.tier || "Unranked"}</span>
               </div>
             </div>
           </div>

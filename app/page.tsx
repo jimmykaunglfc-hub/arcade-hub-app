@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
 
+// 👇 NEW: Import your ranking utilities
+import { getRankTier, calculateKDA, getHoursPlayed } from "../lib/rankingUtils";
+
 import HomeTab from "../components/HomeTab"; 
 import GamesTab from "../components/GamesTab";
 import ChatTab from "../components/ChatTab";
@@ -28,20 +31,20 @@ export default function Home() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [rewardClaimed, setRewardClaimed] = useState(false);
   
-  // Set "Home" as the default active tab. Updated names to match mockups.
   const [activeTab, setActiveTab] = useState("Home"); 
   
-  // Real-Time Point Engine States
   const [userPoints, setUserPoints] = useState<number>(0);
-  const [userGems, setUserGems] = useState<number>(45); // Placeholder for Gems based on mockup
+  const [userGems, setUserGems] = useState<number>(45);
   const [myUserId, setMyUserId] = useState<string | null>(null);
+  
+  // 👇 NEW: State to hold the user's calculated rank and stats
+  const [rankData, setRankData] = useState<any>(null);
 
   const [playingGame, setPlayingGame] = useState<string | null>(null);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
-    // Check local storage for theme preference
     const cachedTheme = localStorage.getItem("app_theme");
     if (cachedTheme === "light") {
       setIsDarkMode(false);
@@ -68,6 +71,7 @@ export default function Home() {
       } else {
         setMyUserId(null);
         setUserPoints(0);
+        setRankData(null); // Clear rank data on logout
       }
     });
 
@@ -82,15 +86,8 @@ export default function Home() {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${myUserId}` },
         (payload: any) => {
-          if (payload.new && typeof payload.new.points === "number") {
-            setUserPoints(payload.new.points);
-            
-            if (payload.new.last_login_claim) {
-              const lastClaim = new Date(payload.new.last_login_claim).toDateString();
-              const today = new Date().toDateString();
-              setRewardClaimed(lastClaim === today);
-            }
-          }
+          // Re-fetch everything if profile updates (like after a game) to keep UI perfectly in sync
+          fetchLiveBalance(myUserId);
         }
       )
       .subscribe();
@@ -98,15 +95,45 @@ export default function Home() {
     return () => { supabase.removeChannel(profileChannel); };
   }, [myUserId]);
 
+  // 👇 UPDATED: Now fetches stats and calculates the user's rank
   const fetchLiveBalance = async (uid: string) => {
-    const { data } = await supabase.from("profiles").select("points, last_login_claim").eq("id", uid).maybeSingle();
+    const { data } = await supabase
+      .from("profiles")
+      .select(`
+        points, 
+        last_login_claim, 
+        mmr, 
+        total_wins, 
+        total_matches, 
+        total_kills, 
+        total_deaths, 
+        total_assists, 
+        total_playtime_seconds
+      `)
+      .eq("id", uid)
+      .maybeSingle();
+
     if (data) {
       setUserPoints(data.points ?? 0);
+      
       if (data.last_login_claim) {
         const lastClaim = new Date(data.last_login_claim).toDateString();
         const today = new Date().toDateString();
         setRewardClaimed(lastClaim === today);
       }
+
+      // Calculate the derived stats
+      const matches = data.total_matches ?? 0;
+      const wins = data.total_wins ?? 0;
+      const winRate = matches > 0 ? ((wins / matches) * 100).toFixed(1) : 0;
+
+      setRankData({
+        tier: getRankTier(data.mmr ?? 1000),
+        percentile: null, // Placeholder: Can be hooked up to an advanced RPC later
+        winRate: Number(winRate),
+        kda: calculateKDA(data.total_kills ?? 0, data.total_deaths ?? 0, data.total_assists ?? 0),
+        hoursPlayed: getHoursPlayed(data.total_playtime_seconds ?? 0)
+      });
     }
   };
 
@@ -169,13 +196,12 @@ export default function Home() {
       {/* 📱 SOLID APP SHELL */}
       <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden transition-colors duration-300"}>
         
-        {/* NEW HIGH-CONTRAST HEADER */}
+        {/* HEADER */}
         <header 
           className="fixed top-0 left-0 right-0 z-50 bg-background flex justify-between items-center px-5 h-[90px] transition-colors duration-300"
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
           <div className="flex items-center gap-3">
-            {/* User Avatar Circle */}
             <div className="w-[42px] h-[42px] rounded-full bg-primary text-on-primary flex items-center justify-center font-headline font-black text-sm shadow-sm">
               JY
             </div>
@@ -183,12 +209,10 @@ export default function Home() {
             <div className="flex flex-col">
               <h1 className="font-headline text-lg font-bold text-on-background leading-tight">Joe Yoke</h1>
               <div className="flex items-center gap-2 mt-0.5">
-                {/* Points Pill */}
                 <div className="flex items-center gap-1 bg-primary-container px-2.5 py-0.5 rounded-full">
                   <span className="material-symbols-outlined text-primary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
                   <span className="text-on-background text-[11px] font-extrabold">{userPoints.toLocaleString()}</span>
                 </div>
-                {/* Gems Pill */}
                 <div className="flex items-center gap-1 bg-secondary-container px-2.5 py-0.5 rounded-full">
                   <span className="material-symbols-outlined text-secondary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
                   <span className="text-on-background text-[11px] font-extrabold">{userGems}</span>
@@ -224,15 +248,15 @@ export default function Home() {
                   currentPoints={userPoints}
                   userId={myUserId}
                   onPlay={(url) => setPlayingGame(url)}
-                  // 👇 FIXED: Added onNavigate prop to resolve type error
                   onNavigate={(tab) => {
                     if (tab === "explore") setActiveTab("Explore");
                     if (tab === "store") setActiveTab("Store");
                   }}
+                  // 👇 NEW: Pass the formatted rank data down to the component
+                  rankData={rankData}
                 />
               )}
 
-              {/* Mapped "Explore" to GamesTab */}
               {activeTab === "Explore" && (
                 <GamesTab 
                   rewardClaimed={rewardClaimed} 
@@ -243,7 +267,6 @@ export default function Home() {
                 />
               )}
               
-              {/* Mapped "Chats" to ChatTab */}
               {activeTab === "Chats" && (
                 <ChatTab 
                   currentPoints={userPoints}
@@ -255,7 +278,6 @@ export default function Home() {
                 />
               )}
               
-              {/* Mapped "Store" to ShopTab */}
               {activeTab === "Store" && <ShopTab userId={myUserId} />}
               
               {activeTab === "Profile" && (
@@ -265,7 +287,7 @@ export default function Home() {
           )}
         </main>
 
-        {/* NEW SOLID BOTTOM NAVIGATION */}
+        {/* BOTTOM NAVIGATION */}
         <nav className="fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-surface-container-highest px-2 pb-safe pt-1 flex justify-around items-center h-[76px] transition-colors duration-300">
           {[
             { id: "Home", icon: "home" },
@@ -281,11 +303,9 @@ export default function Home() {
                 onClick={() => setActiveTab(tab.id)}
                 className="relative flex flex-col items-center justify-center w-16 h-full transition-all"
               >
-                {/* Active Top Line Indicator */}
                 {isActive && (
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32px] h-[3px] bg-primary rounded-b-md"></div>
                 )}
-                
                 <span className={`material-symbols-outlined mt-1 text-[24px] ${isActive ? "text-primary" : "text-on-surface-variant"}`} style={{ fontVariationSettings: isActive ? "'FILL' 0" : "'FILL' 0" }}>
                   {tab.icon}
                 </span>
@@ -296,7 +316,6 @@ export default function Home() {
             );
           })}
         </nav>
-
       </div>
     </>
   );
