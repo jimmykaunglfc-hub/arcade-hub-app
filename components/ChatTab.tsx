@@ -152,7 +152,10 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
     await supabase.from("direct_messages").insert([payload]);
   };
 
-  const handleSendGameInvite = async (gameType: "checkers" | "carrom" | "chess" | "snooker", mode?: "freestyle" | "classic") => {
+  const handleSendGameInvite = async (
+    gameType: "checkers" | "carrom" | "chess" | "snooker" | "uno" | "tictactoe", 
+    mode?: "freestyle" | "classic"
+  ) => {
     setShowGameSelector(false);
     setInviteStep("game");
     if (!myUserId || !activeChat) return;
@@ -214,6 +217,40 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
         message_type: 'game_invite', 
         match_id: generatedUUID, 
         game_name: "Snooker 3D", 
+        invite_status: "pending"
+      }]);
+    }
+    else if (gameType === "uno") {
+      const generatedUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+
+      await supabase.from("direct_messages").insert([{
+        sender_id: myUserId, 
+        receiver_id: activeChat.id, 
+        content: `Challenged you to Uno Card Battle`,
+        message_type: 'game_invite', 
+        match_id: generatedUUID, 
+        game_name: "Uno Card Battle", 
+        invite_status: "pending"
+      }]);
+    }
+    else if (gameType === "tictactoe") {
+      const generatedUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+
+      await supabase.from("direct_messages").insert([{
+        sender_id: myUserId, 
+        receiver_id: activeChat.id, 
+        content: `Challenged you to Tic-Tac-Toe Matrix`,
+        message_type: 'game_invite', 
+        match_id: generatedUUID, 
+        game_name: "Tic-Tac-Toe Matrix", 
         invite_status: "pending"
       }]);
     }
@@ -292,32 +329,32 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   };
 
   // ============================================================================
-  // VIEW 1: CONVERSATION HUB DIAL FEED (SOLID HIGH-CONTRAST)
+  // VIEW 1: CONVERSATION HUB DIAL FEED
   // ============================================================================
   if (activeView === "hub") {
     return (
       <div className="w-full animate-fade-in text-on-surface flex flex-col gap-2 pb-6">
         
         {/* ADAPTIVE HUB SWITCHER BAR */}
-<div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-3">
-  {[
-    { id: "dms", label: "Messages" },
-    { id: "groups", label: "Groups" },
-    { id: "network", label: "Network" }
-  ].map((tab) => (
-    <button
-      key={tab.id}
-      onClick={() => setHubTab(tab.id as any)}
-      className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
-        hubTab === tab.id 
-          ? "bg-primary text-on-primary" 
-          : "bg-surface text-on-surface-variant hover:text-on-surface border border-surface-container-highest"
-      }`}
-    >
-      {tab.label}
-    </button>
-  ))}
-</div>
+        <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-3">
+          {[
+            { id: "dms", label: "Messages" },
+            { id: "groups", label: "Groups" },
+            { id: "network", label: "Network" }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setHubTab(tab.id as any)}
+              className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
+                hubTab === tab.id 
+                  ? "bg-primary text-on-primary" 
+                  : "bg-surface text-on-surface-variant hover:text-on-surface border border-surface-container-highest"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
         {hubTab === "dms" && (
           <div className="flex flex-col gap-3">
@@ -400,7 +437,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   }
 
   // ============================================================================
-  // VIEW 2: FULL COMPACT CONSOLE ACTIVE THREAD (SOLID HIGH-CONTRAST)
+  // VIEW 2: FULL COMPACT CONSOLE ACTIVE THREAD
   // ============================================================================
   return (
     <div className="w-full flex flex-col h-[calc(100vh-216px)] animate-fade-in text-on-background relative">
@@ -408,16 +445,39 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       {/* 🎮 CHALLENGE CHOOSE FLOATING INTERFACE */}
       {showGameSelector && (
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-end justify-center pb-2 z-50 rounded-2xl animate-fade-in">
-          <div className="bg-surface w-full rounded-[24px] p-5 flex flex-col gap-3 shadow-2xl border border-surface-container-highest">
+          <div className="bg-surface w-full rounded-[24px] p-5 flex flex-col gap-2.5 shadow-2xl border border-surface-container-highest max-h-[85%] overflow-y-auto no-scrollbar">
             {inviteStep === "game" && (
               <>
-                <div className="flex justify-between items-center px-1 mb-2">
+                <div className="flex justify-between items-center px-1 mb-1">
                   <h3 className="font-headline text-sm font-black uppercase text-on-surface">Select Arena</h3>
                   <button onClick={() => setShowGameSelector(false)} className="w-8 h-8 bg-surface-container-high rounded-full flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors">
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
                 </div>
                 
+                {/* 1. Uno Card Battle */}
+                <button onClick={() => handleSendGameInvite("uno")} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
+                   <div className="flex items-center gap-4">
+                     <div className="w-10 h-10 bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-500">
+                       <span className="material-symbols-outlined text-[20px]">style</span>
+                     </div>
+                     <h4 className="font-headline text-xs font-bold text-on-surface">Uno Card Battle</h4>
+                   </div>
+                   <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
+                </button>
+
+                {/* 2. Tic-Tac-Toe Matrix */}
+                <button onClick={() => handleSendGameInvite("tictactoe")} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
+                   <div className="flex items-center gap-4">
+                     <div className="w-10 h-10 bg-amber-400/10 rounded-xl flex items-center justify-center text-amber-400">
+                       <span className="material-symbols-outlined text-[20px]">grid_3x3</span>
+                     </div>
+                     <h4 className="font-headline text-xs font-bold text-on-surface">Tic-Tac-Toe Matrix</h4>
+                   </div>
+                   <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
+                </button>
+
+                {/* 3. Snooker 3D */}
                 <button onClick={() => handleSendGameInvite("snooker")} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
                    <div className="flex items-center gap-4">
                      <div className="w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center text-green-500">
@@ -428,9 +488,9 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
 
+                {/* 4. Grandmaster Chess */}
                 <button onClick={() => handleSendGameInvite("chess")} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
                    <div className="flex items-center gap-4">
-                     {/* FIXED: Swapped hex-opacity bg-secondary/10 for semantic bg-secondary-container */}
                      <div className="w-10 h-10 bg-secondary-container rounded-xl flex items-center justify-center text-secondary">
                        <span className="material-symbols-outlined text-[20px]">psychology</span>
                      </div>
@@ -439,6 +499,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
 
+                {/* 5. Carrom Matrix */}
                 <button onClick={() => setInviteStep("carrom_mode")} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
                    <div className="flex items-center gap-4">
                      <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-500">
@@ -449,6 +510,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
                 
+                {/* 6. Neon Checkers */}
                 <button onClick={() => handleSendGameInvite("checkers")} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
                    <div className="flex items-center gap-4">
                      <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500">
@@ -460,6 +522,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                 </button>
               </>
             )}
+
             {inviteStep === "carrom_mode" && (
               <>
                 <div className="flex justify-between items-center px-1 mb-2">
@@ -517,18 +580,35 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       <div className="flex-1 w-full overflow-y-auto px-2 py-4 space-y-5 no-scrollbar relative">
         {messages.map((msg) => {
           const isMe = msg.sender_id === myUserId;
+          const isUno = msg.game_name?.includes("Uno");
+          const isTicTacToe = msg.game_name?.includes("Tic-Tac-Toe");
           const isCarrom = msg.game_name?.includes("Carrom");
           const isChess = msg.game_name?.includes("Chess");
           const isSnooker = msg.game_name?.includes("Snooker");
-          const gameIcon = isCarrom ? "radio_button_checked" : isChess ? "psychology" : isSnooker ? "sports_bar" : "grid_4x4";
+
+          const gameIcon = isUno 
+            ? "style" 
+            : isTicTacToe 
+              ? "grid_3x3" 
+              : isCarrom 
+                ? "radio_button_checked" 
+                : isChess 
+                  ? "psychology" 
+                  : isSnooker 
+                    ? "sports_bar" 
+                    : "grid_4x4";
           
-          const targetUrl = msg.game_name?.includes("Checkers") 
-            ? "native://checkers" 
-            : isChess 
-              ? "native://chess" 
-              : isSnooker
-                ? "native://snooker"
-                : "native://carrom";
+          const targetUrl = isUno 
+            ? "native://uno"
+            : isTicTacToe
+              ? "native://tictactoe"
+              : msg.game_name?.includes("Checkers") 
+                ? "native://checkers" 
+                : isChess 
+                  ? "native://chess" 
+                  : isSnooker
+                    ? "native://snooker"
+                    : "native://carrom";
 
           return (
             <div key={msg.id} className={`flex items-start w-full ${isMe ? "justify-end" : "justify-start"}`}>
@@ -537,7 +617,6 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                 {msg.message_type === 'text' && (
                   <div className={`px-4 py-3 font-body text-[13px] leading-relaxed shadow-sm border ${
                     isMe 
-                      /* FIXED: Replaced border-primary/20 which breaks tailwind, now using solid border-primary */
                       ? "bg-primary border-primary text-on-primary rounded-[20px] rounded-tr-[4px]" 
                       : "bg-surface border-surface-container-highest text-on-surface rounded-[20px] rounded-tl-[4px]"
                   }`}>
@@ -548,7 +627,19 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                 {msg.message_type === 'game_invite' && (
                   <div className="w-56 rounded-[20px] shadow-sm border border-surface-container-highest p-4 flex flex-col items-center gap-2 text-center bg-surface">
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-background border border-surface-container-highest">
-                      <span className={`material-symbols-outlined text-[24px] ${isCarrom ? "text-amber-500" : isChess ? "text-secondary" : isSnooker ? "text-green-500" : "text-blue-500"}`} style={{fontVariationSettings:"'FILL' 1"}}>{gameIcon}</span>
+                      <span className={`material-symbols-outlined text-[24px] ${
+                        isUno 
+                          ? "text-rose-500" 
+                          : isTicTacToe 
+                            ? "text-amber-400" 
+                            : isCarrom 
+                              ? "text-amber-500" 
+                              : isChess 
+                                ? "text-secondary" 
+                                : isSnooker 
+                                  ? "text-green-500" 
+                                  : "text-blue-500"
+                      }`} style={{fontVariationSettings:"'FILL' 1"}}>{gameIcon}</span>
                     </div>
                     <div>
                       <h4 className="font-headline text-sm font-bold text-on-surface leading-tight mt-1">{msg.game_name}</h4>
