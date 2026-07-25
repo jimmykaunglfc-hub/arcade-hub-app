@@ -19,6 +19,7 @@ const DEFAULT_GAMES = [
   { id: "chess", title: "Chess", category: "Strategy", entry_fee: 0, rating: "4.9", icon: "workspace_premium" },
   { id: "checkers", title: "Checkers", category: "Strategy", entry_fee: 0, rating: "4.7", icon: "grid_4x4" },
   { id: "snooker", title: "Snooker", category: "Sports", entry_fee: 0, rating: "4.8", icon: "sports_bar" },
+  { id: "tictactoe", title: "Tic Tac Toe", category: "Strategy", entry_fee: 0, rating: "4.8", icon: "grid_3x3" },
 ];
 
 export default function GamesTab({ 
@@ -33,7 +34,7 @@ export default function GamesTab({
   const [dbGames, setDbGames] = useState<any[]>([]);
   const [, setLoading] = useState(true);
 
-  // Helper for clean native routing slugs (e.g. "Uno" -> "native://uno")
+  // Helper for clean native routing slugs (e.g. "Tic Tac Toe" -> "native://tic-tac-toe")
   const formatGameSlug = (title: string) => {
     const slug = title
       .toLowerCase()

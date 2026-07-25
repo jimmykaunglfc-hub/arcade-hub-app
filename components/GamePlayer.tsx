@@ -5,6 +5,7 @@ import Carrom from "./games/Carrom";
 import ChessGame from "./games/ChessGame";
 import Checkers from "./games/Checkers";
 import SnookerGame from "./games/SnookerGame";
+import TicTacToeGame from "./games/TicTacToeGame";
 
 interface GamePlayerProps {
   gameUrl: string;
@@ -61,6 +62,15 @@ export default function GamePlayer({
       case "snooker":
         return (
           <SnookerGame 
+            onClose={onClose} 
+            preloadedMatchId={matchId} 
+            opponent={opponent} 
+          />
+        );
+      case "tictactoe":
+      case "tic-tac-toe":
+        return (
+          <TicTacToeGame 
             onClose={onClose} 
             preloadedMatchId={matchId} 
             opponent={opponent} 
