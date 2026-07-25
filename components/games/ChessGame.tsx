@@ -7,6 +7,8 @@ import { supabase } from "../../lib/supabaseClient";
 interface ChessGameProps {
   onClose: () => void;
   preloadedMatchId?: string | null;
+  // 👇 NEW: Matchmaking prop structure
+  opponent?: { name: string; isBot: boolean } | null;
 }
 
 // ♟️ HIGH-DEFINITION LICHESS CDN VECTORS (CORS-Safe, 100% Reliable Asset Delivery)
@@ -30,12 +32,12 @@ const PIECE_SYMBOLS: Record<string, string> = {
   P: "♟", N: "♞", B: "♝", R: "♜", Q: "♛",
 };
 
-export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps) {
+export default function ChessGame({ onClose, preloadedMatchId, opponent }: ChessGameProps) {
   const boardRef = useRef<HTMLDivElement>(null);
 
   // 🎮 VIEW & MATCH STATES
   const [view, setView] = useState<"menu" | "host" | "play">(
-    preloadedMatchId ? "play" : "menu"
+    preloadedMatchId || opponent?.isBot ? "play" : "menu"
   );
   const [matchId, setMatchId] = useState<string | null>(preloadedMatchId || null);
   const [joinInput, setJoinInput] = useState("");
@@ -83,9 +85,19 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     });
   }, []);
 
-  // Supabase Sync
+  // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {
-    if (!matchId || !myUserId) return;
+    if (opponent?.isBot) {
+      setMatchId(preloadedMatchId || `bot_match_${Date.now()}`);
+      setPlayerColor("white");
+      setView("play");
+      showToast(`Playing against ${opponent.name}`);
+    }
+  }, [opponent, preloadedMatchId]);
+
+  // 📡 Supabase Sync (Only active for human network matches)
+  useEffect(() => {
+    if (!matchId || !myUserId || opponent?.isBot) return;
 
     const matchChannel = supabase.channel(`chess_match_${matchId}`, {
       config: { broadcast: { self: false }, presence: { key: myUserId } },
@@ -123,7 +135,31 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
       supabase.removeChannel(matchChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchId, myUserId]);
+  }, [matchId, myUserId, opponent]);
+
+  // 🤖 LOCAL JOE YOKE BOT ENGINE (Greedy Logic)
+  useEffect(() => {
+    const isBotMatch = opponent?.isBot;
+    // The Bot acts when it is Black's turn and the game isn't over
+    if (isBotMatch && view === "play" && game.turn() === "b" && !gameOver.isOver) {
+      const botTimer = setTimeout(() => {
+        const moves = game.moves({ verbose: true });
+        if (moves.length === 0) return;
+
+        // Simple Greedy AI: Prioritize captures to mimic an aggressive bot
+        const captures = moves.filter(m => m.captured);
+        const moveList = captures.length > 0 ? captures : moves;
+        
+        // Add random element for unpredictability
+        const randomMove = moveList[Math.floor(Math.random() * moveList.length)];
+
+        makeMove(randomMove.from as Square, randomMove.to as Square);
+      }, 800 + Math.random() * 1200); // 0.8s to 2.0s human-like delay
+
+      return () => clearTimeout(botTimer);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fen, game, gameOver, opponent, view]);
 
   useEffect(() => {
     if (view === "host" && opponentConnected) setView("play");
@@ -167,12 +203,14 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
   const currentTurnColor = game.turn() === "w" ? "white" : "black";
   
   // 🎯 LOCAL PASS & PLAY: Keep board stationary ("white") so phone sits flat between 2 players
-  const displayOrientation = matchId ? playerColor : "white";
+  const displayOrientation = matchId && !opponent?.isBot ? playerColor : "white";
 
   // Execute Move Engine
   const makeMove = (source: Square, target: Square): boolean => {
     if (gameOver.isOver) return false;
-    if (matchId && !opponentConnected) {
+    
+    // Prevent human moving if opponent hasn't joined (ignoring Bot matches)
+    if (matchId && !opponent?.isBot && !opponentConnected) {
       showToast("Waiting for opponent to connect!");
       return false;
     }
@@ -189,7 +227,7 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
       setLastMove({ from: source, to: target });
       updateGameStatus(gameCopy);
 
-      if (channel && matchId) {
+      if (channel && matchId && !opponent?.isBot) {
         channel.send({
           type: "broadcast",
           event: "board_update",
@@ -229,8 +267,12 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     const sq = getSquareFromCoords(e.clientX, e.clientY);
     if (!sq) return;
 
+    // Check Turn Rights (In Bot Match, player is ALWAYS white)
+    const isBotMatch = opponent?.isBot;
     const isMyTurn = matchId
-      ? (playerColor === "white" && game.turn() === "w") || (playerColor === "black" && game.turn() === "b")
+      ? isBotMatch
+        ? game.turn() === "w" 
+        : (playerColor === "white" && game.turn() === "w") || (playerColor === "black" && game.turn() === "b")
       : true;
 
     // If tapping an already highlighted move target -> Execute Tap-to-Move
@@ -280,7 +322,7 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
     setSelectedSquare(null);
     setLegalMoves([]);
     setLastMove(null);
-    if (channel && matchId) {
+    if (channel && matchId && !opponent?.isBot) {
       channel.send({
         type: "broadcast",
         event: "board_update",
@@ -451,9 +493,11 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
           <span className="material-symbols-outlined text-white">arrow_back</span>
         </button>
         <div className="flex flex-col items-center">
-          <h2 className="font-headline font-black text-sm uppercase tracking-[0.2em] text-indigo-400">{matchId ? "Live Arena" : "Local Play"}</h2>
-          <span className={`font-caps text-[9px] font-bold uppercase tracking-widest mt-0.5 ${matchId && !opponentConnected ? "text-amber-400 animate-pulse" : isCheck ? "text-red-400 animate-pulse" : "text-neutral-500"}`}>
-            {matchId && !opponentConnected ? "WAITING FOR OPPONENT" : isCheck ? "⚠️ CHECK ⚠️" : `${currentTurnColor} to move`}
+          <h2 className="font-headline font-black text-sm uppercase tracking-[0.2em] text-indigo-400">
+            {opponent?.isBot ? "Bot Match" : matchId ? "Live Arena" : "Local Play"}
+          </h2>
+          <span className={`font-caps text-[9px] font-bold uppercase tracking-widest mt-0.5 ${matchId && !opponent?.isBot && !opponentConnected ? "text-amber-400 animate-pulse" : isCheck ? "text-red-400 animate-pulse" : "text-neutral-500"}`}>
+            {matchId && !opponent?.isBot && !opponentConnected ? "WAITING FOR OPPONENT" : isCheck ? "⚠️ CHECK ⚠️" : `${currentTurnColor} to move`}
           </span>
         </div>
         <button onClick={resetGame} className="w-10 h-10 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10">
@@ -466,11 +510,18 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
         <div className={`w-full bg-[#18181b] border rounded-2xl p-3 flex flex-col relative transition-all duration-300 shadow-lg ${currentTurnColor === "black" ? "border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]" : "border-white/5"}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-neutral-400">{matchId ? "person" : "robot_2"}</span>
+              <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 relative">
+                <span className="material-symbols-outlined text-neutral-400">
+                  {opponent?.isBot ? "smart_toy" : matchId ? "person" : "robot_2"}
+                </span>
+                {opponent?.isBot && (
+                  <span className="absolute -bottom-2 bg-indigo-500 text-white text-[8px] px-1.5 py-0.5 rounded uppercase font-black tracking-wider shadow-sm">BOT</span>
+                )}
               </div>
               <div>
-                <h3 className="font-headline text-sm font-bold">{matchId ? (opponentConnected ? "Opponent" : "Awaiting Opponent...") : "Player 2 (Black)"}</h3>
+                <h3 className="font-headline text-sm font-bold">
+                  {opponent?.isBot ? opponent.name : matchId ? (opponentConnected ? "Opponent" : "Awaiting Opponent...") : "Player 2 (Black)"}
+                </h3>
                 <p className="text-[10px] font-bold tracking-widest uppercase text-neutral-500">
                   {matchId ? `Playing ${playerColor === "white" ? "Black" : "White"}` : (game.turn() === "b" ? "To Move" : "Waiting...")}
                 </p>
@@ -569,7 +620,7 @@ export default function ChessGame({ onClose, preloadedMatchId }: ChessGameProps)
                 </p>
               </div>
             </div>
-            {matchId && (
+            {matchId && !opponent?.isBot && (
               <button
                 onClick={() => setShowReactionMenu(!showReactionMenu)}
                 className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center text-neutral-400 hover:text-white relative"

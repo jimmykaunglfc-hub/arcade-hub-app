@@ -145,9 +145,16 @@ const renderRealisticHole = (cx: number, cy: number) => (
   </g>
 );
 
-export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => void; preloadedMatchId?: string | null; }) {
+interface CarromProps {
+  onClose: () => void;
+  preloadedMatchId?: string | null;
+  // 👇 NEW: Matchmaking prop structure
+  opponent?: { name: string; isBot: boolean } | null;
+}
+
+export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromProps) {
   
-  const [playMode, setPlayMode] = useState<"menu" | "local" | "host" | "join" | "online">(preloadedMatchId ? "join" : "menu");
+  const [playMode, setPlayMode] = useState<"menu" | "local" | "host" | "join" | "online" | "bot">(preloadedMatchId ? "join" : "menu");
   const [gameRuleMode, setGameRuleMode] = useState<GameMode>("freestyle");
   
   const [matchId, setMatchId] = useState("");
@@ -216,8 +223,16 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
   }, []);
 
-  // 🤝 SAFE RULE PARSER: Pulls game mode strictly from the match_id payload
+  // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {
+    if (opponent?.isBot) {
+      setMatchId(preloadedMatchId || `bot_match_${Date.now()}`);
+      setMyPlayerRole(1);
+      setPlayMode("bot");
+      setToast({ msg: `Playing against ${opponent.name}`, type: 'success' });
+      return;
+    }
+
     if (preloadedMatchId && myUserId) {
       const connectFromChat = async () => {
         let code = preloadedMatchId;
@@ -256,7 +271,65 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       };
       connectFromChat();
     }
-  }, [preloadedMatchId, myUserId]);
+  }, [preloadedMatchId, myUserId, opponent]);
+
+  // 🤖 LOCAL JOE YOKE BOT ENGINE (Runs when turn === 2 in Bot Mode)
+  useEffect(() => {
+    if (playMode === "bot" && turn === 2 && !winner) {
+      const botActionDelay = setTimeout(() => {
+        if (isMovingRef.current) return;
+
+        const currentCoins = coinsRef.current;
+        const striker = currentCoins.find(c => c.type === "striker");
+        if (!striker) return;
+
+        // Find viable targets based on rules
+        let targetTypes = ["white", "black", "queen"];
+        if (gameRuleMode === "classic" && p2Color) {
+           targetTypes = [p2Color, "queen"];
+        }
+        
+        const targets = currentCoins.filter(c => c.active && targetTypes.includes(c.type));
+        if (targets.length === 0) return;
+
+        // Pick a target randomly for human-like unpredictability 
+        const target = targets[Math.floor(Math.random() * targets.length)];
+        
+        // Slightly offset striker placement
+        const botX = Math.max(220, Math.min(780, target.x + (Math.random() * 40 - 20)));
+        setP2Slider(botX);
+        striker.x = botX; 
+        striker.y = 160;
+
+        // Simulate aiming duration, then calculate trajectory and fire
+        setTimeout(() => {
+           if (isMovingRef.current) return;
+
+           const dx = target.x - botX;
+           const dy = target.y - 160; 
+           const dist = Math.hypot(dx, dy);
+           
+           // Bot power scale mirrors max player power
+           const botPower = 180 + Math.random() * 80; 
+           const powerMultiplier = 0.22;
+           const vx = (dx / dist) * botPower * powerMultiplier;
+           const vy = (dy / dist) * botPower * powerMultiplier;
+
+           turnSnapshotRef.current = JSON.parse(JSON.stringify(coinsRef.current));
+           striker.vx = vx;
+           striker.vy = vy;
+           isMovingRef.current = true;
+           didIShootRef.current = true; // Claiming rights to trigger evaluateTurnEnd
+           
+           if(!isMutedRef.current) playSound('strike', Math.min(botPower / 260, 1));
+           requestAnimationFrame(physicsLoop);
+        }, 1200);
+
+      }, 1500);
+
+      return () => clearTimeout(botActionDelay);
+    }
+  }, [turn, playMode, winner, p2Color, gameRuleMode]);
 
   useEffect(() => {
     if (toast) {
@@ -317,7 +390,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   }, [p1Slider, p2Slider, turn, shouldFlipBoard]);
 
   // 📡 STABILIZED MULTIPLAYER REAL-TIME SYNC HUB
-  const shouldConnect = matchId && myUserId && playMode !== "menu" && playMode !== "local";
+  const shouldConnect = matchId && myUserId && playMode !== "menu" && playMode !== "local" && playMode !== "bot";
 
   useEffect(() => {
     if (!shouldConnect) return;
@@ -417,7 +490,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       supabase.removeChannel(channel); 
       channelRef.current = null;
     };
-  }, [shouldConnect]); // Only re-runs if connection requirements change
+  }, [shouldConnect]);
 
   const updateOnlineRules = (mode: GameMode) => {
      setGameRuleMode(mode);
@@ -555,8 +628,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
     } else {
       isMovingRef.current = false;
       // 🛡️ AUTHORITATIVE TURN CALCULATION LOCK
-      // Resolves the race condition: Only evaluate the turn if YOU took the shot.
-      if (playMode === "local" || didIShootRef.current) {
+      if (playMode === "local" || playMode === "bot" || didIShootRef.current) {
         evaluateTurnEnd();
         didIShootRef.current = false; // Reset lock
       }
@@ -687,6 +759,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   const handlePointerDown = (e: React.PointerEvent, coinId: string) => {
     if (coinId !== "striker" || isMovingRef.current || winner) return;
     if (playMode === "online" && turn !== myPlayerRole) return;
+    if (playMode === "bot" && turn === 2) return; // Prevent human from moving bot's turn
     setIsAiming(true);
   };
 
@@ -734,7 +807,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
       strikerObj.vx = vx; 
       strikerObj.vy = vy;
       isMovingRef.current = true;
-      didIShootRef.current = true; // 🛡️ CRITICAL LOCK: Claims evaluation rights for this shot
+      didIShootRef.current = true; 
       if(!isMutedRef.current) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
       
       if (playMode === "online" && channelRef.current) {
@@ -780,22 +853,23 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
   };
 
   // --- DYNAMIC HUD VARIABLES ---
-  const topRole: 1 | 2 = playMode === 'local' ? 2 : (myPlayerRole === 1 ? 2 : 1);
-  const bottomRole: 1 | 2 = playMode === 'local' ? 1 : myPlayerRole as 1 | 2;
+  const topRole: 1 | 2 = playMode === 'local' || playMode === 'bot' ? 2 : (myPlayerRole === 1 ? 2 : 1);
+  const bottomRole: 1 | 2 = playMode === 'local' || playMode === 'bot' ? 1 : myPlayerRole as 1 | 2;
   const activeStriker = coinsRef.current.find(c => c.type === "striker");
   const aimDist = Math.hypot(aimVector.x, aimVector.y);
   const isMaxPower = aimDist >= MAX_POWER - 2;
 
   const renderPlayerHUD = (role: 1 | 2, position: 'top' | 'bottom') => {
     const isMyTurn = turn === role;
-    const canUseSlider = isMyTurn && !winner && (playMode === 'local' || myPlayerRole === role);
+    const isBot = role === 2 && opponent?.isBot;
+    const canUseSlider = isMyTurn && !winner && !isBot && (playMode === 'local' || myPlayerRole === role);
     const currentSlider = role === 1 ? p1Slider : p2Slider;
     const setCurrentSlider = role === 1 ? setP1Slider : setP2Slider;
     const roleScore = role === 1 ? p1Score : p2Score;
     const roleColor = role === 1 ? p1Color : p2Color;
 
     let turnText = `Player ${turn} Turn`;
-    if (playMode === "online") {
+    if (playMode === "online" || playMode === "bot") {
       if (isMyTurn) turnText = myPlayerRole === role ? "Your Shot" : "Opponent Aiming";
       else turnText = myPlayerRole === role ? "Wait" : "Opponent Aiming";
     }
@@ -808,7 +882,12 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
              {role === 1 ? (
                <div className="w-8 h-8 rounded-full bg-[#f4ebd4] border-2 border-[#d6c7b0] flex items-center justify-center text-[#6b5f4c] text-[10px] font-bold shadow-md">P1</div>
              ) : (
-               <div className="w-8 h-8 rounded-full bg-neutral-950 border-2 border-neutral-800 flex items-center justify-center text-white text-[10px] font-bold shadow-md">P2</div>
+               <div className="flex items-center gap-1.5">
+                 <div className="w-8 h-8 rounded-full bg-neutral-950 border-2 border-neutral-800 flex items-center justify-center text-white text-[10px] font-bold shadow-md">
+                   {isBot ? <span className="material-symbols-outlined text-[14px]">smart_toy</span> : "P2"}
+                 </div>
+                 {isBot && <span className="bg-amber-500/20 text-amber-500 border border-amber-500/30 text-[9px] px-1.5 py-0.5 rounded uppercase font-black tracking-wider shadow-sm">BOT</span>}
+               </div>
              )}
              {roleColor && <div className={`w-4 h-4 rounded-full border border-neutral-400 ${roleColor === 'white' ? 'bg-[#f3ead3]' : 'bg-[#141414]'}`}></div>}
            </div>
@@ -950,8 +1029,8 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                   </button>
                </div>
             ) : (
-               <span className={`text-[9px] font-bold uppercase tracking-widest mt-1 ${playMode === "online" ? "text-emerald-500 animate-pulse" : (playMode === "host" || playMode === "join") ? "text-amber-500 animate-pulse" : "text-neutral-400"}`}>
-                 {playMode === "online" ? `● ${gameRuleMode.toUpperCase()}` : (playMode === "host" || playMode === "join") ? "Connecting..." : "Local Mode"}
+               <span className={`text-[9px] font-bold uppercase tracking-widest mt-1 ${playMode === "online" || playMode === "bot" ? "text-emerald-500 animate-pulse" : (playMode === "host" || playMode === "join") ? "text-amber-500 animate-pulse" : "text-neutral-400"}`}>
+                 {playMode === "online" || playMode === "bot" ? `● ${gameRuleMode.toUpperCase()}` : (playMode === "host" || playMode === "join") ? "Connecting..." : "Local Mode"}
                </span>
             )}
           </div>
@@ -1069,7 +1148,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
         </div>
       )}
 
-      {(playMode === "local" || playMode === "online") && (
+      {(playMode === "local" || playMode === "online" || playMode === "bot") && (
         <div className="flex-1 w-full flex flex-col justify-between min-h-0 relative z-10 py-4">
           
           {renderPlayerHUD(topRole, 'top')}
@@ -1102,7 +1181,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                   <h3 className="text-[10px] font-black text-amber-500 tracking-widest uppercase mb-1">Victory Sequence</h3>
                   <h2 className="text-3xl font-black tracking-tight uppercase">Arena Cleared!</h2>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium mt-3 px-2 leading-relaxed">
-                    {playMode === "online" ? (winner === myPlayerRole ? "Incredible skill! You claimed complete server victory." : "The opponent cleared the board.") : `Player ${winner} has completely pocketed their target roster!`}
+                    {playMode === "online" || playMode === "bot" ? (winner === myPlayerRole ? "Incredible skill! You claimed complete server victory." : "The opponent cleared the board.") : `Player ${winner} has completely pocketed their target roster!`}
                   </p>
                   <div className="w-full flex gap-3 mt-8">
                     <button 
@@ -1203,7 +1282,7 @@ export default function Carrom({ onClose, preloadedMatchId }: { onClose: () => v
                           stroke={edgeStroke} 
                           strokeWidth="1.5" 
                           onPointerDown={(e) => handlePointerDown(e, coin.id)} 
-                          className={coin.type === "striker" && !isMovingRef.current && ((playMode === "online" && turn === myPlayerRole) || (playMode === "local" && turn === 1) || (playMode === "local" && turn === 2)) ? "cursor-grab active:cursor-grabbing" : ""} 
+                          className={coin.type === "striker" && !isMovingRef.current && ((playMode === "online" && turn === myPlayerRole) || (playMode === "local" && turn === 1) || (playMode === "local" && turn === 2) || (playMode === "bot" && turn === 1)) ? "cursor-grab active:cursor-grabbing" : ""} 
                         />
                         <circle r={coin.radius * 0.68} fill="none" stroke={interiorRing} strokeWidth="1.5" opacity="0.6" pointerEvents="none" />
                         <circle r={coin.radius * 0.36} fill="none" stroke={interiorRing} strokeWidth="1" opacity="0.5" pointerEvents="none" />

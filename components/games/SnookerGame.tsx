@@ -32,14 +32,16 @@ interface Ball {
 interface SnookerGameProps {
   onClose?: () => void;
   preloadedMatchId?: string | null;
+  // 👇 NEW: Matchmaking prop structure
+  opponent?: { name: string; isBot: boolean } | null;
 }
 
-export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGameProps) {
+export default function SnookerGame({ onClose, preloadedMatchId, opponent }: SnookerGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // 🎮 VIEW & MATCHMAKING STATES
   const [view, setView] = useState<"menu" | "host" | "play">(
-    preloadedMatchId ? "play" : "menu"
+    preloadedMatchId || opponent?.isBot ? "play" : "menu"
   );
   const [matchId, setMatchId] = useState<string | null>(preloadedMatchId || null);
   const [joinInput, setJoinInput] = useState("");
@@ -116,9 +118,19 @@ export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGamePr
     });
   }, []);
 
-  // Supabase Realtime Synchronization
+  // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {
-    if (!matchId || !myUserId) return;
+    if (opponent?.isBot) {
+      setMatchId(preloadedMatchId || `bot_match_${Date.now()}`);
+      setMyRole("player1");
+      setView("play");
+      showToastMessage(`Playing against ${opponent.name}`);
+    }
+  }, [opponent, preloadedMatchId]);
+
+  // 📡 Supabase Realtime Synchronization (Avoid if Bot)
+  useEffect(() => {
+    if (!matchId || !myUserId || opponent?.isBot) return;
 
     const matchChannel = supabase.channel(`snooker_match_${matchId}`, {
       config: { broadcast: { self: false }, presence: { key: myUserId } },
@@ -180,11 +192,86 @@ export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGamePr
       matchChannel.untrack();
       supabase.removeChannel(matchChannel);
     };
-  }, [matchId, myUserId]);
+  }, [matchId, myUserId, opponent]);
 
   useEffect(() => {
     if (view === "host" && opponentConnected) setView("play");
   }, [opponentConnected, view]);
+
+  // 🤖 LOCAL JOE YOKE BOT ENGINE (Snooker Geometry AI)
+  useEffect(() => {
+    const isBotMatch = opponent?.isBot;
+    if (isBotMatch && view === "play" && currentTurn === "player2" && !winner && !isMoving) {
+      const botTimer = setTimeout(() => {
+        const balls = ballsRef.current;
+        const cueBall = balls.find(b => b.isCue);
+        if (!cueBall) return;
+
+        // 1. D-Zone Placement if Ball in Hand
+        if (isBallInHand) {
+          cueBall.x = baulkLineX - (Math.random() * 20);
+          cueBall.y = tableHeight / 2 + (Math.random() * 40 - 20);
+          setIsBallInHand(false);
+        }
+
+        // 2. Identify Legal Targets
+        let targetBalls: Ball[] = [];
+        if (gamePhase === "REDS" && nextRequiredBall === "Red") {
+          targetBalls = balls.filter(b => b.type === "Red" && !b.isPotted);
+        } else if ((gamePhase === "REDS" && nextRequiredBall === "Color") || gamePhase === "LAST_RED_COLOR") {
+          targetBalls = balls.filter(b => b.type !== "Red" && !b.isCue && !b.isPotted);
+        } else if (gamePhase === "COLORS_SEQUENCE") {
+          const targetColor = COLOR_SEQUENCE[colorSeqIndex];
+          targetBalls = balls.filter(b => b.type === targetColor && !b.isPotted);
+        } else {
+          targetBalls = balls.filter(b => b.type === nextRequiredBall && !b.isPotted);
+        }
+
+        if (targetBalls.length === 0) return;
+
+        // 3. Select Target and Calculate Ghost Ball Geometry
+        const target = targetBalls[Math.floor(Math.random() * targetBalls.length)];
+        
+        let bestPocket = pockets[0];
+        let minPocketDist = Infinity;
+        pockets.forEach(p => {
+          const d = Math.hypot(target.x - p.x, target.y - p.y);
+          if (d < minPocketDist) { minPocketDist = d; bestPocket = p; }
+        });
+
+        // Angle from Pocket to Target determines the Ghost Ball position
+        const anglePocketToTarget = Math.atan2(target.y - bestPocket.y, target.x - bestPocket.x);
+        const ghostX = target.x + Math.cos(anglePocketToTarget) * (ballRadius * 2);
+        const ghostY = target.y + Math.sin(anglePocketToTarget) * (ballRadius * 2);
+
+        // Aim angle is from Cue Ball to Ghost Ball
+        let botAimAngle = Math.atan2(ghostY - cueBall.y, ghostX - cueBall.x);
+        
+        // Inject human-like imperfection
+        botAimAngle += (Math.random() - 0.5) * 0.04; 
+        
+        // Execute Shot
+        const power = 40 + Math.random() * 45; // 40-85 power
+        const impulseSpeed = (power / 100) * 22;
+
+        cueBall.vx = Math.cos(botAimAngle) * impulseSpeed;
+        cueBall.vy = Math.sin(botAimAngle) * impulseSpeed;
+        cueBall.spinX = 0;
+        cueBall.spinY = 0;
+
+        setAimAngle(botAimAngle);
+        setUiPower(power); // Briefly show power
+        
+        setTimeout(() => {
+          setUiPower(0);
+          setIsMoving(true);
+        }, 300);
+
+      }, 1500 + Math.random() * 1500); // 1.5s - 3s delay for realism
+
+      return () => clearTimeout(botTimer);
+    }
+  }, [currentTurn, isMoving, isBallInHand, winner, view, opponent, gamePhase, nextRequiredBall, colorSeqIndex]);
 
   const handleExit = () => {
     if (matchId) setMatchId(null);
@@ -221,7 +308,7 @@ export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGamePr
   // SNOOKER RULE ENGINE
   const evaluateTurnEnd = useCallback(() => {
     const tracking = turnTrackingRef.current;
-    const opponent = currentTurn === "player1" ? "player2" : "player1";
+    const opponentId = currentTurn === "player1" ? "player2" : "player1";
     let turnSwitched = false;
     let penalty = 0;
 
@@ -327,8 +414,8 @@ export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGamePr
     }
 
     if (turnSwitched) {
-      newScores[opponent] += penalty;
-      newTurn = opponent;
+      newScores[opponentId] += penalty;
+      newTurn = opponentId;
     }
 
     setScores(newScores);
@@ -342,7 +429,7 @@ export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGamePr
     turnTrackingRef.current = { redsPotted: 0, colorsPotted: [], firstHitBallType: "" };
 
     // Synchronize full state over Supabase broadcast
-    if (channel && matchId) {
+    if (channel && matchId && !opponent?.isBot) {
       channel.send({
         type: "broadcast",
         event: "table_sync",
@@ -356,7 +443,7 @@ export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGamePr
         }
       });
     }
-  }, [currentTurn, nextRequiredBall, gamePhase, colorSeqIndex, scores, respotColorBall, channel, matchId]);
+  }, [currentTurn, nextRequiredBall, gamePhase, colorSeqIndex, scores, respotColorBall, channel, matchId, opponent]);
 
   const initBalls = useCallback(() => {
     const balls: Ball[] = [];
@@ -774,7 +861,7 @@ export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGamePr
 
   const handleCanvasInteraction = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (isMoving || !isMyTurnActive) return;
-    if (matchId && !opponentConnected) {
+    if (matchId && !opponent?.isBot && !opponentConnected) {
       showToastMessage("Waiting for opponent to join!");
       return;
     }
@@ -813,7 +900,7 @@ export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGamePr
         cueBall.x = newX;
         cueBall.y = newY;
 
-        if (channel && matchId) {
+        if (channel && matchId && !opponent?.isBot) {
           channel.send({
             type: "broadcast",
             event: "cue_place",
@@ -851,7 +938,7 @@ export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGamePr
 
   const handlePowerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isMoving || isBallInHand || !isMyTurnActive) return;
-    if (matchId && !opponentConnected) {
+    if (matchId && !opponent?.isBot && !opponentConnected) {
       showToastMessage("Waiting for opponent to connect!");
       return;
     }
@@ -898,7 +985,7 @@ export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGamePr
     cueBall.spinX = spinOffset.x;
     cueBall.spinY = spinOffset.y;
 
-    if (channel && matchId) {
+    if (channel && matchId && !opponent?.isBot) {
       channel.send({
         type: "broadcast",
         event: "shot",
@@ -1124,7 +1211,7 @@ export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGamePr
 
         <div className="flex items-center gap-2 bg-black/50 px-4 py-1.5 rounded-lg border border-white/5">
           <span className="text-[8px] text-neutral-400 font-bold uppercase tracking-widest">
-            {matchId && !opponentConnected ? "WAITING..." : "TARGET"}
+            {matchId && !opponent?.isBot && !opponentConnected ? "WAITING..." : "TARGET"}
           </span>
           <div
             className="w-5 h-5 rounded-full shadow-md transition-colors duration-200 border border-white/20"
@@ -1135,10 +1222,13 @@ export default function SnookerGame({ onClose, preloadedMatchId }: SnookerGamePr
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="text-center min-w-[80px]">
+          <div className="text-center min-w-[80px] relative">
             <span className={`text-[9px] uppercase tracking-wider block font-black ${currentTurn === "player2" ? "text-pink-400 animate-pulse" : "text-neutral-500"}`}>
-              {matchId ? (myRole === "player2" ? "You (P2)" : "Opponent (P2)") : "Player 2"}
+              {opponent?.isBot ? opponent.name : matchId ? (myRole === "player2" ? "You (P2)" : "Opponent (P2)") : "Player 2"}
             </span>
+            {opponent?.isBot && (
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[8px] px-1 rounded uppercase font-black tracking-wider">BOT</span>
+            )}
             <p className="text-base font-black font-mono">{scores.player2} <span className="text-[10px] text-neutral-400 font-normal">pts</span></p>
           </div>
          

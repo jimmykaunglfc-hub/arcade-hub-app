@@ -18,14 +18,19 @@ const INITIAL_BOARD = [
 // Emoji Arsenal
 const EMOJIS = ["👍", "😂", "🔥", "😡", "😭", "🤯"];
 
-export default function Checkers({ 
-  onClose, 
-  preloadedMatchId 
-}: { 
+interface CheckersProps {
   onClose: () => void;
   preloadedMatchId?: string | null;
-}) {
-  const [playMode, setPlayMode] = useState<"menu" | "local" | "host" | "join" | "online">(
+  // 👇 NEW: Matchmaking prop structure
+  opponent?: { name: string; isBot: boolean } | null;
+}
+
+export default function Checkers({ 
+  onClose, 
+  preloadedMatchId,
+  opponent
+}: CheckersProps) {
+  const [playMode, setPlayMode] = useState<"menu" | "local" | "host" | "join" | "online" | "bot">(
     preloadedMatchId ? "join" : "menu"
   );
   
@@ -99,6 +104,65 @@ export default function Checkers({
     return () => { supabase.removeChannel(channel); };
   }, [matchId, playMode]);
 
+  // 🤖 LOCAL JOE YOKE BOT ENGINE
+  useEffect(() => {
+    if (playMode === "bot" && turn === P2 && !winner) {
+      const botActionDelay = setTimeout(() => {
+        // 1. Get all valid moves for P2
+        const allP2Moves = getAllValidMoves(P2, board);
+        
+        if (allP2Moves.length === 0) {
+          // No moves available, P1 wins
+          setWinner(P1);
+          setP1Score(prev => prev + 1);
+          return;
+        }
+
+        // 2. Filter for mandatory jumps if any exist
+        const jumpMoves = allP2Moves.filter(m => m.move.jump);
+        const validMoves = jumpMoves.length > 0 ? jumpMoves : allP2Moves;
+
+        // 3. Select a random move for human-like unpredictability
+        const selectedMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+        
+        // 4. Execute the move
+        const newBoard = board.map(row => [...row]);
+        let movingPiece = newBoard[selectedMove.from.r][selectedMove.from.c];
+        newBoard[selectedMove.from.r][selectedMove.from.c] = EMPTY;
+        newBoard[selectedMove.move.r][selectedMove.move.c] = movingPiece;
+
+        let newP2Cap = p2Captures;
+        if (selectedMove.move.jump) {
+          newBoard[selectedMove.move.jump.r][selectedMove.move.jump.c] = EMPTY;
+          newP2Cap++;
+        }
+
+        // King promotion
+        if (selectedMove.move.r === 7) newBoard[selectedMove.move.r][selectedMove.move.c] = P2_KING;
+
+        const nextTurn = P1;
+        const nextMoves = getAllValidMoves(nextTurn, newBoard);
+        
+        let newWinner = null;
+        let newP2Score = p2Score;
+        
+        if (nextMoves.length === 0) {
+          newWinner = P2; 
+          newP2Score++;
+        }
+
+        setBoard(newBoard);
+        setTurn(nextTurn);
+        setP2Captures(newP2Cap);
+        setWinner(newWinner);
+        setP2Score(newP2Score);
+
+      }, 1000 + Math.random() * 800); // Random delay between 1-1.8 seconds
+
+      return () => clearTimeout(botActionDelay);
+    }
+  }, [turn, playMode, winner, board, p2Captures, p2Score]);
+
   const hostMatch = async () => {
     if (!myUserId) return alert("Must be logged in to play online.");
     const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -124,7 +188,19 @@ export default function Checkers({
     }
   };
 
-  useEffect(() => { if (preloadedMatchId && myUserId) joinDirectlyByUUID(preloadedMatchId); }, [preloadedMatchId, myUserId]);
+  // 🤝 SAFE RULE PARSER & BOT HANDLER
+  useEffect(() => {
+    if (opponent?.isBot) {
+      setMatchId(preloadedMatchId || `bot_match_${Date.now()}`);
+      setMyPlayerRole(P1);
+      setPlayMode("bot");
+      return;
+    }
+
+    if (preloadedMatchId && myUserId) {
+      joinDirectlyByUUID(preloadedMatchId);
+    }
+  }, [preloadedMatchId, myUserId, opponent]);
 
   const joinDirectlyByUUID = async (uuid: string) => {
     const { data: match } = await supabase.from('checkers_matches').select('*').eq('id', uuid).maybeSingle();
@@ -187,6 +263,7 @@ export default function Checkers({
   const handleSquareClick = async (r: number, c: number) => {
     if (winner || playMode === "menu" || playMode === "host" || playMode === "join") return;
     if (playMode === "online" && turn !== myPlayerRole) return;
+    if (playMode === "bot" && turn === P2) return; // Disallow human moving bot pieces
 
     const piece = board[r][c];
     const allPlayerMoves = getAllValidMoves(turn, board);
@@ -350,32 +427,34 @@ export default function Checkers({
       )}
 
       {/* --- IN-GAME ARENA --- */}
-      <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
-        <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
-          <span className="material-symbols-outlined text-lg">close</span>
-        </button>
-        <div className="text-center">
-          <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Checkers Matrix</h1>
-          <span className={`text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 mt-0.5 ${playMode === "online" ? "text-emerald-500" : playMode === "host" || playMode === "join" ? "text-indigo-500" : "text-neutral-400"}`}>
-            {(playMode === "online" || playMode === "host" || playMode === "join") && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>}
-            {playMode === "online" ? "Live Network" : playMode === "host" || playMode === "join" ? "Connecting..." : "Local Mode"}
-          </span>
-        </div>
-        
-        <div className="relative">
-          <button onClick={() => setShowEmojiMenu(!showEmojiMenu)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
-            <span className="material-symbols-outlined text-lg">add_reaction</span>
+      {playMode !== "menu" && (
+        <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
+          <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
+            <span className="material-symbols-outlined text-lg">close</span>
           </button>
+          <div className="text-center">
+            <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Checkers Matrix</h1>
+            <span className={`text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 mt-0.5 ${playMode === "online" || playMode === "bot" ? "text-emerald-500" : playMode === "host" || playMode === "join" ? "text-indigo-500" : "text-neutral-400"}`}>
+              {(playMode === "online" || playMode === "host" || playMode === "join" || playMode === "bot") && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>}
+              {playMode === "online" ? "Live Network" : playMode === "bot" ? "Bot Match" : playMode === "host" || playMode === "join" ? "Connecting..." : "Local Mode"}
+            </span>
+          </div>
           
-          {showEmojiMenu && (
-            <div className="absolute top-12 right-0 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
-              {EMOJIS.map(em => (
-                <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1">{em}</button>
-              ))}
-            </div>
-          )}
+          <div className="relative">
+            <button onClick={() => setShowEmojiMenu(!showEmojiMenu)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
+              <span className="material-symbols-outlined text-lg">add_reaction</span>
+            </button>
+            
+            {showEmojiMenu && (
+              <div className="absolute top-12 right-0 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
+                {EMOJIS.map(em => (
+                  <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1">{em}</button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* --- HOSTING / JOINING WAITING SCREEN --- */}
       {(playMode === "host" || playMode === "join") && (
@@ -413,7 +492,7 @@ export default function Checkers({
         </div>
       )}
 
-      {(playMode === "local" || playMode === "online") && (
+      {(playMode === "local" || playMode === "online" || playMode === "bot") && (
         <div className="flex-1 w-full max-w-md mx-auto flex flex-col justify-start min-h-0 relative z-10">
           
           {/* Scoreboard HUD */}
@@ -423,9 +502,18 @@ export default function Checkers({
                 <span className="text-xs font-black text-[#5c3a21] dark:text-[#cfaa75]">{p2Score}</span>
                 <span className="text-[8px] text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">Wins</span>
               </div>
-              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-[#4d2f1d] border-[#362114] text-white`}>
-                <span className="font-black text-sm">P2</span>
+              
+              <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-[#4d2f1d] border-[#362114] text-white relative`}>
+                {opponent?.isBot ? (
+                  <span className="material-symbols-outlined text-[20px]">smart_toy</span>
+                ) : (
+                  <span className="font-black text-sm">P2</span>
+                )}
+                {opponent?.isBot && (
+                  <span className="absolute -bottom-2 bg-indigo-500 text-white text-[8px] px-1.5 py-0.5 rounded uppercase font-black tracking-wider shadow-sm">BOT</span>
+                )}
               </div>
+              
               <span className="text-[9px] font-bold text-neutral-500 dark:text-neutral-400 mt-2 uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 rounded-md border border-neutral-300 dark:border-neutral-700">
                 Cap: {p2Captures}
               </span>
@@ -433,7 +521,9 @@ export default function Checkers({
             
             <div className="text-center px-4 py-2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-full shadow-sm">
               <span className="text-[10px] font-black text-neutral-900 dark:text-white uppercase tracking-widest">
-                {playMode === "online" ? (turn === myPlayerRole ? "Your Turn" : "Opponent's Turn") : (turn === P1 ? "Player 1 Turn" : "Player 2 Turn")}
+                {playMode === "online" || playMode === "bot" 
+                  ? (turn === myPlayerRole ? "Your Turn" : "Opponent's Turn") 
+                  : (turn === P1 ? "Player 1 Turn" : "Player 2 Turn")}
               </span>
             </div>
 
@@ -499,7 +589,7 @@ export default function Checkers({
                     Congratulations!
                   </h2>
                   <p className="text-sm text-neutral-500 dark:text-neutral-400 font-medium mt-3">
-                    {playMode === "online" 
+                    {playMode === "online" || playMode === "bot"
                       ? (winner === myPlayerRole ? "You outsmarted your opponent and claimed victory." : "Your opponent won this round.")
                       : `Player ${winner} has completely dominated the board.`}
                   </p>

@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
+import MatchmakingModal from "./MatchmakingModal";
 
 interface GamesTabProps {
-  rewardClaimed: boolean; // Kept for prop signature compatibility
+  rewardClaimed: boolean; 
   setRewardClaimed: (status: boolean) => void;
   currentPoints: number;
   userId: string | null;
-  onPlay: (url: string) => void;
+  onPlay: (url: string, matchId?: string, opponent?: any) => void;
 }
 
 export default function GamesTab({ 
@@ -22,6 +23,14 @@ export default function GamesTab({
   const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [dbGames, setDbGames] = useState<any[]>([]);
   const [, setLoading] = useState(true);
+
+  // Matchmaking State
+  const [searchGame, setSearchGame] = useState<{
+    url: string;
+    name: string;
+    entryFee: number;
+    gameKey: string;
+  } | null>(null);
 
   // Helper for clean native routing slugs
   const formatGameSlug = (title: string) => {
@@ -62,12 +71,30 @@ export default function GamesTab({
     fetchLiveArcadeData();
   }, []);
 
-  // --- SPEND POINTS LINKED TO LEDGER ---
-  const executeLaunchEngine = async (url: string, entryFee: number = 0) => {
+  // --- TRIGGER MATCHMAKING ON GAME CLICK ---
+  const handleGameClick = (game: any) => {
+    const entryFee = game.entry_fee || 0;
     if (currentPoints < entryFee && entryFee > 0) {
       alert("Matchmaking Halted: You have depleted your network credits. Visit the Store to resume online matches.");
       return;
     }
+
+    const url = formatGameSlug(game.title);
+    const gameKey = game.title.toLowerCase().replace(/\s+/g, "_");
+
+    setSearchGame({
+      url,
+      name: game.title,
+      entryFee,
+      gameKey
+    });
+  };
+
+  // --- EXECUTE LAUNCH AFTER MATCH FOUND ---
+  const handleMatchFound = async (matchId: string, opponent: { name: string; isBot: boolean }) => {
+    if (!searchGame) return;
+    const { url, entryFee } = searchGame;
+    setSearchGame(null);
 
     if (entryFee > 0 && userId) {
       try {
@@ -81,7 +108,7 @@ export default function GamesTab({
           user_id: userId,
           amount: -entryFee,
           transaction_type: "match_fee",
-          description: `Authorized arena connection payload for game route: ${url}`
+          description: `Authorized arena connection payload for game route: ${url} (Match: ${matchId}, Opponent: ${opponent.name})`
         });
       } catch (err) {
         console.error("Economy connection ledger synchronization failed:", err);
@@ -90,7 +117,7 @@ export default function GamesTab({
       }
     }
 
-    onPlay(url);
+    onPlay(url, matchId, opponent);
   };
 
   // Filter games based on selected category pill
@@ -101,6 +128,17 @@ export default function GamesTab({
   return (
     <div className="w-full pb-6 animate-fade-in text-on-surface">
       
+      {/* 🔍 MATCHMAKING MODAL OVERLAY */}
+      {searchGame && userId && (
+        <MatchmakingModal
+          gameKey={searchGame.gameKey}
+          gameName={searchGame.name}
+          userId={userId}
+          onMatchFound={({ matchId, opponent }) => handleMatchFound(matchId, opponent)}
+          onCancel={() => setSearchGame(null)}
+        />
+      )}
+
       {/* 🏷️ HORIZONTAL CATEGORY PILLS */}
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 mb-6 -mx-5 px-5">
         <button
@@ -141,7 +179,7 @@ export default function GamesTab({
             return (
               <div 
                 key={game.id} 
-                onClick={() => executeLaunchEngine(formatGameSlug(game.title), game.entry_fee)}
+                onClick={() => handleGameClick(game)}
                 className="bg-surface border border-surface-container-highest rounded-[24px] p-3 flex flex-col gap-3 cursor-pointer hover:bg-surface-variant active:scale-[0.97] transition-all shadow-sm"
               >
                 {/* Image Placeholder / Banner */}
