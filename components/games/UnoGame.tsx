@@ -68,7 +68,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
-  // 2. Initialize Joe Yoke Standard Views
+  // 2. Initialize View State (Bypasses menu when preloadedMatchId exists)
   const [view, setView] = useState<"menu" | "host" | "play" | "searching" | "confirmed">(
     isBotMode || preloadedMatchId ? "play" : "menu"
   );
@@ -126,7 +126,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
     matchChannel
       .on("broadcast", { event: "game_sync" }, (payload) => {
-        // Implementation for syncing full game state across network
+        // Broadcast sync payload handler
       })
       .on("presence", { event: "sync" }, () => {
         const state = matchChannel.presenceState();
@@ -206,6 +206,13 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     setView("play");
   }, [localOpponent]);
 
+  // 🎯 AUTO-INITIALIZE ARENA ON DIRECT PLAYLOAD
+  useEffect(() => {
+    if (view === "play" && players.length === 0) {
+      startModeGame("quick");
+    }
+  }, [view, players.length, startModeGame]);
+
   // --- MATCHMAKING & ROUTING FLOWS ---
   const startOnlineMatchmaking = () => {
     setView("searching");
@@ -228,8 +235,11 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
   const handleExit = () => {
     if (matchId) setMatchId(null);
-    setView("menu");
-    if (onClose) onClose();
+    if (onClose) {
+      onClose();
+    } else {
+      setView("menu");
+    }
   };
 
   // --- UNO MECHANICS ---
@@ -388,7 +398,6 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     const currentPObj = players[currentPlayer];
     if (!currentPObj || !currentPObj.isBot) return;
 
-    // Joe Yoke human-like delay calculation (1.5s - 3.5s)
     const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
 
     const botTimer = setTimeout(() => {
@@ -476,7 +485,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   };
 
   // =========================================
-  // 1️⃣ LOBBY / MENU VIEW (MODERN DARK UI)
+  // 1️⃣ LOBBY / MENU VIEW
   // =========================================
   if (view === "menu") {
     return (
@@ -489,7 +498,6 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
         
         <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
           
-          {/* Header */}
           <div className="flex items-center gap-4 mb-8">
             <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
               <span className="material-symbols-outlined text-2xl text-neutral-300">style</span>
@@ -500,7 +508,6 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
             </div>
           </div>
 
-          {/* Online Match Button (CCFF00 Theme) */}
           <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
             <div className="flex justify-between items-start mb-4">
               <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
@@ -517,7 +524,6 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
             <p className="text-xs text-neutral-400 font-medium leading-relaxed">Ranked & casual global<br/>matchmaking</p>
           </button>
 
-          {/* Private & Offline Match Buttons */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <button onClick={() => { setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
               <div className="flex justify-between items-start w-full">
@@ -546,7 +552,6 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
             </button>
           </div>
 
-          {/* Join Room Input - Flexbox fixed for iOS */}
           <div className="flex items-center gap-2 w-full mb-6">
             <div className="relative flex-1 min-w-0 flex items-center bg-[#09090b] border border-white/10 rounded-2xl p-1.5">
               <div className="pl-3 pr-2 text-neutral-500 flex items-center justify-center">

@@ -26,7 +26,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
-  // 2. Initialize Joe Yoke Standard Views
+  // 2. Initialize View State (Bypasses menu when preloadedMatchId exists)
   const [view, setView] = useState<"menu" | "host" | "play" | "searching" | "confirmed">(
     isBotMode || preloadedMatchId ? "play" : "menu"
   );
@@ -179,21 +179,18 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   };
 
   const getMediumAIMove = (currentBoard: BoardState, emptyIndices: number[]): number => {
-    // 1. Win if possible
     for (const idx of emptyIndices) {
       const tempBoard = [...currentBoard];
       tempBoard[idx] = "O";
       if (checkWinner(tempBoard)?.winner === "O") return idx;
     }
 
-    // 2. Block opponent
     for (const idx of emptyIndices) {
       const tempBoard = [...currentBoard];
       tempBoard[idx] = "X";
       if (checkWinner(tempBoard)?.winner === "X") return idx;
     }
 
-    // 3. Positional play
     if (Math.random() < 0.7) {
       if (emptyIndices.includes(4)) return 4;
       const corners = [0, 2, 6, 8].filter((c) => emptyIndices.includes(c));
@@ -213,7 +210,6 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     const gameResult = checkWinner(nextBoard);
     let nextTurn: Player = player === "X" ? "O" : "X";
     
-    // 💡 Add explicit type annotation here to prevent type narrowing to 'null'
     let newWinner: Player | "draw" | null = winner; 
     let newWinningLine: number[] | null = winningLine;
     let newScores = { ...scores };
@@ -235,7 +231,6 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
       setTurn(nextTurn);
     }
 
-    // Broadcast network update for online match
     if (channel && matchId && !localOpponent?.isBot && !preloadedMatchId?.startsWith("bot_")) {
       channel.send({
         type: "broadcast",
@@ -255,7 +250,6 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   useEffect(() => {
     const isBotMatch = localOpponent?.isBot || matchId?.startsWith("bot_") || gameMode !== "pvp";
     if (turn === "O" && !winner && view === "play" && isBotMatch) {
-      // Natural thinking delay (800ms to 1600ms)
       const thinkingDelay = Math.floor(Math.random() * 800) + 800;
 
       const timer = setTimeout(() => {
@@ -312,8 +306,11 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
 
   const handleExit = () => {
     if (matchId) setMatchId(null);
-    setView("menu");
-    if (onClose) onClose();
+    if (onClose) {
+      onClose();
+    } else {
+      setView("menu");
+    }
   };
 
   const startOnlineMatchmaking = () => {
@@ -345,7 +342,6 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6 animate-fade-in">
         <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
           
-          {/* Header */}
           <div className="flex items-center gap-4 mb-8">
             <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
               <span className="material-symbols-outlined text-2xl text-amber-400">grid_3x3</span>
@@ -356,7 +352,6 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
             </div>
           </div>
 
-          {/* Online Match Button (CCFF00 Theme) */}
           <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
             <div className="flex justify-between items-start mb-4">
               <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
@@ -373,7 +368,6 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
             <p className="text-xs text-neutral-400 font-medium leading-relaxed">Ranked & casual global<br/>matchmaking</p>
           </button>
 
-          {/* Private & Offline Match Buttons */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <button onClick={() => { setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
               <div className="flex justify-between items-start w-full">
@@ -402,7 +396,6 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
             </button>
           </div>
 
-          {/* Join Room Input - Flexbox fixed for iOS */}
           <div className="flex items-center gap-2 w-full mb-6">
             <div className="relative flex-1 min-w-0 flex items-center bg-[#09090b] border border-white/10 rounded-2xl p-1.5">
               <div className="pl-3 pr-2 text-neutral-500 flex items-center justify-center">
