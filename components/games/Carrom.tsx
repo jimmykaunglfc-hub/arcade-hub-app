@@ -4,6 +4,9 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { RealtimeChannel } from '@supabase/supabase-js';
 
+// 👇 NEW: Import the Bot Utility
+import { getRandomBotOpponent } from "../../lib/botUtils";
+
 // --- HYPER-REALISTIC ENGINE CONSTANTS ---
 const BOARD_SIZE = 1000;
 const FRAME_THICKNESS = 35;   
@@ -162,6 +165,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   );
   const [gameRuleMode, setGameRuleMode] = useState<GameMode>("freestyle");
   
+  // 👇 NEW: State to store generated bot profile
+  const [localOpponent, setLocalOpponent] = useState<any>(opponent || null);
+
   const [matchId, setMatchId] = useState<string>(
     preloadedMatchId || (isBotMode ? `bot_match_${Date.now()}` : "")
   );
@@ -234,8 +240,8 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {
     if (isBotMode) {
-      if (opponent?.name) {
-        setToast({ msg: `Playing against ${opponent.name}`, type: 'success' });
+      if (localOpponent?.name) {
+        setToast({ msg: `Playing against ${localOpponent.name}`, type: 'success' });
       }
       return;
     }
@@ -280,11 +286,14 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       };
       connectFromChat();
     }
-  }, [preloadedMatchId, myUserId, opponent, isBotMode]);
+  }, [preloadedMatchId, myUserId, isBotMode, localOpponent]);
 
   // 🤖 LOCAL JOE YOKE BOT ENGINE (Runs when turn === 2 in Bot Mode)
   useEffect(() => {
     if (playMode === "bot" && turn === 2 && !winner) {
+      // 🧠 Calculate a natural human reaction time (1.5s to 3.5s)
+      const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
+
       const botActionDelay = setTimeout(() => {
         if (isMovingRef.current) return;
 
@@ -332,9 +341,21 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
            
            if(!isMutedRef.current) playSound('strike', Math.min(botPower / 260, 1));
            requestAnimationFrame(physicsLoop);
-        }, 1200);
 
-      }, 1500);
+           // 🎭 25% chance the bot reacts with an emote after playing
+           if (Math.random() <= 0.25) {
+             const reactionDelay = Math.floor(Math.random() * 1000) + 800;
+             setTimeout(() => {
+               const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+               const newEmoji = { id: Date.now() + Math.random(), emoji: randomEmote, role: 2 };
+               setFloatingEmojis((prev) => [...prev, newEmoji]);
+               // Clear emote bubble after 2.5 seconds
+               setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
+             }, reactionDelay);
+           }
+        }, 800); // 800ms aiming delay
+
+      }, thinkingDelay); // Human thinking delay
 
       return () => clearTimeout(botActionDelay);
     }
@@ -526,9 +547,12 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   const startOnlineMatchmaking = () => {
     setPlayMode("searching");
     setTimeout(() => {
-      // If the user hasn't cancelled the search, transition to confirmed
+      // If the user hasn't cancelled the search, transition to confirmed and assign bot
       setPlayMode(prev => {
-        if (prev === "searching") return "confirmed";
+        if (prev === "searching") {
+          setLocalOpponent(getRandomBotOpponent());
+          return "confirmed";
+        }
         return prev;
       });
     }, 2800); // Wait ~3s for radar animation
@@ -538,7 +562,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     setMatchId(`bot_match_${Date.now()}`);
     setMyPlayerRole(1);
     setPlayMode("bot");
-    setToast({ msg: `Playing against Joe Yoke Bot`, type: 'success' });
+    setToast({ msg: `Playing against ${localOpponent?.name || 'Bot'}`, type: 'success' });
   };
 
   const physicsLoop = () => {
@@ -889,7 +913,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
   const renderPlayerHUD = (role: 1 | 2, position: 'top' | 'bottom') => {
     const isMyTurn = turn === role;
-    const isBot = role === 2 && opponent?.isBot;
+    
+    // 👇 NEW: Check if the top player is the bot
+    const isBot = role === 2 && (localOpponent?.isBot || playMode === "bot");
     const canUseSlider = isMyTurn && !winner && !isBot && (playMode === 'local' || myPlayerRole === role);
     const currentSlider = role === 1 ? p1Slider : p2Slider;
     const setCurrentSlider = role === 1 ? setP1Slider : setP2Slider;
@@ -912,7 +938,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
              ) : (
                <div className="flex items-center gap-1.5">
                  <div className="w-8 h-8 rounded-full bg-neutral-950 border-2 border-neutral-800 flex items-center justify-center text-white text-[10px] font-bold shadow-md">
-                   {isBot ? <span className="material-symbols-outlined text-[14px]">smart_toy</span> : "P2"}
+                   {isBot ? <span className="material-symbols-outlined text-[14px]">{localOpponent?.avatarIcon || "person"}</span> : "P2"}
                  </div>
                  {isBot && <span className="bg-amber-500/20 text-amber-500 border border-amber-500/30 text-[9px] px-1.5 py-0.5 rounded uppercase font-black tracking-wider shadow-sm">BOT</span>}
                </div>
@@ -1032,23 +1058,25 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               </button>
             </div>
 
-            {/* Join Room Input */}
-            <div className="w-full flex items-center gap-2 bg-[#09090b] border border-white/10 p-1.5 rounded-2xl mb-6">
-              <div className="pl-3 text-neutral-500 flex items-center justify-center">
-                <span className="material-symbols-outlined text-lg">vpn_key</span>
+            {/* 👇 IMPLEMENTED: Join Room Input flex fix for mobile */}
+            <div className="flex items-center gap-2 w-full mb-6">
+              <div className="relative flex-1 min-w-0 flex items-center bg-[#09090b] border border-white/10 rounded-2xl p-1.5">
+                <div className="pl-3 pr-2 text-neutral-500 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-lg">vpn_key</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="ENTER ROOM CODE..."
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  className="flex-1 min-w-0 bg-transparent text-sm font-headline font-bold text-white placeholder-neutral-600 focus:outline-none uppercase tracking-widest"
+                  maxLength={6}
+                />
               </div>
-              <input
-                type="text"
-                placeholder="ENTER ROOM CODE..."
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                className="flex-1 bg-transparent text-sm font-headline font-bold text-white placeholder-neutral-600 focus:outline-none uppercase tracking-widest"
-                maxLength={6}
-              />
               <button
                 onClick={joinMatch}
                 disabled={joinCode.length < 6}
-                className="bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
+                className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
               >
                 Join
               </button>
@@ -1097,15 +1125,19 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               <span className="material-symbols-outlined text-black text-sm font-black">close</span>
             </div>
             
+            {/* 👇 IMPLEMENTED: Use bot human avatar icon */}
             <div className="w-20 h-20 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 flex items-center justify-center rotate-[5deg] shadow-2xl overflow-hidden relative z-10">
-              <span className="material-symbols-outlined text-4xl text-indigo-400">smart_toy</span>
+              <span className="material-symbols-outlined text-4xl text-indigo-400">
+                {localOpponent?.avatarIcon || "person"}
+              </span>
             </div>
           </div>
 
           <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
-          <h2 className="font-headline font-black text-3xl text-white mb-2">Joe Yoke Bot</h2>
+          {/* 👇 IMPLEMENTED: Use human-like generated Bot Name */}
+          <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || "Player 2"}</h2>
           <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
-            <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Expert • 2450 ELO
+            <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
           </p>
 
           <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">

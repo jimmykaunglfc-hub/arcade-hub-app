@@ -3,6 +3,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
+// 👇 NEW: Import the Bot Utility
+import { getRandomBotOpponent } from "../../lib/botUtils";
+
 const EMPTY = 0, P1 = 1, P2 = 2, P1_KING = 3, P2_KING = 4;
 const INITIAL_BOARD = [
   [EMPTY, P2, EMPTY, P2, EMPTY, P2, EMPTY, P2],
@@ -38,6 +41,9 @@ export default function Checkers({
     isBotMode ? "bot" : preloadedMatchId ? "join" : "menu"
   );
   
+  // 👇 NEW: State to store generated bot profile
+  const [localOpponent, setLocalOpponent] = useState<any>(opponent || null);
+
   const [matchId, setMatchId] = useState<string>(
     preloadedMatchId || (isBotMode ? `bot_match_${Date.now()}` : "")
   );
@@ -114,6 +120,9 @@ export default function Checkers({
   // 🤖 LOCAL JOE YOKE BOT ENGINE
   useEffect(() => {
     if (playMode === "bot" && turn === P2 && !winner) {
+      // 🧠 Human-like thinking delay calculation (1.5s to 3.5s)
+      const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
+      
       const botActionDelay = setTimeout(() => {
         // 1. Get all valid moves for P2
         const allP2Moves = getAllValidMoves(P2, board);
@@ -163,8 +172,20 @@ export default function Checkers({
         setP2Captures(newP2Cap);
         setWinner(newWinner);
         setP2Score(newP2Score);
+        
+        // 🎭 25% chance the bot reacts with an emote after playing
+        if (Math.random() <= 0.25) {
+          const reactionDelay = Math.floor(Math.random() * 1000) + 800;
+          setTimeout(() => {
+            const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+            const newEmoji = { id: Date.now() + Math.random(), emoji: randomEmote, role: P2 };
+            setFloatingEmojis((prev) => [...prev, newEmoji]);
+            // Clear emote bubble after 2.5 seconds
+            setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
+          }, reactionDelay);
+        }
 
-      }, 1000 + Math.random() * 800); // Random delay between 1-1.8 seconds
+      }, thinkingDelay); // Human thinking delay
 
       return () => clearTimeout(botActionDelay);
     }
@@ -199,8 +220,12 @@ export default function Checkers({
   const startOnlineMatchmaking = () => {
     setPlayMode("searching");
     setTimeout(() => {
+      // If the user hasn't cancelled the search, transition to confirmed and assign bot
       setPlayMode(prev => {
-        if (prev === "searching") return "confirmed";
+        if (prev === "searching") {
+          setLocalOpponent(getRandomBotOpponent());
+          return "confirmed";
+        }
         return prev;
       });
     }, 2800); // Wait ~3s for radar animation
@@ -381,6 +406,8 @@ export default function Checkers({
   
   const validMovesForSelected = selected ? getValidMovesForPiece(selected.r, selected.c, board[selected.r][selected.c], board) : [];
   const activeMoveTargets = getAllValidMoves(turn, board).some(m => m.move.jump) ? validMovesForSelected.filter(m => m.jump) : validMovesForSelected;
+  
+  const isBotOpponent = opponent?.isBot || localOpponent?.isBot || playMode === "bot";
 
   return (
     <div className="fixed inset-0 z-[100] bg-neutral-100 dark:bg-[#09090b] flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors">
@@ -457,23 +484,25 @@ export default function Checkers({
               </button>
             </div>
 
-            {/* Join Room Input */}
-            <div className="w-full flex items-center gap-2 bg-[#09090b] border border-white/10 p-1.5 rounded-2xl mb-6">
-              <div className="pl-3 text-neutral-500 flex items-center justify-center">
-                <span className="material-symbols-outlined text-lg">vpn_key</span>
+            {/* 👇 IMPLEMENTED: Join Room Input flex fix for mobile */}
+            <div className="flex items-center gap-2 w-full mb-6">
+              <div className="relative flex-1 min-w-0 flex items-center bg-[#09090b] border border-white/10 rounded-2xl p-1.5">
+                <div className="pl-3 pr-2 text-neutral-500 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-lg">vpn_key</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="ENTER ROOM CODE..."
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  className="flex-1 min-w-0 bg-transparent text-sm font-headline font-bold text-white placeholder-neutral-600 focus:outline-none uppercase tracking-widest"
+                  maxLength={6}
+                />
               </div>
-              <input
-                type="text"
-                placeholder="ENTER ROOM CODE..."
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                className="flex-1 bg-transparent text-sm font-headline font-bold text-white placeholder-neutral-600 focus:outline-none uppercase tracking-widest"
-                maxLength={6}
-              />
               <button
                 onClick={() => joinMatch()}
                 disabled={joinCode.length < 6}
-                className="bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
+                className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
               >
                 Join
               </button>
@@ -522,15 +551,19 @@ export default function Checkers({
               <span className="material-symbols-outlined text-black text-sm font-black">close</span>
             </div>
             
+            {/* 👇 IMPLEMENTED: Use bot human avatar icon */}
             <div className="w-20 h-20 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 flex items-center justify-center rotate-[5deg] shadow-2xl overflow-hidden relative z-10">
-              <span className="material-symbols-outlined text-4xl text-indigo-400">smart_toy</span>
+              <span className="material-symbols-outlined text-4xl text-indigo-400">
+                {localOpponent?.avatarIcon || "person"}
+              </span>
             </div>
           </div>
 
           <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
-          <h2 className="font-headline font-black text-3xl text-white mb-2">Joe Yoke Bot</h2>
+          {/* 👇 IMPLEMENTED: Use human-like generated Bot Name */}
+          <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || "Player 2"}</h2>
           <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
-            <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Expert • 2450 ELO
+            <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
           </p>
 
           <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">
@@ -617,12 +650,12 @@ export default function Checkers({
               </div>
               
               <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-[#4d2f1d] border-[#362114] text-white relative`}>
-                {opponent?.isBot ? (
-                  <span className="material-symbols-outlined text-[20px]">smart_toy</span>
+                {isBotOpponent ? (
+                  <span className="material-symbols-outlined text-[20px]">{localOpponent?.avatarIcon || "person"}</span>
                 ) : (
                   <span className="font-black text-sm">P2</span>
                 )}
-                {opponent?.isBot && (
+                {isBotOpponent && (
                   <span className="absolute -bottom-2 bg-indigo-500 text-white text-[8px] px-1.5 py-0.5 rounded uppercase font-black tracking-wider shadow-sm">BOT</span>
                 )}
               </div>

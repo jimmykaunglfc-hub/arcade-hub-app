@@ -3,6 +3,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
+// 👇 NEW: Import the Bot Utility
+import { getRandomBotOpponent } from "../../lib/botUtils";
+
 const BALL_TYPES = {
   Red: { points: 1, color: "#ff2a2a", spec: "#ffe4e4" },
   Yellow: { points: 2, color: "#eab308", spec: "#fef08a" },
@@ -45,6 +48,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const [view, setView] = useState<"menu" | "host" | "play" | "searching" | "confirmed">(
     isBotMode || preloadedMatchId ? "play" : "menu"
   );
+  
+  // 👇 NEW: State to store generated bot profile
+  const [localOpponent, setLocalOpponent] = useState<any>(opponent || null);
+
   const [matchId, setMatchId] = useState<string | null>(
     preloadedMatchId || (isBotMode ? `bot_match_${Date.now()}` : null)
   );
@@ -125,14 +132,14 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {
-    if (isBotMode && opponent?.name) {
-      showToastMessage(`Playing against ${opponent.name}`);
+    if (isBotMode && localOpponent?.name) {
+      showToastMessage(`Playing against ${localOpponent.name}`);
     }
-  }, [isBotMode, opponent]);
+  }, [isBotMode, localOpponent]);
 
   // 📡 Supabase Realtime Synchronization
   useEffect(() => {
-    if (!matchId || !myUserId || opponent?.isBot || view === "searching" || view === "confirmed") return;
+    if (!matchId || !myUserId || localOpponent?.isBot || view === "searching" || view === "confirmed") return;
 
     const matchChannel = supabase.channel(`snooker_match_${matchId}`, {
       config: { broadcast: { self: false }, presence: { key: myUserId } },
@@ -194,7 +201,8 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       matchChannel.untrack();
       supabase.removeChannel(matchChannel);
     };
-  }, [matchId, myUserId, opponent, view]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchId, myUserId, localOpponent, view]);
 
   useEffect(() => {
     if (view === "host" && opponentConnected) setView("play");
@@ -202,9 +210,13 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   // 🤖 LOCAL JOE YOKE BOT ENGINE (Snooker Geometry AI)
   useEffect(() => {
-    const isBotMatch = opponent?.isBot || matchId?.startsWith("bot_");
+    const isBotMatch = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
     
     if (isBotMatch && view === "play" && currentTurn === "player2" && !winner && !isMoving) {
+      
+      // 🧠 Calculate a natural human reaction time (1.5s to 3.5s)
+      const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
+      
       const botTimer = setTimeout(() => {
         const balls = ballsRef.current;
         const cueBall = balls.find(b => b.isCue);
@@ -270,11 +282,12 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           setIsMoving(true);
         }, 300);
 
-      }, 1500 + Math.random() * 1500); // 1.5s - 3s delay for realism
+      }, thinkingDelay); // Human thinking delay
 
       return () => clearTimeout(botTimer);
     }
-  }, [currentTurn, isMoving, isBallInHand, winner, view, opponent, gamePhase, nextRequiredBall, colorSeqIndex, matchId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTurn, isMoving, isBallInHand, winner, view, opponent, localOpponent, gamePhase, nextRequiredBall, colorSeqIndex, matchId]);
 
   const handleExit = () => {
     if (matchId) setMatchId(null);
@@ -287,7 +300,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     setView("searching");
     setTimeout(() => {
       setView(prev => {
-        if (prev === "searching") return "confirmed";
+        if (prev === "searching") {
+          setLocalOpponent(getRandomBotOpponent());
+          return "confirmed";
+        }
         return prev;
       });
     }, 2800); // Wait ~3s for radar animation
@@ -297,7 +313,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     setMatchId(`bot_match_${Date.now()}`);
     setMyRole("player1");
     setView("play");
-    showToastMessage(`Playing against Joe Yoke Bot`);
+    showToastMessage(`Playing against ${localOpponent?.name || 'Bot'}`);
   };
 
   const respotColorBall = useCallback((colorName: string) => {
@@ -450,7 +466,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     turnTrackingRef.current = { redsPotted: 0, colorsPotted: [], firstHitBallType: "" };
 
     // Synchronize full state over Supabase broadcast
-    if (channel && matchId && !opponent?.isBot && !matchId?.startsWith("bot_")) {
+    if (channel && matchId && !localOpponent?.isBot && !opponent?.isBot && !matchId?.startsWith("bot_")) {
       channel.send({
         type: "broadcast",
         event: "table_sync",
@@ -464,7 +480,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         }
       });
     }
-  }, [currentTurn, nextRequiredBall, gamePhase, colorSeqIndex, scores, respotColorBall, channel, matchId, opponent]);
+  }, [currentTurn, nextRequiredBall, gamePhase, colorSeqIndex, scores, respotColorBall, channel, matchId, opponent, localOpponent]);
 
   const initBalls = useCallback(() => {
     const balls: Ball[] = [];
@@ -882,7 +898,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   const handleCanvasInteraction = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (isMoving || !isMyTurnActive) return;
-    if (matchId && !opponent?.isBot && !matchId?.startsWith("bot_") && !opponentConnected) {
+    if (matchId && !localOpponent?.isBot && !opponent?.isBot && !matchId?.startsWith("bot_") && !opponentConnected) {
       showToastMessage("Waiting for opponent to join!");
       return;
     }
@@ -921,7 +937,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         cueBall.x = newX;
         cueBall.y = newY;
 
-        if (channel && matchId && !opponent?.isBot && !matchId?.startsWith("bot_")) {
+        if (channel && matchId && !localOpponent?.isBot && !opponent?.isBot && !matchId?.startsWith("bot_")) {
           channel.send({
             type: "broadcast",
             event: "cue_place",
@@ -959,7 +975,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   const handlePowerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isMoving || isBallInHand || !isMyTurnActive) return;
-    if (matchId && !opponent?.isBot && !matchId?.startsWith("bot_") && !opponentConnected) {
+    if (matchId && !localOpponent?.isBot && !opponent?.isBot && !matchId?.startsWith("bot_") && !opponentConnected) {
       showToastMessage("Waiting for opponent to connect!");
       return;
     }
@@ -1006,7 +1022,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     cueBall.spinX = spinOffset.x;
     cueBall.spinY = spinOffset.y;
 
-    if (channel && matchId && !opponent?.isBot && !matchId?.startsWith("bot_")) {
+    if (channel && matchId && !localOpponent?.isBot && !opponent?.isBot && !matchId?.startsWith("bot_")) {
       channel.send({
         type: "broadcast",
         event: "shot",
@@ -1094,19 +1110,21 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             </button>
           </div>
 
-          {/* Join Room Input */}
-          <div className="w-full flex items-center gap-2 bg-[#09090b] border border-white/10 p-1.5 rounded-2xl mb-6">
-            <div className="pl-3 text-neutral-500 flex items-center justify-center">
-              <span className="material-symbols-outlined text-lg">vpn_key</span>
+          {/* 👇 IMPLEMENTED: Join Room Input flex fix for mobile */}
+          <div className="flex items-center gap-2 w-full mb-6">
+            <div className="relative flex-1 min-w-0 flex items-center bg-[#09090b] border border-white/10 rounded-2xl p-1.5">
+              <div className="pl-3 pr-2 text-neutral-500 flex items-center justify-center">
+                <span className="material-symbols-outlined text-lg">vpn_key</span>
+              </div>
+              <input
+                type="text"
+                placeholder="ENTER ROOM CODE..."
+                value={joinInput}
+                onChange={(e) => setJoinInput(e.target.value.toUpperCase())}
+                className="flex-1 min-w-0 bg-transparent text-sm font-headline font-bold text-white placeholder-neutral-600 focus:outline-none uppercase tracking-widest"
+                maxLength={6}
+              />
             </div>
-            <input
-              type="text"
-              placeholder="ENTER ROOM CODE..."
-              value={joinInput}
-              onChange={(e) => setJoinInput(e.target.value.toUpperCase())}
-              className="flex-1 bg-transparent text-sm font-headline font-bold text-white placeholder-neutral-600 focus:outline-none uppercase tracking-widest"
-              maxLength={6}
-            />
             <button
               onClick={() => {
                 if (joinInput.length >= 4) {
@@ -1115,7 +1133,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                 }
               }}
               disabled={joinInput.length < 4}
-              className="bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
+              className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
             >
               Join
             </button>
@@ -1172,15 +1190,19 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             <span className="material-symbols-outlined text-black text-sm font-black">close</span>
           </div>
           
+          {/* 👇 IMPLEMENTED: Use bot human avatar icon */}
           <div className="w-20 h-20 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 flex items-center justify-center rotate-[5deg] shadow-2xl overflow-hidden relative z-10">
-            <span className="material-symbols-outlined text-4xl text-indigo-400">smart_toy</span>
+            <span className="material-symbols-outlined text-4xl text-indigo-400">
+              {localOpponent?.avatarIcon || "person"}
+            </span>
           </div>
         </div>
 
         <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
-        <h2 className="font-headline font-black text-3xl text-white mb-2">Joe Yoke Bot</h2>
+        {/* 👇 IMPLEMENTED: Use human-like generated Bot Name */}
+        <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || "Player 2"}</h2>
         <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
-          <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Expert • 2450 ELO
+          <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
         </p>
 
         <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">
@@ -1242,6 +1264,8 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   // =========================================
   // 3️⃣ GAMEPLAY CANVAS ARENA
   // =========================================
+  const isBotOpponent = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
+
   return (
     <div className="fixed inset-0 w-screen h-screen bg-[#09090b] flex flex-col justify-center items-center overflow-hidden touch-none select-none z-[9999] p-2 md:p-4 animate-fade-in">
       
@@ -1326,7 +1350,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
         <div className="flex items-center gap-2 bg-black/50 px-4 py-1.5 rounded-lg border border-white/5">
           <span className="text-[8px] text-neutral-400 font-bold uppercase tracking-widest">
-            {matchId && !opponent?.isBot && !matchId?.startsWith("bot_") && !opponentConnected ? "WAITING..." : "TARGET"}
+            {matchId && !isBotOpponent && !opponentConnected ? "WAITING..." : "TARGET"}
           </span>
           <div
             className="w-5 h-5 rounded-full shadow-md transition-colors duration-200 border border-white/20"
@@ -1339,9 +1363,9 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         <div className="flex items-center gap-4">
           <div className="text-center min-w-[80px] relative">
             <span className={`text-[9px] uppercase tracking-wider block font-black ${currentTurn === "player2" ? "text-pink-400 animate-pulse" : "text-neutral-500"}`}>
-              {(opponent?.isBot || matchId?.startsWith("bot_")) ? "Joe Yoke Bot" : matchId ? (myRole === "player2" ? "You (P2)" : "Opponent (P2)") : "Player 2"}
+              {isBotOpponent ? (localOpponent?.name || "Joe Yoke Bot") : matchId ? (myRole === "player2" ? "You (P2)" : "Opponent (P2)") : "Player 2"}
             </span>
-            {(opponent?.isBot || matchId?.startsWith("bot_")) && (
+            {isBotOpponent && (
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-[8px] px-1 rounded uppercase font-black tracking-wider">BOT</span>
             )}
             <p className="text-base font-black font-mono">{scores.player2} <span className="text-[10px] text-neutral-400 font-normal">pts</span></p>
