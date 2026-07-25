@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
-import MatchmakingModal from "./MatchmakingModal";
 
 interface GamesTabProps {
   rewardClaimed: boolean; 
@@ -24,14 +23,6 @@ export default function GamesTab({
   const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [dbGames, setDbGames] = useState<any[]>([]);
   const [, setLoading] = useState(true);
-
-  // Matchmaking State
-  const [searchGame, setSearchGame] = useState<{
-    url: string;
-    name: string;
-    entryFee: number;
-    gameKey: string;
-  } | null>(null);
 
   // Helper for clean native routing slugs
   const formatGameSlug = (title: string) => {
@@ -72,56 +63,11 @@ export default function GamesTab({
     fetchLiveArcadeData();
   }, []);
 
-  // --- TRIGGER MATCHMAKING ON GAME CLICK ---
+  // --- LAUNCH GAME DIRECTLY ---
+  // The game component will now handle its own matchmaking and menu UI
   const handleGameClick = (game: any) => {
-    const entryFee = game.entry_fee || 0;
-    if (currentPoints < entryFee && entryFee > 0) {
-      alert("Matchmaking Halted: You have depleted your network credits. Visit the Store to resume online matches.");
-      return;
-    }
-
     const url = formatGameSlug(game.title);
-    const gameKey = game.title.toLowerCase().replace(/\s+/g, "_");
-
-    setSearchGame({
-      url,
-      name: game.title,
-      entryFee,
-      gameKey
-    });
-  };
-
-  // --- EXECUTE LAUNCH AFTER MATCH FOUND ---
-  const handleMatchFound = async (matchId: string, opponent: { name: string; isBot: boolean }) => {
-    if (!searchGame) return;
-    const { url, entryFee } = searchGame;
-    setSearchGame(null);
-
-    // 💰 ECONOMY CHECK: Deduct points if it's a premium game
-    // Note: You can add `&& !opponent.isBot` here if you want Bot matches to be free.
-    if (entryFee > 0 && userId) {
-      try {
-        const { error: profileError } = await supabase.from("profiles")
-          .update({ points: currentPoints - entryFee })
-          .eq("id", userId);
-
-        if (profileError) throw profileError;
-
-        await supabase.from("transactions").insert({
-          user_id: userId,
-          amount: -entryFee,
-          transaction_type: "match_fee",
-          description: `Authorized arena connection payload for game route: ${url} (Match: ${matchId}, Opponent: ${opponent.name})`
-        });
-      } catch (err) {
-        console.error("Economy connection ledger synchronization failed:", err);
-        alert("Network Handshake Aborted: Security engine could not securely clear entry cost from ledger nodes.");
-        return;
-      }
-    }
-
-    // 🚀 ROUTE TO GAME WITH BOT/HUMAN DATA
-    onPlay(url, matchId, opponent);
+    onPlay(url);
   };
 
   // Filter games based on selected category pill
@@ -131,17 +77,6 @@ export default function GamesTab({
 
   return (
     <div className="w-full pb-6 animate-fade-in text-on-surface">
-      
-      {/* 🔍 MATCHMAKING MODAL OVERLAY */}
-      {searchGame && userId && (
-        <MatchmakingModal
-          gameKey={searchGame.gameKey}
-          gameName={searchGame.name}
-          userId={userId}
-          onMatchFound={({ matchId, opponent }) => handleMatchFound(matchId, opponent)}
-          onCancel={() => setSearchGame(null)}
-        />
-      )}
 
       {/* 🏷️ HORIZONTAL CATEGORY PILLS */}
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 mb-6 -mx-5 px-5">
