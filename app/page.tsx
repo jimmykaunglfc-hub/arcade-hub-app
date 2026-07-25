@@ -223,7 +223,12 @@ export default function Home() {
                 <HomeTab 
                   currentPoints={userPoints}
                   userId={myUserId}
-                  onPlay={(url) => setPlayingGame(url)} 
+                  onPlay={(url) => setPlayingGame(url)}
+                  // 👇 FIXED: Added onNavigate prop to resolve type error
+                  onNavigate={(tab) => {
+                    if (tab === "explore") setActiveTab("Explore");
+                    if (tab === "store") setActiveTab("Store");
+                  }}
                 />
               )}
 
