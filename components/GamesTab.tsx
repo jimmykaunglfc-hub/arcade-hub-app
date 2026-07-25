@@ -12,6 +12,15 @@ interface GamesTabProps {
   onPlay: (url: string, matchId?: string, opponent?: { name: string; isBot: boolean }) => void;
 }
 
+// 🎮 LOCAL FALLBACK GAMES (Guarantees cards render if Supabase DB is empty or loading)
+const DEFAULT_GAMES = [
+  { id: "uno", title: "Uno", category: "Card", entry_fee: 0, rating: "4.9", icon: "style" },
+  { id: "carrom", title: "Carrom", category: "Board", entry_fee: 0, rating: "4.8", icon: "sports_esports" },
+  { id: "chess", title: "Chess", category: "Strategy", entry_fee: 0, rating: "4.9", icon: "workspace_premium" },
+  { id: "checkers", title: "Checkers", category: "Strategy", entry_fee: 0, rating: "4.7", icon: "grid_4x4" },
+  { id: "snooker", title: "Snooker", category: "Sports", entry_fee: 0, rating: "4.8", icon: "sports_bar" },
+];
+
 export default function GamesTab({ 
   currentPoints, 
   userId, 
@@ -24,7 +33,7 @@ export default function GamesTab({
   const [dbGames, setDbGames] = useState<any[]>([]);
   const [, setLoading] = useState(true);
 
-  // Helper for clean native routing slugs
+  // Helper for clean native routing slugs (e.g. "Uno" -> "native://uno")
   const formatGameSlug = (title: string) => {
     const slug = title
       .toLowerCase()
@@ -38,25 +47,32 @@ export default function GamesTab({
   const fetchLiveArcadeData = async () => {
     setLoading(true);
     
-    // 1. Fetch Categories
-    const { data: catData } = await supabase
-      .from("game_categories")
-      .select("*")
-      .order("name");
-    if (catData) setDbCategories(catData);
+    try {
+      // 1. Fetch Categories
+      const { data: catData } = await supabase
+        .from("game_categories")
+        .select("*")
+        .order("name");
+      if (catData && catData.length > 0) setDbCategories(catData);
 
-    // 2. Fetch Active Games
-    const { data: gameData } = await supabase
-      .from("games")
-      .select("*")
-      .eq("status", "active")
-      .order("created_at", { ascending: false });
-    
-    if (gameData) {
-      setDbGames(gameData);
+      // 2. Fetch Active Games
+      const { data: gameData } = await supabase
+        .from("games")
+        .select("*")
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+      
+      if (gameData && gameData.length > 0) {
+        setDbGames(gameData);
+      } else {
+        setDbGames(DEFAULT_GAMES);
+      }
+    } catch (e) {
+      console.error("Failed to load arcade games from Supabase:", e);
+      setDbGames(DEFAULT_GAMES);
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -64,16 +80,18 @@ export default function GamesTab({
   }, []);
 
   // --- LAUNCH GAME DIRECTLY ---
-  // The game component will now handle its own matchmaking and menu UI
   const handleGameClick = (game: any) => {
     const url = formatGameSlug(game.title);
     onPlay(url);
   };
 
+  // Use DB games if fetched, otherwise use local fallback games
+  const activeGamesList = dbGames.length > 0 ? dbGames : DEFAULT_GAMES;
+
   // Filter games based on selected category pill
   const filteredGames = activeCategory === "All" 
-    ? dbGames 
-    : dbGames.filter(g => g.category === activeCategory);
+    ? activeGamesList 
+    : activeGamesList.filter(g => g.category === activeCategory);
 
   return (
     <div className="w-full pb-6 animate-fade-in text-on-surface">
@@ -129,7 +147,9 @@ export default function GamesTab({
                       style={{ backgroundImage: `url('${game.image_url}')` }}
                     />
                   ) : (
-                    <span className="material-symbols-outlined text-4xl text-on-surface-variant/40">sports_esports</span>
+                    <span className="material-symbols-outlined text-4xl text-on-surface-variant/40">
+                      {game.icon || "sports_esports"}
+                    </span>
                   )}
                   
                   {isPremium && (
@@ -149,7 +169,7 @@ export default function GamesTab({
                     </span>
                     <div className="flex items-center gap-0.5 shrink-0">
                       <span className="material-symbols-outlined text-amber-500 text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                      <span className="text-on-surface font-bold text-[11px]">4.8</span>
+                      <span className="text-on-surface font-bold text-[11px]">{game.rating || "4.8"}</span>
                     </div>
                   </div>
                 </div>
