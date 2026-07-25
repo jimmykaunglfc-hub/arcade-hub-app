@@ -37,7 +37,7 @@ export default function Home() {
   const [userGems, setUserGems] = useState<number>(45);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   
-  // 👇 NEW: State to hold the user's calculated rank and stats
+  // State to hold the user's calculated rank and stats
   const [rankData, setRankData] = useState<any>(null);
 
   const [playingGame, setPlayingGame] = useState<string | null>(null);
@@ -95,7 +95,6 @@ export default function Home() {
     return () => { supabase.removeChannel(profileChannel); };
   }, [myUserId]);
 
-  // 👇 UPDATED: Now fetches stats and calculates the user's rank
   const fetchLiveBalance = async (uid: string) => {
     const { data } = await supabase
       .from("profiles")
@@ -127,8 +126,13 @@ export default function Home() {
       const wins = data.total_wins ?? 0;
       const winRate = matches > 0 ? ((wins / matches) * 100).toFixed(1) : 0;
 
+      // 👇 NEW: Placement Matches Logic
+      const PLACEMENTS_NEEDED = 5;
+      const isPlacing = matches < PLACEMENTS_NEEDED;
+
       setRankData({
-        tier: getRankTier(data.mmr ?? 1000),
+        // If they haven't played 5 games, hide their rank. Otherwise, show their true tier!
+        tier: isPlacing ? "Unranked" : getRankTier(data.mmr ?? 1000),
         percentile: null, // Placeholder: Can be hooked up to an advanced RPC later
         winRate: Number(winRate),
         kda: calculateKDA(data.total_kills ?? 0, data.total_deaths ?? 0, data.total_assists ?? 0),
@@ -252,7 +256,6 @@ export default function Home() {
                     if (tab === "explore") setActiveTab("Explore");
                     if (tab === "store") setActiveTab("Store");
                   }}
-                  // 👇 NEW: Pass the formatted rank data down to the component
                   rankData={rankData}
                 />
               )}
