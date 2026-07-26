@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { AdminSidebar } from "./_components/AdminSidebar";
+import { TopNav } from "./_components/TopNav"; // IMPORT TOP NAV
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -62,13 +63,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    // FIXED: Changed min-h-screen to h-screen and added overflow-hidden to the parent
     <div className="flex h-screen w-full bg-[#09090b] text-white font-sans antialiased overflow-hidden">
       <AdminSidebar />
-      {/* FIXED: Added h-full and min-w-0 to ensure flexbox allows this child to scroll properly */}
-      <main className="flex-1 h-full overflow-y-auto min-w-0 p-8">
-        <div className="max-w-7xl mx-auto pb-10">{children}</div>
-      </main>
+      <div className="flex-1 flex flex-col h-full min-w-0">
+        <TopNav /> {/* RENDER TOP NAV HERE */}
+        <main className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-7xl mx-auto pb-10">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }
