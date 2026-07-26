@@ -16,7 +16,8 @@ import {
   Eye, 
   EyeOff,
   Boxes,
-  Sparkles
+  Sparkles,
+  Infinity as InfinityIcon
 } from "lucide-react";
 
 export default function StoreManagement() {
@@ -30,14 +31,15 @@ export default function StoreManagement() {
   const [uploading, setUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  // --- FORM STATES ---
+  // --- FORM STATES (Supports empty strings for smooth typing/backspacing) ---
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
   const [formSku, setFormSku] = useState("");
   const [formDesc, setFormDesc] = useState("");
   const [formCategory, setFormCategory] = useState("digital");
-  const [formPrice, setFormPrice] = useState<number>(100);
-  const [formStock, setFormStock] = useState<number>(-1); // -1 = Infinite
+  const [formPrice, setFormPrice] = useState<number | "">(100);
+  const [formStock, setFormStock] = useState<number | "">(-1);
+  const [isInfiniteStock, setIsInfiniteStock] = useState(true);
   const [formIsActive, setFormIsActive] = useState(true);
   const [formImageFile, setFormImageFile] = useState<File | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState("");
@@ -72,6 +74,7 @@ export default function StoreManagement() {
     setFormCategory("digital");
     setFormPrice(100);
     setFormStock(-1);
+    setIsInfiniteStock(true);
     setFormIsActive(true);
     setFormImageFile(null);
     setCurrentImageUrl("");
@@ -84,8 +87,10 @@ export default function StoreManagement() {
     setFormSku(item.sku);
     setFormDesc(item.description || "");
     setFormCategory(item.category || "digital");
-    setFormPrice(item.price_points || 0);
-    setFormStock(item.stock_quantity ?? -1);
+    setFormPrice(item.price_points ?? 0);
+    const stockVal = item.stock_quantity ?? -1;
+    setFormStock(stockVal);
+    setIsInfiniteStock(stockVal === -1);
     setFormIsActive(item.is_active);
     setFormImageFile(null);
     setCurrentImageUrl(item.image_url || "");
@@ -109,7 +114,6 @@ export default function StoreManagement() {
     try {
       let finalImageUrl = currentImageUrl;
 
-      // Upload new image if file was selected
       if (formImageFile) {
         const fileExt = formImageFile.name.split(".").pop();
         const fileName = `store_${Date.now()}.${fileExt}`;
@@ -122,18 +126,21 @@ export default function StoreManagement() {
             .from("store_images")
             .getPublicUrl(fileName);
           finalImageUrl = publicUrl;
-        } else {
-          console.warn("Storage bucket upload fallback:", uploadError.message);
         }
       }
+
+      // Final stock calculation
+      const finalStock = isInfiniteStock 
+        ? -1 
+        : (formStock === "" || formStock < 0 ? 0 : Number(formStock));
 
       const itemData = {
         name: formName.trim(),
         sku: formSku.trim().toUpperCase(),
         description: formDesc.trim(),
         category: formCategory,
-        price_points: formPrice,
-        stock_quantity: formStock,
+        price_points: formPrice === "" ? 0 : Number(formPrice),
+        stock_quantity: finalStock,
         is_active: formIsActive,
         image_url: finalImageUrl || "https://img.icons8.com/color/96/present.png",
       };
@@ -174,7 +181,6 @@ export default function StoreManagement() {
     else fetchStoreItems();
   };
 
-  // --- FILTERED DATA ---
   const filteredItems = items.filter((item) => {
     const matchesSearch = 
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -236,7 +242,7 @@ export default function StoreManagement() {
         </div>
       </div>
 
-      {/* --- INVENTORY GRID / LIST --- */}
+      {/* --- INVENTORY GRID --- */}
       {loading ? (
         <div className="py-20 text-center text-xs font-bold text-neutral-500 tracking-widest uppercase animate-pulse">
           Scanning Storefront Database...
@@ -386,7 +392,7 @@ export default function StoreManagement() {
                   <select 
                     value={formCategory} 
                     onChange={(e) => setFormCategory(e.target.value)} 
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors appearance-none"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors appearance-none cursor-pointer"
                   >
                     <option value="digital" className="bg-[#18181b]">Digital Cosmetic</option>
                     <option value="physical" className="bg-[#18181b]">Physical Prize</option>
@@ -406,36 +412,63 @@ export default function StoreManagement() {
                 ></textarea>
               </div>
 
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-1">Price (PTS)</label>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-1">Price (PTS)</label>
+                <input 
+                  type="number" 
+                  min="0" 
+                  value={formPrice} 
+                  onChange={(e) => setFormPrice(e.target.value === "" ? "" : Number(e.target.value))} 
+                  placeholder="100"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
+                />
+              </div>
+
+              {/* FIXED STOCK SECTION WITH INFINITE TOGGLE */}
+              <div className="space-y-2 bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 flex items-center gap-1.5">
+                    <Boxes className="w-3.5 h-3.5 text-[#CCFF00]" /> Inventory Stock
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextState = !isInfiniteStock;
+                      setIsInfiniteStock(nextState);
+                      if (nextState) setFormStock(-1);
+                      else setFormStock(50);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                      isInfiniteStock 
+                        ? "bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/20" 
+                        : "bg-white/5 text-neutral-400 border border-white/10 hover:text-white"
+                    }`}
+                  >
+                    <InfinityIcon className="w-3 h-3" /> Infinite Stock
+                  </button>
+                </div>
+
+                {!isInfiniteStock ? (
                   <input 
                     type="number" 
                     min="0" 
-                    required 
-                    value={formPrice} 
-                    onChange={(e) => setFormPrice(parseInt(e.target.value) || 0)} 
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
+                    value={formStock === -1 ? "" : formStock} 
+                    onChange={(e) => setFormStock(e.target.value === "" ? "" : Number(e.target.value))} 
+                    placeholder="Enter available quantity (e.g. 50)"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors mt-2" 
                   />
-                </div>
-                <div className="flex-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-1">Stock (-1 = Infinite)</label>
-                  <input 
-                    type="number" 
-                    min="-1" 
-                    required 
-                    value={formStock} 
-                    onChange={(e) => setFormStock(parseInt(e.target.value) || -1)} 
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
-                  />
-                </div>
+                ) : (
+                  <p className="text-[11px] text-neutral-500 font-medium italic mt-1">
+                    This item has unlimited stock and will never run out in the store.
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-1">Item Image</label>
                 <div 
                   onClick={() => imageInputRef.current?.click()} 
-                  className="w-full h-28 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 hover:border-white/20 transition-all relative overflow-hidden group"
+                  className="w-full h-24 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 hover:border-white/20 transition-all relative overflow-hidden group"
                 >
                   {formImageFile ? (
                     <span className="text-xs font-bold text-emerald-400 flex flex-col items-center gap-1 relative z-10">
@@ -443,7 +476,7 @@ export default function StoreManagement() {
                     </span>
                   ) : currentImageUrl ? (
                     <div className="flex items-center gap-3">
-                      <img src={currentImageUrl} alt="Current" className="h-12 w-12 object-contain" />
+                      <img src={currentImageUrl} alt="Current" className="h-10 w-10 object-contain" />
                       <span className="text-[10px] text-neutral-400 font-bold uppercase">Click to replace</span>
                     </div>
                   ) : (
