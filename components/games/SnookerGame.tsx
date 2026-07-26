@@ -88,7 +88,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const [aimAngle, setAimAngle] = useState(-Math.PI / 2);
   const [uiPower, setUiPower] = useState(0);
 
-  const [containerScale, setContainerScale] = useState({ width: 320, height: 640 });
+  const [containerScale, setContainerScale] = useState({ width: 250, height: 500 });
 
   // Spin States
   const [spinOffset, setSpinOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -282,37 +282,49 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     }
   }, [currentTurn, playMode, winner, isMoving, nextRequiredBall]);
 
-  // 📱 ACCURATE ULTRA-RESPONSIVE DISPLAY SCALING ENGINE
+  // 📱 DYNAMIC RESIZE OBSERVER ENGINE (Fixes initial null container ref on mount)
   useEffect(() => {
     const updateSize = () => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
 
-      // Reserve ~88px total for side controls + gap padding
-      const sideControlsReservedWidth = 88;
-      const availW = Math.max(160, rect.width - sideControlsReservedWidth);
-      const availH = Math.max(280, rect.height - 8);
+      // Reserve 110px minimum for side controls (PULL bar + TUNE bar + gaps + padding)
+      const SIDE_RESERVED_WIDTH = 110;
+      const availW = Math.max(120, rect.width - SIDE_RESERVED_WIDTH);
+      const availH = Math.max(240, rect.height - 8);
 
-      let targetH = availH;
-      let targetW = targetH / 2;
-
-      if (targetW > availW) {
-        targetW = availW;
-        targetH = targetW * 2;
-      }
+      // Table aspect ratio is 1:2
+      let targetW = availW;
+      let targetH = targetW * 2;
 
       if (targetH > availH) {
         targetH = availH;
         targetW = targetH / 2;
       }
 
-      setContainerScale({ width: targetW, height: targetH });
+      setContainerScale({
+        width: Math.floor(targetW),
+        height: Math.floor(targetH),
+      });
     };
 
     updateSize();
+
+    const observer = new ResizeObserver(() => {
+      updateSize();
+    });
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
     window.addEventListener("resize", updateSize);
-    return () => window.removeEventListener("resize", updateSize);
-  }, []);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateSize);
+    };
+  }, [playMode]);
 
   const respotColorBall = useCallback((colorName: string) => {
     const spots: Record<string, { x: number; y: number }> = {
@@ -1168,7 +1180,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       : BALL_TYPES[targetedColor as keyof typeof BALL_TYPES]?.color || BALL_TYPES.Yellow.color;
 
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-[#09090b] text-white flex flex-col justify-between items-center overflow-hidden touch-none select-none z-[100] p-1 md:p-2 font-sans pt-safe pb-safe">
+    <div className="fixed inset-0 w-screen h-[100dvh] bg-[#09090b] text-white flex flex-col justify-between items-center overflow-hidden touch-none select-none z-[100] p-1 font-sans pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <style>{`
         @keyframes confetti-fall {
           0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; }
@@ -1458,10 +1470,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
       {/* HEADER SCOREBOARD HUD */}
       {playMode !== "menu" && playMode !== "searching" && playMode !== "confirmed" && (
-        <div className="w-full max-w-[480px] flex justify-between items-center bg-[#18181b] border border-white/10 p-1.5 px-3 rounded-xl shadow-xl text-white shrink-0 z-10">
+        <div className="w-full max-w-[100vw] px-2 flex justify-between items-center bg-[#18181b] border border-white/10 p-1.5 rounded-xl shadow-xl text-white shrink-0 z-10">
           {/* PLAYER 1 SCORECARD */}
           <div
-            className={`text-center min-w-[70px] p-1 rounded-lg transition-all duration-300 relative ${
+            className={`text-center min-w-[65px] p-1 rounded-lg transition-all duration-300 relative ${
               currentTurn === "player1"
                 ? "bg-[#CCFF00]/10 border-2 border-[#CCFF00] shadow-[0_0_12px_rgba(204,255,0,0.4)] animate-pulse"
                 : "opacity-60 border border-transparent"
@@ -1485,8 +1497,8 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           </div>
 
           {/* TARGET BALL INDICATOR */}
-          <div className="flex items-center gap-1.5 bg-black/50 px-2.5 py-1 rounded-lg border border-white/5">
-            <span className="text-[8px] text-neutral-400 font-bold uppercase tracking-widest">TARGET</span>
+          <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded-lg border border-white/5">
+            <span className="text-[7px] md:text-[8px] text-neutral-400 font-bold uppercase tracking-widest">TARGET</span>
             <div
               className="w-3.5 h-3.5 md:w-5 md:h-5 rounded-full shadow-md transition-colors duration-200 border border-white/20"
               style={{
@@ -1496,9 +1508,9 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           </div>
 
           {/* PLAYER 2 SCORECARD */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <div
-              className={`text-center min-w-[70px] p-1 rounded-lg transition-all duration-300 relative ${
+              className={`text-center min-w-[65px] p-1 rounded-lg transition-all duration-300 relative ${
                 currentTurn === "player2"
                   ? "bg-rose-500/10 border-2 border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.4)] animate-pulse"
                   : "opacity-60 border border-transparent"
@@ -1523,9 +1535,9 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
             <button
               onClick={() => setShowEmojiMenu(!showEmojiMenu)}
-              className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10"
+              className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10"
             >
-              <span className="material-symbols-outlined text-sm">add_reaction</span>
+              <span className="material-symbols-outlined text-xs">add_reaction</span>
             </button>
 
             {showEmojiMenu && (
@@ -1563,10 +1575,13 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         <div ref={containerRef} className="w-full flex-1 flex justify-center items-center min-h-0 min-w-0 overflow-hidden py-0.5 relative touch-none">
           <div
             style={{ height: `${containerScale.height}px` }}
-            className="flex items-center justify-center gap-2 max-w-full relative transition-all duration-100 touch-none"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 w-full max-w-full relative transition-all duration-100 touch-none px-1"
           >
             {/* 1. LEFT PULL POWER CONTROLLER */}
-            <div className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl h-[85%] w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none">
+            <div 
+              style={{ height: `${containerScale.height}px` }}
+              className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none"
+            >
               <span className="text-[6px] md:text-[8px] font-bold text-neutral-400 uppercase tracking-widest pointer-events-none">PULL</span>
 
               <div
@@ -1575,7 +1590,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                 onPointerMove={handlePowerPointerMove}
                 onPointerUp={handlePowerPointerUp}
                 onPointerCancel={handlePowerPointerUp}
-                className="h-[80%] w-[10px] md:w-[12px] bg-[#09090b] rounded-full border border-white/5 relative shadow-inner flex items-start justify-center cursor-ns-resize touch-none"
+                className="flex-1 my-1 w-[10px] md:w-[12px] bg-[#09090b] rounded-full border border-white/5 relative shadow-inner flex items-start justify-center cursor-ns-resize touch-none"
               >
                 <div
                   className="w-full bg-gradient-to-b from-[#CCFF00] via-amber-500 to-rose-500 rounded-full absolute top-0 pointer-events-none transition-all duration-75"
@@ -1614,7 +1629,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             </div>
 
             {/* 3. RIGHT TUNE WHEEL & SPIN CONTROLLER */}
-            <div className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl h-[85%] w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none">
+            <div 
+              style={{ height: `${containerScale.height}px` }}
+              className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none"
+            >
               <span className="text-[6px] md:text-[8px] font-bold text-neutral-400 uppercase tracking-widest pointer-events-none">TUNE</span>
 
               <div
@@ -1622,7 +1640,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                 onPointerMove={handleWheelPointerMove}
                 onPointerUp={handleWheelPointerUp}
                 onPointerCancel={handleWheelPointerUp}
-                className={`h-[60%] w-[20px] sm:w-[24px] md:w-[28px] rounded-lg border-[2px] border-white/10 bg-[#09090b] overflow-hidden cursor-ns-resize shadow-inner relative touch-none transition-opacity ${
+                className={`flex-1 my-1 w-[20px] sm:w-[24px] md:w-[28px] rounded-lg border-[2px] border-white/10 bg-[#09090b] overflow-hidden cursor-ns-resize shadow-inner relative touch-none transition-opacity ${
                   isBallInHand || isMoving ? "opacity-40" : "opacity-100"
                 }`}
               >
