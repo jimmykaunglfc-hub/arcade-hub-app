@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
+import { storeManager } from "../../lib/storeManager";
 
 // 👇 Import the Bot Utility
 import { getRandomBotOpponent } from "../../lib/botUtils";
@@ -33,6 +34,10 @@ export default function Checkers({
   preloadedMatchId,
   opponent
 }: CheckersProps) {
+
+  // 🛍️ STORE COSMETICS ENGINE SYNC
+  const equippedBoard = storeManager.getEquippedCosmetic("checkers");
+  const isCyberBoard = equippedBoard === "cyber_checkers_board";
 
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
@@ -465,7 +470,7 @@ export default function Checkers({
   const isBotOpponent = opponent?.isBot || localOpponent?.isBot || playMode === "bot";
 
   return (
-    <div className="fixed inset-0 z-[100] bg-neutral-100 dark:bg-[#09090b] flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors">
+    <div className="fixed inset-0 z-[100] bg-[#09090b] text-white flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors select-none">
       
       <style>{`
         @keyframes confetti-fall {
@@ -618,27 +623,27 @@ export default function Checkers({
         </div>
       )}
 
-      {/* IN-GAME ARENA */}
+      {/* IN-GAME ARENA HEADER */}
       {playMode !== "menu" && playMode !== "searching" && playMode !== "confirmed" && (
-        <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
-          <button onClick={handleExitGame} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
+        <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-white/10 bg-[#18181b]/80 backdrop-blur-md z-30 shrink-0">
+          <button onClick={handleExitGame} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
           <div className="text-center">
-            <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Checkers Matrix</h1>
-            <span className={`text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 mt-0.5 ${playMode === "online" || playMode === "bot" ? "text-emerald-500" : playMode === "host" || playMode === "join" ? "text-amber-500" : "text-neutral-400"}`}>
+            <h1 className="text-sm font-black uppercase tracking-widest text-white">Checkers Matrix</h1>
+            <span className={`text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 mt-0.5 ${playMode === "online" || playMode === "bot" ? "text-emerald-400" : playMode === "host" || playMode === "join" ? "text-amber-400" : "text-neutral-400"}`}>
               {(playMode === "online" || playMode === "host" || playMode === "join" || playMode === "bot") && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>}
               {playMode === "online" ? "Live Network" : playMode === "bot" ? "Bot Match" : playMode === "host" || playMode === "join" ? "Connecting..." : "Local Mode"}
             </span>
           </div>
           
           <div className="relative">
-            <button onClick={() => { soundEngine.playSFX("click"); setShowEmojiMenu(!showEmojiMenu); }} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
+            <button onClick={() => { soundEngine.playSFX("click"); setShowEmojiMenu(!showEmojiMenu); }} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10">
               <span className="material-symbols-outlined text-lg">add_reaction</span>
             </button>
             
             {showEmojiMenu && (
-              <div className="absolute top-12 right-0 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
+              <div className="absolute top-12 right-0 bg-[#18181b] border border-white/10 p-2 rounded-2xl shadow-2xl flex gap-1 z-50">
                 {EMOJIS.map(em => (
                   <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1">{em}</button>
                 ))}
@@ -651,24 +656,24 @@ export default function Checkers({
       {/* HOSTING / JOINING WAITING SCREEN */}
       {(playMode === "host" || playMode === "join") && (
         <div className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center p-6 relative">
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] p-8 w-full shadow-[0_20px_40px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.3)] flex flex-col items-center text-center relative overflow-hidden">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-amber-500/10 dark:bg-amber-500/20 blur-3xl rounded-full pointer-events-none"></div>
-            <div className="w-16 h-16 rounded-full border-[3px] border-amber-100 dark:border-amber-900/30 border-t-amber-500 dark:border-t-amber-500 animate-spin mb-6 relative z-10"></div>
-            <h2 className="text-xl font-black text-neutral-900 dark:text-white tracking-tight uppercase relative z-10">
+          <div className="bg-[#18181b] border border-white/10 rounded-[2.5rem] p-8 w-full shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full pointer-events-none"></div>
+            <div className="w-16 h-16 rounded-full border-[3px] border-amber-900/30 border-t-amber-400 animate-spin mb-6 relative z-10"></div>
+            <h2 className="text-xl font-black text-white tracking-tight uppercase relative z-10">
               {playMode === "join" ? "Syncing Matrix..." : "Awaiting Opponent"}
             </h2>
             
             {playMode === "host" && (
               <div className="mt-8 w-full relative z-10">
-                <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-bold uppercase tracking-widest mb-2">Share This Room Code</p>
-                <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-2.5 rounded-2xl flex items-center justify-between shadow-inner">
-                  <span className="text-amber-600 dark:text-amber-400 font-mono text-2xl font-black tracking-[0.25em] pl-4 pt-1">{roomCode}</span>
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mb-2">Share This Room Code</p>
+                <div className="bg-[#09090b] border border-white/10 p-2.5 rounded-2xl flex items-center justify-between shadow-inner">
+                  <span className="text-amber-400 font-mono text-2xl font-black tracking-[0.25em] pl-4 pt-1">{roomCode}</span>
                   <button 
                     onClick={handleCopyCode}
                     className={`h-11 px-5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm ${
                       copied 
                         ? "bg-emerald-500 text-white" 
-                        : "bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 hover:scale-[1.02] active:scale-95"
+                        : "bg-white/10 text-white border border-white/10 hover:scale-[1.02] active:scale-95"
                     }`}
                   >
                     <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
@@ -677,7 +682,7 @@ export default function Checkers({
                 </div>
               </div>
             )}
-            <button onClick={() => { soundEngine.playSFX("click"); playMode === "host" ? setPlayMode("menu") : onClose(); }} className="w-full mt-8 py-3.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700 relative z-10">
+            <button onClick={() => { soundEngine.playSFX("click"); playMode === "host" ? setPlayMode("menu") : onClose(); }} className="w-full mt-8 py-3.5 bg-white/5 text-neutral-300 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-white/5 relative z-10">
               Cancel Match
             </button>
           </div>
@@ -691,8 +696,8 @@ export default function Checkers({
           <div className="px-6 py-4 flex justify-between items-center shrink-0">
             <div className={`flex flex-col items-center transition-all duration-300 ${turn === P2 ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
               <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-xs font-black text-[#5c3a21] dark:text-[#cfaa75]">{p2Score}</span>
-                <span className="text-[8px] text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">Wins</span>
+                <span className="text-xs font-black text-rose-400">{p2Score}</span>
+                <span className="text-[8px] text-neutral-400 uppercase tracking-widest">Wins</span>
               </div>
               
               <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-[#4d2f1d] border-[#362114] text-white relative`}>
@@ -706,13 +711,13 @@ export default function Checkers({
                 )}
               </div>
               
-              <span className="text-[9px] font-bold text-neutral-500 dark:text-neutral-400 mt-2 uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 rounded-md border border-neutral-300 dark:border-neutral-700">
+              <span className="text-[9px] font-bold text-neutral-400 mt-2 uppercase tracking-wider bg-[#18181b] px-2 py-0.5 rounded-md border border-white/5">
                 Cap: {p2Captures}
               </span>
             </div>
             
-            <div className="text-center px-4 py-2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-full shadow-sm">
-              <span className="text-[10px] font-black text-neutral-900 dark:text-white uppercase tracking-widest">
+            <div className="text-center px-4 py-2 bg-[#18181b] border border-white/10 rounded-full shadow-sm">
+              <span className="text-[10px] font-black text-white uppercase tracking-widest">
                 {playMode === "online" || playMode === "bot" 
                   ? (turn === myPlayerRole ? "Your Turn" : "Opponent's Turn") 
                   : (turn === P1 ? "Player 1 Turn" : "Player 2 Turn")}
@@ -721,13 +726,13 @@ export default function Checkers({
 
             <div className={`flex flex-col items-center transition-all duration-300 ${turn === P1 ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
               <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-[8px] text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">Wins</span>
-                <span className="text-xs font-black text-[#f3ead3] dark:text-white">{p1Score}</span>
+                <span className="text-[8px] text-neutral-400 uppercase tracking-widest">Wins</span>
+                <span className="text-xs font-black text-amber-400">{p1Score}</span>
               </div>
               <div className={`w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md bg-[#f3ead3] border-[#dccfb4] text-[#8a7f6b]`}>
                 <span className="font-black text-sm">P1</span>
               </div>
-              <span className="text-[9px] font-bold text-neutral-500 dark:text-neutral-400 mt-2 uppercase tracking-wider bg-neutral-200 dark:bg-neutral-800 px-2 py-0.5 rounded-md border border-neutral-300 dark:border-neutral-700">
+              <span className="text-[9px] font-bold text-neutral-400 mt-2 uppercase tracking-wider bg-[#18181b] px-2 py-0.5 rounded-md border border-white/5">
                 Cap: {p1Captures}
               </span>
             </div>
@@ -751,7 +756,7 @@ export default function Checkers({
             {/* VICTORY CELEBRATION DIALOG */}
             {winner && (
               <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-in overflow-hidden">
-                <div className="absolute inset-0 bg-white/60 dark:bg-black/60 backdrop-blur-md rounded-[2.5rem]"></div>
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-md rounded-[2.5rem]"></div>
                 
                 {confettiPieces.map(p => (
                   <div key={p.id} className="absolute top-0 z-[60] pointer-events-none" style={{
@@ -764,45 +769,53 @@ export default function Checkers({
                   }} />
                 ))}
 
-                <div className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 w-full shadow-[0_20px_40px_rgba(0,0,0,0.2)] flex flex-col items-center text-center z-50">
+                <div className="relative bg-[#18181b] border border-white/10 rounded-3xl p-8 w-full shadow-2xl flex flex-col items-center text-center z-50">
                   <div className="absolute inset-0 bg-gradient-to-t from-[#CCFF00]/10 to-transparent rounded-3xl pointer-events-none"></div>
 
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#CCFF00] to-green-500 text-black flex items-center justify-center mb-5 shadow-[0_4px_20px_rgba(204,255,0,0.4)] border-4 border-[#CCFF00] dark:border-green-900 animate-bounce">
-                    <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>emoji_events</span>
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#CCFF00] to-green-500 text-black flex items-center justify-center mb-5 shadow-[0_4px_20px_rgba(204,255,0,0.4)] border-4 border-[#CCFF00] animate-bounce">
+                    <span className="material-symbols-outlined text-4xl">emoji_events</span>
                   </div>
                   
                   <h3 className="text-[10px] font-black text-[#CCFF00] tracking-widest uppercase mb-1">
                     Match Concluded
                   </h3>
-                  <h2 className="text-3xl font-black text-neutral-900 dark:text-white tracking-tight uppercase">
+                  <h2 className="text-3xl font-black text-white tracking-tight uppercase">
                     Congratulations!
                   </h2>
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400 font-medium mt-3">
+                  <p className="text-sm text-neutral-400 font-medium mt-3">
                     {playMode === "online" || playMode === "bot"
                       ? (winner === myPlayerRole ? "You outsmarted your opponent and claimed victory." : "Your opponent won this round.")
                       : `Player ${winner} has completely dominated the board.`}
                   </p>
                   
                   <div className="w-full flex gap-3 mt-8">
-                    <button onClick={handleExitGame} className="flex-1 py-3.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm">Exit Arena</button>
+                    <button onClick={handleExitGame} className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm">Exit Arena</button>
                     <button onClick={handleRematch} className="flex-1 py-3.5 bg-[#CCFF00] text-black font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-[0_4px_15px_rgba(204,255,0,0.3)] hover:bg-[#b3e600]">Play Again</button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* CLASSIC WOODEN BOARD FRAME */}
-            <div className="w-full max-h-full aspect-square bg-[#e6c48f] rounded-[1.5rem] p-3 shadow-[0_15px_35px_rgba(0,0,0,0.3)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.8)] border border-[#cfaa75] relative">
-              <div className={`w-full h-full grid grid-cols-8 grid-rows-8 border-4 border-[#333] shadow-[inset_0_0_20px_rgba(0,0,0,0.4)] transition-transform duration-500 ${
-                shouldFlipBoard ? "rotate-180" : "rotate-0"
-              }`}>
+            {/* CHECKERS BOARD FRAME (DYNAMIC DRESSING BASED ON COSMETICS) */}
+            <div className={`w-full max-h-full aspect-square rounded-[1.5rem] p-3 shadow-2xl border transition-all duration-300 relative ${
+              isCyberBoard
+                ? "bg-[#09090b] border-[#CCFF00] shadow-[0_0_30px_rgba(204,255,0,0.25)]"
+                : "bg-[#e6c48f] border-[#cfaa75]"
+            }`}>
+              <div className={`w-full h-full grid grid-cols-8 grid-rows-8 border-4 shadow-inner transition-transform duration-500 ${
+                isCyberBoard ? "border-[#CCFF00]/40" : "border-[#333]"
+              } ${shouldFlipBoard ? "rotate-180" : "rotate-0"}`}>
                 {viewIndices.map((r) => 
                   viewIndices.map((c) => {
                     const playable = isPlayableSquare(r, c);
                     
                     const squareClass = playable 
-                      ? "bg-[#1a1a1a] shadow-[inset_0_2px_6px_rgba(0,0,0,0.5)] cursor-pointer" 
-                      : "bg-[#e6c48f]";
+                      ? isCyberBoard
+                        ? "bg-[#09090b] shadow-[inset_0_0_10px_rgba(204,255,0,0.1)] cursor-pointer"
+                        : "bg-[#1a1a1a] shadow-[inset_0_2px_6px_rgba(0,0,0,0.5)] cursor-pointer" 
+                      : isCyberBoard
+                        ? "bg-[#18181b]"
+                        : "bg-[#e6c48f]";
                     
                     const isSelected = selected?.r === r && selected?.c === c;
                     const isTarget = activeMoveTargets.some((m) => m.r === r && m.c === c);
@@ -829,16 +842,24 @@ export default function Checkers({
                       <div 
                         key={`${r}-${c}`}
                         onClick={() => playable && handleSquareClick(r, c)}
-                        className={`relative w-full h-full flex items-center justify-center transition-colors ${squareClass} ${isSelected ? "ring-inset ring-2 ring-[#4f46e5] bg-indigo-900/40" : ""} ${isTarget ? "bg-[#CCFF00]/30" : ""}`}
+                        className={`relative w-full h-full flex items-center justify-center transition-colors ${squareClass} ${
+                          isSelected ? (isCyberBoard ? "ring-inset ring-2 ring-[#CCFF00] bg-[#CCFF00]/20" : "ring-inset ring-2 ring-[#4f46e5] bg-indigo-900/40") : ""
+                        } ${isTarget ? (isCyberBoard ? "bg-[#CCFF00]/40" : "bg-[#CCFF00]/30") : ""}`}
                       >
-                        {isTarget && <div className="w-3 h-3 rounded-full bg-[#CCFF00] shadow-[0_0_10px_rgba(204,255,0,0.8)] animate-pulse"></div>}
+                        {isTarget && (
+                          <div className={`w-3 h-3 rounded-full animate-pulse ${
+                            isCyberBoard ? "bg-[#CCFF00] shadow-[0_0_15px_rgba(204,255,0,1)]" : "bg-[#CCFF00] shadow-[0_0_10px_rgba(204,255,0,0.8)]"
+                          }`}></div>
+                        )}
 
                         {piece !== EMPTY && (
-                          <div className={`w-[85%] h-[85%] rounded-full flex items-center justify-center transition-all duration-300 ${pieceOuter} ${shouldFlipBoard ? "rotate-180" : "rotate-0"} ${isSelected ? "scale-110 ring-4 ring-[#4f46e5]" : ""}`}>
+                          <div className={`w-[85%] h-[85%] rounded-full flex items-center justify-center transition-all duration-300 ${pieceOuter} ${shouldFlipBoard ? "rotate-180" : "rotate-0"} ${
+                            isSelected ? "scale-110 ring-4 ring-[#CCFF00]" : ""
+                          }`}>
                              <div className={`w-[75%] h-[75%] rounded-full border-[1.5px] flex items-center justify-center ${pieceRing}`}>
                                  <div className={`w-[50%] h-[50%] rounded-full border-[1.5px] flex items-center justify-center ${pieceRing}`}>
                                      {(piece === P1_KING || piece === P2_KING) 
-                                         ? <span className={`material-symbols-outlined text-[20px] drop-shadow-sm ${starColor}`} style={{ fontVariationSettings: "'FILL' 1" }}>star</span> 
+                                         ? <span className={`material-symbols-outlined text-[20px] drop-shadow-sm ${starColor}`}>star</span> 
                                          : <div className={`w-[30%] h-[30%] rounded-full ${pieceCenter}`}></div>}
                                  </div>
                              </div>

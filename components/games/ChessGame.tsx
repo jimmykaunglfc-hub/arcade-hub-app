@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Chess, Square } from "chess.js";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
+import { storeManager } from "../../lib/storeManager";
 
 // 👇 Import the Bot Utility
 import { getRandomBotOpponent } from "../../lib/botUtils";
@@ -37,6 +38,10 @@ const PIECE_SYMBOLS: Record<string, string> = {
 
 export default function ChessGame({ onClose, preloadedMatchId, opponent }: ChessGameProps) {
   const boardRef = useRef<HTMLDivElement>(null);
+
+  // 🛍️ STORE COSMETICS ENGINE SYNC
+  const equippedBoard = storeManager.getEquippedCosmetic("chess");
+  const isObsidianBoard = equippedBoard === "obsidian_board";
 
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
@@ -260,7 +265,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
       if (gameCopy.isCheckmate()) {
         const isWinner = matchId && !isBotMatch
           ? (playerColor === "white" && gameCopy.turn() === "b") || (playerColor === "black" && gameCopy.turn() === "w")
-          : gameCopy.turn() === "b"; // Human player is always White in bot matches
+          : gameCopy.turn() === "b";
         soundEngine.playSFX(isWinner ? "victory" : "defeat");
       } else if (move.captured) {
         soundEngine.playSFX("capture");
@@ -701,14 +706,20 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
           </div>
         </div>
 
-        {/* NATIVE MOBILE POINTER CHESSBOARD GRID */}
-        <div className="w-full p-2 bg-[#18181b] rounded-[24px] shadow-2xl border border-white/10 relative overflow-hidden">
+        {/* NATIVE MOBILE POINTER CHESSBOARD GRID (COSMETICS INTEGRATED) */}
+        <div className={`w-full p-2 rounded-[24px] shadow-2xl border transition-all duration-300 relative overflow-hidden ${
+          isObsidianBoard 
+            ? "bg-[#0b0813] border-purple-500/50 shadow-[0_0_30px_rgba(168,85,247,0.25)]" 
+            : "bg-[#18181b] border-white/10"
+        }`}>
           <div
             ref={boardRef}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            className="w-full aspect-square grid grid-cols-8 grid-rows-8 rounded-[16px] overflow-hidden border border-white/5 touch-none relative select-none"
+            className={`w-full aspect-square grid grid-cols-8 grid-rows-8 rounded-[16px] overflow-hidden border touch-none relative select-none ${
+              isObsidianBoard ? "border-purple-500/30" : "border-white/5"
+            }`}
           >
             {boardRanks.map((rank, rIdx) =>
               boardFiles.map((file, fIdx) => {
@@ -723,18 +734,29 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
 
                 const pieceKey = piece ? `${piece.color}${piece.type}` : null;
 
+                const darkSquareBg = isObsidianBoard ? "bg-[#1a0e2e]" : "bg-[#312e81]";
+                const lightSquareBg = isObsidianBoard ? "bg-[#2d1b4d]" : "bg-[#c7d2fe]";
+
                 return (
                   <div
                     key={sq}
                     className={`relative flex items-center justify-center transition-colors duration-150 ${
-                      isDark ? "bg-[#312e81]" : "bg-[#c7d2fe]"
+                      isDark ? darkSquareBg : lightSquareBg
                     }`}
                   >
                     {/* Last Move Highlight */}
-                    {isLastMove && <div className="absolute inset-0 bg-[#CCFF00]/40 pointer-events-none" />}
+                    {isLastMove && (
+                      <div className={`absolute inset-0 pointer-events-none ${
+                        isObsidianBoard ? "bg-purple-500/40" : "bg-[#CCFF00]/40"
+                      }`} />
+                    )}
 
                     {/* Selected Highlight */}
-                    {isSelected && <div className="absolute inset-0 bg-[#CCFF00]/60 shadow-[inset_0_0_12px_rgba(255,255,255,0.5)] pointer-events-none" />}
+                    {isSelected && (
+                      <div className={`absolute inset-0 shadow-[inset_0_0_12px_rgba(255,255,255,0.5)] pointer-events-none ${
+                        isObsidianBoard ? "bg-purple-400/60" : "bg-[#CCFF00]/60"
+                      }`} />
+                    )}
 
                     {/* Check Highlight */}
                     {isKingInCheck && <div className="absolute inset-0 bg-red-500/80 animate-pulse pointer-events-none" />}
@@ -756,7 +778,11 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
                         {piece ? (
                           <div className="w-full h-full border-4 border-red-500/80 rounded-full animate-pulse" />
                         ) : (
-                          <div className="w-3.5 h-3.5 bg-[#CCFF00] rounded-full shadow-lg shadow-[#CCFF00]/50" />
+                          <div className={`w-3.5 h-3.5 rounded-full ${
+                            isObsidianBoard 
+                              ? "bg-purple-400 shadow-lg shadow-purple-500/50" 
+                              : "bg-[#CCFF00] shadow-lg shadow-[#CCFF00]/50"
+                          }`} />
                         )}
                       </div>
                     )}

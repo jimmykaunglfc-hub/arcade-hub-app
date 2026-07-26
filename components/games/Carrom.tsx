@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { soundEngine } from "../../lib/soundManager";
+import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 
 // --- HYPER-REALISTIC ENGINE CONSTANTS ---
@@ -107,6 +108,10 @@ interface CarromProps {
 
 export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromProps) {
   
+  // 🛍️ STORE COSMETICS ENGINE SYNC
+  const equippedCosmetic = storeManager.getEquippedCosmetic("carrom");
+  const isNeonStriker = equippedCosmetic === "neon_glow_striker";
+
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
@@ -279,7 +284,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
            striker.vx = vx;
            striker.vy = vy;
            isMovingRef.current = true;
-           didIShootRef.current = true;
+           didIShootRef.current = true; 
            
            soundEngine.playSFX("strike");
            requestAnimationFrame(physicsLoop);
@@ -1290,6 +1295,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                     <radialGradient id="vBlack" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#4d4d4d" /><stop offset="100%" stopColor="#141414" /></radialGradient>
                     <radialGradient id="vRed" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#ff5959" /><stop offset="100%" stopColor="#ba0000" /></radialGradient>
                     <radialGradient id="vStriker" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#f7f9fa" /><stop offset="70%" stopColor="#e1e6eb" /><stop offset="100%" stopColor="#b5bec4" /></radialGradient>
+                    
+                    {/* Neon Glow Striker Cosmetic Gradient */}
+                    <radialGradient id="vNeonStriker" cx="35%" cy="30%" r="70%">
+                      <stop offset="0%" stopColor="#CCFF00" />
+                      <stop offset="60%" stopColor="#88cc00" />
+                      <stop offset="100%" stopColor="#334400" />
+                    </radialGradient>
                   </defs>
 
                   <rect x="0" y="0" width={BOARD_SIZE} height={BOARD_SIZE} fill="none" stroke="#2d1606" strokeWidth={FRAME_THICKNESS * 2} />
@@ -1315,7 +1327,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                         y1={activeStriker.y} 
                         x2={activeStriker.x + aimVector.x} 
                         y2={activeStriker.y + aimVector.y} 
-                        stroke={isMaxPower ? "#ef4444" : "#4f46e5"} 
+                        stroke={isMaxPower ? "#ef4444" : (isNeonStriker ? "#CCFF00" : "#4f46e5")} 
                         strokeWidth="8" 
                         strokeDasharray="12 12" 
                         strokeLinecap="round" 
@@ -1325,7 +1337,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                         cx={activeStriker.x + aimVector.x} 
                         cy={activeStriker.y + aimVector.y} 
                         r={activeStriker.radius} 
-                        fill={isMaxPower ? "#ef4444" : "#4f46e5"} 
+                        fill={isMaxPower ? "#ef4444" : (isNeonStriker ? "#CCFF00" : "#4f46e5")} 
                         opacity="0.2" 
                       />
                     </>
@@ -1337,7 +1349,11 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                     let edgeStroke = ""; 
                     let interiorRing = "";
                     
-                    if (coin.type === "striker") { fillMat = "url(#vStriker)"; edgeStroke = "#8695a0"; interiorRing = "#61737e"; }
+                    if (coin.type === "striker") { 
+                      fillMat = isNeonStriker ? "url(#vNeonStriker)" : "url(#vStriker)"; 
+                      edgeStroke = isNeonStriker ? "#CCFF00" : "#8695a0"; 
+                      interiorRing = isNeonStriker ? "#a3e600" : "#61737e"; 
+                    }
                     if (coin.type === "queen") { fillMat = "url(#vRed)"; edgeStroke = "#801515"; interiorRing = "#5c0b0b"; }
                     if (coin.type === "white") { fillMat = "url(#vWhite)"; edgeStroke = "#bdae98"; interiorRing = "#968875"; }
                     if (coin.type === "black") { fillMat = "url(#vBlack)"; edgeStroke = "#0a0a0a"; interiorRing = "#333333"; }
@@ -1354,7 +1370,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                         />
                         <circle r={coin.radius * 0.68} fill="none" stroke={interiorRing} strokeWidth="1.5" opacity="0.6" pointerEvents="none" />
                         <circle r={coin.radius * 0.36} fill="none" stroke={interiorRing} strokeWidth="1" opacity="0.5" pointerEvents="none" />
-                        {coin.type === "striker" && <circle r="6" fill="#ef4444" opacity="0.7" pointerEvents="none"/>}
+                        {coin.type === "striker" && <circle r="6" fill={isNeonStriker ? "#000000" : "#ef4444"} opacity="0.8" pointerEvents="none"/>}
                       </g>
                     );
                   })}

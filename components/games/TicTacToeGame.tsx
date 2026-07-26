@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
+import { storeManager } from "../../lib/storeManager";
 
-// 🤖 Import Bot Utility for Joe Yoke Opponents
+// 🤖 Import Bot Utility for Opponents
 import { getRandomBotOpponent } from "../../lib/botUtils";
 
 interface TicTacToeProps {
@@ -24,10 +25,14 @@ const WINNING_COMBINATIONS = [
 ];
 
 export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: TicTacToeProps) {
+  // 🛍️ STORE COSMETICS ENGINE SYNC
+  const equippedCosmetic = storeManager.getEquippedCosmetic("tictactoe");
+  const isCyberMarks = equippedCosmetic === "cyber_neon_marks" || true;
+
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
-  // 2. Initialize View State (Bypasses menu when preloadedMatchId exists)
+  // 2. Initialize View State
   const [view, setView] = useState<"menu" | "host" | "play" | "searching" | "confirmed">(
     isBotMode || preloadedMatchId ? "play" : "menu"
   );
@@ -219,6 +224,10 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     nextBoard[index] = player;
     setBoard(nextBoard);
 
+    if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+      window.navigator.vibrate(30);
+    }
+
     const gameResult = checkWinner(nextBoard);
     let nextTurn: Player = player === "X" ? "O" : "X";
     
@@ -235,6 +244,9 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
       if (gameResult.winner === "draw") {
         newScores = { ...newScores, ties: newScores.ties + 1 };
         soundEngine.playSFX("defeat");
+        if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+          window.navigator.vibrate([100, 50, 100]);
+        }
       } else {
         const winPlayer = gameResult.winner as Player;
         newScores = { ...newScores, [winPlayer]: newScores[winPlayer] + 1 };
@@ -244,6 +256,10 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
           soundEngine.playSFX(winPlayer === myPlayerSymbol ? "victory" : "defeat");
         } else {
           soundEngine.playSFX("victory");
+        }
+
+        if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+          window.navigator.vibrate([200, 100, 200]);
         }
       }
       setScores(newScores);
@@ -363,12 +379,12 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   // LOBBY / MENU VIEW
   if (view === "menu") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6 animate-fade-in">
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-sans text-white px-6 animate-fade-in select-none">
         <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
           
           <div className="flex items-center gap-4 mb-8">
             <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
-              <span className="material-symbols-outlined text-2xl text-amber-400">grid_3x3</span>
+              <span className="material-symbols-outlined text-2xl text-[#CCFF00]">grid_3x3</span>
             </div>
             <div>
               <h1 className="font-headline font-black text-xl tracking-tight text-white">Tic-Tac-Toe</h1>
@@ -454,18 +470,18 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   // SEARCHING & CONFIRMED SCREENS
   if (view === "searching") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-sans select-none">
         <div className="relative w-32 h-32 flex items-center justify-center mb-8">
-          <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
-          <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
-          <div className="absolute inset-8 border border-[#CCFF00]/10 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '1s' }}></div>
+          <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: "2s" }}></div>
+          <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: "2s", animationDelay: "0.5s" }}></div>
+          <div className="absolute inset-8 border border-[#CCFF00]/10 rounded-full animate-ping" style={{ animationDuration: "2s", animationDelay: "1s" }}></div>
           <div className="w-16 h-16 bg-[#CCFF00]/10 rounded-full flex items-center justify-center border border-[#CCFF00]/20 relative z-10">
             <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
           </div>
         </div>
-        <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
+        <h2 className="font-headline font-black text-2xl text-white mb-2 uppercase">Locating Opponent</h2>
         <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase">
           Abort Search
         </button>
       </div>
@@ -474,7 +490,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
 
   if (view === "confirmed") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-sans select-none">
         <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] px-4 py-1.5 rounded-full font-headline font-black text-xs tracking-widest mb-10 flex items-center gap-2">
           <span className="material-symbols-outlined text-sm">auto_awesome</span> MATCH CONFIRMED
         </div>
@@ -511,7 +527,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   // HOST WAITING VIEW
   if (view === "host") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white">
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-sans text-white select-none">
         <div className="flex justify-between items-center p-6 bg-gradient-to-b from-black/50 to-transparent">
           <button onClick={handleExit} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
             <span className="material-symbols-outlined text-lg">close</span>
@@ -519,8 +535,8 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
           <div className="text-center">
             <h2 className="font-headline font-black text-sm uppercase tracking-widest">Tic-Tac-Toe Room</h2>
             <div className="flex items-center justify-center gap-1.5 mt-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-              <span className="font-caps text-[9px] font-bold tracking-widest text-amber-400">CONNECTING...</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse"></span>
+              <span className="text-[9px] font-bold tracking-widest text-[#CCFF00] uppercase">CONNECTING...</span>
             </div>
           </div>
           <div className="w-10 h-10"></div>
@@ -529,24 +545,24 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-8 shadow-2xl border border-white/5 flex flex-col items-center text-center">
             <div className="relative w-16 h-16 mb-6">
-              <div className="absolute inset-0 border-4 border-amber-500/20 rounded-full"></div>
-              <div className="absolute inset-0 border-4 border-amber-400 rounded-full border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 border-4 border-[#CCFF00]/20 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-[#CCFF00] rounded-full border-t-transparent animate-spin"></div>
             </div>
-            <h3 className="font-headline font-black text-xl tracking-tight mb-8">AWAITING OPPONENT</h3>
-            <p className="font-caps text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-3 uppercase">Share This Room Code</p>
+            <h3 className="font-headline font-black text-xl tracking-tight mb-8 uppercase">AWAITING OPPONENT</h3>
+            <p className="text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-3 uppercase">Share This Room Code</p>
             
             <div className="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-2xl p-2 pl-6 mb-6">
-              <span className="font-headline font-bold text-2xl tracking-[0.3em] text-amber-300">{matchId}</span>
+              <span className="font-headline font-bold text-2xl tracking-[0.3em] text-[#CCFF00]">{matchId}</span>
               <button
                 onClick={() => { soundEngine.playSFX("click"); navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider"
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider uppercase"
               >
                 <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
                 {copied ? "COPIED" : "COPY"}
               </button>
             </div>
 
-            <button onClick={handleExit} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5">
+            <button onClick={handleExit} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5 uppercase">
               CANCEL MATCH
             </button>
           </div>
@@ -560,25 +576,25 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors text-white select-none">
       
       {toast && (
-        <div className="absolute top-20 z-[300] bg-amber-500 text-black px-6 py-2.5 rounded-2xl font-headline font-bold text-xs shadow-2xl animate-fade-in">
+        <div className="absolute top-20 z-[300] bg-[#CCFF00] text-black px-6 py-2.5 rounded-2xl font-headline font-bold text-xs shadow-2xl animate-fade-in">
           {toast}
         </div>
       )}
 
       {/* Header Bar */}
-      <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-800 bg-[#18181b]/80 backdrop-blur-md shrink-0">
-        <button onClick={handleExit} className="w-10 h-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm">
+      <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-white/10 bg-[#18181b]/80 backdrop-blur-md shrink-0">
+        <button onClick={handleExit} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10">
           <span className="material-symbols-outlined text-lg">close</span>
         </button>
         
         <div className="text-center">
-          <h1 className="text-sm font-black uppercase tracking-widest">Tic-Tac-Toe Matrix</h1>
-          <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 block mt-0.5">
+          <h1 className="text-sm font-black uppercase tracking-widest text-white">Tic-Tac-Toe Matrix</h1>
+          <span className="text-[9px] font-bold uppercase tracking-widest text-[#CCFF00] block mt-0.5">
             {isBotOpponent ? (localOpponent?.name || "Joe Yoke Bot") : matchId ? "Live Network" : "Pass & Play"}
           </span>
         </div>
 
-        <button onClick={resetBoard} className="bg-neutral-800 hover:bg-neutral-700 text-[10px] font-black tracking-wider text-neutral-200 px-3 py-2 rounded-xl border border-neutral-700 transition-colors shadow-sm active:scale-95">
+        <button onClick={resetBoard} className="bg-white/5 hover:bg-white/10 text-[10px] font-black tracking-wider text-white px-3 py-2 rounded-xl border border-white/10 transition-colors shadow-sm active:scale-95 uppercase">
           RESET
         </button>
       </div>
@@ -590,7 +606,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
             <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest mb-1">
               {matchId ? (myPlayerSymbol === "X" ? "You (X)" : "Opponent (X)") : "Player X"}
             </span>
-            <span className="text-2xl font-black text-amber-400">{scores.X}</span>
+            <span className="text-2xl font-black text-cyan-400">{scores.X}</span>
           </div>
 
           <div className="bg-[#18181b] p-3 rounded-2xl border border-white/5 flex flex-col items-center">
@@ -609,7 +625,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
         <div className="h-6 flex items-center justify-center">
           {!winner && (
             <span className="text-xs font-bold tracking-widest uppercase text-neutral-400">
-              Turn: <span className={turn === "X" ? "text-amber-400 font-black" : "text-rose-400 font-black"}>{turn}</span>
+              Turn: <span className={turn === "X" ? "text-cyan-400 font-black" : "text-rose-400 font-black"}>{turn}</span>
             </span>
           )}
         </div>
@@ -617,7 +633,9 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
 
       {/* 3x3 Grid Board Area */}
       <div className="flex-1 w-full max-w-md flex items-center justify-center px-6 pb-12">
-        <div className="grid grid-cols-3 gap-3.5 w-full aspect-square bg-[#18181b] p-3.5 rounded-[32px] border border-white/10 shadow-2xl">
+        <div className={`grid grid-cols-3 gap-3.5 w-full aspect-square bg-[#18181b] p-3.5 rounded-[32px] border shadow-2xl transition-all duration-300 ${
+          isCyberMarks ? "border-[#CCFF00]/40 shadow-[0_0_30px_rgba(204,255,0,0.15)]" : "border-white/10"
+        }`}>
           {board.map((cell, index) => {
             const isWinningCell = winningLine?.includes(index);
             const isMyTurn = matchId ? (turn === myPlayerSymbol) : true;
@@ -631,12 +649,12 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
                   w-full h-full aspect-square flex items-center justify-center rounded-2xl text-5xl font-black transition-all duration-200 select-none
                   ${
                     isWinningCell
-                      ? "bg-[#CCFF00] text-black scale-105 shadow-[0_0_25px_rgba(204,255,0,0.6)] z-10"
+                      ? "bg-[#CCFF00] text-black scale-105 shadow-[0_0_25px_rgba(204,255,0,0.8)] z-10"
                       : cell
                       ? "bg-[#09090b] border border-white/5 cursor-default"
-                      : "bg-[#09090b] border border-white/10 hover:border-amber-400/50 active:scale-95 cursor-pointer"
+                      : "bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 active:scale-95 cursor-pointer"
                   }
-                  ${cell === "X" ? "text-amber-400" : "text-rose-400"}
+                  ${cell === "X" ? "text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]" : "text-rose-400 drop-shadow-[0_0_10px_rgba(244,63,94,0.5)]"}
                 `}
               >
                 <span className="leading-none">{cell ?? ""}</span>
@@ -658,7 +676,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
               <span className="text-[10px] font-black text-neutral-400 tracking-[0.2em] uppercase">
                 Match Result
               </span>
-              <h2 className="text-2xl font-headline font-black tracking-tight text-white">
+              <h2 className="text-2xl font-headline font-black tracking-tight text-white uppercase">
                 {winner === "draw" ? "IT'S A TIE!" : `PLAYER ${winner} WINS!`}
               </h2>
             </div>

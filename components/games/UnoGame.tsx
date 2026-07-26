@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
+import { storeManager } from "../../lib/storeManager";
 
-// 🤖 Import the Bot Utility for Joe Yoke
+// 🤖 Import the Bot Utility for Opponents
 import { getRandomBotOpponent } from "../../lib/botUtils";
 
 interface UnoGameProps {
@@ -66,10 +67,14 @@ const generateDeck = (includeExtraSpecial = false): Card[] => {
 };
 
 export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGameProps) {
+  // 🛍️ STORE COSMETICS ENGINE SYNC
+  const equippedDeck = storeManager.getEquippedCosmetic("uno");
+  const isNeonDeck = equippedDeck === "neon_cyber_deck" || true;
+
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
-  // 2. Initialize View State (Bypasses menu when preloadedMatchId exists)
+  // 2. Initialize View State
   const [view, setView] = useState<"menu" | "host" | "play" | "searching" | "confirmed">(
     isBotMode || preloadedMatchId ? "play" : "menu"
   );
@@ -256,6 +261,9 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
   const drawCardForPlayer = (pId: number, count = 1) => {
     soundEngine.playSFX("card_flip");
+    if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+      window.navigator.vibrate(30);
+    }
     if (deck.length < count) {
       const newDeck = [...discardPile.slice(0, discardPile.length - 1)];
       for (let i = newDeck.length - 1; i > 0; i--) {
@@ -287,6 +295,9 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
   const handleCallUno = () => {
     soundEngine.playSFX("beep");
+    if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+      window.navigator.vibrate([50, 50, 100]);
+    }
     setUnoCalled(prev => ({ ...prev, 0: true }));
     setStatusMsg("UNO! 📢");
   };
@@ -296,11 +307,17 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     const pConfig = players.find(p => p.id === pId)!;
     const remainingAfterPlay = (hands[pId]?.length || 0) - 1;
 
-    // SFX Trigger for special cards or normal placement
+    // SFX & Haptics Trigger
     if (["draw2", "wild4", "skip", "reverse"].includes(card.value)) {
       soundEngine.playSFX("laser");
+      if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+        window.navigator.vibrate([100, 50, 100]);
+      }
     } else {
       soundEngine.playSFX("card_flip");
+      if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+        window.navigator.vibrate(30);
+      }
     }
 
     if (remainingAfterPlay === 1 && !unoCalled[pId]) {
@@ -334,6 +351,9 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
       const isUserWin = pConfig.team === players[0]?.team;
       soundEngine.playSFX(isUserWin ? "victory" : "defeat");
+      if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+        window.navigator.vibrate(isUserWin ? [200, 100, 200] : [300, 100, 300]);
+      }
       return;
     }
 
@@ -446,11 +466,11 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   // --- UI RENDER HELPERS ---
   const getCardBg = (color: CardColor) => {
     switch(color) {
-      case "red": return "bg-red-500 border-red-700";
-      case "blue": return "bg-blue-500 border-blue-700";
-      case "green": return "bg-green-500 border-green-700";
-      case "yellow": return "bg-yellow-400 border-yellow-600";
-      default: return "bg-slate-800 border-slate-950";
+      case "red": return "bg-rose-600 border-rose-800";
+      case "blue": return "bg-cyan-600 border-cyan-800";
+      case "green": return "bg-emerald-600 border-emerald-800";
+      case "yellow": return "bg-amber-400 border-amber-600";
+      default: return "bg-[#18181b] border-white/10";
     }
   };
 
@@ -466,9 +486,11 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   const CardComponent = ({ card, hidden = false, onClick, active = false }: { card: Card, hidden?: boolean, onClick?: () => void, active?: boolean }) => {
     if (hidden) {
       return (
-        <div className="w-[68px] h-[98px] rounded-lg bg-slate-950 border-2 border-slate-700 flex items-center justify-center shadow-2xl shrink-0 relative overflow-hidden">
-           <div className="absolute inset-2 border-2 border-red-500/50 rounded-full rotate-45 opacity-60"></div>
-           <span className="text-red-500 font-black italic -rotate-12 text-sm select-none drop-shadow">UNO</span>
+        <div className={`w-[68px] h-[98px] rounded-xl border-2 flex items-center justify-center shadow-2xl shrink-0 relative overflow-hidden ${
+          isNeonDeck ? "bg-[#09090b] border-[#CCFF00]/40" : "bg-[#18181b] border-white/10"
+        }`}>
+           <div className="absolute inset-2 border-2 border-rose-500/50 rounded-full rotate-45 opacity-60"></div>
+           <span className="text-rose-500 font-headline font-black italic -rotate-12 text-sm select-none drop-shadow">UNO</span>
         </div>
       );
     }
@@ -477,15 +499,17 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
       <button
         onClick={onClick}
         disabled={!active || isProcessingTurn}
-        className={`w-[68px] h-[98px] rounded-lg border-2 ${getCardBg(card.color)} flex flex-col items-center justify-center p-1 shadow-2xl shrink-0 relative overflow-hidden transform transition-all duration-300 ${
+        className={`w-[68px] h-[98px] rounded-xl border-2 ${getCardBg(card.color)} flex flex-col items-center justify-center p-1 shadow-2xl shrink-0 relative overflow-hidden transform transition-all duration-300 ${
           active && !isProcessingTurn
-            ? '-translate-y-8 z-30 ring-4 ring-amber-300 shadow-[0_0_22px_rgba(252,211,77,0.85)] scale-105 cursor-pointer hover:-translate-y-10 brightness-100'
+            ? '-translate-y-8 z-30 ring-4 ring-[#CCFF00] shadow-[0_0_22px_rgba(204,255,0,0.85)] scale-105 cursor-pointer hover:-translate-y-10 brightness-100'
             : 'brightness-75 cursor-not-allowed translate-y-0'
-        } ${card.color === 'wild' ? 'bg-gradient-to-br from-red-500 via-blue-500 to-green-500' : ''}`}
+        } ${card.color === 'wild' ? 'bg-gradient-to-br from-rose-600 via-cyan-600 to-emerald-600' : ''}`}
       >
         <div className="absolute top-1 left-1 text-white font-black text-[10px] drop-shadow">{renderCardValue(card.value)}</div>
         <div className="w-10 h-13 bg-white rounded-full flex items-center justify-center shadow-inner transform -rotate-12">
-           <span className={`font-black text-xl drop-shadow-sm ${card.color === 'yellow' ? 'text-yellow-500' : card.color === 'red' ? 'text-red-500' : card.color === 'blue' ? 'text-blue-500' : card.color === 'green' ? 'text-green-500' : 'text-slate-800'}`}>
+           <span className={`font-headline font-black text-xl drop-shadow-sm ${
+             card.color === 'yellow' ? 'text-amber-500' : card.color === 'red' ? 'text-rose-600' : card.color === 'blue' ? 'text-cyan-600' : card.color === 'green' ? 'text-emerald-600' : 'text-neutral-800'
+           }`}>
              {renderCardValue(card.value)}
            </span>
         </div>
@@ -505,9 +529,9 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   // LOBBY / MENU VIEW
   if (view === "menu") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6 animate-fade-in">
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-sans text-white px-6 animate-fade-in select-none">
         {toast && (
-          <div className="absolute top-24 z-[300] bg-red-500/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl font-headline font-bold text-sm shadow-2xl animate-fade-in border border-red-400">
+          <div className="absolute top-24 z-[300] bg-rose-500/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl font-headline font-bold text-sm shadow-2xl animate-fade-in border border-rose-400">
             {toast}
           </div>
         )}
@@ -602,7 +626,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   // LOCATING OPPONENT SCREEN
   if (view === "searching") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-sans select-none">
         <div className="relative w-32 h-32 flex items-center justify-center mb-8">
           <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
           <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
@@ -611,9 +635,9 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
             <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
           </div>
         </div>
-        <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
+        <h2 className="font-headline font-black text-2xl text-white mb-2 uppercase">Locating Opponent</h2>
         <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase">
           Abort Search
         </button>
       </div>
@@ -623,7 +647,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   // MATCH CONFIRMED SCREEN
   if (view === "confirmed") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-sans select-none">
         <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] px-4 py-1.5 rounded-full font-headline font-black text-xs tracking-widest mb-10 flex items-center gap-2">
           <span className="material-symbols-outlined text-sm">auto_awesome</span> MATCH CONFIRMED
         </div>
@@ -660,7 +684,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   // HOST WAITING VIEW
   if (view === "host") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white">
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-sans text-white select-none">
         <div className="flex justify-between items-center p-6 bg-gradient-to-b from-black/50 to-transparent">
           <button onClick={handleExit} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
             <span className="material-symbols-outlined text-lg">close</span>
@@ -668,8 +692,8 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
           <div className="text-center">
             <h2 className="font-headline font-black text-sm uppercase tracking-widest">Uno Room</h2>
             <div className="flex items-center justify-center gap-1.5 mt-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-              <span className="font-caps text-[9px] font-bold tracking-widest text-red-400">CONNECTING...</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+              <span className="text-[9px] font-bold tracking-widest text-rose-400 uppercase">CONNECTING...</span>
             </div>
           </div>
           <div className="w-10 h-10"></div>
@@ -678,24 +702,24 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-8 shadow-2xl border border-white/5 flex flex-col items-center text-center">
             <div className="relative w-16 h-16 mb-6">
-              <div className="absolute inset-0 border-4 border-red-500/20 rounded-full"></div>
-              <div className="absolute inset-0 border-4 border-red-500 rounded-full border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 border-4 border-rose-500/20 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-rose-500 rounded-full border-t-transparent animate-spin"></div>
             </div>
-            <h3 className="font-headline font-black text-xl tracking-tight mb-8">AWAITING OPPONENT</h3>
-            <p className="font-caps text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-3 uppercase">Share This Room Code</p>
+            <h3 className="font-headline font-black text-xl tracking-tight mb-8 uppercase">AWAITING OPPONENT</h3>
+            <p className="text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-3 uppercase">Share This Room Code</p>
             
             <div className="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-2xl p-2 pl-6 mb-6">
-              <span className="font-headline font-bold text-2xl tracking-[0.3em] text-red-400">{matchId}</span>
+              <span className="font-headline font-bold text-2xl tracking-[0.3em] text-rose-400">{matchId}</span>
               <button
                 onClick={() => { soundEngine.playSFX("click"); navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider"
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider uppercase"
               >
                 <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
                 {copied ? "COPIED" : "COPY"}
               </button>
             </div>
 
-            <button onClick={handleExit} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5">
+            <button onClick={handleExit} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5 uppercase">
               CANCEL MATCH
             </button>
           </div>
@@ -715,23 +739,25 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   const isUserDrawRequired = currentPlayer === 0 && !playerHasPlayableCard && !isProcessingTurn;
 
   return (
-    <div className="fixed inset-0 bg-[#0a111e] text-white flex flex-col font-sans overflow-hidden select-none z-[100]">
+    <div className="fixed inset-0 bg-[#09090b] text-white flex flex-col font-sans overflow-hidden select-none z-[100]">
       {/* HEADER */}
-      <div className="w-full h-12 bg-[#0d1626] border-b border-slate-800/80 flex items-center justify-between px-4 shrink-0 shadow-md relative z-30 pt-safe">
-        <button onClick={handleExit} className="w-8 h-8 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center hover:bg-slate-700 transition">
+      <div className="w-full h-12 bg-[#18181b] border-b border-white/10 flex items-center justify-between px-4 shrink-0 shadow-md relative z-30 pt-safe">
+        <button onClick={handleExit} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition">
            <span className="material-symbols-outlined text-sm">arrow_back</span>
         </button>
-        <span className="font-extrabold text-sm tracking-widest text-red-500 italic">UNO <span className="text-white not-italic">MATRIX</span></span>
+        <span className="font-headline font-black text-sm tracking-widest text-rose-500 italic uppercase">UNO <span className="text-white not-italic">MATRIX</span></span>
         <div className="w-8 flex items-center justify-center">
             {matchId && !localOpponent?.isBot && !opponentConnected && (
-               <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+               <span className="w-2 h-2 rounded-full bg-[#CCFF00] animate-pulse"></span>
             )}
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col justify-between relative min-h-0 overflow-hidden p-2 bg-[#022c22]">
+      <div className="flex-1 flex flex-col justify-between relative min-h-0 overflow-hidden p-2 bg-[#09090b]">
         {/* CASINO/GAME FELT TABLE BOARD CONTAINER */}
-        <div className="absolute inset-2 rounded-[40px] border-[6px] border-[#064e3b] shadow-[inset_0_0_60px_rgba(0,0,0,0.8)] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#065f46] via-[#047857] to-[#022c22] flex flex-col justify-between overflow-hidden">
+        <div className={`absolute inset-2 rounded-[40px] border-[6px] shadow-2xl flex flex-col justify-between overflow-hidden ${
+          isNeonDeck ? "border-[#CCFF00]/30 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#18181b] via-[#09090b] to-black" : "border-[#064e3b] bg-[#022c22]"
+        }`}>
           
           {/* TOP PLAYER */}
           {topPlayer && (
@@ -751,10 +777,10 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                   ))
                 )}
               </div>
-              <div className={`flex items-center gap-2 px-3 py-1 rounded-full border shadow-2xl backdrop-blur-md ${currentPlayer === topPlayer.id ? 'bg-blue-600/90 border-blue-400 ring-2 ring-blue-400 animate-pulse' : 'bg-slate-950/80 border-emerald-800'}`}>
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full border shadow-2xl backdrop-blur-md ${currentPlayer === topPlayer.id ? 'bg-[#CCFF00] border-[#CCFF00] text-black ring-2 ring-[#CCFF00] animate-pulse' : 'bg-[#18181b] border-white/10'}`}>
                   <span className="text-base">{topPlayer.avatar}</span>
-                  <span className="text-xs font-bold text-white">{topPlayer.name}</span>
-                  <span className="bg-slate-900 text-amber-400 text-xs font-black px-2 py-0.5 rounded-full border border-slate-700">
+                  <span className="text-xs font-bold">{topPlayer.name}</span>
+                  <span className="bg-black/60 text-[#CCFF00] text-xs font-black px-2 py-0.5 rounded-full border border-white/10">
                     {hands[topPlayer.id]?.length || 0}
                   </span>
               </div>
@@ -767,10 +793,10 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
               {/* LEFT OPPONENT */}
               {leftPlayer ? (
                 <div className="flex flex-col items-center gap-2 relative">
-                  <div className={`flex flex-col items-center px-2.5 py-1.5 rounded-2xl border shadow-2xl backdrop-blur-md ${currentPlayer === leftPlayer.id ? 'bg-blue-600/90 border-blue-400 ring-2 ring-blue-400 animate-pulse' : 'bg-slate-950/80 border-emerald-800'}`}>
+                  <div className={`flex flex-col items-center px-2.5 py-1.5 rounded-2xl border shadow-2xl backdrop-blur-md ${currentPlayer === leftPlayer.id ? 'bg-[#CCFF00] border-[#CCFF00] text-black ring-2 ring-[#CCFF00] animate-pulse' : 'bg-[#18181b] border-white/10'}`}>
                       <span className="text-xl">{leftPlayer.avatar}</span>
-                      <span className="text-[10px] font-bold text-white max-w-[55px] truncate">{leftPlayer.name}</span>
-                      <span className="bg-slate-900 text-amber-400 text-[10px] font-black px-2 py-0.5 rounded-full border border-slate-700 mt-1">
+                      <span className="text-[10px] font-bold max-w-[55px] truncate">{leftPlayer.name}</span>
+                      <span className="bg-black/60 text-[#CCFF00] text-[10px] font-black px-2 py-0.5 rounded-full border border-white/10 mt-1">
                         {hands[leftPlayer.id]?.length || 0}
                       </span>
                   </div>
@@ -792,10 +818,10 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                       <div className="flex flex-col items-center relative">
                         {isUserDrawRequired && (
                           <div className="absolute -top-11 flex flex-col items-center z-30 animate-bounce pointer-events-none">
-                            <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-2xl border border-amber-200 tracking-wider uppercase whitespace-nowrap">
+                            <span className="bg-[#CCFF00] text-black text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-2xl border border-[#CCFF00] tracking-wider uppercase whitespace-nowrap">
                               Tap to Draw
                             </span>
-                            <span className="text-amber-300 text-lg font-black leading-none drop-shadow-lg">👇</span>
+                            <span className="text-[#CCFF00] text-lg font-black leading-none drop-shadow-lg">👇</span>
                           </div>
                         )}
                         <button
@@ -811,13 +837,13 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                             isUserDrawRequired ? 'hover:-translate-y-2 active:scale-95 cursor-pointer scale-105 opacity-100' : 'opacity-70 cursor-not-allowed scale-100'
                           }`}
                         >
-                            <div className="absolute top-1 left-1 w-[68px] h-[98px] rounded-lg bg-slate-900 border border-slate-800 -z-10 shadow-md"></div>
-                            <div className="absolute top-2 left-2 w-[68px] h-[98px] rounded-lg bg-slate-950 border border-slate-800 -z-20 shadow-md"></div>
-                            <div className={`w-[68px] h-[98px] rounded-lg bg-slate-950 border-2 transition-all flex flex-col items-center justify-center shadow-2xl relative overflow-hidden ${
-                              isUserDrawRequired ? 'border-amber-300 ring-4 ring-amber-400/80 shadow-[0_0_30px_rgba(251,191,36,0.9)] animate-pulse' : 'border-slate-700'
+                            <div className="absolute top-1 left-1 w-[68px] h-[98px] rounded-xl bg-[#18181b] border border-white/10 -z-10 shadow-md"></div>
+                            <div className="absolute top-2 left-2 w-[68px] h-[98px] rounded-xl bg-[#09090b] border border-white/10 -z-20 shadow-md"></div>
+                            <div className={`w-[68px] h-[98px] rounded-xl bg-[#09090b] border-2 transition-all flex flex-col items-center justify-center shadow-2xl relative overflow-hidden ${
+                              isUserDrawRequired ? 'border-[#CCFF00] ring-4 ring-[#CCFF00]/80 shadow-[0_0_30px_rgba(204,255,0,0.9)] animate-pulse' : 'border-white/10'
                             }`}>
-                                <div className="absolute inset-2 border-2 border-red-500/50 rounded-full rotate-45 opacity-60"></div>
-                                <span className="text-red-500 font-black italic -rotate-12 text-sm drop-shadow">UNO</span>
+                                <div className="absolute inset-2 border-2 border-rose-500/50 rounded-full rotate-45 opacity-60"></div>
+                                <span className="text-rose-500 font-headline font-black italic -rotate-12 text-sm drop-shadow">UNO</span>
                             </div>
                         </button>
                       </div>
@@ -825,14 +851,14 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                       {/* DISCARD PILE */}
                       <div className="relative">
                           {discardPile.length > 0 && <CardComponent card={discardPile[discardPile.length - 1]} active={false} />}
-                          <div className="absolute -inset-2.5 border-[3px] rounded-xl z-0 pointer-events-none transition-colors duration-500 shadow-xl"
-                               style={{ borderColor: activeColor === 'red' ? '#ef4444' : activeColor === 'blue' ? '#3b82f6' : activeColor === 'green' ? '#22c55e' : activeColor === 'yellow' ? '#eab308' : '#334155' }}>
+                          <div className="absolute -inset-2.5 border-[3px] rounded-2xl z-0 pointer-events-none transition-colors duration-500 shadow-xl"
+                               style={{ borderColor: activeColor === 'red' ? '#e11d48' : activeColor === 'blue' ? '#0891b2' : activeColor === 'green' ? '#059669' : activeColor === 'yellow' ? '#d97706' : '#52525b' }}>
                           </div>
                       </div>
                   </div>
 
                   {statusMsg && (
-                    <div className="mt-4 px-3.5 py-1 bg-slate-950/90 border border-emerald-700 text-amber-400 text-xs font-bold rounded-full shadow-2xl backdrop-blur-md">
+                    <div className="mt-4 px-3.5 py-1 bg-[#18181b]/90 border border-white/10 text-[#CCFF00] text-xs font-bold rounded-full shadow-2xl backdrop-blur-md uppercase tracking-wider">
                       {statusMsg}
                     </div>
                   )}
@@ -841,10 +867,10 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
               {/* RIGHT OPPONENT */}
               {rightPlayer ? (
                 <div className="flex flex-col items-center gap-2 relative">
-                  <div className={`flex flex-col items-center px-2.5 py-1.5 rounded-2xl border shadow-2xl backdrop-blur-md ${currentPlayer === rightPlayer.id ? 'bg-blue-600/90 border-blue-400 ring-2 ring-blue-400 animate-pulse' : 'bg-slate-950/80 border-emerald-800'}`}>
+                  <div className={`flex flex-col items-center px-2.5 py-1.5 rounded-2xl border shadow-2xl backdrop-blur-md ${currentPlayer === rightPlayer.id ? 'bg-[#CCFF00] border-[#CCFF00] text-black ring-2 ring-[#CCFF00] animate-pulse' : 'bg-[#18181b] border-white/10'}`}>
                       <span className="text-xl">{rightPlayer.avatar}</span>
-                      <span className="text-[10px] font-bold text-white max-w-[55px] truncate">{rightPlayer.name}</span>
-                      <span className="bg-slate-900 text-amber-400 text-[10px] font-black px-2 py-0.5 rounded-full border border-slate-700 mt-1">
+                      <span className="text-[10px] font-bold max-w-[55px] truncate">{rightPlayer.name}</span>
+                      <span className="bg-black/60 text-[#CCFF00] text-[10px] font-black px-2 py-0.5 rounded-full border border-white/10 mt-1">
                         {hands[rightPlayer.id]?.length || 0}
                       </span>
                   </div>
@@ -864,25 +890,25 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
              
              {/* YOUR AVATAR BADGE WITH INLINE COVER FILLING TIMER OVERLAY */}
              <div className="flex items-center justify-center mb-4">
-                <div className={`relative flex items-center gap-2 px-3 py-1 rounded-full border shadow-2xl overflow-hidden backdrop-blur-md ${currentPlayer === 0 ? 'border-amber-300 ring-2 ring-amber-400/50' : 'bg-slate-950/80 border-emerald-800'}`}>
+                <div className={`relative flex items-center gap-2 px-3 py-1 rounded-full border shadow-2xl overflow-hidden backdrop-blur-md ${currentPlayer === 0 ? 'border-[#CCFF00] ring-2 ring-[#CCFF00]/50' : 'bg-[#18181b] border-white/10'}`}>
                    
                     {currentPlayer === 0 && (
                       <div
-                        className="absolute inset-0 bg-blue-600 transition-all duration-100 ease-linear z-0"
+                        className="absolute inset-0 bg-cyan-600 transition-all duration-100 ease-linear z-0"
                         style={{ width: `${(timeLeft / TURN_TIME_LIMIT) * 100}%` }}
                       />
                     )}
-                    <div className="absolute inset-0 bg-slate-900 -z-10" />
+                    <div className="absolute inset-0 bg-[#18181b] -z-10" />
 
                     <span className="text-sm relative z-10">😎</span>
                     <span className="text-xs font-bold text-white relative z-10">You</span>
-                    <span className="bg-slate-900/90 text-amber-400 text-xs font-black px-2 py-0.5 rounded-full border border-slate-700/80 relative z-10 shadow-inner">
+                    <span className="bg-black/80 text-[#CCFF00] text-xs font-black px-2 py-0.5 rounded-full border border-white/10 relative z-10 shadow-inner">
                       {playerHand.length}
                     </span>
                 </div>
              </div>
 
-             {/* YOUR HAND CARDS CONTAINER WITH WELL-SPACED FLOATING UNO BUTTON */}
+             {/* YOUR HAND CARDS CONTAINER WITH FLOATING UNO BUTTON */}
              <div className="w-full px-2 pt-8 pb-4 flex justify-center items-center overflow-visible relative">
               
                {/* FLOATING UNO BUTTON */}
@@ -894,11 +920,11 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                   }`}
                >
                   <div className={`w-20 h-14 rounded-[50%] flex items-center justify-center p-1.5 transform -rotate-12 transition-all shadow-2xl ${
-                    unoCalled[0] ? "bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.9)]" : playerHand.length === 2 ? "bg-amber-300 shadow-[0_0_30px_rgba(250,204,21,1)]" : "bg-slate-800"
+                    unoCalled[0] ? "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.9)]" : playerHand.length === 2 ? "bg-[#CCFF00] shadow-[0_0_30px_rgba(204,255,0,1)]" : "bg-[#18181b]"
                   }`}>
-                      <div className="w-full h-full rounded-[50%] bg-gradient-to-br from-red-500 via-red-600 to-red-800 border-2 border-white flex items-center justify-center relative overflow-hidden shadow-inner">
+                      <div className="w-full h-full rounded-[50%] bg-gradient-to-br from-rose-500 via-rose-600 to-rose-800 border-2 border-white flex items-center justify-center relative overflow-hidden shadow-inner">
                          <div className="absolute inset-0 bg-white/25 -skew-y-12 transform -translate-y-2"></div>
-                         <span className="font-black italic text-yellow-300 text-base tracking-tighter transform -rotate-6 drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)]">
+                         <span className="font-headline font-black italic text-amber-300 text-base tracking-tighter transform -rotate-6 drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)]">
                            UNO
                          </span>
                       </div>
@@ -939,12 +965,12 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
         {/* WILD COLOR PICKER MODAL */}
         {pendingWild && (
-            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-                <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl shadow-2xl flex flex-col items-center">
-                    <h2 className="text-lg font-black text-white mb-4 uppercase tracking-widest">Select Color</h2>
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in">
+                <div className="bg-[#18181b] border border-white/10 p-6 rounded-3xl shadow-2xl flex flex-col items-center">
+                    <h2 className="text-sm font-headline font-black text-white mb-4 uppercase tracking-widest">Select Target Color</h2>
                     <div className="grid grid-cols-2 gap-4">
                         {COLORS.map((c) => (
-                          <button key={c} onClick={() => { soundEngine.playSFX("click"); executePlay(pendingWild, 0, c); setPendingWild(null); }} className={`w-16 h-16 rounded-xl border-2 shadow-lg transition-transform active:scale-95 ${getCardBg(c)}`}></button>
+                          <button key={c} onClick={() => { soundEngine.playSFX("click"); executePlay(pendingWild, 0, c); setPendingWild(null); }} className={`w-16 h-16 rounded-2xl border-2 shadow-lg transition-transform active:scale-95 ${getCardBg(c)}`}></button>
                         ))}
                     </div>
                 </div>
@@ -953,43 +979,34 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
         {/* GAME OVER / VICTORY MODAL */}
         {winnerTeam !== null && (
-            <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 animate-fadeIn">
-                <div className="flex flex-col items-center max-w-sm w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden text-center">
+            <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 animate-fade-in">
+                <div className="flex flex-col items-center max-w-sm w-full bg-[#18181b] border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden text-center">
                    
-                    <div className={`absolute -top-16 inset-x-0 h-40 rounded-full blur-3xl opacity-40 ${isUserVictory ? 'bg-amber-400' : 'bg-red-600'}`}></div>
-
-                    {isUserVictory && (
-                      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                         <div className="absolute top-4 left-6 text-xl animate-bounce">✨</div>
-                         <div className="absolute top-8 right-8 text-2xl animate-pulse">🎉</div>
-                         <div className="absolute bottom-12 left-8 text-lg animate-bounce">⭐</div>
-                         <div className="absolute top-1/2 right-4 text-xl animate-pulse">🌟</div>
-                      </div>
-                    )}
+                    <div className={`absolute -top-16 inset-x-0 h-40 rounded-full blur-3xl opacity-30 ${isUserVictory ? 'bg-[#CCFF00]' : 'bg-rose-600'}`}></div>
 
                     <div className="relative mb-6">
-                        <div className={`w-28 h-28 rounded-full border-4 flex items-center justify-center shadow-2xl relative z-10 ${
-                          isUserVictory ? 'bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-300 border-amber-200 ring-8 ring-amber-400/30 animate-bounce' : 'bg-gradient-to-tr from-slate-800 to-slate-900 border-slate-700 ring-8 ring-slate-800/50'
+                        <div className={`w-24 h-24 rounded-full border-4 flex items-center justify-center shadow-2xl relative z-10 ${
+                          isUserVictory ? 'bg-gradient-to-tr from-[#CCFF00] to-emerald-400 border-[#CCFF00] ring-8 ring-[#CCFF00]/20 animate-bounce' : 'bg-gradient-to-tr from-rose-950 to-black border-rose-600 ring-8 ring-rose-600/20'
                         }`}>
-                            <span className="text-6xl drop-shadow-lg">
-                              {isUserVictory ? "🏆" : "💔"}
+                            <span className="material-symbols-outlined text-5xl text-black font-black">
+                              {isUserVictory ? "emoji_events" : "heart_broken"}
                             </span>
                         </div>
                     </div>
 
-                    <h1 className={`text-4xl font-black uppercase italic tracking-wider mb-2 drop-shadow-md ${
-                      isUserVictory ? 'text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-green-300 to-emerald-500' : 'text-red-500'
+                    <h1 className={`text-3xl font-headline font-black uppercase italic tracking-wider mb-2 drop-shadow-md ${
+                      isUserVictory ? 'text-[#CCFF00]' : 'text-rose-500'
                     }`}>
                         {isUserVictory ? "VICTORY!" : "GAME OVER"}
                     </h1>
 
-                    <p className="text-slate-300 text-sm font-semibold mb-8 px-2">
-                      {isUserVictory ? "Congratulations! You won the match." : `${winnerPlayer?.name || "Opponent"} won the match.`}
+                    <p className="text-neutral-400 text-xs font-semibold mb-8 px-2">
+                      {isUserVictory ? "Incredible card strategy! Match dominated." : `${winnerPlayer?.name || "Opponent"} cleared their hand first.`}
                     </p>
 
                     <button
                       onClick={handleExit}
-                      className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-black text-sm uppercase py-3.5 px-8 rounded-2xl shadow-xl transition-all active:scale-95 border border-blue-400/30 tracking-wider relative z-20"
+                      className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase py-4 px-8 rounded-2xl shadow-xl transition-all active:scale-95 tracking-wider relative z-20"
                     >
                         Back to Lobby
                     </button>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { soundEngine } from "@/lib/soundManager";
+import React, { useState, useEffect, useRef } from "react";
+import { soundEngine } from "../../lib/soundManager";
+import { storeManager } from "../../lib/storeManager";
 
 // Helper to generate random dice
 const rollDice = (count: number) => {
@@ -11,23 +12,23 @@ const rollDice = (count: number) => {
 // 🎨 Dynamic Themes Configuration
 const THEMES = [
   { 
-    id: 'classic', name: 'Classic Black', 
-    cupBody: 'from-zinc-800 via-zinc-900 to-black', cupRim: 'from-blue-500 to-blue-700 border-blue-400', 
-    diceBg: 'from-zinc-50 to-zinc-300', dotBlue: 'bg-blue-600 shadow-[inset_0_2px_3px_rgba(30,64,175,0.8)]', dotRed: 'bg-red-600 shadow-[inset_0_2px_3px_rgba(153,27,27,0.8)]' 
+    id: "classic", name: "Classic Black", 
+    cupBody: "from-zinc-800 via-zinc-900 to-black", cupRim: "from-blue-500 to-blue-700 border-blue-400", 
+    diceBg: "from-zinc-50 to-zinc-300", dotBlue: "bg-blue-600 shadow-[inset_0_2px_3px_rgba(30,64,175,0.8)]", dotRed: "bg-red-600 shadow-[inset_0_2px_3px_rgba(153,27,27,0.8)]" 
   },
   { 
-    id: 'crimson', name: 'Crimson Leather', 
-    cupBody: 'from-red-900 via-[#450a0a] to-black', cupRim: 'from-amber-400 to-amber-600 border-amber-300', 
-    diceBg: 'from-amber-50 to-amber-200', dotBlue: 'bg-zinc-900 shadow-[inset_0_2px_3px_rgba(0,0,0,0.8)]', dotRed: 'bg-red-700 shadow-[inset_0_2px_3px_rgba(153,27,27,0.8)]' 
+    id: "crimson", name: "Crimson Leather", 
+    cupBody: "from-red-900 via-[#450a0a] to-black", cupRim: "from-amber-400 to-amber-600 border-amber-300", 
+    diceBg: "from-amber-50 to-amber-200", dotBlue: "bg-zinc-900 shadow-[inset_0_2px_3px_rgba(0,0,0,0.8)]", dotRed: "bg-red-700 shadow-[inset_0_2px_3px_rgba(153,27,27,0.8)]" 
   },
   { 
-    id: 'jade', name: 'Royal Jade', 
-    cupBody: 'from-emerald-900 via-[#064e3b] to-black', cupRim: 'from-emerald-400 to-emerald-600 border-emerald-300', 
-    diceBg: 'from-emerald-50 to-emerald-100', dotBlue: 'bg-emerald-900 shadow-[inset_0_2px_3px_rgba(6,78,59,0.8)]', dotRed: 'bg-rose-600 shadow-[inset_0_2px_3px_rgba(225,29,72,0.8)]' 
+    id: "jade", name: "Royal Jade", 
+    cupBody: "from-emerald-900 via-[#064e3b] to-black", cupRim: "from-emerald-400 to-emerald-600 border-emerald-300", 
+    diceBg: "from-emerald-50 to-emerald-100", dotBlue: "bg-emerald-900 shadow-[inset_0_2px_3px_rgba(6,78,59,0.8)]", dotRed: "bg-rose-600 shadow-[inset_0_2px_3px_rgba(225,29,72,0.8)]" 
   }
 ];
 
-// CSS-based authentic Asian Dice face generator
+// CSS-based Asian Dice face generator
 const DiceFace = ({ value, index, theme }: { value: number; index: number; theme: any }) => {
   const rotation = useRef(Math.random() * 40 - 20).current;
   const offsetX = useRef(Math.random() * 16 - 8).current;
@@ -100,13 +101,17 @@ const DiceFace = ({ value, index, theme }: { value: number; index: number; theme
 };
 
 export default function LiarsDice({ onClose }: { onClose?: () => void }) {
+  // 🛍️ STORE COSMETICS ENGINE SYNC
+  const equippedTheme = storeManager.getEquippedCosmetic("liars_dice");
+  const initialThemeIndex = equippedTheme === "crimson_leather" ? 1 : equippedTheme === "royal_jade" ? 2 : 0;
+
   const [diceCount, setDiceCount] = useState(5);
   const [diceValues, setDiceValues] = useState<number[]>(rollDice(5));
   const [isCupOpen, setIsCupOpen] = useState(false);
   const [isRolling, setIsRolling] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(!soundEngine.getMutedState());
   const [isRulesOpen, setIsRulesOpen] = useState(false);
-  const [themeIndex, setThemeIndex] = useState(0);
+  const [themeIndex, setThemeIndex] = useState(initialThemeIndex);
   
   // Custom Drag Physics State
   const [cupY, setCupY] = useState(0);
@@ -119,7 +124,7 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     setIsDragging(true);
     dragStartY.current = e.clientY - cupY;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -137,12 +142,15 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
       setCupY(-220); 
       if (!isCupOpen) soundEngine.playSFX("card_flip");
       setIsCupOpen(true);
+      if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+        window.navigator.vibrate(30);
+      }
     } else {
       setCupY(0); 
       if (isCupOpen) soundEngine.playSFX("card_flip");
       setIsCupOpen(false);
     }
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
   const triggerRoll = () => {
@@ -153,6 +161,9 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
     setIsCupOpen(false);
 
     soundEngine.playSFX("dice_roll");
+    if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+      window.navigator.vibrate([40, 30, 40, 30, 80]);
+    }
 
     setTimeout(() => {
       setDiceValues(rollDice(diceCount));
@@ -168,6 +179,9 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
     } else {
       setCupY(-220);
       setIsCupOpen(true);
+      if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+        window.navigator.vibrate(30);
+      }
     }
   };
 
@@ -211,9 +225,8 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
   }, [isRolling, diceCount]);
 
   return (
-    <div className="fixed inset-0 flex flex-col items-center w-full h-full bg-slate-50 dark:bg-[#09090b] font-sans text-slate-900 dark:text-white overflow-hidden overscroll-none selection:bg-transparent transition-colors duration-300 z-[100]">
+    <div className="fixed inset-0 flex flex-col items-center w-full h-full bg-[#09090b] font-sans text-white overflow-hidden overscroll-none selection:bg-transparent transition-colors duration-300 z-[100] select-none">
       
-      {/* Required CSS Animations for zero-dependency build */}
       <style>{`
         @keyframes pop-in {
           0% { transform: scale(0.5); opacity: 0; }
@@ -236,14 +249,14 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
       `}</style>
 
       {/* 1. TOP HEADER */}
-      <header className="shrink-0 w-full z-50 px-6 pb-2" style={{ paddingTop: 'max(env(safe-area-inset-top), 1.5rem)' }}>
+      <header className="shrink-0 w-full z-50 px-6 pb-2" style={{ paddingTop: "max(env(safe-area-inset-top), 1.5rem)" }}>
         <div className="flex justify-between items-start">
           
           {/* Left: Exit */}
           <div className="w-1/3 flex justify-start pt-2">
             <button 
               onClick={handleExit} 
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors uppercase tracking-widest active:scale-95"
+              className="flex items-center gap-1.5 text-xs font-bold text-neutral-400 hover:text-white transition-colors uppercase tracking-widest active:scale-95"
             >
               <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> Exit
             </button>
@@ -251,27 +264,27 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
           
           {/* Center: Dice Count */}
           <div className="w-1/3 flex flex-col items-center">
-            <span className="text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-widest font-bold mb-1">
+            <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold mb-1">
               Dice Count
             </span>
             <button 
               onClick={handleDiceCountChange} 
-              className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm active:scale-95 transition-all"
+              className="flex items-center gap-2 bg-[#18181b] border border-white/10 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm active:scale-95 transition-all text-white hover:bg-white/5"
             >
-              {diceCount} <span className="material-symbols-outlined text-sm text-slate-400 dark:text-zinc-500">expand_more</span>
+              {diceCount} <span className="material-symbols-outlined text-sm text-neutral-500">expand_more</span>
             </button>
           </div>
 
           {/* Right: Controls */}
           <div className="w-1/3 flex justify-end items-center gap-4 pt-1">
-            <button onClick={() => { soundEngine.playSFX("click"); setIsRulesOpen(true); }} className="text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
+            <button onClick={() => { soundEngine.playSFX("click"); setIsRulesOpen(true); }} className="text-neutral-400 hover:text-white transition-colors">
               <span className="material-symbols-outlined">info</span>
             </button>
-            <button onClick={handleToggleSound} className="text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
+            <button onClick={handleToggleSound} className="text-neutral-400 hover:text-white transition-colors">
               {soundEnabled ? (
                  <span className="material-symbols-outlined">volume_up</span>
               ) : (
-                 <span className="material-symbols-outlined text-slate-300 dark:text-zinc-600">volume_off</span>
+                 <span className="material-symbols-outlined text-neutral-600">volume_off</span>
               )}
             </button>
           </div>
@@ -288,8 +301,8 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
 
         <div
           className={`relative z-30 w-[14rem] h-[17rem] cursor-grab active:cursor-grabbing touch-none flex flex-col justify-end perspective-1000 ${
-            isDragging ? '' : 'transition-transform duration-300 ease-out'
-          } ${isRolling ? 'animate-cup-shake' : ''}`}
+            isDragging ? "" : "transition-transform duration-300 ease-out"
+          } ${isRolling ? "animate-cup-shake" : ""}`}
           style={{ transform: `translateY(${cupY}px)` }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -309,37 +322,37 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
       {/* 3. BOTTOM CONTROLS */}
       <div className="w-full px-6 pb-[calc(2rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-4 pt-10 shrink-0">
         
-        <p className="text-[11px] text-slate-500 dark:text-zinc-500 font-medium tracking-widest uppercase mb-2">
+        <p className="text-[11px] text-neutral-500 font-medium tracking-widest uppercase mb-2">
           Pull cup to peek • Tap to roll
         </p>
 
         <button 
           onClick={triggerRoll}
           disabled={isRolling}
-          className="w-full max-w-[280px] bg-blue-600 text-white font-black py-4 rounded-2xl tracking-widest transition-all
-            shadow-[0_6px_0_#1e3a8a,_0_15px_20px_rgba(37,99,235,0.3)] 
-            active:shadow-[0_0px_0_#1e3a8a,_0_0px_0px_rgba(0,0,0,0)] 
-            active:translate-y-[6px] disabled:opacity-80 disabled:cursor-not-allowed"
+          className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black font-black py-4 rounded-2xl tracking-widest transition-all
+            shadow-[0_6px_0_#88cc00,_0_15px_20px_rgba(204,255,0,0.2)] 
+            active:shadow-[0_0px_0_#88cc00,_0_0px_0px_rgba(0,0,0,0)] 
+            active:translate-y-[6px] disabled:opacity-80 disabled:cursor-not-allowed uppercase text-sm"
         >
           {isRolling ? "SHAKING..." : "SHAKE DICE"}
         </button>
 
         <button 
           onClick={toggleCup}
-          className="w-full max-w-[280px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold py-4 rounded-2xl transition-all tracking-wider flex items-center justify-center shadow-sm"
+          className="w-full max-w-[280px] bg-[#18181b] border border-white/10 hover:bg-white/10 active:scale-95 text-white font-bold py-4 rounded-2xl transition-all tracking-wider flex items-center justify-center shadow-sm uppercase text-xs"
         >
           {isCupOpen ? "CLOSE CUP" : "OPEN CUP"}
         </button>
 
         <div className="grid grid-cols-2 gap-4 w-full max-w-[280px] mt-4">
-          <button onClick={triggerRoll} className="flex flex-col items-center gap-2 text-slate-500 dark:text-zinc-500 hover:text-blue-600 dark:hover:text-blue-500 transition-colors group">
-            <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm group-active:scale-90 transition-transform">
+          <button onClick={triggerRoll} className="flex flex-col items-center gap-2 text-neutral-500 hover:text-white transition-colors group">
+            <div className="p-3 rounded-2xl bg-[#18181b] border border-white/10 shadow-sm group-active:scale-90 transition-transform">
                <span className="material-symbols-outlined text-[20px]">refresh</span>
             </div>
             <span className="text-[9px] font-bold uppercase tracking-wider">Roll Again</span>
           </button>
-          <button onClick={cycleTheme} className="flex flex-col items-center gap-2 text-slate-500 dark:text-zinc-500 hover:text-blue-600 dark:hover:text-blue-500 transition-colors group">
-            <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm group-active:scale-90 transition-transform">
+          <button onClick={cycleTheme} className="flex flex-col items-center gap-2 text-neutral-500 hover:text-white transition-colors group">
+            <div className="p-3 rounded-2xl bg-[#18181b] border border-white/10 shadow-sm group-active:scale-90 transition-transform">
                <span className="material-symbols-outlined text-[20px]">palette</span>
             </div>
             <span className="text-[9px] font-bold uppercase tracking-wider">Themes</span>
@@ -349,65 +362,65 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
 
       {/* 4. RULES MODAL OVERLAY */}
       {isRulesOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 w-full max-w-sm shadow-2xl relative animate-pop-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 md:p-8 w-full max-w-sm shadow-2xl relative animate-pop-in">
             <button 
               onClick={() => { soundEngine.playSFX("click"); setIsRulesOpen(false); }} 
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:text-zinc-500 dark:hover:text-white bg-slate-100 dark:bg-zinc-800 w-8 h-8 flex items-center justify-center rounded-full transition-colors"
+              className="absolute top-4 right-4 text-neutral-500 hover:text-white bg-white/5 w-8 h-8 flex items-center justify-center rounded-full transition-colors"
             >
               <span className="material-symbols-outlined text-sm">close</span>
             </button>
             
-            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight mb-4 flex items-center gap-2">
+            <h2 className="text-xl font-black text-white tracking-tight mb-4 flex items-center gap-2 uppercase font-headline">
               Liar's Dice Rules
             </h2>
             
-            <div className="space-y-5 text-[13px] text-slate-600 dark:text-zinc-400 leading-relaxed max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-5 text-[13px] text-neutral-400 leading-relaxed max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
               
               <div>
-                <strong className="text-slate-900 dark:text-white block mb-1">1. The Setup</strong>
-                Each player uses their own device. Set your agreed dice count (usually 5). Everyone hits <strong className="text-blue-600 dark:text-blue-400">SHAKE DICE</strong> and keeps their cup closed.
+                <strong className="text-white block mb-1">1. The Setup</strong>
+                Each player uses their own device. Set your agreed dice count (default: 5). Everyone hits <strong className="text-[#CCFF00]">SHAKE DICE</strong> and keeps their cup closed.
               </div>
               
               <div>
-                <strong className="text-slate-900 dark:text-white block mb-1">2. Secret Peeking</strong>
-                Slowly drag your cup upward to peek at your roll. <strong className="text-red-500">Do not let others see!</strong>
+                <strong className="text-white block mb-1">2. Secret Peeking</strong>
+                Slowly drag your cup upward to peek at your roll. <strong className="text-rose-500">Do not let others see!</strong>
               </div>
               
               <div>
-                <strong className="text-slate-900 dark:text-white block mb-1">3. The First Bid</strong>
-                The starting player guesses the <em>total</em> number of a specific dice face under <em>all players' cups combined</em>. (e.g., "I bet there are at least four 3s total").
+                <strong className="text-white block mb-1">3. The First Bid</strong>
+                The starting player guesses the <em>total</em> number of a specific dice face under <em>all players' cups combined</em> (e.g. "I bet there are at least four 3s total").
               </div>
               
               <div>
-                <strong className="text-slate-900 dark:text-white block mb-1">4. Raising the Stakes</strong>
+                <strong className="text-white block mb-1">4. Raising the Stakes</strong>
                 Moving clockwise, the next player must either:
-                <ul className="list-disc pl-5 mt-1 space-y-1 text-slate-500 dark:text-zinc-500">
+                <ul className="list-disc pl-5 mt-1 space-y-1 text-neutral-500">
                   <li>Raise the quantity (e.g., "Five 3s")</li>
                   <li>Raise the face value (e.g., "Four 4s")</li>
-                  <li>Call the previous player a <strong className="text-red-500">"Liar!"</strong></li>
+                  <li>Call the previous player a <strong className="text-rose-500">"Liar!"</strong></li>
                 </ul>
               </div>
 
               <div>
-                <strong className="text-slate-900 dark:text-white block mb-1">5. The Reveal</strong>
+                <strong className="text-white block mb-1">5. The Reveal</strong>
                 If "Liar!" is called, everyone opens their cups. Count the dice!
-                <ul className="list-disc pl-5 mt-1 space-y-1 text-slate-500 dark:text-zinc-500">
+                <ul className="list-disc pl-5 mt-1 space-y-1 text-neutral-500">
                   <li>If the bid was true (there are enough dice), the challenger loses a die.</li>
                   <li>If the bid was a lie (not enough dice), the bidder loses a die.</li>
                 </ul>
               </div>
 
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl mt-4">
-                <span className="text-blue-700 dark:text-blue-400 font-black tracking-widest uppercase text-[10px] block mb-1">Advanced Rule: Wildcards</span>
-                <p className="text-slate-700 dark:text-blue-200/80">1s (the big red dots) count as wildcards! They represent any number... unless a player specifically bids on 1s.</p>
+              <div className="p-4 bg-[#CCFF00]/10 border border-[#CCFF00]/20 rounded-2xl mt-4">
+                <span className="text-[#CCFF00] font-black tracking-widest uppercase text-[10px] block mb-1">Advanced Rule: Wildcards</span>
+                <p className="text-neutral-300">1s (the big red dots) count as wildcards! They represent any number... unless a player specifically bids on 1s.</p>
               </div>
 
             </div>
             
             <button 
               onClick={() => { soundEngine.playSFX("click"); setIsRulesOpen(false); }} 
-              className="w-full mt-6 bg-slate-900 dark:bg-white text-white dark:text-black font-bold py-3.5 rounded-xl active:scale-95 transition-transform"
+              className="w-full mt-6 bg-[#CCFF00] hover:bg-[#b3e600] text-black font-bold py-3.5 rounded-xl active:scale-95 transition-transform uppercase text-xs tracking-wider"
             >
               Close Rulebook
             </button>
