@@ -31,7 +31,7 @@ export default function StoreManagement() {
   const [uploading, setUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  // --- FORM STATES (Supports empty strings for smooth typing/backspacing) ---
+  // --- FORM STATES ---
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
   const [formSku, setFormSku] = useState("");
@@ -129,7 +129,6 @@ export default function StoreManagement() {
         }
       }
 
-      // Final stock calculation
       const finalStock = isInfiniteStock 
         ? -1 
         : (formStock === "" || formStock < 0 ? 0 : Number(formStock));
@@ -242,7 +241,7 @@ export default function StoreManagement() {
         </div>
       </div>
 
-      {/* --- INVENTORY GRID --- */}
+      {/* INVENTORY GRID */}
       {loading ? (
         <div className="py-20 text-center text-xs font-bold text-neutral-500 tracking-widest uppercase animate-pulse">
           Scanning Storefront Database...
@@ -274,7 +273,6 @@ export default function StoreManagement() {
                 item.is_active ? "border-white/10 hover:border-white/20" : "border-rose-500/20 opacity-60"
               }`}
             >
-              {/* TOP ACTION BAR */}
               <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10">
                 <button 
                   onClick={() => handleToggleActive(item.id, item.is_active)}
@@ -301,7 +299,6 @@ export default function StoreManagement() {
                 </button>
               </div>
 
-              {/* CARD HEADER */}
               <div className="p-6 border-b border-white/10 flex items-start gap-4">
                 <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center p-2 shrink-0 overflow-hidden border border-white/10">
                   <img src={item.image_url} alt={item.name} className="w-full h-full object-contain" />
@@ -322,7 +319,6 @@ export default function StoreManagement() {
                 </div>
               </div>
 
-              {/* CARD FOOTER */}
               <div className="p-6 flex-1 flex flex-col justify-end space-y-4 bg-white/[0.02]">
                 <div className="flex items-center justify-between">
                   <span className="font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest flex items-center gap-1.5">
@@ -347,52 +343,59 @@ export default function StoreManagement() {
         </div>
       )}
 
-      {/* --- INJECT / EDIT ITEM MODAL --- */}
+      {/* --- FIXED INJECT / EDIT ITEM MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
-          <div className="bg-[#18181b] border border-white/10 rounded-[24px] p-8 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
+          <div className="bg-[#18181b] border border-white/10 rounded-[28px] p-6 w-full max-w-md shadow-2xl max-h-[85vh] flex flex-col my-auto">
+            
+            {/* FIXED HEADER */}
+            <div className="flex justify-between items-center pb-4 border-b border-white/10 shrink-0">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-[#CCFF00]" />
                 <h3 className="font-headline text-lg font-black text-white">
                   {editingId ? "Edit Store Item" : "Inject Store Item"}
                 </h3>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-neutral-500 hover:text-white transition-colors">
+              <button 
+                type="button" 
+                onClick={() => setIsModalOpen(false)} 
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveItem} className="space-y-4">
+            {/* SCROLLABLE FORM BODY */}
+            <form id="store-item-form" onSubmit={handleSaveItem} className="flex-1 overflow-y-auto space-y-4 py-4 pr-1 no-scrollbar">
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-1">Item Name</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Item Name</label>
                 <input 
                   type="text" 
                   required 
                   value={formName} 
                   onChange={(e) => setFormName(e.target.value)} 
                   placeholder="e.g., Cyberpunk Avatar Frame"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
                 />
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-1">SKU</label>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">SKU</label>
                   <input 
                     type="text" 
                     required 
                     value={formSku} 
                     onChange={(e) => setFormSku(e.target.value)} 
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-[#CCFF00] transition-colors" 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#CCFF00] transition-colors" 
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-1">Category</label>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Category</label>
                   <select 
                     value={formCategory} 
                     onChange={(e) => setFormCategory(e.target.value)} 
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors appearance-none cursor-pointer"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors appearance-none cursor-pointer"
                   >
                     <option value="digital" className="bg-[#18181b]">Digital Cosmetic</option>
                     <option value="physical" className="bg-[#18181b]">Physical Prize</option>
@@ -402,30 +405,29 @@ export default function StoreManagement() {
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-1">Description</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Description</label>
                 <textarea 
                   value={formDesc} 
                   onChange={(e) => setFormDesc(e.target.value)} 
                   rows={2} 
                   placeholder="Details about what the player receives upon redemption..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors resize-none"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors resize-none"
                 ></textarea>
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-1">Price (PTS)</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Price (PTS)</label>
                 <input 
                   type="number" 
                   min="0" 
                   value={formPrice} 
                   onChange={(e) => setFormPrice(e.target.value === "" ? "" : Number(e.target.value))} 
                   placeholder="100"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
                 />
               </div>
 
-              {/* FIXED STOCK SECTION WITH INFINITE TOGGLE */}
-              <div className="space-y-2 bg-white/[0.02] p-4 rounded-xl border border-white/5">
+              <div className="space-y-2 bg-white/[0.02] p-3 rounded-xl border border-white/5">
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 flex items-center gap-1.5">
                     <Boxes className="w-3.5 h-3.5 text-[#CCFF00]" /> Inventory Stock
@@ -438,7 +440,7 @@ export default function StoreManagement() {
                       if (nextState) setFormStock(-1);
                       else setFormStock(50);
                     }}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-all ${
                       isInfiniteStock 
                         ? "bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/20" 
                         : "bg-white/5 text-neutral-400 border border-white/10 hover:text-white"
@@ -455,24 +457,24 @@ export default function StoreManagement() {
                     value={formStock === -1 ? "" : formStock} 
                     onChange={(e) => setFormStock(e.target.value === "" ? "" : Number(e.target.value))} 
                     placeholder="Enter available quantity (e.g. 50)"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors mt-2" 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors mt-2" 
                   />
                 ) : (
-                  <p className="text-[11px] text-neutral-500 font-medium italic mt-1">
+                  <p className="text-[10px] text-neutral-500 font-medium italic mt-1">
                     This item has unlimited stock and will never run out in the store.
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-1">Item Image</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Item Image</label>
                 <div 
                   onClick={() => imageInputRef.current?.click()} 
-                  className="w-full h-24 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 hover:border-white/20 transition-all relative overflow-hidden group"
+                  className="w-full h-20 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 hover:border-white/20 transition-all relative overflow-hidden group"
                 >
                   {formImageFile ? (
                     <span className="text-xs font-bold text-emerald-400 flex flex-col items-center gap-1 relative z-10">
-                      <CheckCircle2 className="w-5 h-5" /> New File Selected
+                      <CheckCircle2 className="w-4 h-4" /> New File Selected
                     </span>
                   ) : currentImageUrl ? (
                     <div className="flex items-center gap-3">
@@ -481,22 +483,27 @@ export default function StoreManagement() {
                     </div>
                   ) : (
                     <>
-                      <Upload className="w-5 h-5 text-neutral-500 mb-1 group-hover:text-white transition-colors" />
+                      <Upload className="w-4 h-4 text-neutral-500 mb-1 group-hover:text-white transition-colors" />
                       <span className="text-xs text-neutral-500 font-bold">Click to upload thumbnail</span>
                     </>
                   )}
                 </div>
                 <input type="file" accept="image/*" className="hidden" ref={imageInputRef} onChange={handleImageChange} />
               </div>
+            </form>
 
+            {/* FIXED FOOTER */}
+            <div className="pt-4 border-t border-white/10 shrink-0">
               <button 
                 type="submit" 
+                form="store-item-form"
                 disabled={uploading} 
-                className="w-full bg-[#CCFF00] text-black font-black text-xs uppercase tracking-widest py-3.5 rounded-xl hover:bg-[#b3e600] transition-all disabled:opacity-50 mt-2 shadow-[0_0_15px_rgba(204,255,0,0.2)]"
+                className="w-full bg-[#CCFF00] text-black font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-[#b3e600] transition-all disabled:opacity-50 shadow-[0_0_15px_rgba(204,255,0,0.2)] active:scale-[0.98]"
               >
                 {uploading ? "Injecting..." : editingId ? "Save Item Changes" : "Inject Item to Store"}
               </button>
-            </form>
+            </div>
+
           </div>
         </div>
       )}
