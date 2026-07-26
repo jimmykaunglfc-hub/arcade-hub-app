@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { 
   Package, 
@@ -25,6 +26,7 @@ export default function StoreManagement() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [mounted, setMounted] = useState(false);
 
   // --- MODAL STATES ---
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -44,6 +46,11 @@ export default function StoreManagement() {
   const [formImageFile, setFormImageFile] = useState<File | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState("");
 
+  useEffect(() => {
+    setMounted(true);
+    fetchStoreItems();
+  }, []);
+
   const fetchStoreItems = async () => {
     setLoading(true);
     try {
@@ -60,10 +67,6 @@ export default function StoreManagement() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchStoreItems();
-  }, []);
 
   // --- MODAL HANDLERS ---
   const openAddModal = () => {
@@ -343,9 +346,9 @@ export default function StoreManagement() {
         </div>
       )}
 
-      {/* --- FIXED INJECT / EDIT ITEM MODAL --- */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+      {/* --- PORTALED MODAL (Fixes Backdrop Overflow Bug) --- */}
+      {isModalOpen && mounted && createPortal(
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
           <div className="bg-[#18181b] border border-white/10 rounded-[28px] p-6 w-full max-w-md shadow-2xl max-h-[85vh] flex flex-col my-auto">
             
             {/* FIXED HEADER */}
@@ -505,7 +508,8 @@ export default function StoreManagement() {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
