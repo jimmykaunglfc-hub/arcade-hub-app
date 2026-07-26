@@ -71,6 +71,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   // 🎮 GAME STATES
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const powerTrackRef = useRef<HTMLDivElement | null>(null);
 
   const [scores, setScores] = useState({ player1: 0, player2: 0 });
   const [currentTurn, setCurrentTurn] = useState<"player1" | "player2">("player1");
@@ -87,7 +88,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const [aimAngle, setAimAngle] = useState(-Math.PI / 2);
   const [uiPower, setUiPower] = useState(0);
 
-  const [containerScale, setContainerScale] = useState({ width: 360, height: 720 });
+  const [containerScale, setContainerScale] = useState({ width: 320, height: 640 });
 
   // Spin States
   const [spinOffset, setSpinOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -98,15 +99,13 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const wheelDragStartY = useRef<number | null>(null);
 
   const isDraggingPower = useRef(false);
-  const powerDragStartY = useRef<number | null>(null);
-  const initialUiPower = useRef<number>(0);
 
   const ballsRef = useRef<Ball[]>([]);
   const turnTrackingRef = useRef({ redsPotted: 0, colorsPotted: [] as string[], firstHitBallType: "" });
   const wasMovingRef = useRef(false);
   const didIShootRef = useRef(false);
 
-  // 🤩 Live Emojis
+  // Live Emojis
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; role: number }[]>([]);
   const [showEmojiMenu, setShowEmojiMenu] = useState(false);
 
@@ -283,21 +282,28 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     }
   }, [currentTurn, playMode, winner, isMoving, nextRequiredBall]);
 
+  // 📱 ACCURATE ULTRA-RESPONSIVE DISPLAY SCALING ENGINE
   useEffect(() => {
     const updateSize = () => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
 
-      const reservedSideWidth = 90;
-      const availW = Math.max(160, rect.width - reservedSideWidth);
-      const availH = Math.max(300, rect.height);
+      // Reserve ~88px total for side controls + gap padding
+      const sideControlsReservedWidth = 88;
+      const availW = Math.max(160, rect.width - sideControlsReservedWidth);
+      const availH = Math.max(280, rect.height - 8);
 
       let targetH = availH;
-      let targetW = availH / 2;
+      let targetW = targetH / 2;
 
       if (targetW > availW) {
         targetW = availW;
-        targetH = availW * 2;
+        targetH = targetW * 2;
+      }
+
+      if (targetH > availH) {
+        targetH = availH;
+        targetW = targetH / 2;
       }
 
       setContainerScale({ width: targetW, height: targetH });
@@ -986,7 +992,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       }
     } else {
       if (isDraggingPower.current) return;
-      if (e.buttons === 1 || e.pointerType === "touch") {
+      if (e.buttons === 1 || e.pointerType === "touch" || e.pointerType === "pen") {
         setAimAngle(Math.atan2(clickY - cueBall.y, clickX - cueBall.x));
       }
     }
@@ -994,21 +1000,37 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   const handleWheelPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isMoving || isBallInHand) return;
+    e.preventDefault();
     wheelDragStartY.current = e.clientY;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
   };
 
   const handleWheelPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (wheelDragStartY.current === null) return;
+    e.preventDefault();
     const deltaY = e.clientY - wheelDragStartY.current;
     wheelDragStartY.current = e.clientY;
-    setAimAngle((prev) => prev + deltaY * 0.0012);
+    setAimAngle((prev) => prev + deltaY * 0.0015);
     setWheelPos((prev) => prev + deltaY);
   };
 
   const handleWheelPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
     wheelDragStartY.current = null;
-    e.currentTarget.releasePointerCapture(e.pointerId);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+  };
+
+  // 🎯 ACCURATE BINDING POWER CALCULATOR ENGINE
+  const updatePowerFromPointer = (clientY: number) => {
+    if (!powerTrackRef.current) return;
+    const rect = powerTrackRef.current.getBoundingClientRect();
+    const relativeY = clientY - rect.top;
+    const fraction = Math.max(0, Math.min(1, relativeY / rect.height));
+    setUiPower(fraction * 100);
   };
 
   const handlePowerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1016,34 +1038,31 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     if (playMode === "online" && ((currentTurn === "player1" && myPlayerRole !== 1) || (currentTurn === "player2" && myPlayerRole !== 2))) return;
     if (playMode === "bot" && currentTurn === "player2") return;
 
+    e.preventDefault();
     isDraggingPower.current = true;
-    powerDragStartY.current = e.clientY;
-    initialUiPower.current = uiPower;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
+    updatePowerFromPointer(e.clientY);
   };
 
   const handlePowerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingPower.current || powerDragStartY.current === null) return;
-    const currentY = e.clientY;
-    const deltaY = currentY - powerDragStartY.current;
-    const calculatedChange = (deltaY / 140) * 100;
-    let newPower = initialUiPower.current + calculatedChange;
-
-    if (newPower < 0) newPower = 0;
-    if (newPower > 100) newPower = 100;
-
-    setUiPower(newPower);
+    if (!isDraggingPower.current) return;
+    e.preventDefault();
+    updatePowerFromPointer(e.clientY);
   };
 
   const handlePowerPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingPower.current) return;
-    e.currentTarget.releasePointerCapture(e.pointerId);
+    e.preventDefault();
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (_) {}
 
     const finalPower = uiPower;
     isDraggingPower.current = false;
-    powerDragStartY.current = null;
 
-    if (isMoving || finalPower < 10) {
+    if (isMoving || finalPower < 8) {
       setUiPower(0);
       return;
     }
@@ -1149,7 +1168,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       : BALL_TYPES[targetedColor as keyof typeof BALL_TYPES]?.color || BALL_TYPES.Yellow.color;
 
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-[#09090b] text-white flex flex-col justify-between items-center overflow-hidden touch-none select-none z-[100] p-1 md:p-2 font-sans">
+    <div className="fixed inset-0 w-screen h-screen bg-[#09090b] text-white flex flex-col justify-between items-center overflow-hidden touch-none select-none z-[100] p-1 md:p-2 font-sans pt-safe pb-safe">
       <style>{`
         @keyframes confetti-fall {
           0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; }
@@ -1379,7 +1398,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       {showSpinModal && (
         <div
           onClick={() => setShowSpinModal(false)}
-          className="absolute inset-0 bg-black/80 backdrop-blur-md z-[999999] flex justify-center items-center p-4 animate-fade-in"
+          className="absolute inset-0 bg-black/80 backdrop-blur-md z-[999999] flex justify-center items-center p-4 animate-fade-in touch-none"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1406,7 +1425,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
       {/* WINNER MODAL */}
       {winner && (
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col justify-center items-center z-[999999] p-6 text-center animate-fade-in">
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col justify-center items-center z-[999999] p-6 text-center animate-fade-in touch-none">
           {confettiPieces.map((p) => (
             <div
               key={p.id}
@@ -1541,29 +1560,31 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
       {/* VERTICAL GAME WORKSPACE */}
       {playMode !== "menu" && playMode !== "searching" && playMode !== "confirmed" && (
-        <div ref={containerRef} className="w-full flex-1 flex justify-center items-center min-h-0 min-w-0 overflow-hidden py-0.5 relative">
+        <div ref={containerRef} className="w-full flex-1 flex justify-center items-center min-h-0 min-w-0 overflow-hidden py-0.5 relative touch-none">
           <div
             style={{ height: `${containerScale.height}px` }}
-            className="flex items-end justify-center gap-1 md:gap-2 max-w-full relative transition-all duration-100"
+            className="flex items-center justify-center gap-2 max-w-full relative transition-all duration-100 touch-none"
           >
             {/* 1. LEFT PULL POWER CONTROLLER */}
-            <div className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl h-[50%] w-[28px] sm:w-[32px] md:w-[38px] shadow-lg relative shrink-0">
-              <span className="text-[5px] md:text-[7px] font-bold text-neutral-400 uppercase tracking-widest">PULL</span>
+            <div className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl h-[85%] w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none">
+              <span className="text-[6px] md:text-[8px] font-bold text-neutral-400 uppercase tracking-widest pointer-events-none">PULL</span>
 
-              <div className="h-[75%] w-[6px] md:w-[8px] bg-[#09090b] rounded-full border border-white/5 relative shadow-inner flex items-start justify-center cursor-ns-resize">
+              <div
+                ref={powerTrackRef}
+                onPointerDown={handlePowerPointerDown}
+                onPointerMove={handlePowerPointerMove}
+                onPointerUp={handlePowerPointerUp}
+                onPointerCancel={handlePowerPointerUp}
+                className="h-[80%] w-[10px] md:w-[12px] bg-[#09090b] rounded-full border border-white/5 relative shadow-inner flex items-start justify-center cursor-ns-resize touch-none"
+              >
                 <div
-                  className="w-full bg-gradient-to-b from-[#CCFF00] via-amber-500 to-rose-500 rounded-full absolute top-0 transition-all duration-75"
+                  className="w-full bg-gradient-to-b from-[#CCFF00] via-amber-500 to-rose-500 rounded-full absolute top-0 pointer-events-none transition-all duration-75"
                   style={{ height: `${uiPower}%` }}
                 />
                 <div
-                  onPointerDown={handlePowerPointerDown}
-                  onPointerMove={handlePowerPointerMove}
-                  onPointerUp={handlePowerPointerUp}
-                  onPointerCancel={handlePowerPointerUp}
-                  className="w-[16px] h-[16px] sm:w-[20px] sm:h-[20px] md:w-[22px] md:h-[22px] bg-[#CCFF00] hover:bg-[#b3e600] border-[2px] border-black rounded-full absolute shadow-md active:scale-95 transition-transform cursor-grab active:cursor-grabbing"
+                  className="w-[20px] h-[20px] sm:w-[22px] sm:h-[22px] md:w-[24px] md:h-[24px] bg-[#CCFF00] hover:bg-[#b3e600] border-[2px] border-black rounded-full absolute shadow-md active:scale-95 transition-transform cursor-grab active:cursor-grabbing touch-none"
                   style={{
-                    top: `calc(${uiPower}% - 8px)`,
-                    touchAction: "none",
+                    top: `calc(${uiPower}% - 10px)`,
                   }}
                 />
               </div>
@@ -1572,7 +1593,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             {/* 2. VERTICAL SNOOKER TABLE CANVAS */}
             <div
               style={{ width: `${containerScale.width}px`, height: `${containerScale.height}px` }}
-              className="relative flex justify-center items-center shrink-0"
+              className="relative flex justify-center items-center shrink-0 touch-none"
             >
               <canvas
                 ref={canvasRef}
@@ -1583,7 +1604,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                 onPointerUp={() => {
                   if (isBallInHand) setIsBallInHand(false);
                 }}
-                className="w-full h-full shadow-2xl rounded-xl border-2 border-white/10 bg-[#09090b] cursor-crosshair"
+                className="w-full h-full shadow-2xl rounded-xl border-2 border-white/10 bg-[#09090b] cursor-crosshair touch-none"
               />
               {isBallInHand && (
                 <div className="absolute bottom-6 bg-[#CCFF00] text-black font-black text-[7px] md:text-[10px] uppercase px-3 py-1 rounded-full pointer-events-none tracking-widest animate-pulse shadow-lg z-20">
@@ -1593,20 +1614,20 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             </div>
 
             {/* 3. RIGHT TUNE WHEEL & SPIN CONTROLLER */}
-            <div className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl h-[50%] w-[28px] sm:w-[32px] md:w-[38px] shadow-lg relative shrink-0">
-              <span className="text-[5px] md:text-[7px] font-bold text-neutral-400 uppercase tracking-widest">TUNE</span>
+            <div className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl h-[85%] w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none">
+              <span className="text-[6px] md:text-[8px] font-bold text-neutral-400 uppercase tracking-widest pointer-events-none">TUNE</span>
 
               <div
                 onPointerDown={handleWheelPointerDown}
                 onPointerMove={handleWheelPointerMove}
                 onPointerUp={handleWheelPointerUp}
                 onPointerCancel={handleWheelPointerUp}
-                className={`h-[55%] w-[18px] sm:w-[22px] md:w-[26px] rounded-lg border-[2px] border-white/10 bg-[#09090b] overflow-hidden cursor-ns-resize shadow-inner relative transition-opacity ${
+                className={`h-[60%] w-[20px] sm:w-[24px] md:w-[28px] rounded-lg border-[2px] border-white/10 bg-[#09090b] overflow-hidden cursor-ns-resize shadow-inner relative touch-none transition-opacity ${
                   isBallInHand || isMoving ? "opacity-40" : "opacity-100"
                 }`}
               >
                 <div
-                  className="absolute inset-0 w-full h-[200%]"
+                  className="absolute inset-0 w-full h-[200%] pointer-events-none"
                   style={{
                     background: "repeating-linear-gradient(to bottom, #27272a, #27272a 4px, #09090b 4px, #09090b 8px)",
                     transform: `translateY(${wheelPos % 8}px)`,
@@ -1617,10 +1638,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
               <button
                 onClick={() => setShowSpinModal(true)}
-                className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full bg-[#18181b] border-2 border-[#CCFF00] flex items-center justify-center active:scale-95 transition-all shadow-md relative group cursor-pointer shrink-0"
+                className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full bg-[#18181b] border-2 border-[#CCFF00] flex items-center justify-center active:scale-95 transition-all shadow-md relative group cursor-pointer shrink-0 touch-none"
                 title="Set Spin / English"
               >
-                <div className="w-2.5 h-2.5 md:w-3.5 md:h-3.5 rounded-full bg-white relative flex items-center justify-center">
+                <div className="w-3 h-3 md:w-4 md:h-4 rounded-full bg-white relative flex items-center justify-center pointer-events-none">
                   <div
                     className="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full bg-rose-500 absolute"
                     style={{
