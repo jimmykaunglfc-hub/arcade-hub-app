@@ -43,6 +43,11 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   const equippedBoard = storeManager.getEquippedCosmetic("chess");
   const isObsidianBoard = equippedBoard === "obsidian_board";
 
+  // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
+  const [userPoints, setUserPoints] = useState<number | null>(null);
+  const [entryFee, setEntryFee] = useState<number>(100);
+  const [showNoPointsModal, setShowNoPointsModal] = useState(false);
+
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
@@ -97,11 +102,69 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     setTimeout(() => setToast(null), 3000);
   };
 
+  // 📥 FETCH USER PROFILE BALANCE & CHESS ENTRY FEE FROM DATABASE
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) setMyUserId(session.user.id);
-    });
+    const fetchGameData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setMyUserId(user.id);
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("points")
+          .eq("id", user.id)
+          .single();
+        if (profile) setUserPoints(profile.points ?? 0);
+      }
+
+      // Fetch dynamic entry cost from `games` table
+      const { data: gameData } = await supabase
+        .from("games")
+        .select("entry_fee")
+        .ilike("title", "Chess")
+        .single();
+
+      if (gameData && typeof gameData.entry_fee === "number") {
+        setEntryFee(gameData.entry_fee);
+      }
+    };
+
+    fetchGameData();
   }, []);
+
+  // 🔒 CHECK POINTS AND DEDUCT ENTRY FEE
+  const checkPointsAndDeduct = async (): Promise<boolean> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("points")
+      .eq("id", user.id)
+      .single();
+
+    const currentPoints = profile?.points ?? 0;
+    setUserPoints(currentPoints);
+
+    if (currentPoints < entryFee) {
+      soundEngine.playSFX("defeat");
+      setShowNoPointsModal(true);
+      return false;
+    }
+
+    // Deduct entry fee
+    const { error } = await supabase
+      .from("profiles")
+      .update({ points: currentPoints - entryFee })
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("Error deducting entry fee:", error.message);
+      return false;
+    }
+
+    setUserPoints(currentPoints - entryFee);
+    return true;
+  };
 
   // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {
@@ -387,8 +450,30 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     setView("menu");
   };
 
-  const startOnlineMatchmaking = () => {
+  const hostMatch = async () => {
     soundEngine.playSFX("click");
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
+    setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase());
+    setView("host");
+  };
+
+  const joinMatch = async () => {
+    if (joinInput.length < 4) return;
+    soundEngine.playSFX("click");
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
+    setMatchId(joinInput.trim().toUpperCase());
+    setView("play");
+  };
+
+  const startOnlineMatchmaking = async () => {
+    soundEngine.playSFX("click");
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
     setView("searching");
     setTimeout(() => {
       setView(prev => {
@@ -418,7 +503,59 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   // LOBBY MENU
   if (view === "menu") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6 animate-fade-in">
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6 animate-fade-in select-none">
+        
+        {/* 🚫 INSUFFICIENT POINTS MODAL */}
+        {showNoPointsModal && (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex items-center justify-center p-6 animate-fade-in touch-none">
+            <div className="bg-[#18181b] border border-rose-500/30 rounded-[28px] p-6 w-full max-w-[340px] shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+              
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-4">
+                <span className="material-symbols-outlined text-3xl text-rose-400">monetization_on</span>
+              </div>
+
+              <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
+                Insufficient Points
+              </h3>
+              
+              <p className="text-xs text-neutral-400 font-medium leading-relaxed mb-4">
+                You need <span className="text-[#CCFF00] font-bold">{entryFee} PTS</span> to play an online Chess match.
+              </p>
+
+              <div className="w-full bg-[#09090b] border border-white/10 rounded-2xl p-3 mb-6 flex justify-between items-center">
+                <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Your Balance</span>
+                <span className="text-sm font-black font-mono text-rose-400">
+                  {userPoints ?? 0} PTS
+                </span>
+              </div>
+
+              <div className="w-full space-y-2">
+                <button
+                  onClick={() => {
+                    soundEngine.playSFX("click");
+                    onClose();
+                  }}
+                  className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-base">shopping_cart</span>
+                  Visit Store / Buy Points
+                </button>
+
+                <button
+                  onClick={() => setShowNoPointsModal(false)}
+                  className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5"
+                >
+                  Dismiss
+                </button>
+              </div>
+
+              <p className="text-[9px] text-neutral-500 mt-4">
+                💡 Tip: Claim free daily login rewards or earn points in local practice!
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
           
           <div className="flex items-center gap-4 mb-8">
@@ -436,8 +573,10 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
               <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
                 <span className="material-symbols-outlined text-xl">search</span>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Popular</span>
+              <div className="flex flex-col items-end gap-1">
+                <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
+                  {entryFee} PTS
+                </span>
                 <div className="w-7 h-7 rounded-full bg-[#CCFF00] flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
                   <span className="material-symbols-outlined text-sm font-black">arrow_forward</span>
                 </div>
@@ -448,7 +587,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
           </button>
 
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <button onClick={() => { soundEngine.playSFX("click"); setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+            <button onClick={hostMatch} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
               <div className="flex justify-between items-start w-full">
                 <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
                   <span className="material-symbols-outlined text-lg">dns</span>
@@ -490,7 +629,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
               />
             </div>
             <button
-              onClick={() => { if (joinInput.length >= 4) { soundEngine.playSFX("click"); setMatchId(joinInput.trim().toUpperCase()); setView("play"); } }}
+              onClick={joinMatch}
               disabled={joinInput.length < 4}
               className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
             >
@@ -510,7 +649,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   // LOCATING OPPONENT SCREEN
   if (view === "searching") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body select-none">
         <div className="relative w-32 h-32 flex items-center justify-center mb-8">
           <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
           <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
@@ -531,7 +670,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   // MATCH CONFIRMED SCREEN
   if (view === "confirmed") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body select-none">
         <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] px-4 py-1.5 rounded-full font-headline font-black text-xs tracking-widest mb-10 flex items-center gap-2">
           <span className="material-symbols-outlined text-sm">auto_awesome</span> MATCH CONFIRMED
         </div>
@@ -568,7 +707,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   // HOST WAITING SCREEN
   if (view === "host") {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white">
+      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white select-none">
         <div className="flex justify-between items-center p-6 bg-gradient-to-b from-black/50 to-transparent">
           <button onClick={handleExit} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
             <span className="material-symbols-outlined text-lg">close</span>

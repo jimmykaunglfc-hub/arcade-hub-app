@@ -45,6 +45,11 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const equippedTheme = storeManager.getEquippedCosmetic("snooker");
   const isCyberTable = equippedTheme === "cyber_snooker_table" || true;
 
+  // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
+  const [userPoints, setUserPoints] = useState<number | null>(null);
+  const [entryFee, setEntryFee] = useState<number>(100);
+  const [showNoPointsModal, setShowNoPointsModal] = useState(false);
+
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
@@ -136,9 +141,69 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     }));
   }, []);
 
+  // 📥 FETCH USER PROFILE BALANCE & SNOOKER ENTRY FEE FROM DATABASE
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
+    const fetchGameData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setMyUserId(user.id);
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("points")
+          .eq("id", user.id)
+          .single();
+        if (profile) setUserPoints(profile.points ?? 0);
+      }
+
+      // Fetch dynamic entry cost from `games` table
+      const { data: gameData } = await supabase
+        .from("games")
+        .select("entry_fee")
+        .ilike("title", "Snooker")
+        .single();
+
+      if (gameData && typeof gameData.entry_fee === "number") {
+        setEntryFee(gameData.entry_fee);
+      }
+    };
+
+    fetchGameData();
   }, []);
+
+  // 🔒 CHECK POINTS AND DEDUCT ENTRY FEE
+  const checkPointsAndDeduct = async (): Promise<boolean> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("points")
+      .eq("id", user.id)
+      .single();
+
+    const currentPoints = profile?.points ?? 0;
+    setUserPoints(currentPoints);
+
+    if (currentPoints < entryFee) {
+      soundEngine.playSFX("defeat");
+      setShowNoPointsModal(true);
+      return false;
+    }
+
+    // Deduct entry fee
+    const { error } = await supabase
+      .from("profiles")
+      .update({ points: currentPoints - entryFee })
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("Error deducting entry fee:", error.message);
+      return false;
+    }
+
+    setUserPoints(currentPoints - entryFee);
+    return true;
+  };
 
   useEffect(() => {
     if (toast) {
@@ -282,19 +347,17 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     }
   }, [currentTurn, playMode, winner, isMoving, nextRequiredBall]);
 
-  // 📱 DYNAMIC RESIZE OBSERVER ENGINE (Fixes initial null container ref on mount)
+  // 📱 DYNAMIC RESIZE OBSERVER ENGINE
   useEffect(() => {
     const updateSize = () => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
 
-      // Reserve 110px minimum for side controls (PULL bar + TUNE bar + gaps + padding)
       const SIDE_RESERVED_WIDTH = 110;
       const availW = Math.max(120, rect.width - SIDE_RESERVED_WIDTH);
       const availH = Math.max(240, rect.height - 8);
 
-      // Table aspect ratio is 1:2
       let targetW = availW;
       let targetH = targetW * 2;
 
@@ -354,7 +417,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   const evaluateTurnEnd = useCallback(() => {
     const tracking = turnTrackingRef.current;
-    const opponent = currentTurn === "player1" ? "player2" : "player1";
+    const opponentPlayer = currentTurn === "player1" ? "player2" : "player1";
     let turnSwitched = false;
     let penalty = 0;
 
@@ -456,8 +519,8 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     }
 
     if (turnSwitched) {
-      newScores[opponent] += penalty;
-      nextTurn = opponent;
+      newScores[opponentPlayer] += penalty;
+      nextTurn = opponentPlayer;
     }
 
     setScores(newScores);
@@ -1108,8 +1171,11 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     setSpinOffset({ x: 0, y: 0 });
   };
 
-  const startOnlineMatchmaking = () => {
+  const startOnlineMatchmaking = async () => {
     soundEngine.playSFX("click");
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
     setPlayMode("searching");
     setTimeout(() => {
       setPlayMode((prev) => {
@@ -1122,8 +1188,11 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     }, 2800);
   };
 
-  const hostMatch = () => {
+  const hostMatch = async () => {
     soundEngine.playSFX("click");
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     setMatchId(code);
     setRoomCode(code);
@@ -1131,8 +1200,12 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     setPlayMode("host");
   };
 
-  const joinMatch = () => {
+  const joinMatch = async () => {
+    if (!joinCode || joinCode.length < 6) return;
     soundEngine.playSFX("click");
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
     setMatchId(joinCode.toUpperCase());
     setMyPlayerRole(2);
     setPlayMode("join");
@@ -1188,6 +1261,57 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         }
       `}</style>
 
+      {/* 🚫 INSUFFICIENT POINTS MODAL */}
+      {showNoPointsModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[99999] flex items-center justify-center p-6 animate-fade-in touch-none">
+          <div className="bg-[#18181b] border border-rose-500/30 rounded-[28px] p-6 w-full max-w-[340px] shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+            
+            <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-4">
+              <span className="material-symbols-outlined text-3xl text-rose-400">monetization_on</span>
+            </div>
+
+            <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
+              Insufficient Points
+            </h3>
+            
+            <p className="text-xs text-neutral-400 font-medium leading-relaxed mb-4">
+              You need <span className="text-[#CCFF00] font-bold">{entryFee} PTS</span> to play an online Snooker match.
+            </p>
+
+            <div className="w-full bg-[#09090b] border border-white/10 rounded-2xl p-3 mb-6 flex justify-between items-center">
+              <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Your Balance</span>
+              <span className="text-sm font-black font-mono text-rose-400">
+                {userPoints ?? 0} PTS
+              </span>
+            </div>
+
+            <div className="w-full space-y-2">
+              <button
+                onClick={() => {
+                  soundEngine.playSFX("click");
+                  handleExitToHome();
+                }}
+                className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-base">shopping_cart</span>
+                Visit Store / Buy Points
+              </button>
+
+              <button
+                onClick={() => setShowNoPointsModal(false)}
+                className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5"
+              >
+                Dismiss
+              </button>
+            </div>
+
+            <p className="text-[9px] text-neutral-500 mt-4">
+              💡 Tip: Claim free daily login rewards or earn points in local practice!
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* LOBBY MENU */}
       {playMode === "menu" && (
         <div className="absolute inset-0 z-50 bg-[#09090b] flex items-center justify-center p-6">
@@ -1212,9 +1336,9 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                 <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
                   <span className="material-symbols-outlined text-xl">search</span>
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-col items-end gap-1">
                   <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
-                    Popular
+                    {entryFee} PTS
                   </span>
                   <div className="w-7 h-7 rounded-full bg-[#CCFF00] flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
                     <span className="material-symbols-outlined text-sm font-black">arrow_forward</span>

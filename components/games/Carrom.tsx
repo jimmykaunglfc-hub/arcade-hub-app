@@ -112,6 +112,11 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   const equippedCosmetic = storeManager.getEquippedCosmetic("carrom");
   const isNeonStriker = equippedCosmetic === "neon_glow_striker";
 
+  // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
+  const [userPoints, setUserPoints] = useState<number | null>(null);
+  const [entryFee, setEntryFee] = useState<number>(100);
+  const [showNoPointsModal, setShowNoPointsModal] = useState(false);
+
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
@@ -186,9 +191,69 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     }));
   }, []);
 
+  // 📥 FETCH USER PROFILE BALANCE & CARROM ENTRY FEE FROM DATABASE
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
+    const fetchGameData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setMyUserId(user.id);
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("points")
+          .eq("id", user.id)
+          .single();
+        if (profile) setUserPoints(profile.points ?? 0);
+      }
+
+      // Fetch dynamic entry cost from `games` table
+      const { data: gameData } = await supabase
+        .from("games")
+        .select("entry_fee")
+        .ilike("title", "Carrom")
+        .single();
+
+      if (gameData && typeof gameData.entry_fee === "number") {
+        setEntryFee(gameData.entry_fee);
+      }
+    };
+
+    fetchGameData();
   }, []);
+
+  // 🔒 CHECK POINTS AND DEDUCT ENTRY FEE
+  const checkPointsAndDeduct = async (): Promise<boolean> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("points")
+      .eq("id", user.id)
+      .single();
+
+    const currentPoints = profile?.points ?? 0;
+    setUserPoints(currentPoints);
+
+    if (currentPoints < entryFee) {
+      soundEngine.playSFX("defeat");
+      setShowNoPointsModal(true);
+      return false;
+    }
+
+    // Deduct entry fee
+    const { error } = await supabase
+      .from("profiles")
+      .update({ points: currentPoints - entryFee })
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("Error deducting entry fee:", error.message);
+      return false;
+    }
+
+    setUserPoints(currentPoints - entryFee);
+    return true;
+  };
 
   // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {
@@ -442,8 +507,11 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
      }
   };
 
-  const hostMatch = () => {
+  const hostMatch = async () => {
     soundEngine.playSFX("click");
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     setMatchId(code); 
     setRoomCode(code); 
@@ -451,15 +519,21 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     setPlayMode("host");
   };
 
-  const joinMatch = () => {
+  const joinMatch = async () => {
     soundEngine.playSFX("click");
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
     setMatchId(joinCode.toUpperCase()); 
     setMyPlayerRole(2); 
     setPlayMode("join");
   };
 
-  const startOnlineMatchmaking = () => {
+  const startOnlineMatchmaking = async () => {
     soundEngine.playSFX("click");
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
     setPlayMode("searching");
     setTimeout(() => {
       setPlayMode(prev => {
@@ -605,6 +679,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     }
   };
 
+  // 🎯 EVALUATE TURN END (FIXED CLASSIC RULES)
   const evaluateTurnEnd = () => {
     const prevCoins = turnSnapshotRef.current;
     const currentCoins = coinsRef.current;
@@ -624,14 +699,18 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
     if (strikerFoul) {
       fouled = true;
-      if (turnRef.current === 1) newP1Score = Math.max(0, newP1Score - 5);
-      else newP2Score = Math.max(0, newP2Score - 5);
+      if (gameRuleModeRef.current === "freestyle") {
+        if (turnRef.current === 1) newP1Score = Math.max(0, newP1Score - 5);
+        else newP2Score = Math.max(0, newP2Score - 5);
+      }
     }
 
     pocketedThisTurn.forEach(c => {
       if (c.type === "queen") {
         validPocket = true;
-        if (turnRef.current === 1) newP1Score += 5; else newP2Score += 5;
+        if (gameRuleModeRef.current === "freestyle") {
+          if (turnRef.current === 1) newP1Score += 5; else newP2Score += 5;
+        }
       } 
       else if (c.type === "white" || c.type === "black") {
         const pts = c.type === "white" ? 3 : 2;
@@ -641,19 +720,22 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
         } 
         else if (gameRuleModeRef.current === "classic") {
+          // --- FIX: CLASSIC MODE COLOR ASSIGNMENT WITHOUT POINTS ---
           if (!newP1Color) {
             validPocket = true;
-            newP1Color = turnRef.current === 1 ? c.type : (c.type === "white" ? "black" : "white");
-            newP2Color = newP1Color === "white" ? "black" : "white";
-            if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
+            if (turnRef.current === 1) {
+              newP1Color = c.type;
+              newP2Color = c.type === "white" ? "black" : "white";
+            } else {
+              newP2Color = c.type;
+              newP1Color = c.type === "white" ? "black" : "white";
+            }
           } else {
             const myColor = turnRef.current === 1 ? newP1Color : newP2Color;
             if (c.type === myColor) {
               validPocket = true;
-              if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
             } else {
-              fouled = true; 
-              if (turnRef.current === 1) newP2Score += pts; else newP1Score += pts;
+              fouled = true; // Sinking opponent piece in Classic is a foul
             }
           }
         }
@@ -685,17 +767,22 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     setP1Slider(500); 
     setP2Slider(500);
 
+    // --- WIN CONDITION EVALUATION ---
     let win: 1 | 2 | null = null;
     const whitesLeft = currentCoins.filter(c => c.type === "white" && c.active).length;
     const blacksLeft = currentCoins.filter(c => c.type === "black" && c.active).length;
     
-    if (gameRuleModeRef.current === "classic" && newP1Color) {
-       if (newP1Color === "white" && whitesLeft === 0) win = 1;
-       if (newP2Color === "white" && whitesLeft === 0) win = 2;
-       if (newP1Color === "black" && blacksLeft === 0) win = 1;
-       if (newP2Color === "black" && blacksLeft === 0) win = 2;
-    } else if (whitesLeft === 0 && blacksLeft === 0) {
-       win = newP1Score > newP2Score ? 1 : (newP2Score > newP1Score ? 2 : 1);
+    if (gameRuleModeRef.current === "classic") {
+       if (newP1Color) {
+         const p1Left = newP1Color === "white" ? whitesLeft : blacksLeft;
+         const p2Left = newP2Color === "white" ? whitesLeft : blacksLeft;
+         if (p1Left === 0) win = 1;
+         else if (p2Left === 0) win = 2;
+       }
+    } else {
+       if (whitesLeft === 0 && blacksLeft === 0) {
+         win = newP1Score > newP2Score ? 1 : (newP2Score > newP1Score ? 2 : 1);
+       }
     }
 
     if (win) {
@@ -862,10 +949,21 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       else turnText = myPlayerRole === role ? "Wait" : "Opponent Aiming";
     }
 
+    // --- FIX: DISPLAY SCORE FOR FREESTYLE, REMAINING PIECES FOR CLASSIC ---
+    let scoreDisplay = `${roleScore} PTS`;
+    if (gameRuleMode === "classic") {
+      if (!roleColor) {
+        scoreDisplay = "UNASSIGNED";
+      } else {
+        const remaining = coinsRef.current.filter(c => c.type === roleColor && c.active).length;
+        scoreDisplay = `${roleColor.toUpperCase()} (${remaining} LEFT)`;
+      }
+    }
+
     const headerContent = (
       <div className="w-full flex justify-between items-end px-2">
          <div className={`flex flex-col items-start transition-all ${isMyTurn ? "opacity-100" : "opacity-40 grayscale"}`}>
-           <span className="text-sm font-black text-neutral-900 dark:text-white">{roleScore} PTS</span>
+           <span className="text-xs font-black text-neutral-900 dark:text-white tracking-wider">{scoreDisplay}</span>
            <div className="flex items-center gap-2 mt-1">
              {role === 1 ? (
                <div className="w-8 h-8 rounded-full bg-[#f4ebd4] border-2 border-[#d6c7b0] flex items-center justify-center text-[#6b5f4c] text-[10px] font-bold shadow-md">P1</div>
@@ -914,6 +1012,57 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         .animate-slide-down { animation: slide-down 0.3s ease-out forwards; }
       `}</style>
 
+      {/* 🚫 INSUFFICIENT POINTS MODAL */}
+      {showNoPointsModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex items-center justify-center p-6 animate-fade-in touch-none">
+          <div className="bg-[#18181b] border border-rose-500/30 rounded-[28px] p-6 w-full max-w-[340px] shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+            
+            <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-4">
+              <span className="material-symbols-outlined text-3xl text-rose-400">monetization_on</span>
+            </div>
+
+            <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
+              Insufficient Points
+            </h3>
+            
+            <p className="text-xs text-neutral-400 font-medium leading-relaxed mb-4">
+              You need <span className="text-[#CCFF00] font-bold">{entryFee} PTS</span> to play an online Carrom match.
+            </p>
+
+            <div className="w-full bg-[#09090b] border border-white/10 rounded-2xl p-3 mb-6 flex justify-between items-center">
+              <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Your Balance</span>
+              <span className="text-sm font-black font-mono text-rose-400">
+                {userPoints ?? 0} PTS
+              </span>
+            </div>
+
+            <div className="w-full space-y-2">
+              <button
+                onClick={() => {
+                  soundEngine.playSFX("click");
+                  onClose();
+                }}
+                className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-base">shopping_cart</span>
+                Visit Store / Buy Points
+              </button>
+
+              <button
+                onClick={() => setShowNoPointsModal(false)}
+                className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5"
+              >
+                Dismiss
+              </button>
+            </div>
+
+            <p className="text-[9px] text-neutral-500 mt-4">
+              💡 Tip: Claim free daily login rewards or earn points in local practice!
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ARENA LOBBY PANEL */}
       {playMode === "menu" && (
         <div className="absolute inset-0 z-50 bg-[#09090b] flex items-center justify-center p-6">
@@ -949,8 +1098,10 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                 <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
                   <span className="material-symbols-outlined text-xl">search</span>
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Popular</span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
+                    {entryFee} PTS
+                  </span>
                   <div className="w-7 h-7 rounded-full bg-[#CCFF00] flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
                     <span className="material-symbols-outlined text-sm font-black">arrow_forward</span>
                   </div>
@@ -1195,12 +1346,12 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                 </>
               ) : (
                 <>
-                  <li>🔸 <strong className="text-amber-500">Classic Colors:</strong> The first coin potted dictates your color.</li>
-                  <li>🔸 Potting YOUR color grants an extra turn.</li>
+                  <li>🔸 <strong className="text-amber-500">Classic Mode:</strong> Potting the first coin dictates your assigned color.</li>
+                  <li>🔸 Clear all your assigned color pieces to win!</li>
                   <li>🔸 Potting OPPONENT color is a foul.</li>
                 </>
               )}
-              <li>🔸 Sinking the striker is a foul (-5 PTS) and ends your turn.</li>
+              <li>🔸 Sinking the striker is a foul (-5 PTS in Freestyle) and ends your turn.</li>
             </ul>
             <button 
               onClick={() => { soundEngine.playSFX("click"); setShowRules(false); }} 

@@ -71,6 +71,11 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   const equippedDeck = storeManager.getEquippedCosmetic("uno");
   const isNeonDeck = equippedDeck === "neon_cyber_deck" || true;
 
+  // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
+  const [userPoints, setUserPoints] = useState<number | null>(null);
+  const [entryFee, setEntryFee] = useState<number>(100);
+  const [showNoPointsModal, setShowNoPointsModal] = useState(false);
+
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
@@ -116,11 +121,69 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     setTimeout(() => setToast(null), 3000);
   };
 
+  // 📥 FETCH USER PROFILE BALANCE & UNO ENTRY FEE FROM DATABASE
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) setMyUserId(session.user.id);
-    });
+    const fetchGameData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setMyUserId(user.id);
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("points")
+          .eq("id", user.id)
+          .single();
+        if (profile) setUserPoints(profile.points ?? 0);
+      }
+
+      // Fetch dynamic entry cost from `games` table
+      const { data: gameData } = await supabase
+        .from("games")
+        .select("entry_fee")
+        .ilike("title", "Uno")
+        .single();
+
+      if (gameData && typeof gameData.entry_fee === "number") {
+        setEntryFee(gameData.entry_fee);
+      }
+    };
+
+    fetchGameData();
   }, []);
+
+  // 🔒 CHECK POINTS AND DEDUCT ENTRY FEE
+  const checkPointsAndDeduct = async (): Promise<boolean> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("points")
+      .eq("id", user.id)
+      .single();
+
+    const currentPoints = profile?.points ?? 0;
+    setUserPoints(currentPoints);
+
+    if (currentPoints < entryFee) {
+      soundEngine.playSFX("defeat");
+      setShowNoPointsModal(true);
+      return false;
+    }
+
+    // Deduct entry fee
+    const { error } = await supabase
+      .from("profiles")
+      .update({ points: currentPoints - entryFee })
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("Error deducting entry fee:", error.message);
+      return false;
+    }
+
+    setUserPoints(currentPoints - entryFee);
+    return true;
+  };
 
   // 📡 SUPABASE REALTIME SYNC HUB
   useEffect(() => {
@@ -131,9 +194,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     });
 
     matchChannel
-      .on("broadcast", { event: "game_sync" }, (payload) => {
-        // Broadcast sync payload handler
-      })
+      .on("broadcast", { event: "game_sync" }, () => {})
       .on("presence", { event: "sync" }, () => {
         const state = matchChannel.presenceState();
         const users = Object.keys(state);
@@ -221,8 +282,11 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   }, [view, players.length, startModeGame]);
 
   // --- MATCHMAKING & ROUTING FLOWS ---
-  const startOnlineMatchmaking = () => {
+  const startOnlineMatchmaking = async () => {
     soundEngine.playSFX("click");
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
     setView("searching");
     setTimeout(() => {
       setView(prev => {
@@ -233,6 +297,25 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
         return prev;
       });
     }, 2800);
+  };
+
+  const hostMatch = async () => {
+    soundEngine.playSFX("click");
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
+    setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase());
+    setView("host");
+  };
+
+  const joinMatch = async () => {
+    if (joinInput.length < 4) return;
+    soundEngine.playSFX("click");
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
+    setMatchId(joinInput.trim().toUpperCase());
+    setView("play");
   };
 
   const enterBotMatch = () => {
@@ -307,7 +390,6 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     const pConfig = players.find(p => p.id === pId)!;
     const remainingAfterPlay = (hands[pId]?.length || 0) - 1;
 
-    // SFX & Haptics Trigger
     if (["draw2", "wild4", "skip", "reverse"].includes(card.value)) {
       soundEngine.playSFX("laser");
       if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
@@ -393,7 +475,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     }, 600);
   };
 
-  // --- TIMER LOGIC ---
+  // ⏱️ TIMER LOGIC (UPDATED: 1 second interval to prevent iOS re-render/shaking bug)
   useEffect(() => {
     if (view !== "play" || winnerTeam !== null) return;
 
@@ -402,7 +484,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
       const timerInterval = setInterval(() => {
         setTimeLeft((prev) => {
-          if (prev <= 0.2) {
+          if (prev <= 1) {
             clearInterval(timerInterval);
             const myCards = hands[0] || [];
             const playable = myCards.filter((c) => canPlayCard(c));
@@ -422,9 +504,9 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
             }
             return 0;
           }
-          return prev - 0.1;
+          return prev - 1;
         });
-      }, 100);
+      }, 1000);
 
       return () => clearInterval(timerInterval);
     }
@@ -483,14 +565,15 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     return value;
   };
 
+  // 🃏 CARD COMPONENT (FIXED: touch-manipulation & iOS active state stability)
   const CardComponent = ({ card, hidden = false, onClick, active = false }: { card: Card, hidden?: boolean, onClick?: () => void, active?: boolean }) => {
     if (hidden) {
       return (
-        <div className={`w-[68px] h-[98px] rounded-xl border-2 flex items-center justify-center shadow-2xl shrink-0 relative overflow-hidden ${
+        <div className={`w-[68px] h-[98px] rounded-xl border-2 flex items-center justify-center shadow-2xl shrink-0 relative overflow-hidden select-none ${
           isNeonDeck ? "bg-[#09090b] border-[#CCFF00]/40" : "bg-[#18181b] border-white/10"
         }`}>
-           <div className="absolute inset-2 border-2 border-rose-500/50 rounded-full rotate-45 opacity-60"></div>
-           <span className="text-rose-500 font-headline font-black italic -rotate-12 text-sm select-none drop-shadow">UNO</span>
+           <div className="absolute inset-2 border-2 border-rose-500/50 rounded-full rotate-45 opacity-60 pointer-events-none"></div>
+           <span className="text-rose-500 font-headline font-black italic -rotate-12 text-sm select-none drop-shadow pointer-events-none">UNO</span>
         </div>
       );
     }
@@ -499,14 +582,14 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
       <button
         onClick={onClick}
         disabled={!active || isProcessingTurn}
-        className={`w-[68px] h-[98px] rounded-xl border-2 ${getCardBg(card.color)} flex flex-col items-center justify-center p-1 shadow-2xl shrink-0 relative overflow-hidden transform transition-all duration-300 ${
+        className={`w-[68px] h-[98px] rounded-xl border-2 ${getCardBg(card.color)} flex flex-col items-center justify-center p-1 shadow-2xl shrink-0 relative overflow-hidden touch-manipulation select-none transition-transform duration-200 ${
           active && !isProcessingTurn
-            ? '-translate-y-8 z-30 ring-4 ring-[#CCFF00] shadow-[0_0_22px_rgba(204,255,0,0.85)] scale-105 cursor-pointer hover:-translate-y-10 brightness-100'
+            ? '-translate-y-6 z-30 ring-4 ring-[#CCFF00] shadow-[0_0_22px_rgba(204,255,0,0.85)] active:scale-95 cursor-pointer brightness-100'
             : 'brightness-75 cursor-not-allowed translate-y-0'
         } ${card.color === 'wild' ? 'bg-gradient-to-br from-rose-600 via-cyan-600 to-emerald-600' : ''}`}
       >
-        <div className="absolute top-1 left-1 text-white font-black text-[10px] drop-shadow">{renderCardValue(card.value)}</div>
-        <div className="w-10 h-13 bg-white rounded-full flex items-center justify-center shadow-inner transform -rotate-12">
+        <div className="absolute top-1 left-1 text-white font-black text-[10px] drop-shadow pointer-events-none">{renderCardValue(card.value)}</div>
+        <div className="w-10 h-13 bg-white rounded-full flex items-center justify-center shadow-inner transform -rotate-12 pointer-events-none">
            <span className={`font-headline font-black text-xl drop-shadow-sm ${
              card.color === 'yellow' ? 'text-amber-500' : card.color === 'red' ? 'text-rose-600' : card.color === 'blue' ? 'text-cyan-600' : card.color === 'green' ? 'text-emerald-600' : 'text-neutral-800'
            }`}>
@@ -530,6 +613,58 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   if (view === "menu") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-sans text-white px-6 animate-fade-in select-none">
+        
+        {/* 🚫 INSUFFICIENT POINTS MODAL */}
+        {showNoPointsModal && (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[99999] flex items-center justify-center p-6 animate-fade-in touch-none">
+            <div className="bg-[#18181b] border border-rose-500/30 rounded-[28px] p-6 w-full max-w-[340px] shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+              
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-4">
+                <span className="material-symbols-outlined text-3xl text-rose-400">monetization_on</span>
+              </div>
+
+              <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
+                Insufficient Points
+              </h3>
+              
+              <p className="text-xs text-neutral-400 font-medium leading-relaxed mb-4">
+                You need <span className="text-[#CCFF00] font-bold">{entryFee} PTS</span> to play an online Uno match.
+              </p>
+
+              <div className="w-full bg-[#09090b] border border-white/10 rounded-2xl p-3 mb-6 flex justify-between items-center">
+                <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Your Balance</span>
+                <span className="text-sm font-black font-mono text-rose-400">
+                  {userPoints ?? 0} PTS
+                </span>
+              </div>
+
+              <div className="w-full space-y-2">
+                <button
+                  onClick={() => {
+                    soundEngine.playSFX("click");
+                    handleExit();
+                  }}
+                  className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation"
+                >
+                  <span className="material-symbols-outlined text-base">shopping_cart</span>
+                  Visit Store / Buy Points
+                </button>
+
+                <button
+                  onClick={() => setShowNoPointsModal(false)}
+                  className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5 touch-manipulation"
+                >
+                  Dismiss
+                </button>
+              </div>
+
+              <p className="text-[9px] text-neutral-500 mt-4">
+                💡 Tip: Claim free daily login rewards or earn points in local practice!
+              </p>
+            </div>
+          </div>
+        )}
+
         {toast && (
           <div className="absolute top-24 z-[300] bg-rose-500/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl font-headline font-bold text-sm shadow-2xl animate-fade-in border border-rose-400">
             {toast}
@@ -548,13 +683,15 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
             </div>
           </div>
 
-          <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
+          <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5 touch-manipulation">
             <div className="flex justify-between items-start mb-4">
               <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
                 <span className="material-symbols-outlined text-xl">search</span>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Popular</span>
+              <div className="flex flex-col items-end gap-1">
+                <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
+                  {entryFee} PTS
+                </span>
                 <div className="w-7 h-7 rounded-full bg-[#CCFF00] flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
                   <span className="material-symbols-outlined text-sm font-black">arrow_forward</span>
                 </div>
@@ -565,7 +702,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
           </button>
 
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <button onClick={() => { soundEngine.playSFX("click"); setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+            <button onClick={hostMatch} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px] touch-manipulation">
               <div className="flex justify-between items-start w-full">
                 <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
                   <span className="material-symbols-outlined text-lg">dns</span>
@@ -578,7 +715,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
               </div>
             </button>
 
-            <button onClick={() => startModeGame("quick")} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+            <button onClick={() => startModeGame("quick")} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px] touch-manipulation">
               <div className="flex justify-between items-start w-full">
                 <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
                   <span className="material-symbols-outlined text-lg">sports_esports</span>
@@ -607,15 +744,15 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
               />
             </div>
             <button
-              onClick={() => { if (joinInput.length >= 4) { soundEngine.playSFX("click"); setMatchId(joinInput.trim().toUpperCase()); setView("play"); } }}
+              onClick={joinMatch}
               disabled={joinInput.length < 4}
-              className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
+              className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5 touch-manipulation"
             >
               Join
             </button>
           </div>
 
-          <button onClick={handleExit} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
+          <button onClick={handleExit} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase touch-manipulation">
             <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
           </button>
         </div>
@@ -637,7 +774,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
         </div>
         <h2 className="font-headline font-black text-2xl text-white mb-2 uppercase">Locating Opponent</h2>
         <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase">
+        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase touch-manipulation">
           Abort Search
         </button>
       </div>
@@ -674,7 +811,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
           <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
         </p>
 
-        <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">
+        <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] touch-manipulation">
           Enter Match <span className="material-symbols-outlined">arrow_forward</span>
         </button>
       </div>
@@ -686,7 +823,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-sans text-white select-none">
         <div className="flex justify-between items-center p-6 bg-gradient-to-b from-black/50 to-transparent">
-          <button onClick={handleExit} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
+          <button onClick={handleExit} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition touch-manipulation">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
           <div className="text-center">
@@ -712,14 +849,14 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
               <span className="font-headline font-bold text-2xl tracking-[0.3em] text-rose-400">{matchId}</span>
               <button
                 onClick={() => { soundEngine.playSFX("click"); navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider uppercase"
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider uppercase touch-manipulation"
               >
                 <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
                 {copied ? "COPIED" : "COPY"}
               </button>
             </div>
 
-            <button onClick={handleExit} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5 uppercase">
+            <button onClick={handleExit} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5 uppercase touch-manipulation">
               CANCEL MATCH
             </button>
           </div>
@@ -742,7 +879,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     <div className="fixed inset-0 bg-[#09090b] text-white flex flex-col font-sans overflow-hidden select-none z-[100]">
       {/* HEADER */}
       <div className="w-full h-12 bg-[#18181b] border-b border-white/10 flex items-center justify-between px-4 shrink-0 shadow-md relative z-30 pt-safe">
-        <button onClick={handleExit} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition">
+        <button onClick={handleExit} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition touch-manipulation">
            <span className="material-symbols-outlined text-sm">arrow_back</span>
         </button>
         <span className="font-headline font-black text-sm tracking-widest text-rose-500 italic uppercase">UNO <span className="text-white not-italic">MATRIX</span></span>
@@ -833,7 +970,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                             }
                           }}
                           disabled={!isUserDrawRequired}
-                          className={`relative group transform transition-all duration-300 ${
+                          className={`relative group transform transition-all duration-300 touch-manipulation ${
                             isUserDrawRequired ? 'hover:-translate-y-2 active:scale-95 cursor-pointer scale-105 opacity-100' : 'opacity-70 cursor-not-allowed scale-100'
                           }`}
                         >
@@ -888,13 +1025,13 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
           {/* BOTTOM: YOUR HAND & FLOATING UNO EMBLEM */}
           <div className="w-full flex flex-col relative z-20 shrink-0 pb-16">
              
-             {/* YOUR AVATAR BADGE WITH INLINE COVER FILLING TIMER OVERLAY */}
+             {/* YOUR AVATAR BADGE WITH SMOOTH TIMER OVERLAY */}
              <div className="flex items-center justify-center mb-4">
                 <div className={`relative flex items-center gap-2 px-3 py-1 rounded-full border shadow-2xl overflow-hidden backdrop-blur-md ${currentPlayer === 0 ? 'border-[#CCFF00] ring-2 ring-[#CCFF00]/50' : 'bg-[#18181b] border-white/10'}`}>
                    
                     {currentPlayer === 0 && (
                       <div
-                        className="absolute inset-0 bg-cyan-600 transition-all duration-100 ease-linear z-0"
+                        className="absolute inset-0 bg-cyan-600 transition-all duration-1000 linear z-0"
                         style={{ width: `${(timeLeft / TURN_TIME_LIMIT) * 100}%` }}
                       />
                     )}
@@ -915,7 +1052,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                <button
                   onClick={handleCallUno}
                   disabled={unoCalled[0] || playerHand.length !== 2}
-                  className={`absolute right-2 -top-20 z-50 transform transition-all duration-300 ${
+                  className={`absolute right-2 -top-20 z-50 transform transition-all duration-300 touch-manipulation ${
                     unoCalled[0] ? "scale-90 opacity-80" : playerHand.length === 2 ? "animate-bounce scale-110 active:scale-95 cursor-pointer" : "opacity-40 cursor-not-allowed scale-95"
                   }`}
                >
@@ -938,7 +1075,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                    return (
                      <div
                        key={card.id}
-                       className={`${idx === 0 ? '' : getDynamicCardMargin(playerHand.length)} relative transition-all duration-300 ${
+                       className={`${idx === 0 ? '' : getDynamicCardMargin(playerHand.length)} relative transition-all duration-200 ${
                          isPlayable && !isProcessingTurn ? 'z-30' : 'z-10'
                        }`}
                      >
@@ -965,12 +1102,12 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
         {/* WILD COLOR PICKER MODAL */}
         {pendingWild && (
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in touch-none">
                 <div className="bg-[#18181b] border border-white/10 p-6 rounded-3xl shadow-2xl flex flex-col items-center">
                     <h2 className="text-sm font-headline font-black text-white mb-4 uppercase tracking-widest">Select Target Color</h2>
                     <div className="grid grid-cols-2 gap-4">
                         {COLORS.map((c) => (
-                          <button key={c} onClick={() => { soundEngine.playSFX("click"); executePlay(pendingWild, 0, c); setPendingWild(null); }} className={`w-16 h-16 rounded-2xl border-2 shadow-lg transition-transform active:scale-95 ${getCardBg(c)}`}></button>
+                          <button key={c} onClick={() => { soundEngine.playSFX("click"); executePlay(pendingWild, 0, c); setPendingWild(null); }} className={`w-16 h-16 rounded-2xl border-2 shadow-lg transition-transform active:scale-95 touch-manipulation ${getCardBg(c)}`}></button>
                         ))}
                     </div>
                 </div>
@@ -979,7 +1116,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
         {/* GAME OVER / VICTORY MODAL */}
         {winnerTeam !== null && (
-            <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 animate-fade-in">
+            <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 animate-fade-in touch-none">
                 <div className="flex flex-col items-center max-w-sm w-full bg-[#18181b] border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden text-center">
                    
                     <div className={`absolute -top-16 inset-x-0 h-40 rounded-full blur-3xl opacity-30 ${isUserVictory ? 'bg-[#CCFF00]' : 'bg-rose-600'}`}></div>
@@ -1006,7 +1143,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
                     <button
                       onClick={handleExit}
-                      className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase py-4 px-8 rounded-2xl shadow-xl transition-all active:scale-95 tracking-wider relative z-20"
+                      className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase py-4 px-8 rounded-2xl shadow-xl transition-all active:scale-95 tracking-wider relative z-20 touch-manipulation"
                     >
                         Back to Lobby
                     </button>

@@ -39,6 +39,11 @@ export default function Checkers({
   const equippedBoard = storeManager.getEquippedCosmetic("checkers");
   const isCyberBoard = equippedBoard === "cyber_checkers_board";
 
+  // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
+  const [userPoints, setUserPoints] = useState<number | null>(null);
+  const [entryFee, setEntryFee] = useState<number>(100);
+  const [showNoPointsModal, setShowNoPointsModal] = useState(false);
+
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
@@ -87,9 +92,69 @@ export default function Checkers({
     }));
   }, []);
 
+  // 📥 FETCH USER PROFILE BALANCE & CHECKERS ENTRY FEE FROM DATABASE
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
+    const fetchGameData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setMyUserId(user.id);
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("points")
+          .eq("id", user.id)
+          .single();
+        if (profile) setUserPoints(profile.points ?? 0);
+      }
+
+      // Fetch dynamic entry cost from `games` table
+      const { data: gameData } = await supabase
+        .from("games")
+        .select("entry_fee")
+        .ilike("title", "Checkers")
+        .single();
+
+      if (gameData && typeof gameData.entry_fee === "number") {
+        setEntryFee(gameData.entry_fee);
+      }
+    };
+
+    fetchGameData();
   }, []);
+
+  // 🔒 CHECK POINTS AND DEDUCT ENTRY FEE
+  const checkPointsAndDeduct = async (): Promise<boolean> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("points")
+      .eq("id", user.id)
+      .single();
+
+    const currentPoints = profile?.points ?? 0;
+    setUserPoints(currentPoints);
+
+    if (currentPoints < entryFee) {
+      soundEngine.playSFX("defeat");
+      setShowNoPointsModal(true);
+      return false;
+    }
+
+    // Deduct entry fee
+    const { error } = await supabase
+      .from("profiles")
+      .update({ points: currentPoints - entryFee })
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("Error deducting entry fee:", error.message);
+      return false;
+    }
+
+    setUserPoints(currentPoints - entryFee);
+    return true;
+  };
 
   // 📡 REAL-TIME SYNCHRONIZATION
   useEffect(() => {
@@ -141,29 +206,23 @@ export default function Checkers({
   // 🤖 LOCAL JOE YOKE BOT ENGINE
   useEffect(() => {
     if (playMode === "bot" && turn === P2 && !winner) {
-      // Human-like thinking delay calculation (1.5s to 3.5s)
       const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
       
       const botActionDelay = setTimeout(() => {
-        // 1. Get all valid moves for P2
         const allP2Moves = getAllValidMoves(P2, board);
         
         if (allP2Moves.length === 0) {
-          // No moves available, P1 wins
           setWinner(P1);
           setP1Score(prev => prev + 1);
           soundEngine.playSFX("victory");
           return;
         }
 
-        // 2. Filter for mandatory jumps if any exist
         const jumpMoves = allP2Moves.filter(m => m.move.jump);
         const validMoves = jumpMoves.length > 0 ? jumpMoves : allP2Moves;
 
-        // 3. Select a random move for human-like unpredictability
         const selectedMove = validMoves[Math.floor(Math.random() * validMoves.length)];
         
-        // 4. Execute the move
         const newBoard = board.map(row => [...row]);
         let movingPiece = newBoard[selectedMove.from.r][selectedMove.from.c];
         newBoard[selectedMove.from.r][selectedMove.from.c] = EMPTY;
@@ -176,11 +235,9 @@ export default function Checkers({
           newP2Cap++;
         }
 
-        // King promotion check
         const isKingPromotion = selectedMove.move.r === 7 && movingPiece !== P2_KING;
         if (selectedMove.move.r === 7) newBoard[selectedMove.move.r][selectedMove.move.c] = P2_KING;
 
-        // Play sound for bot move
         if (isKingPromotion) {
           soundEngine.playSFX("card_flip");
         } else if (isCapture) {
@@ -207,7 +264,6 @@ export default function Checkers({
         setWinner(newWinner);
         setP2Score(newP2Score);
         
-        // 25% chance the bot reacts with an emote after playing
         if (Math.random() <= 0.25) {
           const reactionDelay = Math.floor(Math.random() * 1000) + 800;
           setTimeout(() => {
@@ -227,6 +283,10 @@ export default function Checkers({
   const hostMatch = async () => {
     soundEngine.playSFX("click");
     if (!myUserId) return alert("Must be logged in to play online.");
+
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
     const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const { data } = await supabase.from('checkers_matches').insert({
       p1_id: myUserId, board: INITIAL_BOARD, room_code: generatedCode
@@ -241,6 +301,10 @@ export default function Checkers({
     soundEngine.playSFX("click");
     const codeToJoin = typeof overrideCode === 'string' ? overrideCode : joinCode.toUpperCase();
     if (!myUserId || !codeToJoin) return;
+
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
     const { data, error } = await supabase.from('checkers_matches')
       .update({ p2_id: myUserId, status: 'playing' }).eq('room_code', codeToJoin).select().single();
 
@@ -252,8 +316,12 @@ export default function Checkers({
   };
 
   // MATCHMAKING FLOW
-  const startOnlineMatchmaking = () => {
+  const startOnlineMatchmaking = async () => {
     soundEngine.playSFX("click");
+
+    const canPlay = await checkPointsAndDeduct();
+    if (!canPlay) return;
+
     setPlayMode("searching");
     setTimeout(() => {
       setPlayMode(prev => {
@@ -380,7 +448,6 @@ export default function Checkers({
         if (turn === P1 && r === 0) newBoard[r][c] = P1_KING;
         if (turn === P2 && r === 7) newBoard[r][c] = P2_KING;
 
-        // SFX Trigger for human player move
         if (isKingPromotion) {
           soundEngine.playSFX("card_flip");
         } else if (isCapture) {
@@ -479,6 +546,57 @@ export default function Checkers({
         }
       `}</style>
 
+      {/* 🚫 INSUFFICIENT POINTS MODAL */}
+      {showNoPointsModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex items-center justify-center p-6 animate-fade-in touch-none">
+          <div className="bg-[#18181b] border border-rose-500/30 rounded-[28px] p-6 w-full max-w-[340px] shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+            
+            <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-4">
+              <span className="material-symbols-outlined text-3xl text-rose-400">monetization_on</span>
+            </div>
+
+            <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
+              Insufficient Points
+            </h3>
+            
+            <p className="text-xs text-neutral-400 font-medium leading-relaxed mb-4">
+              You need <span className="text-[#CCFF00] font-bold">{entryFee} PTS</span> to play an online Checkers match.
+            </p>
+
+            <div className="w-full bg-[#09090b] border border-white/10 rounded-2xl p-3 mb-6 flex justify-between items-center">
+              <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Your Balance</span>
+              <span className="text-sm font-black font-mono text-rose-400">
+                {userPoints ?? 0} PTS
+              </span>
+            </div>
+
+            <div className="w-full space-y-2">
+              <button
+                onClick={() => {
+                  soundEngine.playSFX("click");
+                  onClose();
+                }}
+                className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-base">shopping_cart</span>
+                Visit Store / Buy Points
+              </button>
+
+              <button
+                onClick={() => setShowNoPointsModal(false)}
+                className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5"
+              >
+                Dismiss
+              </button>
+            </div>
+
+            <p className="text-[9px] text-neutral-500 mt-4">
+              💡 Tip: Claim free daily login rewards or earn points in local practice!
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* LOBBY MENU */}
       {playMode === "menu" && (
         <div className="absolute inset-0 z-50 bg-[#09090b] flex items-center justify-center p-6">
@@ -499,8 +617,10 @@ export default function Checkers({
                 <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
                   <span className="material-symbols-outlined text-xl">search</span>
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Popular</span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
+                    {entryFee} PTS
+                  </span>
                   <div className="w-7 h-7 rounded-full bg-[#CCFF00] flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
                     <span className="material-symbols-outlined text-sm font-black">arrow_forward</span>
                   </div>
@@ -796,7 +916,7 @@ export default function Checkers({
               </div>
             )}
 
-            {/* CHECKERS BOARD FRAME (DYNAMIC DRESSING BASED ON COSMETICS) */}
+            {/* CHECKERS BOARD FRAME */}
             <div className={`w-full max-h-full aspect-square rounded-[1.5rem] p-3 shadow-2xl border transition-all duration-300 relative ${
               isCyberBoard
                 ? "bg-[#09090b] border-[#CCFF00] shadow-[0_0_30px_rgba(204,255,0,0.25)]"
