@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
 import DailyLoginCard from "./DailyLoginCard";
 
@@ -29,6 +29,32 @@ interface HomeTabProps {
   }>;
 }
 
+interface MatchRecord {
+  id: string;
+  gameName: string;
+  result: string;
+  reward: string;
+  timeAgo: string;
+  isVictory: boolean;
+}
+
+// Helper to format timestamps dynamically
+function formatTimeAgo(isoString: string): string {
+  if (!isoString) return "Just now";
+  const date = new Date(isoString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (seconds < 60) return "Just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+}
+
 export default function HomeTab({ 
   currentPoints, 
   userId, 
@@ -40,19 +66,95 @@ export default function HomeTab({
 }: HomeTabProps) {
   const [username, setUsername] = useState<string>("Player");
   const [showStatsModal, setShowStatsModal] = useState<boolean>(false);
+  const [dbMatches, setDbMatches] = useState<MatchRecord[]>([]);
 
-  useEffect(() => {
+  // 1. FETCH USER PROFILE & RECENT MATCH HISTORY FROM SUPABASE
+  const fetchUserDataAndMatches = useCallback(async () => {
     if (!userId) return;
-    const fetchUser = async () => {
-      const { data } = await supabase
+
+    try {
+      // Fetch Profile Data
+      const { data: profile } = await supabase
         .from("profiles")
         .select("username")
         .eq("id", userId)
         .single();
-      if (data?.username) setUsername(data.username);
-    };
-    fetchUser();
+      
+      if (profile?.username) {
+        setUsername(profile.username);
+      }
+
+      // Fetch Recent Match Records
+      const { data: matches, error } = await supabase
+        .from("match_history")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (matches && !error) {
+        const formatted: MatchRecord[] = matches.map((m: any) => ({
+          id: m.id,
+          gameName: m.game_title || "Arcade Match",
+          result: m.result === "win" ? "Victory" : m.result === "loss" ? "Defeat" : m.result,
+          reward: m.points_change >= 0 ? `+${m.points_change} PTS` : `${m.points_change} PTS`,
+          timeAgo: formatTimeAgo(m.created_at),
+          isVictory: m.result === "win",
+        }));
+        setDbMatches(formatted);
+      }
+    } catch (err) {
+      console.error("Error fetching home tab data:", err);
+    }
   }, [userId]);
+
+  // 2. REALTIME SUBSCRIPTION FOR POINTS & MATCH UPDATES
+  useEffect(() => {
+    if (!userId) return;
+
+    fetchUserDataAndMatches();
+
+    // 📡 Realtime Listener on 'profiles' table (e.g. entry fee point deductions)
+    const profileChannel = supabase
+      .channel(`home_profile_${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${userId}`,
+        },
+        () => {
+          if (onPointsUpdated) {
+            onPointsUpdated();
+          }
+        }
+      )
+      .subscribe();
+
+    // 📡 Realtime Listener on 'match_history' table
+    const matchesChannel = supabase
+      .channel(`home_matches_${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "match_history",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          fetchUserDataAndMatches();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profileChannel);
+      supabase.removeChannel(matchesChannel);
+    };
+  }, [userId, fetchUserDataAndMatches, onPointsUpdated]);
 
   const getRankIcon = (tier: string) => {
     if (!tier || tier === "Unranked") return "help_center";
@@ -67,6 +169,9 @@ export default function HomeTab({
 
   const currentTier = rankData?.tier || "Unranked";
   const currentRankIcon = getRankIcon(currentTier);
+
+  // Use database fetched matches if present; otherwise fallback to prop history
+  const activeMatchList = dbMatches.length > 0 ? dbMatches : matchHistory;
 
   return (
     <div className="w-full pb-6 animate-fade-in relative">
@@ -148,7 +253,7 @@ export default function HomeTab({
         <div className="grid grid-cols-3 gap-3">
           <button 
             onClick={() => onNavigate("explore")}
-            className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
+            className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm touch-manipulation"
           >
             <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-sm">
               <span className="material-symbols-outlined text-on-primary text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
@@ -158,7 +263,7 @@ export default function HomeTab({
 
           <button 
             onClick={() => onNavigate("store")}
-            className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
+            className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm touch-manipulation"
           >
             <div className="w-14 h-14 rounded-full bg-secondary-container flex items-center justify-center shadow-sm">
               <span className="material-symbols-outlined text-secondary text-[24px]">casino</span>
@@ -168,7 +273,7 @@ export default function HomeTab({
 
           <button 
             onClick={() => setShowStatsModal(true)}
-            className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm"
+            className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm touch-manipulation"
           >
             <div className="w-14 h-14 rounded-full bg-surface-container-highest flex items-center justify-center shadow-sm">
               <span className="material-symbols-outlined text-blue-500 text-[24px]">polyline</span>
@@ -184,7 +289,7 @@ export default function HomeTab({
           <h2 className="font-headline text-lg font-bold text-on-surface tracking-wide">
             Recent Matches
           </h2>
-          {matchHistory.length > 0 && (
+          {activeMatchList.length > 0 && (
             <button className="font-headline text-xs font-bold text-primary hover:opacity-80 transition-opacity">
               See All
             </button>
@@ -192,7 +297,7 @@ export default function HomeTab({
         </div>
         
         <div className="flex flex-col gap-3">
-          {matchHistory.length === 0 ? (
+          {activeMatchList.length === 0 ? (
             <div className="w-full bg-surface border border-surface-container-highest rounded-[20px] p-8 flex flex-col items-center text-center shadow-sm">
               <div className="w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center mb-4">
                 <span className="material-symbols-outlined text-[32px] text-on-surface-variant">sports_esports</span>
@@ -203,17 +308,19 @@ export default function HomeTab({
               </p>
               <button 
                 onClick={() => onNavigate("explore")}
-                className="bg-primary text-on-primary font-headline text-sm font-bold px-6 py-2.5 rounded-full hover:opacity-90 active:scale-95 transition-all shadow-sm"
+                className="bg-primary text-on-primary font-headline text-sm font-bold px-6 py-2.5 rounded-full hover:opacity-90 active:scale-95 transition-all shadow-sm touch-manipulation"
               >
                 Find a Game
               </button>
             </div>
           ) : (
-            matchHistory.map((match) => (
-              <button key={match.id} className="w-full bg-surface border border-surface-container-highest rounded-[20px] p-4 flex items-center justify-between hover:bg-surface-variant transition-colors active:scale-[0.98] shadow-sm">
+            activeMatchList.map((match) => (
+              <button key={match.id} className="w-full bg-surface border border-surface-container-highest rounded-[20px] p-4 flex items-center justify-between hover:bg-surface-variant transition-colors active:scale-[0.98] shadow-sm touch-manipulation">
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-[14px] flex items-center justify-center shrink-0 ${match.isVictory ? 'bg-primary-container text-primary' : 'bg-surface-container-highest text-on-surface-variant'}`}>
-                    <span className="material-symbols-outlined text-[22px]">emoji_events</span>
+                    <span className="material-symbols-outlined text-[22px]">
+                      {match.isVictory ? "emoji_events" : "sports_esports"}
+                    </span>
                   </div>
                   <div className="text-left">
                     <h3 className="font-headline text-sm font-bold text-on-surface leading-tight">{match.gameName}</h3>
@@ -232,11 +339,11 @@ export default function HomeTab({
 
       {/* 📊 STATS MODAL OVERLAY */}
       {showStatsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm transition-opacity">
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm transition-opacity touch-none">
           <div className="w-full max-w-sm bg-surface rounded-[24px] p-6 shadow-2xl animate-fade-in border border-surface-container-highest relative">
             <button 
               onClick={() => setShowStatsModal(false)}
-              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-highest text-on-surface hover:bg-surface-variant transition-colors"
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-highest text-on-surface hover:bg-surface-variant transition-colors touch-manipulation"
             >
               <span className="material-symbols-outlined text-[18px]">close</span>
             </button>
