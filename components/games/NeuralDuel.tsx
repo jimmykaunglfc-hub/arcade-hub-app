@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { soundEngine } from "@/lib/soundManager";
 
 type PenaltyTheme = 'Standard' | 'Drink' | 'Truth' | 'Dare';
 const PENALTY_THEMES: PenaltyTheme[] = ['Standard', 'Drink', 'Truth', 'Dare'];
@@ -27,10 +28,12 @@ export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
 
   const cycleTheme = () => {
     if (gameStatus !== 'idle' && gameStatus !== 'gameover') return;
+    soundEngine.playSFX("click");
     setPenaltyTheme(prev => PENALTY_THEMES[(PENALTY_THEMES.indexOf(prev) + 1) % PENALTY_THEMES.length]);
   };
 
   const startDuel = () => {
+    soundEngine.playSFX("click");
     clearTimers();
     setWinner(null);
     setLoser(null);
@@ -42,6 +45,7 @@ export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
     
     executeTimerRef.current = setTimeout(() => {
       setGameStatus('execute');
+      soundEngine.playSFX("laser");
       // Execute Haptic Flash
       if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
         window.navigator.vibrate([100, 50, 100]);
@@ -59,6 +63,7 @@ export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
       setWinner(player === 'p1' ? 'p2' : 'p1');
       setWinReason('early-tap');
       setGameStatus('gameover');
+      soundEngine.playSFX("defeat");
       if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
         window.navigator.vibrate([300, 100, 300]);
       }
@@ -68,10 +73,16 @@ export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
       setLoser(player === 'p1' ? 'p2' : 'p1');
       setWinReason('reflex');
       setGameStatus('gameover');
+      soundEngine.playSFX("victory");
       if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
         window.navigator.vibrate(50);
       }
     }
+  };
+
+  const handleExit = () => {
+    soundEngine.playSFX("click");
+    if (onClose) onClose();
   };
 
   return (
@@ -143,7 +154,7 @@ export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
         {/* Exit Button (Left Side) */}
         {(gameStatus === 'idle' || gameStatus === 'gameover') && (
           <button 
-            onClick={onClose} 
+            onClick={handleExit} 
             className="absolute right-[140%] bg-zinc-900 border border-zinc-700 p-2 w-10 h-10 flex items-center justify-center rounded-full active:scale-95 hover:bg-zinc-800 transition-colors"
           >
             <span className="material-symbols-outlined text-sm text-zinc-400">arrow_back_ios_new</span>

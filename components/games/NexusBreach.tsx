@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { soundEngine } from "@/lib/soundManager";
 
 type PenaltyTheme = 'Standard' | 'Drink' | 'Truth' | 'Dare';
 const PENALTY_THEMES: PenaltyTheme[] = ['Standard', 'Drink', 'Truth', 'Dare'];
@@ -27,7 +28,13 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
     setShowPenalty(false);
   };
 
+  const handleReboot = () => {
+    soundEngine.playSFX("click");
+    initGame();
+  };
+
   const cycleTheme = () => {
+    soundEngine.playSFX("click");
     setPenaltyTheme(prev => PENALTY_THEMES[(PENALTY_THEMES.indexOf(prev) + 1) % PENALTY_THEMES.length]);
   };
 
@@ -35,11 +42,24 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
     if (gameStatus !== 'playing' || clearedIndexes.includes(index)) return;
 
     if (index === trapIndex) {
+      soundEngine.playSFX("laser");
+      setTimeout(() => soundEngine.playSFX("defeat"), 400);
       setGameStatus('gameover');
       setShowPenalty(true); 
     } else {
+      soundEngine.playSFX("card_flip");
       setClearedIndexes([...clearedIndexes, index]);
     }
+  };
+
+  const handleExit = () => {
+    soundEngine.playSFX("click");
+    if (onClose) onClose();
+  };
+
+  const handleCloseModal = () => {
+    soundEngine.playSFX("click");
+    setShowPenalty(false);
   };
 
   return (
@@ -56,7 +76,7 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
       {/* 1. TOP HEADER */}
       <header className="shrink-0 w-full bg-white/95 dark:bg-[#09090b]/95 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 z-20 shadow-sm" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
         <div className="px-6 py-4 flex justify-between items-center">
-          <button onClick={onClose} className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-500 hover:opacity-70 transition-opacity active:scale-95">
+          <button onClick={handleExit} className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-500 hover:opacity-70 transition-opacity active:scale-95">
             <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> Exit
           </button>
           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-zinc-500">Nexus Breach</span>
@@ -155,7 +175,7 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
           ) : (
             <div className="w-full max-w-[280px] h-full animate-pop-in">
               <button 
-                onClick={initGame}
+                onClick={handleReboot}
                 className="w-full h-full font-black rounded-2xl tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg active:scale-95 bg-red-600 text-white shadow-red-600/30 hover:bg-red-500"
               >
                 <span className="material-symbols-outlined text-xl">refresh</span>
@@ -172,7 +192,7 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
           <div className="bg-white dark:bg-zinc-900 border-2 border-red-500 rounded-[2rem] p-8 max-w-sm w-full text-center shadow-[0_0_50px_rgba(239,68,68,0.3)] relative overflow-hidden animate-pop-in">
             <div className="absolute inset-0 bg-red-500/5 animate-pulse pointer-events-none" />
             <button 
-              onClick={() => setShowPenalty(false)} 
+              onClick={handleCloseModal} 
               className="absolute top-4 right-4 text-red-400 hover:text-red-200 bg-red-500/10 w-8 h-8 rounded-full flex items-center justify-center transition-colors z-20"
             >
               <span className="material-symbols-outlined text-sm">close</span>
@@ -199,7 +219,7 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
             </div>
 
             <button 
-              onClick={() => setShowPenalty(false)} 
+              onClick={handleCloseModal} 
               className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl tracking-widest transition-transform active:scale-95 shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 relative z-10"
             >
               ACCEPT PENALTY

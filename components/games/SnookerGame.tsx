@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { soundEngine } from "../../lib/soundManager";
 
-// 👇 NEW: Import the Bot Utility
+// 👇 Import the Bot Utility
 import { getRandomBotOpponent } from "../../lib/botUtils";
 
 const BALL_TYPES = {
@@ -49,7 +50,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     isBotMode || preloadedMatchId ? "play" : "menu"
   );
   
-  // 👇 NEW: State to store generated bot profile
+  // State to store generated bot profile
   const [localOpponent, setLocalOpponent] = useState<any>(opponent || null);
 
   const [matchId, setMatchId] = useState<string | null>(
@@ -160,6 +161,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           cueBall.vy = Math.sin(angle) * impulseSpeed;
           cueBall.spinX = spin.x;
           cueBall.spinY = spin.y;
+          soundEngine.playSFX("move");
         }
 
         setIsBallInHand(false);
@@ -171,6 +173,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         if (cueBall) {
           cueBall.x = x;
           cueBall.y = y;
+          soundEngine.playSFX("click");
         }
       })
       .on("broadcast", { event: "table_sync" }, (payload) => {
@@ -208,13 +211,11 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     if (view === "host" && opponentConnected) setView("play");
   }, [opponentConnected, view]);
 
-  // 🤖 LOCAL JOE YOKE BOT ENGINE (Snooker Geometry AI)
+  // 🤖 LOCAL JOE YOKE BOT ENGINE
   useEffect(() => {
     const isBotMatch = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
     
     if (isBotMatch && view === "play" && currentTurn === "player2" && !winner && !isMoving) {
-      
-      // 🧠 Calculate a natural human reaction time (1.5s to 3.5s)
       const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
       
       const botTimer = setTimeout(() => {
@@ -222,14 +223,12 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         const cueBall = balls.find(b => b.isCue);
         if (!cueBall) return;
 
-        // 1. D-Zone Placement if Ball in Hand
         if (isBallInHand) {
           cueBall.x = baulkLineX - (Math.random() * 20);
           cueBall.y = tableHeight / 2 + (Math.random() * 40 - 20);
           setIsBallInHand(false);
         }
 
-        // 2. Identify Legal Targets
         let targetBalls: Ball[] = [];
         if (gamePhase === "REDS" && nextRequiredBall === "Red") {
           targetBalls = balls.filter(b => b.type === "Red" && !b.isPotted);
@@ -244,7 +243,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
         if (targetBalls.length === 0) return;
 
-        // 3. Select Target and Calculate Ghost Ball Geometry
         const target = targetBalls[Math.floor(Math.random() * targetBalls.length)];
         
         let bestPocket = pockets[0];
@@ -254,19 +252,14 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           if (d < minPocketDist) { minPocketDist = d; bestPocket = p; }
         });
 
-        // Angle from Pocket to Target determines the Ghost Ball position
         const anglePocketToTarget = Math.atan2(target.y - bestPocket.y, target.x - bestPocket.x);
         const ghostX = target.x + Math.cos(anglePocketToTarget) * (ballRadius * 2);
         const ghostY = target.y + Math.sin(anglePocketToTarget) * (ballRadius * 2);
 
-        // Aim angle is from Cue Ball to Ghost Ball
         let botAimAngle = Math.atan2(ghostY - cueBall.y, ghostX - cueBall.x);
-        
-        // Inject human-like imperfection
         botAimAngle += (Math.random() - 0.5) * 0.04; 
         
-        // Execute Shot
-        const power = 40 + Math.random() * 45; // 40-85 power
+        const power = 40 + Math.random() * 45;
         const impulseSpeed = (power / 100) * 22;
 
         cueBall.vx = Math.cos(botAimAngle) * impulseSpeed;
@@ -274,15 +267,16 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         cueBall.spinX = 0;
         cueBall.spinY = 0;
 
+        soundEngine.playSFX("move");
         setAimAngle(botAimAngle);
-        setUiPower(power); // Briefly show power
+        setUiPower(power);
         
         setTimeout(() => {
           setUiPower(0);
           setIsMoving(true);
         }, 300);
 
-      }, thinkingDelay); // Human thinking delay
+      }, thinkingDelay);
 
       return () => clearTimeout(botTimer);
     }
@@ -290,13 +284,14 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   }, [currentTurn, isMoving, isBallInHand, winner, view, opponent, localOpponent, gamePhase, nextRequiredBall, colorSeqIndex, matchId]);
 
   const handleExit = () => {
+    soundEngine.playSFX("click");
     if (matchId) setMatchId(null);
     setView("menu");
     if (onClose) onClose();
   };
 
-  // --- NEW FAKE MATCHMAKING FLOW FOR BOT INTEGRATION ---
   const startOnlineMatchmaking = () => {
+    soundEngine.playSFX("click");
     setView("searching");
     setTimeout(() => {
       setView(prev => {
@@ -306,10 +301,11 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         }
         return prev;
       });
-    }, 2800); // Wait ~3s for radar animation
+    }, 2800);
   };
 
   const enterBotMatch = () => {
+    soundEngine.playSFX("click");
     setMatchId(`bot_match_${Date.now()}`);
     setMyRole("player1");
     setView("play");
@@ -353,9 +349,16 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     const activeBalls = ballsRef.current.filter(b => !b.isPotted);
 
     if (activeBalls.length === 1 && activeBalls[0].isCue) {
-      if (scores.player1 > scores.player2) setWinner("Player 1");
-      else if (scores.player2 > scores.player1) setWinner("Player 2");
-      else setWinner("Draw Match");
+      if (scores.player1 > scores.player2) {
+        setWinner("Player 1");
+        soundEngine.playSFX(myRole === "player1" ? "victory" : "defeat");
+      } else if (scores.player2 > scores.player1) {
+        setWinner("Player 2");
+        soundEngine.playSFX(myRole === "player2" ? "victory" : "defeat");
+      } else {
+        setWinner("Draw Match");
+        soundEngine.playSFX("victory");
+      }
       return;
     }
 
@@ -370,17 +373,20 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
     if (gamePhase === "REDS") {
       if (isFoul) {
+        soundEngine.playSFX("defeat");
         if (tracking.colorsPotted.length > 0) {
           tracking.colorsPotted.forEach(c => respotColorBall(c));
         }
         penalty = 4; turnSwitched = true; newNextBall = "Red";
       } else if (nextRequiredBall === "Red") {
         if (tracking.firstHitBallType !== "Red") {
+          soundEngine.playSFX("defeat");
           if (tracking.colorsPotted.length > 0) {
             tracking.colorsPotted.forEach(c => respotColorBall(c));
           }
           penalty = 4; turnSwitched = true; newNextBall = "Red";
         } else if (tracking.colorsPotted.length > 0) {
+          soundEngine.playSFX("defeat");
           tracking.colorsPotted.forEach(c => respotColorBall(c));
           penalty = 4; turnSwitched = true; newNextBall = "Red";
         } else if (tracking.redsPotted > 0) {
@@ -396,6 +402,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         }
       } else {
         if (tracking.firstHitBallType === "Red" || tracking.redsPotted > 0 || tracking.colorsPotted.length !== 1) {
+          soundEngine.playSFX("defeat");
           if (tracking.colorsPotted.length > 0) {
             tracking.colorsPotted.forEach(c => respotColorBall(c));
           }
@@ -410,6 +417,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       }
     } else if (gamePhase === "LAST_RED_COLOR") {
       if (isFoul || tracking.colorsPotted.length !== 1) {
+        soundEngine.playSFX("defeat");
         if (tracking.colorsPotted.length > 0) {
           tracking.colorsPotted.forEach(c => respotColorBall(c));
         }
@@ -430,6 +438,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       const targetColor = COLOR_SEQUENCE[colorSeqIndex];
      
       if (isFoul || tracking.firstHitBallType !== targetColor || tracking.colorsPotted.length > 1) {
+        soundEngine.playSFX("defeat");
         if (tracking.colorsPotted.length > 0) {
           tracking.colorsPotted.forEach(c => respotColorBall(c));
         }
@@ -465,7 +474,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     isDraggingPower.current = false;
     turnTrackingRef.current = { redsPotted: 0, colorsPotted: [], firstHitBallType: "" };
 
-    // Synchronize full state over Supabase broadcast
     if (channel && matchId && !localOpponent?.isBot && !opponent?.isBot && !matchId?.startsWith("bot_")) {
       channel.send({
         type: "broadcast",
@@ -480,9 +488,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         }
       });
     }
-  }, [currentTurn, nextRequiredBall, gamePhase, colorSeqIndex, scores, respotColorBall, channel, matchId, opponent, localOpponent]);
+  }, [currentTurn, nextRequiredBall, gamePhase, colorSeqIndex, scores, respotColorBall, channel, matchId, opponent, localOpponent, myRole]);
 
   const initBalls = useCallback(() => {
+    soundEngine.playSFX("click");
     const balls: Ball[] = [];
     let idCounter = 1;
 
@@ -642,8 +651,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
               ball.isPotted = true;
               ball.vx = 0; ball.vy = 0;
               ball.x = p.x; ball.y = p.y;
+              soundEngine.playSFX("capture");
 
               if (ball.isCue) {
+                soundEngine.playSFX("defeat");
                 turnTrackingRef.current.firstHitBallType = "FOUL_SCRATCH";
                 setTimeout(() => {
                   ball.isPotted = false; ball.scale = 1;
@@ -718,6 +729,9 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
             const dist = Math.hypot(b2.x - b1.x, b2.y - b1.y);
             if (dist < ballRadius * 2) {
+              const relSpeed = Math.hypot(b1.vx - b2.vx, b1.vy - b2.vy);
+              if (relSpeed > 0.5) soundEngine.playSFX("move");
+
               const angle = Math.atan2(b2.y - b1.y, b2.x - b1.x);
               const overlap = ballRadius * 2 - dist;
               b1.x -= Math.cos(angle) * overlap * 0.5; b1.y -= Math.sin(angle) * overlap * 0.5;
@@ -936,6 +950,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
         cueBall.x = newX;
         cueBall.y = newY;
+        soundEngine.playSFX("click");
 
         if (channel && matchId && !localOpponent?.isBot && !opponent?.isBot && !matchId?.startsWith("bot_")) {
           channel.send({
@@ -1011,6 +1026,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       return;
     }
 
+    soundEngine.playSFX("move");
     if (isBallInHand) setIsBallInHand(false);
     const cueBall = ballsRef.current.find(b => b.isCue);
     if (!cueBall) return;
@@ -1044,16 +1060,12 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     ? BALL_TYPES.Red.color
     : (BALL_TYPES[targetedColor as keyof typeof BALL_TYPES]?.color || BALL_TYPES.Yellow.color);
 
-
-  // =========================================
-  // 1️⃣ LOBBY / MENU VIEW (MODERN DARK UI)
-  // =========================================
+  // LOBBY / MENU VIEW
   if (view === "menu") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6 animate-fade-in">
         <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
           
-          {/* Header */}
           <div className="flex items-center gap-4 mb-8">
             <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
               <span className="material-symbols-outlined text-2xl text-neutral-300">sports_bar</span>
@@ -1064,7 +1076,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             </div>
           </div>
 
-          {/* Online Match Button (CCFF00 Theme) */}
           <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
             <div className="flex justify-between items-start mb-4">
               <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
@@ -1081,9 +1092,8 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             <p className="text-xs text-neutral-400 font-medium leading-relaxed">Ranked & casual global<br/>matchmaking</p>
           </button>
 
-          {/* Private & Offline Match Buttons */}
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <button onClick={() => { setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+            <button onClick={() => { soundEngine.playSFX("click"); setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
               <div className="flex justify-between items-start w-full">
                 <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
                   <span className="material-symbols-outlined text-lg">dns</span>
@@ -1096,7 +1106,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
               </div>
             </button>
 
-            <button onClick={() => { setMatchId(null); setView("play"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+            <button onClick={() => { soundEngine.playSFX("click"); setMatchId(null); setView("play"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
               <div className="flex justify-between items-start w-full">
                 <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
                   <span className="material-symbols-outlined text-lg">sports_esports</span>
@@ -1110,7 +1120,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             </button>
           </div>
 
-          {/* 👇 IMPLEMENTED: Join Room Input flex fix for mobile */}
           <div className="flex items-center gap-2 w-full mb-6">
             <div className="relative flex-1 min-w-0 flex items-center bg-[#09090b] border border-white/10 rounded-2xl p-1.5">
               <div className="pl-3 pr-2 text-neutral-500 flex items-center justify-center">
@@ -1128,6 +1137,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             <button
               onClick={() => {
                 if (joinInput.length >= 4) {
+                  soundEngine.playSFX("click");
                   setMatchId(joinInput.trim().toUpperCase());
                   setView("play");
                 }
@@ -1147,10 +1157,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     );
   }
 
-
-  // =========================================
-  // 📡 LOCATING OPPONENT SCREEN
-  // =========================================
+  // LOCATING OPPONENT SCREEN
   if (view === "searching") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
@@ -1164,16 +1171,14 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         </div>
         <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
         <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-        <button onClick={() => setView("menu")} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
           Abort Search
         </button>
       </div>
     );
   }
 
-  // =========================================
-  // 🤝 MATCH CONFIRMED SCREEN
-  // =========================================
+  // MATCH CONFIRMED SCREEN
   if (view === "confirmed") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
@@ -1190,7 +1195,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             <span className="material-symbols-outlined text-black text-sm font-black">close</span>
           </div>
           
-          {/* 👇 IMPLEMENTED: Use bot human avatar icon */}
           <div className="w-20 h-20 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 flex items-center justify-center rotate-[5deg] shadow-2xl overflow-hidden relative z-10">
             <span className="material-symbols-outlined text-4xl text-indigo-400">
               {localOpponent?.avatarIcon || "person"}
@@ -1199,7 +1203,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         </div>
 
         <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
-        {/* 👇 IMPLEMENTED: Use human-like generated Bot Name */}
         <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || "Player 2"}</h2>
         <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
           <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
@@ -1212,9 +1215,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     );
   }
 
-  // =========================================
-  // 2️⃣ HOST WAITING VIEW
-  // =========================================
+  // HOST WAITING VIEW
   if (view === "host") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white">
@@ -1244,7 +1245,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             <div className="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-2xl p-2 pl-6 mb-6">
               <span className="font-headline font-bold text-2xl tracking-[0.3em] text-cyan-300">{matchId}</span>
               <button
-                onClick={() => { navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                onClick={() => { soundEngine.playSFX("click"); navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
                 className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider"
               >
                 <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
@@ -1261,9 +1262,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     );
   }
 
-  // =========================================
-  // 3️⃣ GAMEPLAY CANVAS ARENA
-  // =========================================
+  // GAMEPLAY CANVAS ARENA
   const isBotOpponent = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
 
   return (
@@ -1295,7 +1294,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             </div>
 
             <button
-              onClick={() => setShowSpinModal(false)}
+              onClick={() => { soundEngine.playSFX("click"); setShowSpinModal(false); }}
               className="w-full py-2 bg-[#CCFF00] hover:bg-[#b3e600] text-black font-black uppercase text-xs rounded-xl shadow-[0_4px_15px_rgba(204,255,0,0.2)] active:scale-95 transition-all cursor-pointer"
             >
               Done ✅
@@ -1446,7 +1445,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           </div>
 
           <button
-            onClick={() => { if(isMyTurnActive) setShowSpinModal(true); }}
+            onClick={() => { if(isMyTurnActive) { soundEngine.playSFX("click"); setShowSpinModal(true); } }}
             disabled={!isMyTurnActive}
             className={`w-8 h-8 rounded-full bg-[#09090b] border-2 border-[#CCFF00] flex items-center justify-center active:scale-95 transition-all shadow-md relative group mt-1 cursor-pointer ${!isMyTurnActive ? 'opacity-30 cursor-not-allowed' : ''}`}
             title="Set Spin / English"

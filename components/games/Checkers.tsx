@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { soundEngine } from "../../lib/soundManager";
 
-// 👇 NEW: Import the Bot Utility
+// 👇 Import the Bot Utility
 import { getRandomBotOpponent } from "../../lib/botUtils";
 
 const EMPTY = 0, P1 = 1, P2 = 2, P1_KING = 3, P2_KING = 4;
@@ -41,7 +42,7 @@ export default function Checkers({
     isBotMode ? "bot" : preloadedMatchId ? "join" : "menu"
   );
   
-  // 👇 NEW: State to store generated bot profile
+  // State to store generated bot profile
   const [localOpponent, setLocalOpponent] = useState<any>(opponent || null);
 
   const [matchId, setMatchId] = useState<string>(
@@ -95,6 +96,16 @@ export default function Checkers({
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'checkers_matches', filter: `id=eq.${matchId}` }, (payload) => {
       const newData = payload.new;
+      
+      // Play SFX when opponent moves in online mode
+      if (newData.turn !== turn) {
+        if (newData.p1_captures > p1Captures || newData.p2_captures > p2Captures) {
+          soundEngine.playSFX("capture");
+        } else {
+          soundEngine.playSFX("move");
+        }
+      }
+
       setBoard(newData.board);
       setTurn(newData.turn);
       setP1Captures(newData.p1_captures);
@@ -102,6 +113,11 @@ export default function Checkers({
       setP1Score(newData.p1_score);
       setP2Score(newData.p2_score);
       setWinner(newData.winner);
+
+      if (newData.winner) {
+        soundEngine.playSFX(newData.winner === myPlayerRole ? "victory" : "defeat");
+      }
+
       if (newData.status === 'playing' && playMode === "host") setPlayMode("online");
     })
     .on('broadcast', { event: 'emoji' }, (payload) => {
@@ -115,12 +131,12 @@ export default function Checkers({
     .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [matchId, playMode]);
+  }, [matchId, playMode, turn, p1Captures, p2Captures, myPlayerRole]);
 
   // 🤖 LOCAL JOE YOKE BOT ENGINE
   useEffect(() => {
     if (playMode === "bot" && turn === P2 && !winner) {
-      // 🧠 Human-like thinking delay calculation (1.5s to 3.5s)
+      // Human-like thinking delay calculation (1.5s to 3.5s)
       const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
       
       const botActionDelay = setTimeout(() => {
@@ -131,6 +147,7 @@ export default function Checkers({
           // No moves available, P1 wins
           setWinner(P1);
           setP1Score(prev => prev + 1);
+          soundEngine.playSFX("victory");
           return;
         }
 
@@ -148,13 +165,24 @@ export default function Checkers({
         newBoard[selectedMove.move.r][selectedMove.move.c] = movingPiece;
 
         let newP2Cap = p2Captures;
-        if (selectedMove.move.jump) {
+        const isCapture = Boolean(selectedMove.move.jump);
+        if (isCapture) {
           newBoard[selectedMove.move.jump.r][selectedMove.move.jump.c] = EMPTY;
           newP2Cap++;
         }
 
-        // King promotion
+        // King promotion check
+        const isKingPromotion = selectedMove.move.r === 7 && movingPiece !== P2_KING;
         if (selectedMove.move.r === 7) newBoard[selectedMove.move.r][selectedMove.move.c] = P2_KING;
+
+        // Play sound for bot move
+        if (isKingPromotion) {
+          soundEngine.playSFX("card_flip");
+        } else if (isCapture) {
+          soundEngine.playSFX("capture");
+        } else {
+          soundEngine.playSFX("move");
+        }
 
         const nextTurn = P1;
         const nextMoves = getAllValidMoves(nextTurn, newBoard);
@@ -165,6 +193,7 @@ export default function Checkers({
         if (nextMoves.length === 0) {
           newWinner = P2; 
           newP2Score++;
+          soundEngine.playSFX("defeat");
         }
 
         setBoard(newBoard);
@@ -173,25 +202,25 @@ export default function Checkers({
         setWinner(newWinner);
         setP2Score(newP2Score);
         
-        // 🎭 25% chance the bot reacts with an emote after playing
+        // 25% chance the bot reacts with an emote after playing
         if (Math.random() <= 0.25) {
           const reactionDelay = Math.floor(Math.random() * 1000) + 800;
           setTimeout(() => {
             const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
             const newEmoji = { id: Date.now() + Math.random(), emoji: randomEmote, role: P2 };
             setFloatingEmojis((prev) => [...prev, newEmoji]);
-            // Clear emote bubble after 2.5 seconds
             setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
           }, reactionDelay);
         }
 
-      }, thinkingDelay); // Human thinking delay
+      }, thinkingDelay);
 
       return () => clearTimeout(botActionDelay);
     }
   }, [turn, playMode, winner, board, p2Captures, p2Score]);
 
   const hostMatch = async () => {
+    soundEngine.playSFX("click");
     if (!myUserId) return alert("Must be logged in to play online.");
     const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const { data } = await supabase.from('checkers_matches').insert({
@@ -204,6 +233,7 @@ export default function Checkers({
   };
 
   const joinMatch = async (overrideCode?: string) => {
+    soundEngine.playSFX("click");
     const codeToJoin = typeof overrideCode === 'string' ? overrideCode : joinCode.toUpperCase();
     if (!myUserId || !codeToJoin) return;
     const { data, error } = await supabase.from('checkers_matches')
@@ -216,11 +246,11 @@ export default function Checkers({
     }
   };
 
-  // --- NEW FAKE MATCHMAKING FLOW FOR BOT INTEGRATION ---
+  // MATCHMAKING FLOW
   const startOnlineMatchmaking = () => {
+    soundEngine.playSFX("click");
     setPlayMode("searching");
     setTimeout(() => {
-      // If the user hasn't cancelled the search, transition to confirmed and assign bot
       setPlayMode(prev => {
         if (prev === "searching") {
           setLocalOpponent(getRandomBotOpponent());
@@ -228,18 +258,18 @@ export default function Checkers({
         }
         return prev;
       });
-    }, 2800); // Wait ~3s for radar animation
+    }, 2800);
   };
 
   const enterBotMatch = () => {
+    soundEngine.playSFX("click");
     setMatchId(`bot_match_${Date.now()}`);
     setMyPlayerRole(P1);
     setPlayMode("bot");
   };
 
-  // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {
-    if (isBotMode) return; // Handled by synchronous initialization
+    if (isBotMode) return;
     
     if (preloadedMatchId && myUserId) {
       joinDirectlyByUUID(preloadedMatchId);
@@ -310,7 +340,7 @@ export default function Checkers({
   const handleSquareClick = async (r: number, c: number) => {
     if (winner || playMode === "menu" || playMode === "searching" || playMode === "confirmed" || playMode === "host" || playMode === "join") return;
     if (playMode === "online" && turn !== myPlayerRole) return;
-    if (playMode === "bot" && turn === P2) return; // Disallow human moving bot pieces
+    if (playMode === "bot" && turn === P2) return;
 
     const piece = board[r][c];
     const allPlayerMoves = getAllValidMoves(turn, board);
@@ -318,6 +348,7 @@ export default function Checkers({
 
     if ((turn === P1 && (piece === P1 || piece === P1_KING)) || (turn === P2 && (piece === P2 || piece === P2_KING))) {
       if (hasMandatoryJump && !allPlayerMoves.some(m => m.move.jump && m.from.r === r && m.from.c === c)) return;
+      soundEngine.playSFX("click");
       setSelected({ r, c });
       return;
     }
@@ -334,13 +365,24 @@ export default function Checkers({
         newBoard[r][c] = movingPiece;
 
         let newP1Cap = p1Captures, newP2Cap = p2Captures;
-        if (move.jump) {
-          newBoard[move.jump.r][move.jump.c] = EMPTY;
+        const isCapture = Boolean(move.jump);
+        if (isCapture) {
+          newBoard[move.jump!.r][move.jump!.c] = EMPTY;
           if (turn === P1) newP1Cap++; else newP2Cap++;
         }
 
+        const isKingPromotion = (turn === P1 && r === 0 && movingPiece !== P1_KING) || (turn === P2 && r === 7 && movingPiece !== P2_KING);
         if (turn === P1 && r === 0) newBoard[r][c] = P1_KING;
         if (turn === P2 && r === 7) newBoard[r][c] = P2_KING;
+
+        // SFX Trigger for human player move
+        if (isKingPromotion) {
+          soundEngine.playSFX("card_flip");
+        } else if (isCapture) {
+          soundEngine.playSFX("capture");
+        } else {
+          soundEngine.playSFX("move");
+        }
 
         const nextTurn = turn === P1 ? P2 : P1;
         const nextMoves = getAllValidMoves(nextTurn, newBoard);
@@ -352,6 +394,12 @@ export default function Checkers({
         if (nextMoves.length === 0) {
           newWinner = turn; 
           if (turn === P1) newP1Score++; else newP2Score++;
+
+          if (playMode === "online" || playMode === "bot") {
+            soundEngine.playSFX(newWinner === myPlayerRole ? "victory" : "defeat");
+          } else {
+            soundEngine.playSFX("victory");
+          }
         }
 
         if (playMode === "online") {
@@ -369,6 +417,7 @@ export default function Checkers({
   };
 
   const handleRematch = async () => {
+    soundEngine.playSFX("click");
     const nextStartingTurn = winner === P1 ? P2 : P1;
     if (playMode === "online") {
       await supabase.from('checkers_matches').update({
@@ -380,6 +429,7 @@ export default function Checkers({
   };
 
   const sendEmoji = async (emoji: string) => {
+    soundEngine.playSFX("click");
     setShowEmojiMenu(false);
     if (playMode === "online") {
       supabase.channel(`match_${matchId}`).send({
@@ -393,15 +443,20 @@ export default function Checkers({
   };
 
   const handleCopyCode = () => {
+    soundEngine.playSFX("click");
     navigator.clipboard.writeText(roomCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleExitGame = () => {
+    soundEngine.playSFX("click");
+    onClose();
+  };
+
   const isPlayableSquare = (r: number, c: number) => (r + c) % 2 === 1;
   const viewIndices = [0, 1, 2, 3, 4, 5, 6, 7];
   
-  // 🧭 FIXED: Board ONLY flips in Online Mode when you are Player 2. Local mode stays locked!
   const shouldFlipBoard = playMode === "online" && myPlayerRole === P2;
   
   const validMovesForSelected = selected ? getValidMovesForPiece(selected.r, selected.c, board[selected.r][selected.c], board) : [];
@@ -412,7 +467,6 @@ export default function Checkers({
   return (
     <div className="fixed inset-0 z-[100] bg-neutral-100 dark:bg-[#09090b] flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors">
       
-      {/* 🎊 INLINE STYLES FOR CELEBRATION CONFETTI */}
       <style>{`
         @keyframes confetti-fall {
           0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; }
@@ -420,14 +474,11 @@ export default function Checkers({
         }
       `}</style>
 
-      {/* =========================================
-          LOBBY MENU: MODERN DARK ARENA HUB
-          ========================================= */}
+      {/* LOBBY MENU */}
       {playMode === "menu" && (
         <div className="absolute inset-0 z-50 bg-[#09090b] flex items-center justify-center p-6">
           <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
             
-            {/* Header */}
             <div className="flex items-center gap-4 mb-8">
               <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
                 <span className="material-symbols-outlined text-2xl text-neutral-300">grid_4x4</span>
@@ -438,7 +489,6 @@ export default function Checkers({
               </div>
             </div>
 
-            {/* Online Match Button (CCFF00 Theme) */}
             <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
               <div className="flex justify-between items-start mb-4">
                 <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
@@ -455,7 +505,6 @@ export default function Checkers({
               <p className="text-xs text-neutral-400 font-medium leading-relaxed">Ranked & casual global<br/>matchmaking</p>
             </button>
 
-            {/* Private & Offline Match Buttons */}
             <div className="grid grid-cols-2 gap-4 mb-6">
               <button onClick={hostMatch} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
                 <div className="flex justify-between items-start w-full">
@@ -470,7 +519,7 @@ export default function Checkers({
                 </div>
               </button>
 
-              <button onClick={() => setPlayMode("local")} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+              <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("local"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
                 <div className="flex justify-between items-start w-full">
                   <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
                     <span className="material-symbols-outlined text-lg">sports_esports</span>
@@ -484,7 +533,6 @@ export default function Checkers({
               </button>
             </div>
 
-            {/* 👇 IMPLEMENTED: Join Room Input flex fix for mobile */}
             <div className="flex items-center gap-2 w-full mb-6">
               <div className="relative flex-1 min-w-0 flex items-center bg-[#09090b] border border-white/10 rounded-2xl p-1.5">
                 <div className="pl-3 pr-2 text-neutral-500 flex items-center justify-center">
@@ -508,7 +556,7 @@ export default function Checkers({
               </button>
             </div>
 
-            <button onClick={onClose} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
+            <button onClick={handleExitGame} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
               <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
             </button>
 
@@ -516,7 +564,7 @@ export default function Checkers({
         </div>
       )}
 
-      {/* 📡 LOCATING OPPONENT SCREEN */}
+      {/* LOCATING OPPONENT SCREEN */}
       {playMode === "searching" && (
         <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
           <div className="relative w-32 h-32 flex items-center justify-center mb-8">
@@ -529,13 +577,13 @@ export default function Checkers({
           </div>
           <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
           <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-          <button onClick={() => setPlayMode("menu")} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+          <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
             Abort Search
           </button>
         </div>
       )}
 
-      {/* 🤝 MATCH CONFIRMED SCREEN */}
+      {/* MATCH CONFIRMED SCREEN */}
       {playMode === "confirmed" && (
         <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
           <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] px-4 py-1.5 rounded-full font-headline font-black text-xs tracking-widest mb-10 flex items-center gap-2">
@@ -551,7 +599,6 @@ export default function Checkers({
               <span className="material-symbols-outlined text-black text-sm font-black">close</span>
             </div>
             
-            {/* 👇 IMPLEMENTED: Use bot human avatar icon */}
             <div className="w-20 h-20 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 flex items-center justify-center rotate-[5deg] shadow-2xl overflow-hidden relative z-10">
               <span className="material-symbols-outlined text-4xl text-indigo-400">
                 {localOpponent?.avatarIcon || "person"}
@@ -560,7 +607,6 @@ export default function Checkers({
           </div>
 
           <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
-          {/* 👇 IMPLEMENTED: Use human-like generated Bot Name */}
           <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || "Player 2"}</h2>
           <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
             <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
@@ -572,10 +618,10 @@ export default function Checkers({
         </div>
       )}
 
-      {/* --- IN-GAME ARENA --- */}
+      {/* IN-GAME ARENA */}
       {playMode !== "menu" && playMode !== "searching" && playMode !== "confirmed" && (
         <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
-          <button onClick={onClose} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
+          <button onClick={handleExitGame} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
           <div className="text-center">
@@ -587,7 +633,7 @@ export default function Checkers({
           </div>
           
           <div className="relative">
-            <button onClick={() => setShowEmojiMenu(!showEmojiMenu)} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
+            <button onClick={() => { soundEngine.playSFX("click"); setShowEmojiMenu(!showEmojiMenu); }} className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 active:scale-90 transition-all shadow-sm">
               <span className="material-symbols-outlined text-lg">add_reaction</span>
             </button>
             
@@ -602,7 +648,7 @@ export default function Checkers({
         </div>
       )}
 
-      {/* --- HOSTING / JOINING WAITING SCREEN --- */}
+      {/* HOSTING / JOINING WAITING SCREEN */}
       {(playMode === "host" || playMode === "join") && (
         <div className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center p-6 relative">
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] p-8 w-full shadow-[0_20px_40px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.3)] flex flex-col items-center text-center relative overflow-hidden">
@@ -631,7 +677,7 @@ export default function Checkers({
                 </div>
               </div>
             )}
-            <button onClick={() => playMode === "host" ? setPlayMode("menu") : onClose()} className="w-full mt-8 py-3.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700 relative z-10">
+            <button onClick={() => { soundEngine.playSFX("click"); playMode === "host" ? setPlayMode("menu") : onClose(); }} className="w-full mt-8 py-3.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-transparent hover:border-neutral-200 dark:hover:border-neutral-700 relative z-10">
               Cancel Match
             </button>
           </div>
@@ -702,14 +748,11 @@ export default function Checkers({
               );
             })}
 
-            {/* 🎉 VICTORY CELEBRATION DIALOG */}
+            {/* VICTORY CELEBRATION DIALOG */}
             {winner && (
               <div className="absolute inset-0 z-50 flex items-center justify-center p-6 animate-fade-in overflow-hidden">
-                
-                {/* Darken Background */}
                 <div className="absolute inset-0 bg-white/60 dark:bg-black/60 backdrop-blur-md rounded-[2.5rem]"></div>
                 
-                {/* 🎊 RENDER CONFETTI PARTICLES */}
                 {confettiPieces.map(p => (
                   <div key={p.id} className="absolute top-0 z-[60] pointer-events-none" style={{
                     left: p.left,
@@ -741,7 +784,7 @@ export default function Checkers({
                   </p>
                   
                   <div className="w-full flex gap-3 mt-8">
-                    <button onClick={onClose} className="flex-1 py-3.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm">Exit Arena</button>
+                    <button onClick={handleExitGame} className="flex-1 py-3.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm">Exit Arena</button>
                     <button onClick={handleRematch} className="flex-1 py-3.5 bg-[#CCFF00] text-black font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-[0_4px_15px_rgba(204,255,0,0.3)] hover:bg-[#b3e600]">Play Again</button>
                   </div>
                 </div>
@@ -765,7 +808,6 @@ export default function Checkers({
                     const isTarget = activeMoveTargets.some((m) => m.r === r && m.c === c);
                     const piece = board[r][c];
                     
-                    // 🪵 PREMIUM WOODEN PIECE STYLING
                     let pieceOuter = "";
                     let pieceRing = "";
                     let pieceCenter = "";

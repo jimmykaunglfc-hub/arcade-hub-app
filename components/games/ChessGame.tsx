@@ -3,8 +3,9 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Chess, Square } from "chess.js";
 import { supabase } from "../../lib/supabaseClient";
+import { soundEngine } from "../../lib/soundManager";
 
-// 👇 NEW: Import the Bot Utility
+// 👇 Import the Bot Utility
 import { getRandomBotOpponent } from "../../lib/botUtils";
 
 interface ChessGameProps {
@@ -45,7 +46,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     isBotMode || preloadedMatchId ? "play" : "menu"
   );
   
-  // 👇 NEW: State to store generated bot profile
+  // State to store generated bot profile
   const [localOpponent, setLocalOpponent] = useState<any>(opponent || null);
 
   const [matchId, setMatchId] = useState<string | null>(
@@ -119,8 +120,16 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
         setFen(updatedGame.fen());
         setLastMove(payload.payload.lastMove);
         updateGameStatus(updatedGame);
+
+        if (updatedGame.isCheckmate()) {
+          const isWinner = (playerColor === "white" && updatedGame.turn() === "b") || (playerColor === "black" && updatedGame.turn() === "w");
+          soundEngine.playSFX(isWinner ? "victory" : "defeat");
+        } else {
+          soundEngine.playSFX("move");
+        }
       })
       .on("broadcast", { event: "reaction" }, (payload) => {
+        soundEngine.playSFX("beep");
         setOppReaction(payload.payload.emoji);
         setTimeout(() => setOppReaction(null), 3500);
       })
@@ -144,7 +153,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
       supabase.removeChannel(matchChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchId, myUserId, localOpponent, view]);
+  }, [matchId, myUserId, localOpponent, view, playerColor]);
 
   // 🤖 LOCAL JOE YOKE BOT ENGINE (Greedy Logic)
   useEffect(() => {
@@ -153,7 +162,6 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     // The Bot acts when it is Black's turn and the game isn't over
     if (isBotMatch && view === "play" && game.turn() === "b" && !gameOver.isOver) {
       
-      // 🧠 Calculate a natural human reaction time (1.5s to 3.5s)
       const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
       
       const botTimer = setTimeout(() => {
@@ -169,18 +177,19 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
 
         makeMove(randomMove.from as Square, randomMove.to as Square);
         
-        // 🎭 25% chance the bot reacts with an emote after playing
+        // 25% chance the bot reacts with an emote after playing
         if (Math.random() <= 0.25) {
           const reactionDelay = Math.floor(Math.random() * 1000) + 800;
           setTimeout(() => {
             const EMOJIS = ["🔥", "🤯", "🥶", "😂", "😡"];
             const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+            soundEngine.playSFX("beep");
             setOppReaction(randomEmote);
             setTimeout(() => setOppReaction(null), 3500);
           }, reactionDelay);
         }
 
-      }, thinkingDelay); // Human thinking delay
+      }, thinkingDelay);
 
       return () => clearTimeout(botTimer);
     }
@@ -228,7 +237,6 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
 
   const currentTurnColor = game.turn() === "w" ? "white" : "black";
   
-  // 🎯 LOCAL PASS & PLAY: Keep board stationary ("white") so phone sits flat between 2 players
   const isBotMatchNow = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
   const displayOrientation = matchId && !isBotMatchNow ? playerColor : "white";
 
@@ -238,7 +246,6 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     
     const isBotMatch = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
 
-    // Prevent human moving if opponent hasn't joined (ignoring Bot matches)
     if (matchId && !isBotMatch && !opponentConnected) {
       showToast("Waiting for opponent to connect!");
       return false;
@@ -248,6 +255,18 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     try {
       const move = gameCopy.move({ from: source, to: target, promotion: "q" });
       if (!move) return false;
+
+      // Play appropriate sound effect based on move result
+      if (gameCopy.isCheckmate()) {
+        const isWinner = matchId && !isBotMatch
+          ? (playerColor === "white" && gameCopy.turn() === "b") || (playerColor === "black" && gameCopy.turn() === "w")
+          : gameCopy.turn() === "b"; // Human player is always White in bot matches
+        soundEngine.playSFX(isWinner ? "victory" : "defeat");
+      } else if (move.captured) {
+        soundEngine.playSFX("capture");
+      } else {
+        soundEngine.playSFX("move");
+      }
 
       setGame(gameCopy);
       setFen(gameCopy.fen());
@@ -269,7 +288,6 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     }
   };
 
-  // Convert Pointer X/Y coordinates directly into a board Square
   const getSquareFromCoords = (clientX: number, clientY: number): Square | null => {
     if (!boardRef.current) return null;
     const rect = boardRef.current.getBoundingClientRect();
@@ -290,13 +308,11 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     return `${file}${rank}` as Square;
   };
 
-  // 👆 TAP & DRAG POINTER HANDLERS
   const handlePointerDown = (e: React.PointerEvent) => {
     if (gameOver.isOver) return;
     const sq = getSquareFromCoords(e.clientX, e.clientY);
     if (!sq) return;
 
-    // Check Turn Rights (In Bot Match, player is ALWAYS white)
     const isBotMatch = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
     const isMyTurn = matchId
       ? isBotMatch
@@ -304,7 +320,6 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
         : (playerColor === "white" && game.turn() === "w") || (playerColor === "black" && game.turn() === "b")
       : true;
 
-    // If tapping an already highlighted move target -> Execute Tap-to-Move
     if (selectedSquare && legalMoves.includes(sq)) {
       makeMove(selectedSquare, sq);
       return;
@@ -312,11 +327,11 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
 
     const piece = game.get(sq);
     if (piece && piece.color === game.turn() && isMyTurn) {
+      soundEngine.playSFX("click");
       setSelectedSquare(sq);
       const moves = game.moves({ square: sq, verbose: true }).map((m) => m.to as Square);
       setLegalMoves(moves);
 
-      // Initialize Drag preview
       setDragSquare(sq);
       setDragPos({ x: e.clientX, y: e.clientY });
     } else {
@@ -343,6 +358,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   };
 
   const resetGame = () => {
+    soundEngine.playSFX("click");
     const newGame = new Chess();
     setGame(newGame);
     setFen(newGame.fen());
@@ -361,12 +377,13 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   };
 
   const handleExit = () => {
+    soundEngine.playSFX("click");
     if (matchId) setMatchId(null);
     setView("menu");
   };
 
-  // --- NEW FAKE MATCHMAKING FLOW FOR BOT INTEGRATION ---
   const startOnlineMatchmaking = () => {
+    soundEngine.playSFX("click");
     setView("searching");
     setTimeout(() => {
       setView(prev => {
@@ -376,10 +393,11 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
         }
         return prev;
       });
-    }, 2800); // Wait ~3s for radar animation
+    }, 2800);
   };
 
   const enterBotMatch = () => {
+    soundEngine.playSFX("click");
     setMatchId(`bot_match_${Date.now()}`);
     setPlayerColor("white");
     setView("play");
@@ -392,15 +410,12 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   const boardFiles = displayOrientation === "white" ? files : [...files].reverse();
   const boardRanks = displayOrientation === "white" ? ranks : [...ranks].reverse();
 
-  // =========================================
-  // LOBBY MENU: MODERN DARK ARENA HUB
-  // =========================================
+  // LOBBY MENU
   if (view === "menu") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6 animate-fade-in">
         <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
           
-          {/* Header */}
           <div className="flex items-center gap-4 mb-8">
             <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
               <span className="material-symbols-outlined text-2xl text-neutral-300">workspace_premium</span>
@@ -411,7 +426,6 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
             </div>
           </div>
 
-          {/* Online Match Button (CCFF00 Theme) */}
           <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
             <div className="flex justify-between items-start mb-4">
               <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
@@ -428,9 +442,8 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
             <p className="text-xs text-neutral-400 font-medium leading-relaxed">Ranked & casual global<br/>matchmaking</p>
           </button>
 
-          {/* Private & Offline Match Buttons */}
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <button onClick={() => { setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+            <button onClick={() => { soundEngine.playSFX("click"); setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
               <div className="flex justify-between items-start w-full">
                 <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
                   <span className="material-symbols-outlined text-lg">dns</span>
@@ -443,7 +456,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
               </div>
             </button>
 
-            <button onClick={() => { setMatchId(null); setView("play"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+            <button onClick={() => { soundEngine.playSFX("click"); setMatchId(null); setView("play"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
               <div className="flex justify-between items-start w-full">
                 <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
                   <span className="material-symbols-outlined text-lg">sports_esports</span>
@@ -457,7 +470,6 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
             </button>
           </div>
 
-          {/* 👇 IMPLEMENTED: Join Room Input flex fix for mobile */}
           <div className="flex items-center gap-2 w-full mb-6">
             <div className="relative flex-1 min-w-0 flex items-center bg-[#09090b] border border-white/10 rounded-2xl p-1.5">
               <div className="pl-3 pr-2 text-neutral-500 flex items-center justify-center">
@@ -473,7 +485,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
               />
             </div>
             <button
-              onClick={() => { if (joinInput.length >= 4) { setMatchId(joinInput.trim().toUpperCase()); setView("play"); } }}
+              onClick={() => { if (joinInput.length >= 4) { soundEngine.playSFX("click"); setMatchId(joinInput.trim().toUpperCase()); setView("play"); } }}
               disabled={joinInput.length < 4}
               className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
             >
@@ -481,7 +493,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
             </button>
           </div>
 
-          <button onClick={onClose} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
+          <button onClick={() => { soundEngine.playSFX("click"); onClose(); }} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
             <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
           </button>
 
@@ -490,9 +502,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     );
   }
 
-  // =========================================
-  // 📡 LOCATING OPPONENT SCREEN
-  // =========================================
+  // LOCATING OPPONENT SCREEN
   if (view === "searching") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
@@ -506,16 +516,14 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
         </div>
         <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
         <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-        <button onClick={() => setView("menu")} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
           Abort Search
         </button>
       </div>
     );
   }
 
-  // =========================================
-  // 🤝 MATCH CONFIRMED SCREEN
-  // =========================================
+  // MATCH CONFIRMED SCREEN
   if (view === "confirmed") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
@@ -532,7 +540,6 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
             <span className="material-symbols-outlined text-black text-sm font-black">close</span>
           </div>
           
-          {/* 👇 IMPLEMENTED: Use bot human avatar icon */}
           <div className="w-20 h-20 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 flex items-center justify-center rotate-[5deg] shadow-2xl overflow-hidden relative z-10">
             <span className="material-symbols-outlined text-4xl text-indigo-400">
               {localOpponent?.avatarIcon || "person"}
@@ -541,7 +548,6 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
         </div>
 
         <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
-        {/* 👇 IMPLEMENTED: Use human-like generated Bot Name */}
         <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || "Player 2"}</h2>
         <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
           <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
@@ -554,9 +560,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     );
   }
 
-  // =========================================
   // HOST WAITING SCREEN
-  // =========================================
   if (view === "host") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white">
@@ -584,7 +588,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
             <div className="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-2xl p-2 pl-6 mb-6">
               <span className="font-headline font-bold text-2xl tracking-[0.3em] text-indigo-300">{matchId}</span>
               <button
-                onClick={() => { navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                onClick={() => { soundEngine.playSFX("click"); navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
                 className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider"
               >
                 <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
@@ -600,9 +604,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     );
   }
 
-  // =========================================
   // MAIN GAME BOARD
-  // =========================================
   const isBotOpponent = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
 
   return (
@@ -699,7 +701,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
           </div>
         </div>
 
-        {/* ⚡ NATIVE MOBILE POINTER CHESSBOARD GRID */}
+        {/* NATIVE MOBILE POINTER CHESSBOARD GRID */}
         <div className="w-full p-2 bg-[#18181b] rounded-[24px] shadow-2xl border border-white/10 relative overflow-hidden">
           <div
             ref={boardRef}
@@ -781,7 +783,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
             </div>
             {matchId && !isBotOpponent && (
               <button
-                onClick={() => setShowReactionMenu(!showReactionMenu)}
+                onClick={() => { soundEngine.playSFX("click"); setShowReactionMenu(!showReactionMenu); }}
                 className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center text-neutral-400 hover:text-white relative"
               >
                 <span className="material-symbols-outlined text-lg">add_reaction</span>
@@ -808,6 +810,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
               <button
                 key={emoji}
                 onClick={() => {
+                  soundEngine.playSFX("click");
                   setShowReactionMenu(false);
                   setMyReaction(emoji);
                   setTimeout(() => setMyReaction(null), 3500);

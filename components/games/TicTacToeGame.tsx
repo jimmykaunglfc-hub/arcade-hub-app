@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { soundEngine } from "../../lib/soundManager";
 
 // 🤖 Import Bot Utility for Joe Yoke Opponents
 import { getRandomBotOpponent } from "../../lib/botUtils";
@@ -85,7 +86,18 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
         const { board: newBoard, turn: nextTurn, winner: winState, winningLine: line, scores: newScores } = payload.payload;
         if (newBoard) setBoard(newBoard);
         if (nextTurn) setTurn(nextTurn);
-        if (winState !== undefined) setWinner(winState);
+        
+        if (winState !== undefined) {
+          setWinner(winState);
+          if (winState === "draw") {
+            soundEngine.playSFX("defeat");
+          } else if (winState) {
+            soundEngine.playSFX(winState === myPlayerSymbol ? "victory" : "defeat");
+          }
+        } else if (newBoard) {
+          soundEngine.playSFX("move");
+        }
+
         if (line !== undefined) setWinningLine(line);
         if (newScores) setScores(newScores);
       })
@@ -108,7 +120,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
       matchChannel.untrack();
       supabase.removeChannel(matchChannel);
     };
-  }, [matchId, myUserId, localOpponent, view]);
+  }, [matchId, myUserId, localOpponent, view, myPlayerSymbol]);
 
   useEffect(() => {
     if (view === "host" && opponentConnected) {
@@ -222,12 +234,21 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
 
       if (gameResult.winner === "draw") {
         newScores = { ...newScores, ties: newScores.ties + 1 };
+        soundEngine.playSFX("defeat");
       } else {
         const winPlayer = gameResult.winner as Player;
         newScores = { ...newScores, [winPlayer]: newScores[winPlayer] + 1 };
+        
+        const isBotOpponent = localOpponent?.isBot || matchId?.startsWith("bot_") || gameMode !== "pvp";
+        if (matchId && !isBotOpponent) {
+          soundEngine.playSFX(winPlayer === myPlayerSymbol ? "victory" : "defeat");
+        } else {
+          soundEngine.playSFX("victory");
+        }
       }
       setScores(newScores);
     } else {
+      soundEngine.playSFX("move");
       setTurn(nextTurn);
     }
 
@@ -244,7 +265,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
         },
       });
     }
-  }, [board, winner, winningLine, scores, channel, matchId, localOpponent, preloadedMatchId]);
+  }, [board, winner, winningLine, scores, channel, matchId, localOpponent, preloadedMatchId, myPlayerSymbol, gameMode]);
 
   // 🤖 BOT / AI MOVE TRIGGER
   useEffect(() => {
@@ -275,6 +296,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   }, [turn, winner, view, gameMode, board, makeMove, localOpponent, matchId]);
 
   const startNewGame = (mode: GameMode, forcedOpponent?: any) => {
+    soundEngine.playSFX("click");
     setGameMode(mode);
     setWinningLine(null);
     setWinner(null);
@@ -285,6 +307,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   };
 
   const resetBoard = () => {
+    soundEngine.playSFX("click");
     setWinningLine(null);
     setWinner(null);
     setBoard(Array(9).fill(null));
@@ -305,6 +328,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   };
 
   const handleExit = () => {
+    soundEngine.playSFX("click");
     if (matchId) setMatchId(null);
     if (onClose) {
       onClose();
@@ -314,6 +338,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   };
 
   const startOnlineMatchmaking = () => {
+    soundEngine.playSFX("click");
     setView("searching");
     setTimeout(() => {
       setView(prev => {
@@ -327,6 +352,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   };
 
   const enterBotMatch = () => {
+    soundEngine.playSFX("click");
     setMatchId(`bot_match_${Date.now()}`);
     showToast(`Playing against ${localOpponent?.name || 'Bot'}`);
     startNewGame("ai_unbeatable", localOpponent);
@@ -334,9 +360,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
 
   const isBotOpponent = localOpponent?.isBot || matchId?.startsWith("bot_") || gameMode !== "pvp";
 
-  // =========================================
-  // 1️⃣ LOBBY / MENU VIEW
-  // =========================================
+  // LOBBY / MENU VIEW
   if (view === "menu") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6 animate-fade-in">
@@ -369,7 +393,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
           </button>
 
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <button onClick={() => { setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+            <button onClick={() => { soundEngine.playSFX("click"); setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
               <div className="flex justify-between items-start w-full">
                 <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
                   <span className="material-symbols-outlined text-lg">dns</span>
@@ -411,7 +435,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
               />
             </div>
             <button
-              onClick={() => { if (joinInput.length >= 4) { setMatchId(joinInput.trim().toUpperCase()); setView("play"); } }}
+              onClick={() => { if (joinInput.length >= 4) { soundEngine.playSFX("click"); setMatchId(joinInput.trim().toUpperCase()); setView("play"); } }}
               disabled={joinInput.length < 4}
               className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
             >
@@ -427,9 +451,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     );
   }
 
-  // =========================================
-  // 2️⃣ SEARCHING & CONFIRMED SCREENS
-  // =========================================
+  // SEARCHING & CONFIRMED SCREENS
   if (view === "searching") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
@@ -443,7 +465,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
         </div>
         <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
         <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-        <button onClick={() => setView("menu")} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
           Abort Search
         </button>
       </div>
@@ -486,9 +508,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     );
   }
 
-  // =========================================
-  // 3️⃣ HOST WAITING VIEW
-  // =========================================
+  // HOST WAITING VIEW
   if (view === "host") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white">
@@ -518,7 +538,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
             <div className="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-2xl p-2 pl-6 mb-6">
               <span className="font-headline font-bold text-2xl tracking-[0.3em] text-amber-300">{matchId}</span>
               <button
-                onClick={() => { navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                onClick={() => { soundEngine.playSFX("click"); navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
                 className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider"
               >
                 <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
@@ -535,9 +555,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     );
   }
 
-  // =========================================
-  // 4️⃣ MAIN GAMEPLAY ARENA
-  // =========================================
+  // MAIN GAMEPLAY ARENA
   return (
     <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors text-white select-none">
       

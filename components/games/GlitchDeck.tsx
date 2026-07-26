@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { soundEngine } from "@/lib/soundManager";
 
 type PenaltyTheme = 'Standard' | 'Drink' | 'Truth' | 'Dare';
 const PENALTY_THEMES: PenaltyTheme[] = ['Standard', 'Drink', 'Truth', 'Dare'];
@@ -19,10 +20,12 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
   const [showPenalty, setShowPenalty] = useState(false);
 
   const cycleTheme = () => {
+    soundEngine.playSFX("click");
     setPenaltyTheme(prev => PENALTY_THEMES[(PENALTY_THEMES.indexOf(prev) + 1) % PENALTY_THEMES.length]);
   };
 
   const startGame = () => {
+    soundEngine.playSFX("click");
     const newCards = Array.from({ length: playerCount }).map((_, i) => ({
       id: i,
       isGlitch: false,
@@ -45,18 +48,26 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
     setCards(newCards);
 
     if (newCards[index].isGlitch) {
+      soundEngine.playSFX("laser");
       if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
         window.navigator.vibrate([200, 100, 300]);
       }
       setTimeout(() => {
+        soundEngine.playSFX("defeat");
         setGameStatus('gameover');
         setShowPenalty(true);
       }, 600);
     } else {
+      soundEngine.playSFX("card_flip");
       if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
         window.navigator.vibrate(50);
       }
     }
+  };
+
+  const handleExit = () => {
+    soundEngine.playSFX("click");
+    onClose();
   };
 
   return (
@@ -65,7 +76,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
       {/* 🎮 TOP HEADER CONTROL BAR */}
       <header className="w-full h-14 bg-surface/90 backdrop-blur-md flex items-center justify-between px-4 border-b border-white/10 pt-safe">
         <button 
-          onClick={onClose} 
+          onClick={handleExit} 
           className="flex items-center gap-1 text-xs font-bold text-primary hover:opacity-70 transition-opacity"
         >
           <span className="material-symbols-outlined text-base">arrow_back</span> Exit Game
@@ -97,7 +108,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
             <input 
               type="range" min="2" max="12" 
               value={playerCount} 
-              onChange={(e) => setPlayerCount(parseInt(e.target.value))}
+              onChange={(e) => { soundEngine.playSFX("click"); setPlayerCount(parseInt(e.target.value)); }}
               className="w-full h-1.5 bg-black rounded-lg appearance-none cursor-pointer accent-primary border border-white/5"
             />
           </div>
@@ -135,7 +146,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
                 {cards.filter(c => !c.isFlipped).length} <span className="text-xs font-medium text-on-surface-variant">/ {playerCount}</span>
               </span>
             </div>
-            <button onClick={() => setGameStatus('setup')} className="bg-surface-variant/60 border border-white/5 p-2.5 rounded-full shadow-md active:scale-95 transition-transform">
+            <button onClick={() => { soundEngine.playSFX("click"); setGameStatus('setup'); }} className="bg-surface-variant/60 border border-white/5 p-2.5 rounded-full shadow-md active:scale-95 transition-transform">
               <span className="material-symbols-outlined text-white text-base block">refresh</span>
             </button>
           </div>
@@ -195,7 +206,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
           <div className="bg-surface border-2 border-red-500 rounded-[2.5rem] p-7 max-w-sm w-full text-center shadow-[0_0_50px_rgba(239,68,68,0.25)] relative overflow-hidden">
             
             <button 
-              onClick={() => setShowPenalty(false)} 
+              onClick={() => { soundEngine.playSFX("click"); setShowPenalty(false); }} 
               className="absolute top-4 right-4 text-on-surface-variant hover:text-white bg-white/5 p-1.5 rounded-full transition-colors"
             >
               <span className="material-symbols-outlined text-base block">close</span>
@@ -218,7 +229,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
             </div>
 
             <button 
-              onClick={() => { setShowPenalty(false); setGameStatus('setup'); }} 
+              onClick={() => { soundEngine.playSFX("click"); setShowPenalty(false); setGameStatus('setup'); }} 
               className="w-full py-3.5 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl tracking-widest transition-transform active:scale-95 shadow-md flex items-center justify-center gap-2 text-xs"
             >
               <span className="material-symbols-outlined text-sm">refresh</span> REBOOT DECK

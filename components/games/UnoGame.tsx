@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { soundEngine } from "../../lib/soundManager";
 
 // 🤖 Import the Bot Utility for Joe Yoke
 import { getRandomBotOpponent } from "../../lib/botUtils";
@@ -154,6 +155,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   }, [opponentConnected, view]);
 
   const startModeGame = useCallback((modeId: ModeId, forcedOpponent?: any) => {
+    soundEngine.playSFX("click");
     const isSpecial = modeId === "2v2" || modeId === "4p";
     let initialDeck = generateDeck(isSpecial);
 
@@ -215,6 +217,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
   // --- MATCHMAKING & ROUTING FLOWS ---
   const startOnlineMatchmaking = () => {
+    soundEngine.playSFX("click");
     setView("searching");
     setTimeout(() => {
       setView(prev => {
@@ -228,12 +231,14 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   };
 
   const enterBotMatch = () => {
+    soundEngine.playSFX("click");
     setMatchId(`bot_match_${Date.now()}`);
     showToastMessage(`Playing against ${localOpponent?.name || 'Bot'}`);
     startModeGame("quick", localOpponent);
   };
 
   const handleExit = () => {
+    soundEngine.playSFX("click");
     if (matchId) setMatchId(null);
     if (onClose) {
       onClose();
@@ -250,6 +255,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   };
 
   const drawCardForPlayer = (pId: number, count = 1) => {
+    soundEngine.playSFX("card_flip");
     if (deck.length < count) {
       const newDeck = [...discardPile.slice(0, discardPile.length - 1)];
       for (let i = newDeck.length - 1; i > 0; i--) {
@@ -280,6 +286,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   };
 
   const handleCallUno = () => {
+    soundEngine.playSFX("beep");
     setUnoCalled(prev => ({ ...prev, 0: true }));
     setStatusMsg("UNO! 📢");
   };
@@ -289,9 +296,17 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     const pConfig = players.find(p => p.id === pId)!;
     const remainingAfterPlay = (hands[pId]?.length || 0) - 1;
 
+    // SFX Trigger for special cards or normal placement
+    if (["draw2", "wild4", "skip", "reverse"].includes(card.value)) {
+      soundEngine.playSFX("laser");
+    } else {
+      soundEngine.playSFX("card_flip");
+    }
+
     if (remainingAfterPlay === 1 && !unoCalled[pId]) {
       if (pConfig.isBot) {
         if (Math.random() < 0.9) {
+          soundEngine.playSFX("beep");
           setUnoCalled(prev => ({ ...prev, [pId]: true }));
           setStatusMsg(`${pConfig.name} called UNO! 📢`);
         } else {
@@ -316,6 +331,9 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
       setWinnerPlayer(pConfig);
       setWinnerTeam(pConfig.team);
       setStatusMsg(`${pConfig.name} Wins!`);
+
+      const isUserWin = pConfig.team === players[0]?.team;
+      soundEngine.playSFX(isUserWin ? "victory" : "defeat");
       return;
     }
 
@@ -484,9 +502,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     return "-ml-[52px]";
   };
 
-  // =========================================
-  // 1️⃣ LOBBY / MENU VIEW
-  // =========================================
+  // LOBBY / MENU VIEW
   if (view === "menu") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white px-6 animate-fade-in">
@@ -525,7 +541,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
           </button>
 
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <button onClick={() => { setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+            <button onClick={() => { soundEngine.playSFX("click"); setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
               <div className="flex justify-between items-start w-full">
                 <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
                   <span className="material-symbols-outlined text-lg">dns</span>
@@ -567,7 +583,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
               />
             </div>
             <button
-              onClick={() => { if (joinInput.length >= 4) { setMatchId(joinInput.trim().toUpperCase()); setView("play"); } }}
+              onClick={() => { if (joinInput.length >= 4) { soundEngine.playSFX("click"); setMatchId(joinInput.trim().toUpperCase()); setView("play"); } }}
               disabled={joinInput.length < 4}
               className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
             >
@@ -583,9 +599,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     );
   }
 
-  // =========================================
-  // 📡 LOCATING OPPONENT SCREEN
-  // =========================================
+  // LOCATING OPPONENT SCREEN
   if (view === "searching") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
@@ -599,16 +613,14 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
         </div>
         <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
         <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-        <button onClick={() => setView("menu")} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
           Abort Search
         </button>
       </div>
     );
   }
 
-  // =========================================
-  // 🤝 MATCH CONFIRMED SCREEN
-  // =========================================
+  // MATCH CONFIRMED SCREEN
   if (view === "confirmed") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body">
@@ -645,9 +657,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     );
   }
 
-  // =========================================
-  // 2️⃣ HOST WAITING VIEW
-  // =========================================
+  // HOST WAITING VIEW
   if (view === "host") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white">
@@ -677,7 +687,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
             <div className="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-2xl p-2 pl-6 mb-6">
               <span className="font-headline font-bold text-2xl tracking-[0.3em] text-red-400">{matchId}</span>
               <button
-                onClick={() => { navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                onClick={() => { soundEngine.playSFX("click"); navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
                 className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider"
               >
                 <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
@@ -694,9 +704,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     );
   }
 
-  // =========================================
-  // 3️⃣ GAMEPLAY ARENA
-  // =========================================
+  // GAMEPLAY ARENA
   const topPlayer = players.find(p => p.position === "top");
   const leftPlayer = players.find(p => p.position === "left");
   const rightPlayer = players.find(p => p.position === "right");
@@ -912,8 +920,12 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                           card={card}
                           active={isPlayable}
                           onClick={() => {
-                            if (card.color === "wild") { setPendingWild(card); }
-                            else { executePlay(card, 0); }
+                            if (card.color === "wild") {
+                              soundEngine.playSFX("click");
+                              setPendingWild(card);
+                            } else {
+                              executePlay(card, 0);
+                            }
                           }}
                        />
                      </div>
@@ -932,7 +944,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                     <h2 className="text-lg font-black text-white mb-4 uppercase tracking-widest">Select Color</h2>
                     <div className="grid grid-cols-2 gap-4">
                         {COLORS.map((c) => (
-                          <button key={c} onClick={() => { executePlay(pendingWild, 0, c); setPendingWild(null); }} className={`w-16 h-16 rounded-xl border-2 shadow-lg transition-transform active:scale-95 ${getCardBg(c)}`}></button>
+                          <button key={c} onClick={() => { soundEngine.playSFX("click"); executePlay(pendingWild, 0, c); setPendingWild(null); }} className={`w-16 h-16 rounded-xl border-2 shadow-lg transition-transform active:scale-95 ${getCardBg(c)}`}></button>
                         ))}
                     </div>
                 </div>

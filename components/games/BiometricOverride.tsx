@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { soundEngine } from "@/lib/soundManager";
 
 // High-tech color palette for different fingers
 const NODE_COLORS = [
@@ -29,6 +30,7 @@ export default function BiometricOverride({ onClose }: { onClose?: () => void })
   const [winnerId, setWinnerId] = useState<number | null>(null);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const prevTouchLength = useRef<number>(0);
 
   // Multi-Touch Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -42,12 +44,20 @@ export default function BiometricOverride({ onClose }: { onClose?: () => void })
       colorIndex: index % NODE_COLORS.length
     }));
 
+    // Play SFX when a new finger touches down
+    if (currentTouches.length > prevTouchLength.current) {
+      soundEngine.playSFX("click");
+    }
+    prevTouchLength.current = currentTouches.length;
+
     setTouches(currentTouches);
 
     // Game Logic: Start scanning if 2 or more fingers are on screen
     if (currentTouches.length >= 2) {
       if (phase === 'idle') {
         setPhase('scanning');
+        soundEngine.playSFX("dice_roll"); // High-tech scanning sound trigger
+        
         // Trigger haptic feedback if available
         if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
           window.navigator.vibrate([50, 50, 50]);
@@ -75,6 +85,7 @@ export default function BiometricOverride({ onClose }: { onClose?: () => void })
         setPhase('idle');
         setWinnerId(null);
         setTouches([]);
+        prevTouchLength.current = 0;
       }
       return;
     }
@@ -87,15 +98,19 @@ export default function BiometricOverride({ onClose }: { onClose?: () => void })
     }));
 
     setTouches(currentTouches);
+    prevTouchLength.current = currentTouches.length;
 
     // Cancel scan if someone lets go early
     if (currentTouches.length < 2) {
+      if (phase === 'scanning') {
+        soundEngine.playSFX("defeat"); // Abort/Cancel chime
+      }
       setPhase('idle');
       if (timerRef.current) clearTimeout(timerRef.current);
     }
   };
 
-  // Timer Effect
+  // Timer Effect for Winner Lock-On
   useEffect(() => {
     if (phase === 'scanning') {
       timerRef.current = setTimeout(() => {
@@ -104,6 +119,9 @@ export default function BiometricOverride({ onClose }: { onClose?: () => void })
         if (randomWinner) {
           setWinnerId(randomWinner.id);
           setPhase('selected');
+          
+          // Victory SFX + Lock-On Alert
+          soundEngine.playSFX("victory");
           
           // Winning Haptic Feedback
           if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
@@ -117,6 +135,11 @@ export default function BiometricOverride({ onClose }: { onClose?: () => void })
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [phase, touches]);
+
+  const handleExit = () => {
+    soundEngine.playSFX("click");
+    if (onClose) onClose();
+  };
 
   return (
     <div 
@@ -134,10 +157,10 @@ export default function BiometricOverride({ onClose }: { onClose?: () => void })
         .animate-touch-pop { animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
       `}</style>
       
-      {/* 1. TOP HEADER (Bulletproof Layout Fix) */}
+      {/* 1. TOP HEADER */}
       <header className="absolute top-0 left-0 w-full z-50 px-6 pb-2 pointer-events-none" style={{ paddingTop: 'max(env(safe-area-inset-top), 1.5rem)' }}>
         <button 
-          onClick={onClose} 
+          onClick={handleExit} 
           onTouchStart={(e) => e.stopPropagation()} // Prevents the exit tap from triggering a game node
           className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors uppercase tracking-widest active:scale-95 pointer-events-auto"
         >

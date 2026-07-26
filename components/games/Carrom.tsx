@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { RealtimeChannel } from '@supabase/supabase-js';
-
-// 👇 NEW: Import the Bot Utility
+import { soundEngine } from "../../lib/soundManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 
 // --- HYPER-REALISTIC ENGINE CONSTANTS ---
@@ -39,54 +38,6 @@ interface Coin {
   falling?: boolean; 
   scale?: number;    
 }
-
-// 🔊 ZERO-LATENCY PROCEDURAL AUDIO ENGINE
-const playSound = (type: 'strike' | 'pocket' | 'foul' | 'bounce', intensity = 1) => {
-  if (typeof window === 'undefined') return;
-  try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
-    if (type === 'strike') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(140, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(intensity * 0.6, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-      osc.start(); 
-      osc.stop(ctx.currentTime + 0.1);
-    } else if (type === 'bounce') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(250, ctx.currentTime);
-      gain.gain.setValueAtTime(intensity * 0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
-      osc.start(); 
-      osc.stop(ctx.currentTime + 0.05);
-    } else if (type === 'pocket') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(300, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.5, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-      osc.start(); 
-      osc.stop(ctx.currentTime + 0.2);
-    } else if (type === 'foul') {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(90, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.4);
-      gain.gain.setValueAtTime(0.4, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-      osc.start(); 
-      osc.stop(ctx.currentTime + 0.4);
-    }
-  } catch(e) { console.error("Audio engine context blocked by browser"); }
-};
 
 const generateInitialCoins = (): Coin[] => {
   const coins: Coin[] = [];
@@ -165,7 +116,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   );
   const [gameRuleMode, setGameRuleMode] = useState<GameMode>("freestyle");
   
-  // 👇 NEW: State to store generated bot profile
   const [localOpponent, setLocalOpponent] = useState<any>(opponent || null);
 
   const [matchId, setMatchId] = useState<string>(
@@ -188,14 +138,14 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   const [winner, setWinner] = useState<1 | 2 | null>(null);
   const [showRules, setShowRules] = useState(false);
   const [toast, setToast] = useState<{msg: string, type: 'foul' | 'info' | 'success'} | null>(null);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(soundEngine.getMutedState());
 
   const [floatingEmojis, setFloatingEmojis] = useState<{id: number, emoji: string, role: number}[]>([]);
   const [showEmojiMenu, setShowEmojiMenu] = useState(false);
 
   const coinsRef = useRef<Coin[]>(generateInitialCoins());
   const turnSnapshotRef = useRef<Coin[]>([]);
-  const [renderTrigger, setRenderTrigger] = useState(0);
+  const [, setRenderTrigger] = useState(0);
   const isMovingRef = useRef(false);
   const didIShootRef = useRef(false); 
   
@@ -207,7 +157,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   const boardRef = useRef<SVGSVGElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  const isMutedRef = useRef(isMuted);
   const turnRef = useRef(turn);
   const myPlayerRoleRef = useRef(myPlayerRole);
   const gameRuleModeRef = useRef(gameRuleMode);
@@ -216,7 +165,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   // 🧭 PERSPECTIVE LOGIC: Rotates the board 180 degrees ONLY for P2 in Online Mode
   const shouldFlipBoard = playMode === "online" && myPlayerRole === 2;
 
-  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
   useEffect(() => { turnRef.current = turn; }, [turn]);
   useEffect(() => { myPlayerRoleRef.current = myPlayerRole; }, [myPlayerRole]);
   useEffect(() => { gameRuleModeRef.current = gameRuleMode; }, [gameRuleMode]);
@@ -247,7 +195,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     }
 
     if (preloadedMatchId && myUserId) {
-      if (preloadedMatchId.startsWith("bot_")) return; // double check skip for bots
+      if (preloadedMatchId.startsWith("bot_")) return;
       
       const connectFromChat = async () => {
         let code = preloadedMatchId;
@@ -288,10 +236,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     }
   }, [preloadedMatchId, myUserId, isBotMode, localOpponent]);
 
-  // 🤖 LOCAL JOE YOKE BOT ENGINE (Runs when turn === 2 in Bot Mode)
+  // 🤖 LOCAL BOT ENGINE (Runs when turn === 2 in Bot Mode)
   useEffect(() => {
     if (playMode === "bot" && turn === 2 && !winner) {
-      // 🧠 Calculate a natural human reaction time (1.5s to 3.5s)
       const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
 
       const botActionDelay = setTimeout(() => {
@@ -301,7 +248,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         const striker = currentCoins.find(c => c.type === "striker");
         if (!striker) return;
 
-        // Find viable targets based on rules
         let targetTypes = ["white", "black", "queen"];
         if (gameRuleMode === "classic" && p2Color) {
            targetTypes = [p2Color, "queen"];
@@ -310,16 +256,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         const targets = currentCoins.filter(c => c.active && targetTypes.includes(c.type));
         if (targets.length === 0) return;
 
-        // Pick a target randomly for human-like unpredictability 
         const target = targets[Math.floor(Math.random() * targets.length)];
         
-        // Slightly offset striker placement
         const botX = Math.max(220, Math.min(780, target.x + (Math.random() * 40 - 20)));
         setP2Slider(botX);
         striker.x = botX; 
         striker.y = 160;
 
-        // Simulate aiming duration, then calculate trajectory and fire
         setTimeout(() => {
            if (isMovingRef.current) return;
 
@@ -327,7 +270,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
            const dy = target.y - 160; 
            const dist = Math.hypot(dx, dy);
            
-           // Bot power scale mirrors max player power
            const botPower = 180 + Math.random() * 80; 
            const powerMultiplier = 0.22;
            const vx = (dx / dist) * botPower * powerMultiplier;
@@ -337,25 +279,23 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
            striker.vx = vx;
            striker.vy = vy;
            isMovingRef.current = true;
-           didIShootRef.current = true; // Claiming rights to trigger evaluateTurnEnd
+           didIShootRef.current = true;
            
-           if(!isMutedRef.current) playSound('strike', Math.min(botPower / 260, 1));
+           soundEngine.playSFX("strike");
            requestAnimationFrame(physicsLoop);
 
-           // 🎭 25% chance the bot reacts with an emote after playing
            if (Math.random() <= 0.25) {
              const reactionDelay = Math.floor(Math.random() * 1000) + 800;
              setTimeout(() => {
                const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
                const newEmoji = { id: Date.now() + Math.random(), emoji: randomEmote, role: 2 };
                setFloatingEmojis((prev) => [...prev, newEmoji]);
-               // Clear emote bubble after 2.5 seconds
                setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
              }, reactionDelay);
            }
-        }, 800); // 800ms aiming delay
+        }, 800);
 
-      }, thinkingDelay); // Human thinking delay
+      }, thinkingDelay);
 
       return () => clearTimeout(botActionDelay);
     }
@@ -367,40 +307,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       return () => clearTimeout(timer);
     }
   }, [toast]);
-
-  // 🎶 ATMOSPHERIC LOW-TONE BGM ENGINE
-  useEffect(() => {
-    if (isMuted || playMode === "menu" || playMode === "searching" || playMode === "confirmed" || typeof window === 'undefined') return;
-    try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-      
-      const osc1 = ctx.createOscillator();
-      const osc2 = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      
-      osc1.type = 'sine'; 
-      osc1.frequency.value = 65.41; 
-      osc2.type = 'sine'; 
-      osc2.frequency.value = 98.00; 
-      
-      gainNode.gain.value = 0.04; 
-      
-      osc1.connect(gainNode); 
-      osc2.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      
-      osc1.start(); 
-      osc2.start();
-      
-      return () => {
-        osc1.stop(); 
-        osc2.stop(); 
-        ctx.close();
-      };
-    } catch (e) { console.error("BGM Audio context failed"); }
-  }, [playMode, isMuted]);
 
   // 🎚️ DYNAMIC SLIDER SYNC WITH FLIP CORRECTION
   useEffect(() => {
@@ -464,6 +370,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         } else if (connectedPlayers < 2 && playModeRef.current === "online") {
           setToast({ msg: "Opponent Disconnected! You Win.", type: "success" });
           setWinner(myPlayerRoleRef.current);
+          soundEngine.playSFX("victory");
         }
       })
       .on('broadcast', { event: 'change_rules' }, (payload) => {
@@ -474,13 +381,12 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         const { vx, vy, startX } = payload.payload;
         const strikerObj = coinsRef.current.find(c => c.type === "striker");
         if (strikerObj) {
-          if(!isMutedRef.current) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
+          soundEngine.playSFX("strike");
           strikerObj.x = startX;
           strikerObj.y = turnRef.current === 1 ? 840 : 160;
           strikerObj.vx = vx;
           strikerObj.vy = vy;
           isMovingRef.current = true;
-          // The receiving player does NOT act as authoritative shooter
           didIShootRef.current = false; 
           turnSnapshotRef.current = JSON.parse(JSON.stringify(coinsRef.current));
           requestAnimationFrame(physicsLoop);
@@ -501,6 +407,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         setP1Slider(500); 
         setP2Slider(500);
         if (msg) setToast({ msg, type: msgType });
+        if (win) soundEngine.playSFX("victory");
         setRenderTrigger(prev => prev + 1);
       })
       .on('broadcast', { event: 'emoji' }, (payload) => {
@@ -523,6 +430,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   }, [shouldConnect]);
 
   const updateOnlineRules = (mode: GameMode) => {
+     soundEngine.playSFX("click");
      setGameRuleMode(mode);
      if (channelRef.current) {
         channelRef.current.send({ type: 'broadcast', event: 'change_rules', payload: { mode } });
@@ -530,6 +438,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   };
 
   const hostMatch = () => {
+    soundEngine.playSFX("click");
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     setMatchId(code); 
     setRoomCode(code); 
@@ -538,16 +447,16 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   };
 
   const joinMatch = () => {
+    soundEngine.playSFX("click");
     setMatchId(joinCode.toUpperCase()); 
     setMyPlayerRole(2); 
     setPlayMode("join");
   };
 
-  // --- NEW FAKE MATCHMAKING FLOW FOR BOT INTEGRATION ---
   const startOnlineMatchmaking = () => {
+    soundEngine.playSFX("click");
     setPlayMode("searching");
     setTimeout(() => {
-      // If the user hasn't cancelled the search, transition to confirmed and assign bot
       setPlayMode(prev => {
         if (prev === "searching") {
           setLocalOpponent(getRandomBotOpponent());
@@ -555,10 +464,11 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         }
         return prev;
       });
-    }, 2800); // Wait ~3s for radar animation
+    }, 2800);
   };
 
   const enterBotMatch = () => {
+    soundEngine.playSFX("click");
     setMatchId(`bot_match_${Date.now()}`);
     setMyPlayerRole(1);
     setPlayMode("bot");
@@ -622,7 +532,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       if (c1.x + c1.radius > BOUND_MAX) { c1.x = BOUND_MAX - c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
       if (c1.y - c1.radius < BOUND_MIN) { c1.y = BOUND_MIN + c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
       if (c1.y + c1.radius > BOUND_MAX) { c1.y = BOUND_MAX - c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
-      if (hitWall && !isMutedRef.current && Math.hypot(c1.vx, c1.vy) > 2) playSound('bounce', 0.5);
+      if (hitWall && Math.hypot(c1.vx, c1.vy) > 2) {
+        soundEngine.playSFX("move");
+      }
 
       const pockets = [
         {x: HOLE_POS, y: HOLE_POS}, 
@@ -635,7 +547,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         const dist = Math.hypot(c1.x - p.x, c1.y - p.y);
         if (dist < POCKET_TRIGGER && !c1.falling) {
           c1.falling = true;
-          if(!isMutedRef.current) playSound(c1.type === "striker" ? 'foul' : 'pocket');
+          soundEngine.playSFX(c1.type === "striker" ? "defeat" : "capture");
         }
       }
 
@@ -668,7 +580,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           c2.vx += p * c1.mass * nx * RESTITUTION; 
           c2.vy += p * c1.mass * ny * RESTITUTION;
           
-          if (!isMutedRef.current && Math.abs(p) > 1) playSound('bounce', Math.min(Math.abs(p) / 10, 1));
+          if (Math.abs(p) > 1) {
+            soundEngine.playSFX("move");
+          }
         }
       }
     }
@@ -679,10 +593,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       requestAnimationFrame(physicsLoop);
     } else {
       isMovingRef.current = false;
-      // 🛡️ AUTHORITATIVE TURN CALCULATION LOCK
       if (playMode === "local" || playMode === "bot" || didIShootRef.current) {
         evaluateTurnEnd();
-        didIShootRef.current = false; // Reset lock
+        didIShootRef.current = false;
       }
     }
   };
@@ -704,7 +617,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     let turnMsg = ""; 
     let msgType: 'foul' | 'info' | 'success' = 'info';
 
-    // Rule Resolution Engine
     if (strikerFoul) {
       fouled = true;
       if (turnRef.current === 1) newP1Score = Math.max(0, newP1Score - 5);
@@ -746,10 +658,12 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     if (fouled) {
       turnMsg = "Foul! Turn Lost.";
       msgType = "foul";
+      soundEngine.playSFX("defeat");
       nextTurn = turnRef.current === 1 ? 2 : 1;
     } else if (validPocket) {
       turnMsg = "Good Shot! Extra Turn.";
       msgType = "success";
+      soundEngine.playSFX("capture");
       nextTurn = turnRef.current;
     } else {
       nextTurn = turnRef.current === 1 ? 2 : 1;
@@ -777,6 +691,10 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
        if (newP2Color === "black" && blacksLeft === 0) win = 2;
     } else if (whitesLeft === 0 && blacksLeft === 0) {
        win = newP1Score > newP2Score ? 1 : (newP2Score > newP1Score ? 2 : 1);
+    }
+
+    if (win) {
+      soundEngine.playSFX("victory");
     }
 
     if (turnMsg) setToast({ msg: turnMsg, type: msgType });
@@ -811,11 +729,10 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   const handlePointerDown = (e: React.PointerEvent, coinId: string) => {
     if (coinId !== "striker" || isMovingRef.current || winner) return;
     if (playMode === "online" && turn !== myPlayerRole) return;
-    if (playMode === "bot" && turn === 2) return; // Prevent human from moving bot's turn
+    if (playMode === "bot" && turn === 2) return;
     setIsAiming(true);
   };
 
-  // 🎯 REAL-TIME BOUNDING BOX TRANSLATION MECHANISM
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isAiming || !boardRef.current) return;
     
@@ -860,7 +777,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       strikerObj.vy = vy;
       isMovingRef.current = true;
       didIShootRef.current = true; 
-      if(!isMutedRef.current) playSound('strike', Math.min(Math.hypot(vx, vy) / 50, 1));
+      soundEngine.playSFX("strike");
       
       if (playMode === "online" && channelRef.current) {
         channelRef.current.send({
@@ -875,6 +792,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   };
 
   const handleRematch = () => {
+    soundEngine.playSFX("click");
     coinsRef.current = generateInitialCoins();
     setWinner(null); 
     setTurn(1);
@@ -887,7 +805,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     setRenderTrigger(prev => prev + 1);
   };
 
+  const handleToggleMute = () => {
+    const muted = soundEngine.toggleMute();
+    setIsMuted(muted);
+  };
+
   const sendEmoji = (emoji: string) => {
+    soundEngine.playSFX("click");
     setShowEmojiMenu(false);
     if (playMode === "online" && channelRef.current) {
       channelRef.current.send({ type: 'broadcast', event: 'emoji', payload: { emoji, role: myPlayerRole } });
@@ -899,9 +823,15 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   };
 
   const handleCopyCode = () => {
+    soundEngine.playSFX("click");
     navigator.clipboard.writeText(roomCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleExitGame = () => {
+    soundEngine.playSFX("click");
+    onClose();
   };
 
   // --- DYNAMIC HUD VARIABLES ---
@@ -914,7 +844,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   const renderPlayerHUD = (role: 1 | 2, position: 'top' | 'bottom') => {
     const isMyTurn = turn === role;
     
-    // 👇 NEW: Check if the top player is the bot
     const isBot = role === 2 && (localOpponent?.isBot || playMode === "bot");
     const canUseSlider = isMyTurn && !winner && !isBot && (playMode === 'local' || myPlayerRole === role);
     const currentSlider = role === 1 ? p1Slider : p2Slider;
@@ -980,12 +909,11 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         .animate-slide-down { animation: slide-down 0.3s ease-out forwards; }
       `}</style>
 
-      {/* 🛡️ NEW ARENA LOBBY PANEL (MODERN UI) */}
+      {/* ARENA LOBBY PANEL */}
       {playMode === "menu" && (
         <div className="absolute inset-0 z-50 bg-[#09090b] flex items-center justify-center p-6">
           <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
             
-            {/* Header */}
             <div className="flex items-center gap-4 mb-6">
               <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
                 <span className="material-symbols-outlined text-2xl text-neutral-300">sports_esports</span>
@@ -996,23 +924,21 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               </div>
             </div>
 
-            {/* Rule Selector */}
             <div className="bg-[#09090b] border border-white/5 p-1 rounded-xl flex items-center mb-6">
               <button 
-                onClick={() => setGameRuleMode("freestyle")} 
+                onClick={() => { soundEngine.playSFX("click"); setGameRuleMode("freestyle"); }} 
                 className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${gameRuleMode === "freestyle" ? "bg-[#18181b] text-white shadow-sm border border-white/10" : "text-neutral-500 hover:text-neutral-300"}`}
               >
                 Freestyle
               </button>
               <button 
-                onClick={() => setGameRuleMode("classic")} 
+                onClick={() => { soundEngine.playSFX("click"); setGameRuleMode("classic"); }} 
                 className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${gameRuleMode === "classic" ? "bg-[#18181b] text-white shadow-sm border border-white/10" : "text-neutral-500 hover:text-neutral-300"}`}
               >
                 Classic
               </button>
             </div>
 
-            {/* Online Match Button (CCFF00 Theme) */}
             <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
               <div className="flex justify-between items-start mb-4">
                 <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
@@ -1029,7 +955,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               <p className="text-xs text-neutral-400 font-medium leading-relaxed">Ranked & casual global<br/>matchmaking</p>
             </button>
 
-            {/* Private & Offline Match Buttons */}
             <div className="grid grid-cols-2 gap-4 mb-6">
               <button onClick={hostMatch} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
                 <div className="flex justify-between items-start w-full">
@@ -1044,7 +969,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                 </div>
               </button>
 
-              <button onClick={() => setPlayMode("local")} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+              <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("local"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
                 <div className="flex justify-between items-start w-full">
                   <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
                     <span className="material-symbols-outlined text-lg">sports_esports</span>
@@ -1058,7 +983,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               </button>
             </div>
 
-            {/* 👇 IMPLEMENTED: Join Room Input flex fix for mobile */}
             <div className="flex items-center gap-2 w-full mb-6">
               <div className="relative flex-1 min-w-0 flex items-center bg-[#09090b] border border-white/10 rounded-2xl p-1.5">
                 <div className="pl-3 pr-2 text-neutral-500 flex items-center justify-center">
@@ -1082,7 +1006,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               </button>
             </div>
 
-            <button onClick={onClose} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
+            <button onClick={handleExitGame} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
               <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
             </button>
 
@@ -1090,7 +1014,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         </div>
       )}
 
-      {/* 📡 LOCATING OPPONENT SCREEN */}
+      {/* LOCATING OPPONENT SCREEN */}
       {playMode === "searching" && (
         <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
           <div className="relative w-32 h-32 flex items-center justify-center mb-8">
@@ -1103,13 +1027,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           </div>
           <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
           <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-          <button onClick={() => setPlayMode("menu")} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+          <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
             Abort Search
           </button>
         </div>
       )}
 
-      {/* 🤝 MATCH CONFIRMED SCREEN */}
+      {/* MATCH CONFIRMED SCREEN */}
       {playMode === "confirmed" && (
         <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
           <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] px-4 py-1.5 rounded-full font-headline font-black text-xs tracking-widest mb-10 flex items-center gap-2">
@@ -1125,7 +1049,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               <span className="material-symbols-outlined text-black text-sm font-black">close</span>
             </div>
             
-            {/* 👇 IMPLEMENTED: Use bot human avatar icon */}
             <div className="w-20 h-20 bg-indigo-500/20 rounded-2xl border border-indigo-500/30 flex items-center justify-center rotate-[5deg] shadow-2xl overflow-hidden relative z-10">
               <span className="material-symbols-outlined text-4xl text-indigo-400">
                 {localOpponent?.avatarIcon || "person"}
@@ -1134,7 +1057,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           </div>
 
           <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
-          {/* 👇 IMPLEMENTED: Use human-like generated Bot Name */}
           <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || "Player 2"}</h2>
           <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
             <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
@@ -1146,11 +1068,11 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         </div>
       )}
 
-      {/* ⚔️ HEADER HUB */}
+      {/* HEADER HUB */}
       {playMode !== "menu" && playMode !== "searching" && playMode !== "confirmed" && (
         <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
           <button 
-            onClick={onClose} 
+            onClick={handleExitGame} 
             className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:scale-90 shadow-sm"
           >
             <span className="material-symbols-outlined text-lg">close</span>
@@ -1159,7 +1081,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           <div className="text-center flex flex-col items-center">
             <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Carrom Matrix</h1>
             
-            {/* Live Room Rule selector for the Host */}
             {playMode === "online" && myPlayerRole === 1 ? (
                <div className="flex bg-neutral-200 dark:bg-neutral-800 p-0.5 rounded-md mt-1 scale-90 border border-neutral-300 dark:border-neutral-700">
                   <button 
@@ -1184,13 +1105,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           
           <div className="flex gap-2 relative">
             <button 
-              onClick={() => setIsMuted(!isMuted)} 
+              onClick={handleToggleMute} 
               className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90"
             >
               <span className="material-symbols-outlined text-lg">{isMuted ? "volume_off" : "volume_up"}</span>
             </button>
             <button 
-              onClick={() => setShowEmojiMenu(!showEmojiMenu)} 
+              onClick={() => { soundEngine.playSFX("click"); setShowEmojiMenu(!showEmojiMenu); }} 
               className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90"
             >
               <span className="material-symbols-outlined text-lg">add_reaction</span>
@@ -1211,7 +1132,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
             )}
             
             <button 
-              onClick={() => setShowRules(true)} 
+              onClick={() => { soundEngine.playSFX("click"); setShowRules(true); }} 
               className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 shadow-sm"
             >
               <span className="material-symbols-outlined text-lg">info</span>
@@ -1220,7 +1141,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         </div>
       )}
 
-      {/* --- WAITING SCREEN --- */}
+      {/* WAITING SCREEN */}
       {(playMode === "host" || playMode === "join") && (
         <div className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center p-6 relative z-10">
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] p-8 w-full shadow-[0_20px_40px_rgba(0,0,0,0.05)] flex flex-col items-center text-center relative overflow-hidden">
@@ -1248,7 +1169,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               </div>
             )}
             <button 
-              onClick={() => playMode === "host" ? setPlayMode("menu") : onClose()} 
+              onClick={() => { soundEngine.playSFX("click"); playMode === "host" ? setPlayMode("menu") : onClose(); }} 
               className="w-full mt-8 py-3.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all relative z-10"
             >
               Cancel Match
@@ -1277,7 +1198,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               <li>🔸 Sinking the striker is a foul (-5 PTS) and ends your turn.</li>
             </ul>
             <button 
-              onClick={() => setShowRules(false)} 
+              onClick={() => { soundEngine.playSFX("click"); setShowRules(false); }} 
               className="w-full mt-2 py-3 bg-neutral-900 dark:bg-white text-white dark:text-black font-bold text-xs uppercase tracking-wider rounded-xl"
             >
               Got It
@@ -1332,7 +1253,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                   </p>
                   <div className="w-full flex gap-3 mt-8">
                     <button 
-                      onClick={onClose} 
+                      onClick={handleExitGame} 
                       className="flex-1 py-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-sm"
                     >
                       Exit

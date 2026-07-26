@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { soundEngine } from "@/lib/soundManager";
 
 // Helper to generate random dice
 const rollDice = (count: number) => {
@@ -103,7 +104,7 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
   const [diceValues, setDiceValues] = useState<number[]>(rollDice(5));
   const [isCupOpen, setIsCupOpen] = useState(false);
   const [isRolling, setIsRolling] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(!soundEngine.getMutedState());
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [themeIndex, setThemeIndex] = useState(0);
   
@@ -112,12 +113,7 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
   const [isDragging, setIsDragging] = useState(false);
   const dragStartY = useRef(0);
   
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const activeTheme = THEMES[themeIndex];
-
-  useEffect(() => {
-    audioRef.current = new Audio('/sounds/dice-shake.mp3'); 
-  }, []);
 
   // --- CUSTOM CUP PHYSICS ENGINE ---
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -139,9 +135,11 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
     // Snap physics based on release position
     if (cupY < -60) {
       setCupY(-220); 
+      if (!isCupOpen) soundEngine.playSFX("card_flip");
       setIsCupOpen(true);
     } else {
       setCupY(0); 
+      if (isCupOpen) soundEngine.playSFX("card_flip");
       setIsCupOpen(false);
     }
     (e.target as HTMLElement).releasePointerCapture(e.pointerId);
@@ -154,10 +152,7 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
     setCupY(0);
     setIsCupOpen(false);
 
-    if (soundEnabled && audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {});
-    }
+    soundEngine.playSFX("dice_roll");
 
     setTimeout(() => {
       setDiceValues(rollDice(diceCount));
@@ -166,6 +161,7 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
   };
 
   const toggleCup = () => {
+    soundEngine.playSFX("card_flip");
     if (isCupOpen) {
       setCupY(0);
       setIsCupOpen(false);
@@ -176,13 +172,25 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
   };
 
   const handleDiceCountChange = () => {
+    soundEngine.playSFX("click");
     const newCount = diceCount === 5 ? 1 : diceCount + 1;
     setDiceCount(newCount);
     setDiceValues(rollDice(newCount));
   };
 
   const cycleTheme = () => {
+    soundEngine.playSFX("click");
     setThemeIndex((prev) => (prev + 1) % THEMES.length);
+  };
+
+  const handleToggleSound = () => {
+    const muted = soundEngine.toggleMute();
+    setSoundEnabled(!muted);
+  };
+
+  const handleExit = () => {
+    soundEngine.playSFX("click");
+    if (onClose) onClose();
   };
 
   // Hardware Shake Detection
@@ -227,14 +235,14 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
         .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
       `}</style>
 
-      {/* 1. TOP HEADER (Bulletproof Layout Fix) */}
+      {/* 1. TOP HEADER */}
       <header className="shrink-0 w-full z-50 px-6 pb-2" style={{ paddingTop: 'max(env(safe-area-inset-top), 1.5rem)' }}>
         <div className="flex justify-between items-start">
           
           {/* Left: Exit */}
           <div className="w-1/3 flex justify-start pt-2">
             <button 
-              onClick={onClose} 
+              onClick={handleExit} 
               className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors uppercase tracking-widest active:scale-95"
             >
               <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> Exit
@@ -256,10 +264,10 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
 
           {/* Right: Controls */}
           <div className="w-1/3 flex justify-end items-center gap-4 pt-1">
-            <button onClick={() => setIsRulesOpen(true)} className="text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
+            <button onClick={() => { soundEngine.playSFX("click"); setIsRulesOpen(true); }} className="text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
               <span className="material-symbols-outlined">info</span>
             </button>
-            <button onClick={() => setSoundEnabled(!soundEnabled)} className="text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
+            <button onClick={handleToggleSound} className="text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors">
               {soundEnabled ? (
                  <span className="material-symbols-outlined">volume_up</span>
               ) : (
@@ -344,7 +352,7 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-fade-in">
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 md:p-8 w-full max-w-sm shadow-2xl relative animate-pop-in">
             <button 
-              onClick={() => setIsRulesOpen(false)} 
+              onClick={() => { soundEngine.playSFX("click"); setIsRulesOpen(false); }} 
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:text-zinc-500 dark:hover:text-white bg-slate-100 dark:bg-zinc-800 w-8 h-8 flex items-center justify-center rounded-full transition-colors"
             >
               <span className="material-symbols-outlined text-sm">close</span>
@@ -398,7 +406,7 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
             </div>
             
             <button 
-              onClick={() => setIsRulesOpen(false)} 
+              onClick={() => { soundEngine.playSFX("click"); setIsRulesOpen(false); }} 
               className="w-full mt-6 bg-slate-900 dark:bg-white text-white dark:text-black font-bold py-3.5 rounded-xl active:scale-95 transition-transform"
             >
               Close Rulebook
