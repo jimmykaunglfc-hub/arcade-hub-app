@@ -19,6 +19,7 @@ const BALL_TYPES = {
 
 const COLOR_SEQUENCE = ["Yellow", "Green", "Brown", "Blue", "Pink", "Black"];
 const EMOJIS = ["👍", "😂", "🔥", "😡", "😭", "🤯"];
+const TURN_TIME_LIMIT = 30; // 30-second turn limit requirement
 
 interface Ball {
   id: number;
@@ -82,6 +83,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const [currentTurn, setCurrentTurn] = useState<"player1" | "player2">("player1");
   const [nextRequiredBall, setNextRequiredBall] = useState<string>("Red");
   const [targetedColor, setTargetedColor] = useState<string>("Red");
+  const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);
 
   const [gamePhase, setGamePhase] = useState<"REDS" | "LAST_RED_COLOR" | "COLORS_SEQUENCE">("REDS");
   const [colorSeqIndex, setColorSeqIndex] = useState<number>(0);
@@ -298,54 +300,112 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     };
   }, [shouldConnect, matchId, myUserId, playMode, myPlayerRole]);
 
-  // 🤖 LOCAL BOT ENGINE
-  useEffect(() => {
-    if (playMode === "bot" && currentTurn === "player2" && !winner && !isMoving) {
-      const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
+  // -------------------------------------------------------------
+  // 🤖 SMART SNOOKER BOT SHOT EXECUTION ENGINE
+  // -------------------------------------------------------------
+  const executeBotShot = useCallback(() => {
+    if (isMoving) return;
+    const cueBall = ballsRef.current.find((b) => b.isCue);
+    if (!cueBall) return;
 
-      const botTimer = setTimeout(() => {
-        const cueBall = ballsRef.current.find((b) => b.isCue);
-        if (!cueBall) return;
+    let activeTargets = ballsRef.current.filter((b) => !b.isCue && !b.isPotted);
+    if (nextRequiredBall === "Red") {
+      activeTargets = activeTargets.filter((b) => b.type === "Red");
+    } else if (nextRequiredBall === "Color") {
+      activeTargets = activeTargets.filter((b) => b.type !== "Red");
+    } else {
+      activeTargets = activeTargets.filter((b) => b.type === nextRequiredBall);
+    }
 
-        let activeTargets = ballsRef.current.filter((b) => !b.isCue && !b.isPotted);
-        if (nextRequiredBall === "Red") {
-          activeTargets = activeTargets.filter((b) => b.type === "Red");
-        } else if (nextRequiredBall === "Color") {
-          activeTargets = activeTargets.filter((b) => b.type !== "Red");
-        } else {
-          activeTargets = activeTargets.filter((b) => b.type === nextRequiredBall);
-        }
+    if (activeTargets.length === 0) return;
 
-        if (activeTargets.length === 0) return;
+    // Smart positioning: sort targets by distance to cue ball
+    activeTargets.sort((a, b) => {
+      const distA = Math.hypot(a.x - cueBall.x, a.y - cueBall.y);
+      const distB = Math.hypot(b.x - cueBall.x, b.y - cueBall.y);
+      return distA - distB;
+    });
 
-        const target = activeTargets[Math.floor(Math.random() * activeTargets.length)];
-        const dx = target.x - cueBall.x;
-        const dy = target.y - cueBall.y;
-        const shotAngle = Math.atan2(dy, dx) + (Math.random() * 0.1 - 0.05);
+    const target = activeTargets[0];
+    const dx = target.x - cueBall.x;
+    const dy = target.y - cueBall.y;
+    const shotAngle = Math.atan2(dy, dx) + (Math.random() * 0.06 - 0.03);
 
-        const power = 10 + Math.random() * 8;
-        cueBall.vx = Math.cos(shotAngle) * power;
-        cueBall.vy = Math.sin(shotAngle) * power;
+    const power = 11 + Math.random() * 7;
+    cueBall.vx = Math.cos(shotAngle) * power;
+    cueBall.vy = Math.sin(shotAngle) * power;
 
-        setIsBallInHand(false);
+    setIsBallInHand(false);
+    setIsMoving(true);
+    didIShootRef.current = true;
+    soundEngine.playSFX("strike");
+
+    if (Math.random() <= 0.25) {
+      const reactionDelay = Math.floor(Math.random() * 1000) + 800;
+      setTimeout(() => {
+        const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+        const newEmoji = { id: Date.now() + Math.random(), emoji: randomEmote, role: 2 };
+        setFloatingEmojis((prev) => [...prev, newEmoji]);
+        setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
+      }, reactionDelay);
+    }
+  }, [isMoving, nextRequiredBall]);
+
+  // -------------------------------------------------------------
+  // ⏱️ 30-SECOND TURN TIMER SYSTEM
+  // -------------------------------------------------------------
+  const handleTimeOut = useCallback(() => {
+    if (isMoving || winner) return;
+    soundEngine.playSFX("defeat");
+
+    if (playMode === "bot" && currentTurn === "player2") {
+      executeBotShot();
+    } else {
+      const cueBall = ballsRef.current.find((b) => b.isCue);
+      if (cueBall) {
+        if (isBallInHand) setIsBallInHand(false);
+        cueBall.vx = Math.cos(aimAngle) * 8;
+        cueBall.vy = Math.sin(aimAngle) * 8;
         setIsMoving(true);
         didIShootRef.current = true;
         soundEngine.playSFX("strike");
+        setToast({ msg: "Time expired! Auto shot executed.", type: "foul" });
+      }
+    }
+  }, [isMoving, winner, playMode, currentTurn, executeBotShot, aimAngle, isBallInHand]);
 
-        if (Math.random() <= 0.25) {
-          const reactionDelay = Math.floor(Math.random() * 1000) + 800;
-          setTimeout(() => {
-            const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-            const newEmoji = { id: Date.now() + Math.random(), emoji: randomEmote, role: 2 };
-            setFloatingEmojis((prev) => [...prev, newEmoji]);
-            setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
-          }, reactionDelay);
+  useEffect(() => {
+    if (playMode === "menu" || playMode === "searching" || playMode === "confirmed" || playMode === "host" || playMode === "join" || winner) return;
+    if (isMoving) return;
+
+    setTimeLeft(TURN_TIME_LIMIT);
+
+    const timerInterval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerInterval);
+          handleTimeOut();
+          return 0;
         }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [currentTurn, isMoving, winner, playMode, handleTimeOut]);
+
+  // 🤖 LOCAL BOT ENGINE TIMER
+  useEffect(() => {
+    if (playMode === "bot" && currentTurn === "player2" && !winner && !isMoving) {
+      const thinkingDelay = Math.floor(Math.random() * 2000) + 1200;
+
+      const botTimer = setTimeout(() => {
+        executeBotShot();
       }, thinkingDelay);
 
       return () => clearTimeout(botTimer);
     }
-  }, [currentTurn, playMode, winner, isMoving, nextRequiredBall]);
+  }, [currentTurn, playMode, winner, isMoving, executeBotShot]);
 
   // 📱 DYNAMIC RESIZE OBSERVER ENGINE
   useEffect(() => {
@@ -595,6 +655,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     setUiPower(0);
     setAimAngle(-Math.PI / 2);
     setSpinOffset({ x: 0, y: 0 });
+    setTimeLeft(TURN_TIME_LIMIT);
     turnTrackingRef.current = { redsPotted: 0, colorsPotted: [], firstHitBallType: "" };
   }, [baulkLineY, tableHeight, tableWidth]);
 
@@ -1099,7 +1160,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     } catch (_) {}
   };
 
-  // 🎯 ACCURATE BINDING POWER CALCULATOR ENGINE
   const updatePowerFromPointer = (clientY: number) => {
     if (!powerTrackRef.current) return;
     const rect = powerTrackRef.current.getBoundingClientRect();
@@ -1291,7 +1351,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                   soundEngine.playSFX("click");
                   handleExitToHome();
                 }}
-                className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
+                className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation"
               >
                 <span className="material-symbols-outlined text-base">shopping_cart</span>
                 Visit Store / Buy Points
@@ -1299,7 +1359,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
               <button
                 onClick={() => setShowNoPointsModal(false)}
-                className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5"
+                className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5 touch-manipulation"
               >
                 Dismiss
               </button>
@@ -1330,7 +1390,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
             <button
               onClick={startOnlineMatchmaking}
-              className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5"
+              className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5 touch-manipulation"
             >
               <div className="flex justify-between items-start mb-4">
                 <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
@@ -1356,7 +1416,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             <div className="grid grid-cols-2 gap-4 mb-6">
               <button
                 onClick={hostMatch}
-                className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]"
+                className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px] touch-manipulation"
               >
                 <div className="flex justify-between items-start w-full">
                   <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
@@ -1377,7 +1437,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                   soundEngine.playSFX("click");
                   setPlayMode("local");
                 }}
-                className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]"
+                className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px] touch-manipulation"
               >
                 <div className="flex justify-between items-start w-full">
                   <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
@@ -1411,7 +1471,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
               <button
                 onClick={joinMatch}
                 disabled={joinCode.length < 6}
-                className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5 uppercase"
+                className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5 uppercase touch-manipulation"
               >
                 Join
               </button>
@@ -1419,7 +1479,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
             <button
               onClick={handleExitToHome}
-              className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase"
+              className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase touch-manipulation"
             >
               <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
             </button>
@@ -1445,7 +1505,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
               soundEngine.playSFX("click");
               setPlayMode("menu");
             }}
-            className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase"
+            className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase touch-manipulation"
           >
             Abort Search
           </button>
@@ -1483,7 +1543,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
           <button
             onClick={enterBotMatch}
-            className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] uppercase"
+            className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] uppercase touch-manipulation"
           >
             Enter Match <span className="material-symbols-outlined">arrow_forward</span>
           </button>
@@ -1507,7 +1567,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                   <span className="text-amber-400 font-mono text-2xl font-black tracking-[0.25em] pl-4 pt-1">{roomCode}</span>
                   <button
                     onClick={handleCopyCode}
-                    className={`h-11 px-5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm ${
+                    className={`h-11 px-5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm touch-manipulation ${
                       copied ? "bg-emerald-500 text-white" : "bg-white/10 text-white border border-white/10 hover:scale-[1.02] active:scale-95"
                     }`}
                   >
@@ -1522,7 +1582,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                 soundEngine.playSFX("click");
                 playMode === "host" ? setPlayMode("menu") : handleExitToHome();
               }}
-              className="w-full mt-8 py-3.5 bg-white/5 text-neutral-300 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-white/5 relative z-10"
+              className="w-full mt-8 py-3.5 bg-white/5 text-neutral-300 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-white/5 relative z-10 touch-manipulation"
             >
               Cancel Match
             </button>
@@ -1585,7 +1645,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           </p>
           <button
             onClick={initBalls}
-            className="px-8 py-3.5 bg-[#CCFF00] hover:bg-[#b3e600] text-black font-black uppercase tracking-wider rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer text-xs"
+            className="px-8 py-3.5 bg-[#CCFF00] hover:bg-[#b3e600] text-black font-black uppercase tracking-wider rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer text-xs touch-manipulation"
           >
             Play Again 🔄
           </button>
@@ -1620,15 +1680,24 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             </p>
           </div>
 
-          {/* TARGET BALL INDICATOR */}
-          <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded-lg border border-white/5">
-            <span className="text-[7px] md:text-[8px] text-neutral-400 font-bold uppercase tracking-widest">TARGET</span>
-            <div
-              className="w-3.5 h-3.5 md:w-5 md:h-5 rounded-full shadow-md transition-colors duration-200 border border-white/20"
-              style={{
-                background: `radial-gradient(circle at 6px 6px, #ffffff, ${currentDisplayBallColor} 40%, #000000 100%)`,
-              }}
-            />
+          {/* TURN COUNTDOWN TIMER & TARGET BALL INDICATOR */}
+          <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full border shadow-sm backdrop-blur-md transition-colors ${
+              timeLeft <= 5 ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse" : "bg-[#18181b] border-white/10 text-[#CCFF00]"
+            }`}>
+              <span className="material-symbols-outlined text-[10px]">timer</span>
+              <span className="font-mono font-black text-[10px]">{timeLeft}s</span>
+            </div>
+
+            <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded-lg border border-white/5">
+              <span className="text-[7px] md:text-[8px] text-neutral-400 font-bold uppercase tracking-widest">TARGET</span>
+              <div
+                className="w-3.5 h-3.5 md:w-5 md:h-5 rounded-full shadow-md transition-colors duration-200 border border-white/20"
+                style={{
+                  background: `radial-gradient(circle at 6px 6px, #ffffff, ${currentDisplayBallColor} 40%, #000000 100%)`,
+                }}
+              />
+            </div>
           </div>
 
           {/* PLAYER 2 SCORECARD */}
@@ -1659,7 +1728,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
             <button
               onClick={() => setShowEmojiMenu(!showEmojiMenu)}
-              className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10"
+              className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10 touch-manipulation"
             >
               <span className="material-symbols-outlined text-xs">add_reaction</span>
             </button>
@@ -1667,7 +1736,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             {showEmojiMenu && (
               <div className="absolute top-14 right-10 bg-[#18181b] border border-white/10 p-2 rounded-2xl shadow-2xl flex gap-1 z-50">
                 {EMOJIS.map((em) => (
-                  <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1">
+                  <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1 touch-manipulation">
                     {em}
                   </button>
                 ))}
@@ -1676,7 +1745,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
             <button
               onClick={handleExitToHome}
-              className="pointer-events-auto bg-rose-600 border border-rose-500 hover:bg-rose-500 px-2 py-1 rounded-lg text-[8px] md:text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all text-white cursor-pointer shadow-md flex items-center gap-1"
+              className="pointer-events-auto bg-rose-600 border border-rose-500 hover:bg-rose-500 px-2 py-1 rounded-lg text-[8px] md:text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all text-white cursor-pointer shadow-md flex items-center gap-1 touch-manipulation"
             >
               EXIT
             </button>
@@ -1802,7 +1871,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         <div className="w-full max-w-[480px] flex justify-between items-center px-1 shrink-0">
           <button
             onClick={initBalls}
-            className="ml-auto px-3 py-1 bg-[#18181b] border border-white/10 hover:bg-white/10 text-neutral-300 text-[8px] md:text-[9px] font-black uppercase tracking-widest rounded-lg active:scale-95 transition-transform cursor-pointer"
+            className="ml-auto px-3 py-1 bg-[#18181b] border border-white/10 hover:bg-white/10 text-neutral-300 text-[8px] md:text-[9px] font-black uppercase tracking-widest rounded-lg active:scale-95 transition-transform cursor-pointer touch-manipulation"
           >
             Reset Match
           </button>

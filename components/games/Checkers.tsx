@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
@@ -9,6 +9,8 @@ import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 
 const EMPTY = 0, P1 = 1, P2 = 2, P1_KING = 3, P2_KING = 4;
+const TURN_TIME_LIMIT = 30; // 30-second turn limit
+
 const INITIAL_BOARD = [
   [EMPTY, P2, EMPTY, P2, EMPTY, P2, EMPTY, P2],
   [P2, EMPTY, P2, EMPTY, P2, EMPTY, P2, EMPTY],
@@ -68,6 +70,7 @@ export default function Checkers({
   const [board, setBoard] = useState<number[][]>(INITIAL_BOARD);
   const [turn, setTurn] = useState<number>(P1);
   const [selected, setSelected] = useState<{ r: number; c: number } | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);
   
   // 🏆 Series & Game Stats
   const [p1Captures, setP1Captures] = useState(0);
@@ -156,6 +159,125 @@ export default function Checkers({
     return true;
   };
 
+  // Move Calculation Helpers
+  const getValidMovesForPiece = useCallback((r: number, c: number, piece: number, currentBoard: number[][]) => {
+    const moves: { r: number; c: number; jump?: { r: number; c: number } }[] = [];
+    if (piece === EMPTY) return moves;
+    const isKing = piece === P1_KING || piece === P2_KING;
+    const directions = [];
+    if (piece === P1 || isKing) directions.push(-1);
+    if (piece === P2 || isKing) directions.push(1);
+
+    directions.forEach((dr) => {
+      [-1, 1].forEach((dc) => {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+          if (currentBoard[nr][nc] === EMPTY) moves.push({ r: nr, c: nc });
+          else {
+            const isOpponent = (piece === P1 || piece === P1_KING) ? (currentBoard[nr][nc] === P2 || currentBoard[nr][nc] === P2_KING) : (currentBoard[nr][nc] === P1 || currentBoard[nr][nc] === P1_KING);
+            if (isOpponent) {
+              const jr = nr + dr, jc = nc + dc;
+              if (jr >= 0 && jr < 8 && jc >= 0 && jc < 8 && currentBoard[jr][jc] === EMPTY) moves.push({ r: jr, c: jc, jump: { r: nr, c: nc } });
+            }
+          }
+        }
+      });
+    });
+    return moves;
+  }, []);
+
+  const getAllValidMoves = useCallback((playerToMove: number, currentBoard: number[][]) => {
+    const allMoves: { from: { r: number; c: number }; move: any }[] = [];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const piece = currentBoard[r][c];
+        if ((playerToMove === P1 && (piece === P1 || piece === P1_KING)) || (playerToMove === P2 && (piece === P2 || piece === P2_KING))) {
+          getValidMovesForPiece(r, c, piece, currentBoard).forEach(move => allMoves.push({ from: { r, c }, move }));
+        }
+      }
+    }
+    return allMoves;
+  }, [getValidMovesForPiece]);
+
+  // -------------------------------------------------------------
+  // ⏱️ 30-SECOND TURN TIMER SYSTEM
+  // -------------------------------------------------------------
+  const handleTimeOut = useCallback(async () => {
+    if (winner) return;
+    soundEngine.playSFX("defeat");
+
+    const allPlayerMoves = getAllValidMoves(turn, board);
+    if (allPlayerMoves.length === 0) {
+      const winningPlayer = turn === P1 ? P2 : P1;
+      setWinner(winningPlayer);
+      if (winningPlayer === P1) setP1Score(prev => prev + 1);
+      else setP2Score(prev => prev + 1);
+      return;
+    }
+
+    // Auto-select a valid move when time expires
+    const jumpMoves = allPlayerMoves.filter(m => m.move.jump);
+    const validMoves = jumpMoves.length > 0 ? jumpMoves : allPlayerMoves;
+    const selectedMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+
+    const newBoard = board.map((row) => [...row]);
+    let movingPiece = newBoard[selectedMove.from.r][selectedMove.from.c];
+    newBoard[selectedMove.from.r][selectedMove.from.c] = EMPTY;
+    newBoard[selectedMove.move.r][selectedMove.move.c] = movingPiece;
+
+    let newP1Cap = p1Captures, newP2Cap = p2Captures;
+    const isCapture = Boolean(selectedMove.move.jump);
+    if (isCapture) {
+      newBoard[selectedMove.move.jump.r][selectedMove.move.jump.c] = EMPTY;
+      if (turn === P1) newP1Cap++; else newP2Cap++;
+    }
+
+    if (turn === P1 && selectedMove.move.r === 0) newBoard[selectedMove.move.r][selectedMove.move.c] = P1_KING;
+    if (turn === P2 && selectedMove.move.r === 7) newBoard[selectedMove.move.r][selectedMove.move.c] = P2_KING;
+
+    const nextTurn = turn === P1 ? P2 : P1;
+    const nextMoves = getAllValidMoves(nextTurn, newBoard);
+
+    let newWinner = null;
+    let newP1Score = p1Score;
+    let newP2Score = p2Score;
+
+    if (nextMoves.length === 0) {
+      newWinner = turn;
+      if (turn === P1) newP1Score++; else newP2Score++;
+    }
+
+    if (playMode === "online") {
+      setBoard(newBoard); setSelected(null);
+      await supabase.from('checkers_matches').update({
+        board: newBoard, turn: nextTurn, p1_captures: newP1Cap, p2_captures: newP2Cap, 
+        winner: newWinner, p1_score: newP1Score, p2_score: newP2Score
+      }).eq('id', matchId);
+    } else {
+      setBoard(newBoard); setTurn(nextTurn); setP1Captures(newP1Cap); setP2Captures(newP2Cap);
+      setWinner(newWinner); setP1Score(newP1Score); setP2Score(newP2Score); setSelected(null);
+    }
+  }, [turn, board, winner, p1Captures, p2Captures, p1Score, p2Score, playMode, matchId, getAllValidMoves]);
+
+  useEffect(() => {
+    if (playMode === "menu" || playMode === "searching" || playMode === "confirmed" || playMode === "host" || playMode === "join" || winner) return;
+
+    setTimeLeft(TURN_TIME_LIMIT);
+
+    const timerInterval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerInterval);
+          handleTimeOut();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [turn, winner, playMode, handleTimeOut]);
+
   // 📡 REAL-TIME SYNCHRONIZATION
   useEffect(() => {
     if (playMode !== "online" && playMode !== "host") return;
@@ -167,7 +289,6 @@ export default function Checkers({
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'checkers_matches', filter: `id=eq.${matchId}` }, (payload) => {
       const newData = payload.new;
       
-      // Play SFX when opponent moves in online mode
       if (newData.turn !== turn) {
         if (newData.p1_captures > p1Captures || newData.p2_captures > p2Captures) {
           soundEngine.playSFX("capture");
@@ -203,7 +324,7 @@ export default function Checkers({
     return () => { supabase.removeChannel(channel); };
   }, [matchId, playMode, turn, p1Captures, p2Captures, myPlayerRole]);
 
-  // 🤖 LOCAL JOE YOKE BOT ENGINE
+  // 🤖 LOCAL BOT ENGINE
   useEffect(() => {
     if (playMode === "bot" && turn === P2 && !winner) {
       const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
@@ -278,7 +399,7 @@ export default function Checkers({
 
       return () => clearTimeout(botActionDelay);
     }
-  }, [turn, playMode, winner, board, p2Captures, p2Score]);
+  }, [turn, playMode, winner, board, p2Captures, p2Score, getAllValidMoves]);
 
   const hostMatch = async () => {
     soundEngine.playSFX("click");
@@ -315,7 +436,6 @@ export default function Checkers({
     }
   };
 
-  // MATCHMAKING FLOW
   const startOnlineMatchmaking = async () => {
     soundEngine.playSFX("click");
 
@@ -347,7 +467,6 @@ export default function Checkers({
     if (preloadedMatchId && myUserId) {
       joinDirectlyByUUID(preloadedMatchId);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preloadedMatchId, myUserId, isBotMode]);
 
   const joinDirectlyByUUID = async (uuid: string) => {
@@ -369,45 +488,6 @@ export default function Checkers({
         setWinner(updatedMatch.winner); setPlayMode("online");
       }
     }
-  };
-
-  const getValidMovesForPiece = (r: number, c: number, piece: number, currentBoard: number[][]) => {
-    const moves: { r: number; c: number; jump?: { r: number; c: number } }[] = [];
-    if (piece === EMPTY) return moves;
-    const isKing = piece === P1_KING || piece === P2_KING;
-    const directions = [];
-    if (piece === P1 || isKing) directions.push(-1);
-    if (piece === P2 || isKing) directions.push(1);
-
-    directions.forEach((dr) => {
-      [-1, 1].forEach((dc) => {
-        const nr = r + dr, nc = c + dc;
-        if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
-          if (currentBoard[nr][nc] === EMPTY) moves.push({ r: nr, c: nc });
-          else {
-            const isOpponent = (piece === P1 || piece === P1_KING) ? (currentBoard[nr][nc] === P2 || currentBoard[nr][nc] === P2_KING) : (currentBoard[nr][nc] === P1 || currentBoard[nr][nc] === P1_KING);
-            if (isOpponent) {
-              const jr = nr + dr, jc = nc + dc;
-              if (jr >= 0 && jr < 8 && jc >= 0 && jc < 8 && currentBoard[jr][jc] === EMPTY) moves.push({ r: jr, c: jc, jump: { r: nr, c: nc } });
-            }
-          }
-        }
-      });
-    });
-    return moves;
-  };
-
-  const getAllValidMoves = (playerToMove: number, currentBoard: number[][]) => {
-    const allMoves: { from: { r: number; c: number }; move: any }[] = [];
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const piece = currentBoard[r][c];
-        if ((playerToMove === P1 && (piece === P1 || piece === P1_KING)) || (playerToMove === P2 && (piece === P2 || piece === P2_KING))) {
-          getValidMovesForPiece(r, c, piece, currentBoard).forEach(move => allMoves.push({ from: { r, c }, move }));
-        }
-      }
-    }
-    return allMoves;
   };
 
   const handleSquareClick = async (r: number, c: number) => {
@@ -576,7 +656,7 @@ export default function Checkers({
                   soundEngine.playSFX("click");
                   onClose();
                 }}
-                className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
+                className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation"
               >
                 <span className="material-symbols-outlined text-base">shopping_cart</span>
                 Visit Store / Buy Points
@@ -584,7 +664,7 @@ export default function Checkers({
 
               <button
                 onClick={() => setShowNoPointsModal(false)}
-                className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5"
+                className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5 touch-manipulation"
               >
                 Dismiss
               </button>
@@ -612,7 +692,7 @@ export default function Checkers({
               </div>
             </div>
 
-            <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
+            <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5 touch-manipulation">
               <div className="flex justify-between items-start mb-4">
                 <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
                   <span className="material-symbols-outlined text-xl">search</span>
@@ -631,7 +711,7 @@ export default function Checkers({
             </button>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <button onClick={hostMatch} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+              <button onClick={hostMatch} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px] touch-manipulation">
                 <div className="flex justify-between items-start w-full">
                   <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
                     <span className="material-symbols-outlined text-lg">dns</span>
@@ -644,7 +724,7 @@ export default function Checkers({
                 </div>
               </button>
 
-              <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("local"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+              <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("local"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px] touch-manipulation">
                 <div className="flex justify-between items-start w-full">
                   <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
                     <span className="material-symbols-outlined text-lg">sports_esports</span>
@@ -675,13 +755,13 @@ export default function Checkers({
               <button
                 onClick={() => joinMatch()}
                 disabled={joinCode.length < 6}
-                className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
+                className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5 touch-manipulation"
               >
                 Join
               </button>
             </div>
 
-            <button onClick={handleExitGame} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
+            <button onClick={handleExitGame} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase touch-manipulation">
               <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
             </button>
 
@@ -700,9 +780,9 @@ export default function Checkers({
               <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
             </div>
           </div>
-          <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
+          <h2 className="font-headline font-black text-2xl text-white mb-2 uppercase">Locating Opponent</h2>
           <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-          <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+          <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase touch-manipulation">
             Abort Search
           </button>
         </div>
@@ -737,7 +817,7 @@ export default function Checkers({
             <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
           </p>
 
-          <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">
+          <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] touch-manipulation">
             Enter Match <span className="material-symbols-outlined">arrow_forward</span>
           </button>
         </div>
@@ -746,7 +826,7 @@ export default function Checkers({
       {/* IN-GAME ARENA HEADER */}
       {playMode !== "menu" && playMode !== "searching" && playMode !== "confirmed" && (
         <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-white/10 bg-[#18181b]/80 backdrop-blur-md z-30 shrink-0">
-          <button onClick={handleExitGame} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10">
+          <button onClick={handleExitGame} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10 touch-manipulation">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
           <div className="text-center">
@@ -758,14 +838,14 @@ export default function Checkers({
           </div>
           
           <div className="relative">
-            <button onClick={() => { soundEngine.playSFX("click"); setShowEmojiMenu(!showEmojiMenu); }} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10">
+            <button onClick={() => { soundEngine.playSFX("click"); setShowEmojiMenu(!showEmojiMenu); }} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10 touch-manipulation">
               <span className="material-symbols-outlined text-lg">add_reaction</span>
             </button>
             
             {showEmojiMenu && (
               <div className="absolute top-12 right-0 bg-[#18181b] border border-white/10 p-2 rounded-2xl shadow-2xl flex gap-1 z-50">
                 {EMOJIS.map(em => (
-                  <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1">{em}</button>
+                  <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1 touch-manipulation">{em}</button>
                 ))}
               </div>
             )}
@@ -790,7 +870,7 @@ export default function Checkers({
                   <span className="text-amber-400 font-mono text-2xl font-black tracking-[0.25em] pl-4 pt-1">{roomCode}</span>
                   <button 
                     onClick={handleCopyCode}
-                    className={`h-11 px-5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm ${
+                    className={`h-11 px-5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm touch-manipulation ${
                       copied 
                         ? "bg-emerald-500 text-white" 
                         : "bg-white/10 text-white border border-white/10 hover:scale-[1.02] active:scale-95"
@@ -802,7 +882,7 @@ export default function Checkers({
                 </div>
               </div>
             )}
-            <button onClick={() => { soundEngine.playSFX("click"); playMode === "host" ? setPlayMode("menu") : onClose(); }} className="w-full mt-8 py-3.5 bg-white/5 text-neutral-300 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-white/5 relative z-10">
+            <button onClick={() => { soundEngine.playSFX("click"); playMode === "host" ? setPlayMode("menu") : onClose(); }} className="w-full mt-8 py-3.5 bg-white/5 text-neutral-300 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-white/5 relative z-10 touch-manipulation">
               Cancel Match
             </button>
           </div>
@@ -812,7 +892,7 @@ export default function Checkers({
       {(playMode === "local" || playMode === "online" || playMode === "bot") && (
         <div className="flex-1 w-full max-w-md mx-auto flex flex-col justify-start min-h-0 relative z-10">
           
-          {/* Scoreboard HUD */}
+          {/* Scoreboard HUD with Turn Timer */}
           <div className="px-6 py-4 flex justify-between items-center shrink-0">
             <div className={`flex flex-col items-center transition-all duration-300 ${turn === P2 ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
               <div className="flex items-center gap-1.5 mb-1.5">
@@ -836,12 +916,21 @@ export default function Checkers({
               </span>
             </div>
             
-            <div className="text-center px-4 py-2 bg-[#18181b] border border-white/10 rounded-full shadow-sm">
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">
-                {playMode === "online" || playMode === "bot" 
-                  ? (turn === myPlayerRole ? "Your Turn" : "Opponent's Turn") 
-                  : (turn === P1 ? "Player 1 Turn" : "Player 2 Turn")}
-              </span>
+            {/* Center Turn Status & Countdown Timer */}
+            <div className="flex flex-col items-center gap-1">
+              <div className={`flex items-center gap-1 px-3 py-1 rounded-full border shadow-sm backdrop-blur-md transition-colors ${
+                timeLeft <= 5 ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse" : "bg-[#18181b] border-white/10 text-[#CCFF00]"
+              }`}>
+                <span className="material-symbols-outlined text-xs">timer</span>
+                <span className="font-mono font-black text-xs">{timeLeft}s</span>
+              </div>
+              <div className="text-center px-3 py-1 bg-[#18181b] border border-white/10 rounded-full shadow-sm">
+                <span className="text-[9px] font-black text-white uppercase tracking-widest">
+                  {playMode === "online" || playMode === "bot" 
+                    ? (turn === myPlayerRole ? "Your Turn" : `${localOpponent?.name || 'Opponent'}'s Turn`) 
+                    : (turn === P1 ? "P1 Turn" : "P2 Turn")}
+                </span>
+              </div>
             </div>
 
             <div className={`flex flex-col items-center transition-all duration-300 ${turn === P1 ? "scale-105 opacity-100" : "opacity-60 grayscale"}`}>
@@ -909,8 +998,8 @@ export default function Checkers({
                   </p>
                   
                   <div className="w-full flex gap-3 mt-8">
-                    <button onClick={handleExitGame} className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm">Exit Arena</button>
-                    <button onClick={handleRematch} className="flex-1 py-3.5 bg-[#CCFF00] text-black font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-[0_4px_15px_rgba(204,255,0,0.3)] hover:bg-[#b3e600]">Play Again</button>
+                    <button onClick={handleExitGame} className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-sm touch-manipulation">Exit Arena</button>
+                    <button onClick={handleRematch} className="flex-1 py-3.5 bg-[#CCFF00] text-black font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all shadow-[0_4px_15px_rgba(204,255,0,0.3)] hover:bg-[#b3e600] touch-manipulation">Play Again</button>
                   </div>
                 </div>
               </div>
@@ -962,7 +1051,7 @@ export default function Checkers({
                       <div 
                         key={`${r}-${c}`}
                         onClick={() => playable && handleSquareClick(r, c)}
-                        className={`relative w-full h-full flex items-center justify-center transition-colors ${squareClass} ${
+                        className={`relative w-full h-full flex items-center justify-center transition-colors touch-manipulation ${squareClass} ${
                           isSelected ? (isCyberBoard ? "ring-inset ring-2 ring-[#CCFF00] bg-[#CCFF00]/20" : "ring-inset ring-2 ring-[#4f46e5] bg-indigo-900/40") : ""
                         } ${isTarget ? (isCyberBoard ? "bg-[#CCFF00]/40" : "bg-[#CCFF00]/30") : ""}`}
                       >

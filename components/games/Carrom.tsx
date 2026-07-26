@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { soundEngine } from "../../lib/soundManager";
@@ -20,6 +20,7 @@ const COIN_RADIUS = 22;
 const FRICTION = 0.985;       
 const RESTITUTION = 0.85;     
 const MAX_POWER = 260;        
+const TURN_TIME_LIMIT = 30; // 30-second turn timer requirement
 
 const EMOJIS = ["👍", "😂", "🔥", "😡", "😭", "🤯"];
 
@@ -103,7 +104,7 @@ const renderRealisticHole = (cx: number, cy: number) => (
 interface CarromProps {
   onClose: () => void;
   preloadedMatchId?: string | null;
-  opponent?: { name: string; isBot: boolean } | null;
+  opponent?: { name: string; avatarIcon?: string; isBot: boolean } | null;
 }
 
 export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromProps) {
@@ -126,7 +127,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   );
   const [gameRuleMode, setGameRuleMode] = useState<GameMode>("freestyle");
   
-  const [localOpponent, setLocalOpponent] = useState<any>(opponent || null);
+  const [localOpponent, setLocalOpponent] = useState<any>(
+    opponent || getRandomBotOpponent()
+  );
 
   const [matchId, setMatchId] = useState<string>(
     preloadedMatchId || (isBotMode ? `bot_match_${Date.now()}` : "")
@@ -139,6 +142,8 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myPlayerRole, setMyPlayerRole] = useState<1 | 2>(1);
   const [turn, setTurn] = useState<1 | 2>(1);
+  const [turnNonce, setTurnNonce] = useState<number>(0); // Increments to force bot re-trigger on extra turn
+  const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);
   
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
@@ -306,70 +311,146 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     }
   }, [preloadedMatchId, myUserId, isBotMode, localOpponent]);
 
-  // 🤖 LOCAL BOT ENGINE (Runs when turn === 2 in Bot Mode)
+  // -------------------------------------------------------------
+  // ⏱️ 30-SECOND TURN TIMER SYSTEM
+  // -------------------------------------------------------------
+  useEffect(() => {
+    if (playMode === "menu" || playMode === "searching" || playMode === "confirmed" || winner) return;
+    if (isMovingRef.current) return;
+
+    setTimeLeft(TURN_TIME_LIMIT);
+
+    const timerInterval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerInterval);
+          handleTimeOut();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [turn, turnNonce, winner, playMode]);
+
+  const handleTimeOut = () => {
+    if (isMovingRef.current || winner) return;
+    soundEngine.playSFX("defeat");
+
+    if (playMode === "bot" && turn === 2) {
+      setToast({ msg: `${localOpponent?.name || "Bot"} timed out! Auto shooting...`, type: 'foul' });
+      triggerBotShot();
+    } else {
+      const nextTurn = turn === 1 ? 2 : 1;
+      setToast({ msg: "Time's up! Turn lost.", type: 'foul' });
+      
+      const currentCoins = coinsRef.current;
+      const strikerObj = currentCoins.find(c => c.type === "striker");
+      if (strikerObj) {
+        strikerObj.active = true;
+        strikerObj.vx = 0;
+        strikerObj.vy = 0;
+        strikerObj.x = 500;
+        strikerObj.y = nextTurn === 1 ? 840 : 160;
+      }
+      setP1Slider(500);
+      setP2Slider(500);
+
+      if (playMode === "online" && channelRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'turn_sync',
+          payload: {
+            coins: currentCoins,
+            nextTurn,
+            p1S: p1Score,
+            p2S: p2Score,
+            win: null,
+            p1C: p1Color,
+            p2C: p2Color,
+            msg: "Time's up! Turn lost.",
+            msgType: 'foul',
+            rulesMode: gameRuleModeRef.current
+          }
+        });
+      }
+
+      setTurn(nextTurn);
+      setTurnNonce(prev => prev + 1);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // 🤖 LOCAL BOT ENGINE (FIXED: re-triggers on turnNonce for extra turns)
+  // -------------------------------------------------------------
+  const triggerBotShot = useCallback(() => {
+    if (isMovingRef.current) return;
+
+    const currentCoins = coinsRef.current;
+    const striker = currentCoins.find(c => c.type === "striker");
+    if (!striker) return;
+
+    let targetTypes = ["white", "black", "queen"];
+    if (gameRuleMode === "classic" && p2Color) {
+      targetTypes = [p2Color, "queen"];
+    }
+    
+    const targets = currentCoins.filter(c => c.active && targetTypes.includes(c.type));
+    if (targets.length === 0) return;
+
+    const target = targets[Math.floor(Math.random() * targets.length)];
+    
+    const botX = Math.max(220, Math.min(780, target.x + (Math.random() * 40 - 20)));
+    setP2Slider(botX);
+    striker.x = botX; 
+    striker.y = 160;
+
+    setTimeout(() => {
+      if (isMovingRef.current) return;
+
+      const dx = target.x - botX;
+      const dy = target.y - 160; 
+      const dist = Math.hypot(dx, dy);
+      
+      const botPower = 180 + Math.random() * 80; 
+      const powerMultiplier = 0.22;
+      const vx = (dx / dist) * botPower * powerMultiplier;
+      const vy = (dy / dist) * botPower * powerMultiplier;
+
+      turnSnapshotRef.current = JSON.parse(JSON.stringify(coinsRef.current));
+      striker.vx = vx;
+      striker.vy = vy;
+      isMovingRef.current = true;
+      didIShootRef.current = true; 
+      
+      soundEngine.playSFX("strike");
+      requestAnimationFrame(physicsLoop);
+
+      if (Math.random() <= 0.25) {
+        const reactionDelay = Math.floor(Math.random() * 1000) + 800;
+        setTimeout(() => {
+          const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+          const newEmoji = { id: Date.now() + Math.random(), emoji: randomEmote, role: 2 };
+          setFloatingEmojis((prev) => [...prev, newEmoji]);
+          setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
+        }, reactionDelay);
+      }
+    }, 800);
+  }, [gameRuleMode, p2Color]);
+
   useEffect(() => {
     if (playMode === "bot" && turn === 2 && !winner) {
-      const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
+      const thinkingDelay = Math.floor(Math.random() * 1500) + 1200;
 
       const botActionDelay = setTimeout(() => {
         if (isMovingRef.current) return;
-
-        const currentCoins = coinsRef.current;
-        const striker = currentCoins.find(c => c.type === "striker");
-        if (!striker) return;
-
-        let targetTypes = ["white", "black", "queen"];
-        if (gameRuleMode === "classic" && p2Color) {
-           targetTypes = [p2Color, "queen"];
-        }
-        
-        const targets = currentCoins.filter(c => c.active && targetTypes.includes(c.type));
-        if (targets.length === 0) return;
-
-        const target = targets[Math.floor(Math.random() * targets.length)];
-        
-        const botX = Math.max(220, Math.min(780, target.x + (Math.random() * 40 - 20)));
-        setP2Slider(botX);
-        striker.x = botX; 
-        striker.y = 160;
-
-        setTimeout(() => {
-           if (isMovingRef.current) return;
-
-           const dx = target.x - botX;
-           const dy = target.y - 160; 
-           const dist = Math.hypot(dx, dy);
-           
-           const botPower = 180 + Math.random() * 80; 
-           const powerMultiplier = 0.22;
-           const vx = (dx / dist) * botPower * powerMultiplier;
-           const vy = (dy / dist) * botPower * powerMultiplier;
-
-           turnSnapshotRef.current = JSON.parse(JSON.stringify(coinsRef.current));
-           striker.vx = vx;
-           striker.vy = vy;
-           isMovingRef.current = true;
-           didIShootRef.current = true; 
-           
-           soundEngine.playSFX("strike");
-           requestAnimationFrame(physicsLoop);
-
-           if (Math.random() <= 0.25) {
-             const reactionDelay = Math.floor(Math.random() * 1000) + 800;
-             setTimeout(() => {
-               const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-               const newEmoji = { id: Date.now() + Math.random(), emoji: randomEmote, role: 2 };
-               setFloatingEmojis((prev) => [...prev, newEmoji]);
-               setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
-             }, reactionDelay);
-           }
-        }, 800);
-
+        triggerBotShot();
       }, thinkingDelay);
 
       return () => clearTimeout(botActionDelay);
     }
-  }, [turn, playMode, winner, p2Color, gameRuleMode]);
+  }, [turn, turnNonce, playMode, winner, p2Color, gameRuleMode, triggerBotShot]);
 
   useEffect(() => {
     if (toast) {
@@ -466,6 +547,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         const { coins, nextTurn, p1S, p2S, win, p1C, p2C, msg, msgType, rulesMode } = payload.payload;
         coinsRef.current = coins;
         setTurn(nextTurn); 
+        setTurnNonce(prev => prev + 1);
         setP1Score(p1S); 
         setP2Score(p2S); 
         setWinner(win);
@@ -679,7 +761,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     }
   };
 
-  // 🎯 EVALUATE TURN END (FIXED CLASSIC RULES)
+  // 🎯 EVALUATE TURN END (WITH TURN NONCE BUMP FOR BOT CONTINUATION)
   const evaluateTurnEnd = () => {
     const prevCoins = turnSnapshotRef.current;
     const currentCoins = coinsRef.current;
@@ -720,7 +802,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           if (turnRef.current === 1) newP1Score += pts; else newP2Score += pts;
         } 
         else if (gameRuleModeRef.current === "classic") {
-          // --- FIX: CLASSIC MODE COLOR ASSIGNMENT WITHOUT POINTS ---
           if (!newP1Color) {
             validPocket = true;
             if (turnRef.current === 1) {
@@ -735,7 +816,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
             if (c.type === myColor) {
               validPocket = true;
             } else {
-              fouled = true; // Sinking opponent piece in Classic is a foul
+              fouled = true;
             }
           }
         }
@@ -811,6 +892,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     }
 
     setTurn(nextTurn); 
+    setTurnNonce(prev => prev + 1); // Force state change to trigger Bot if same turn
     setP1Score(newP1Score); 
     setP2Score(newP2Score);
     setP1Color(newP1Color); 
@@ -888,6 +970,8 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     coinsRef.current = generateInitialCoins();
     setWinner(null); 
     setTurn(1);
+    setTurnNonce(0);
+    setTimeLeft(TURN_TIME_LIMIT);
     setP1Slider(500); 
     setP2Slider(500);
     setP1Score(0); 
@@ -943,13 +1027,20 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     const roleScore = role === 1 ? p1Score : p2Score;
     const roleColor = role === 1 ? p1Color : p2Color;
 
-    let turnText = `Player ${turn} Turn`;
-    if (playMode === "online" || playMode === "bot") {
-      if (isMyTurn) turnText = myPlayerRole === role ? "Your Shot" : "Opponent Aiming";
-      else turnText = myPlayerRole === role ? "Wait" : "Opponent Aiming";
+    // Display Name Logic
+    let roleName = role === 1 ? "You" : "Player 2";
+    if (isBot) {
+      roleName = localOpponent?.name || opponent?.name || "Apex Bot";
+    } else if (playMode === "online") {
+      roleName = myPlayerRole === role ? "You" : (localOpponent?.name || "Opponent");
     }
 
-    // --- FIX: DISPLAY SCORE FOR FREESTYLE, REMAINING PIECES FOR CLASSIC ---
+    let turnText = `Player ${turn} Turn`;
+    if (playMode === "online" || playMode === "bot") {
+      if (isMyTurn) turnText = myPlayerRole === role ? "Your Shot" : `${roleName} Aiming`;
+      else turnText = myPlayerRole === role ? "Wait" : `${roleName} Aiming`;
+    }
+
     let scoreDisplay = `${roleScore} PTS`;
     if (gameRuleMode === "classic") {
       if (!roleColor) {
@@ -963,30 +1054,56 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     const headerContent = (
       <div className="w-full flex justify-between items-end px-2">
          <div className={`flex flex-col items-start transition-all ${isMyTurn ? "opacity-100" : "opacity-40 grayscale"}`}>
-           <span className="text-xs font-black text-neutral-900 dark:text-white tracking-wider">{scoreDisplay}</span>
+           <div className="flex items-center gap-1.5 mb-0.5">
+             <span className="text-xs font-black text-white tracking-wider uppercase">{roleName}</span>
+             {isBot && (
+               <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[8px] px-1.5 py-0.2 rounded uppercase font-black tracking-wider shadow-sm">
+                 BOT
+               </span>
+             )}
+           </div>
+           <span className="text-[11px] font-mono font-bold text-neutral-400">{scoreDisplay}</span>
+           
            <div className="flex items-center gap-2 mt-1">
              {role === 1 ? (
-               <div className="w-8 h-8 rounded-full bg-[#f4ebd4] border-2 border-[#d6c7b0] flex items-center justify-center text-[#6b5f4c] text-[10px] font-bold shadow-md">P1</div>
+               <div className="w-8 h-8 rounded-full bg-[#f4ebd4] border-2 border-[#d6c7b0] flex items-center justify-center text-[#6b5f4c] text-[10px] font-bold shadow-md">
+                 P1
+               </div>
              ) : (
                <div className="flex items-center gap-1.5">
-                 <div className="w-8 h-8 rounded-full bg-neutral-950 border-2 border-neutral-800 flex items-center justify-center text-white text-[10px] font-bold shadow-md">
-                   {isBot ? <span className="material-symbols-outlined text-[14px]">{localOpponent?.avatarIcon || "person"}</span> : "P2"}
+                 <div className="w-8 h-8 rounded-full bg-indigo-500/20 border-2 border-indigo-500/40 flex items-center justify-center text-indigo-300 text-sm shadow-md">
+                   <span className="material-symbols-outlined text-[16px]">
+                     {isBot ? (localOpponent?.avatarIcon || "smart_toy") : "person"}
+                   </span>
                  </div>
-                 {isBot && <span className="bg-amber-500/20 text-amber-500 border border-amber-500/30 text-[9px] px-1.5 py-0.5 rounded uppercase font-black tracking-wider shadow-sm">BOT</span>}
                </div>
              )}
-             {roleColor && <div className={`w-4 h-4 rounded-full border border-neutral-400 ${roleColor === 'white' ? 'bg-[#f3ead3]' : 'bg-[#141414]'}`}></div>}
+             {roleColor && (
+               <div className={`w-4 h-4 rounded-full border border-neutral-400 ${roleColor === 'white' ? 'bg-[#f3ead3]' : 'bg-[#141414]'}`}></div>
+             )}
            </div>
          </div>
-         <div className="px-4 py-1.5 bg-white dark:bg-neutral-900 rounded-full shadow-sm border border-neutral-200 dark:border-neutral-800 text-[9px] font-black uppercase tracking-widest text-neutral-800 dark:text-neutral-200">
-           {turnText}
+
+         {/* 30-SECOND TIMER & TURN STATUS BADGE */}
+         <div className="flex flex-col items-end gap-1">
+           {isMyTurn && (
+             <div className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full border shadow-sm backdrop-blur-md transition-colors ${
+               timeLeft <= 5 ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse" : "bg-[#18181b] border-white/10 text-[#CCFF00]"
+             }`}>
+               <span className="material-symbols-outlined text-xs">timer</span>
+               <span className="font-mono font-black text-xs">{timeLeft}s</span>
+             </div>
+           )}
+           <div className="px-3 py-1 bg-[#18181b] rounded-full shadow-sm border border-white/10 text-[9px] font-black uppercase tracking-widest text-neutral-200">
+             {turnText}
+           </div>
          </div>
       </div>
     );
 
     const sliderContent = (
-      <div className={`w-full max-w-[280px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-2.5 rounded-xl shadow-sm transition-opacity ${canUseSlider ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-         <input type="range" min={220} max={780} step={2} value={currentSlider} onChange={(e) => setCurrentSlider(Number(e.target.value))} disabled={isMovingRef.current || !canUseSlider} className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+      <div className={`w-full max-w-[280px] bg-[#18181b] border border-white/10 p-2.5 rounded-xl shadow-sm transition-opacity ${canUseSlider ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+         <input type="range" min={220} max={780} step={2} value={currentSlider} onChange={(e) => setCurrentSlider(Number(e.target.value))} disabled={isMovingRef.current || !canUseSlider} className="w-full h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-[#CCFF00] touch-manipulation" />
       </div>
     );
 
@@ -1042,7 +1159,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                   soundEngine.playSFX("click");
                   onClose();
                 }}
-                className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
+                className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation"
               >
                 <span className="material-symbols-outlined text-base">shopping_cart</span>
                 Visit Store / Buy Points
@@ -1050,7 +1167,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
               <button
                 onClick={() => setShowNoPointsModal(false)}
-                className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5"
+                className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5 touch-manipulation"
               >
                 Dismiss
               </button>
@@ -1081,19 +1198,19 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
             <div className="bg-[#09090b] border border-white/5 p-1 rounded-xl flex items-center mb-6">
               <button 
                 onClick={() => { soundEngine.playSFX("click"); setGameRuleMode("freestyle"); }} 
-                className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${gameRuleMode === "freestyle" ? "bg-[#18181b] text-white shadow-sm border border-white/10" : "text-neutral-500 hover:text-neutral-300"}`}
+                className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all touch-manipulation ${gameRuleMode === "freestyle" ? "bg-[#18181b] text-white shadow-sm border border-white/10" : "text-neutral-500 hover:text-neutral-300"}`}
               >
                 Freestyle
               </button>
               <button 
                 onClick={() => { soundEngine.playSFX("click"); setGameRuleMode("classic"); }} 
-                className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${gameRuleMode === "classic" ? "bg-[#18181b] text-white shadow-sm border border-white/10" : "text-neutral-500 hover:text-neutral-300"}`}
+                className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all touch-manipulation ${gameRuleMode === "classic" ? "bg-[#18181b] text-white shadow-sm border border-white/10" : "text-neutral-500 hover:text-neutral-300"}`}
               >
                 Classic
               </button>
             </div>
 
-            <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
+            <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5 touch-manipulation">
               <div className="flex justify-between items-start mb-4">
                 <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
                   <span className="material-symbols-outlined text-xl">search</span>
@@ -1112,7 +1229,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
             </button>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <button onClick={hostMatch} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+              <button onClick={hostMatch} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px] touch-manipulation">
                 <div className="flex justify-between items-start w-full">
                   <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
                     <span className="material-symbols-outlined text-lg">dns</span>
@@ -1125,7 +1242,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                 </div>
               </button>
 
-              <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("local"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+              <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("local"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px] touch-manipulation">
                 <div className="flex justify-between items-start w-full">
                   <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
                     <span className="material-symbols-outlined text-lg">sports_esports</span>
@@ -1156,13 +1273,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               <button
                 onClick={joinMatch}
                 disabled={joinCode.length < 6}
-                className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
+                className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5 touch-manipulation"
               >
                 Join
               </button>
             </div>
 
-            <button onClick={handleExitGame} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
+            <button onClick={handleExitGame} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase touch-manipulation">
               <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
             </button>
 
@@ -1181,9 +1298,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
             </div>
           </div>
-          <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
+          <h2 className="font-headline font-black text-2xl text-white mb-2 uppercase">Locating Opponent</h2>
           <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-          <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+          <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase touch-manipulation">
             Abort Search
           </button>
         </div>
@@ -1218,7 +1335,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
             <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
           </p>
 
-          <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">
+          <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] touch-manipulation">
             Enter Match <span className="material-symbols-outlined">arrow_forward</span>
           </button>
         </div>
@@ -1226,28 +1343,28 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
       {/* HEADER HUB */}
       {playMode !== "menu" && playMode !== "searching" && playMode !== "confirmed" && (
-        <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md z-30 shrink-0">
+        <div className="w-full max-w-md px-6 py-4 flex items-center justify-between border-b border-white/10 bg-[#18181b]/80 backdrop-blur-md z-30 shrink-0">
           <button 
             onClick={handleExitGame} 
-            className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center active:scale-90 shadow-sm"
+            className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center active:scale-90 shadow-sm touch-manipulation"
           >
-            <span className="material-symbols-outlined text-lg">close</span>
+            <span className="material-symbols-outlined text-lg text-white">close</span>
           </button>
           
           <div className="text-center flex flex-col items-center">
-            <h1 className="text-sm font-black uppercase tracking-widest text-neutral-900 dark:text-white">Carrom Matrix</h1>
+            <h1 className="text-sm font-black uppercase tracking-widest text-white">Carrom Matrix</h1>
             
             {playMode === "online" && myPlayerRole === 1 ? (
-               <div className="flex bg-neutral-200 dark:bg-neutral-800 p-0.5 rounded-md mt-1 scale-90 border border-neutral-300 dark:border-neutral-700">
+               <div className="flex bg-[#09090b] p-0.5 rounded-md mt-1 scale-90 border border-white/10">
                   <button 
                     onClick={() => updateOnlineRules("freestyle")} 
-                    className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'freestyle' ? 'bg-white dark:bg-neutral-900 text-[#CCFF00] shadow-sm' : 'text-neutral-400'}`}
+                    className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'freestyle' ? 'bg-[#18181b] text-[#CCFF00] shadow-sm' : 'text-neutral-400'}`}
                   >
                     Freestyle
                   </button>
                   <button 
                     onClick={() => updateOnlineRules("classic")} 
-                    className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'classic' ? 'bg-white dark:bg-neutral-900 text-[#CCFF00] shadow-sm' : 'text-neutral-400'}`}
+                    className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'classic' ? 'bg-[#18181b] text-[#CCFF00] shadow-sm' : 'text-neutral-400'}`}
                   >
                     Classic
                   </button>
@@ -1262,24 +1379,24 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           <div className="flex gap-2 relative">
             <button 
               onClick={handleToggleMute} 
-              className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90"
+              className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white shadow-sm active:scale-90 touch-manipulation"
             >
               <span className="material-symbols-outlined text-lg">{isMuted ? "volume_off" : "volume_up"}</span>
             </button>
             <button 
               onClick={() => { soundEngine.playSFX("click"); setShowEmojiMenu(!showEmojiMenu); }} 
-              className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm active:scale-90"
+              className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white shadow-sm active:scale-90 touch-manipulation"
             >
               <span className="material-symbols-outlined text-lg">add_reaction</span>
             </button>
             
             {showEmojiMenu && (
-              <div className="absolute top-12 right-0 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
+              <div className="absolute top-12 right-0 bg-[#18181b] border border-white/10 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
                 {EMOJIS.map(em => (
                   <button 
                     key={em} 
                     onClick={() => sendEmoji(em)} 
-                    className="text-xl hover:scale-125 transition-transform p-1"
+                    className="text-xl hover:scale-125 transition-transform p-1 touch-manipulation"
                   >
                     {em}
                   </button>
@@ -1289,7 +1406,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
             
             <button 
               onClick={() => { soundEngine.playSFX("click"); setShowRules(true); }} 
-              className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 shadow-sm"
+              className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-neutral-400 shadow-sm touch-manipulation"
             >
               <span className="material-symbols-outlined text-lg">info</span>
             </button>
@@ -1300,22 +1417,22 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       {/* WAITING SCREEN */}
       {(playMode === "host" || playMode === "join") && (
         <div className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center p-6 relative z-10">
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-[2.5rem] p-8 w-full shadow-[0_20px_40px_rgba(0,0,0,0.05)] flex flex-col items-center text-center relative overflow-hidden">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-amber-500/10 dark:bg-amber-500/20 blur-3xl rounded-full pointer-events-none"></div>
-            <div className="w-16 h-16 rounded-full border-[3px] border-amber-100 dark:border-amber-900/30 border-t-amber-500 dark:border-t-amber-500 animate-spin mb-6 relative z-10"></div>
-            <h2 className="text-xl font-black text-neutral-900 dark:text-white tracking-tight uppercase relative z-10">
+          <div className="bg-[#18181b] border border-white/10 rounded-[2.5rem] p-8 w-full shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-amber-500/20 blur-3xl rounded-full pointer-events-none"></div>
+            <div className="w-16 h-16 rounded-full border-[3px] border-amber-500/20 border-t-amber-500 animate-spin mb-6 relative z-10"></div>
+            <h2 className="text-xl font-black text-white tracking-tight uppercase relative z-10">
               {playMode === "join" ? "Syncing Matrix..." : "Awaiting Opponent"}
             </h2>
             
             {playMode === "host" && (
               <div className="mt-8 w-full relative z-10">
-                <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-bold uppercase tracking-widest mb-2">Share This Room Code</p>
-                <div className="bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-2.5 rounded-2xl flex items-center justify-between shadow-inner">
-                  <span className="text-amber-600 dark:text-amber-400 font-mono text-2xl font-black tracking-[0.25em] pl-4 pt-1">{roomCode}</span>
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mb-2">Share This Room Code</p>
+                <div className="bg-[#09090b] border border-white/10 p-2.5 rounded-2xl flex items-center justify-between shadow-inner">
+                  <span className="text-amber-400 font-mono text-2xl font-black tracking-[0.25em] pl-4 pt-1">{roomCode}</span>
                   <button 
                     onClick={handleCopyCode}
-                    className={`h-11 px-5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm ${
-                      copied ? "bg-emerald-500 text-white" : "bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 hover:scale-[1.02] active:scale-95"
+                    className={`h-11 px-5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm touch-manipulation ${
+                      copied ? "bg-emerald-500 text-white" : "bg-white/10 text-white border border-white/10 hover:bg-white/20 active:scale-95"
                     }`}
                   >
                     <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
@@ -1326,7 +1443,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
             )}
             <button 
               onClick={() => { soundEngine.playSFX("click"); playMode === "host" ? setPlayMode("menu") : onClose(); }} 
-              className="w-full mt-8 py-3.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all relative z-10"
+              className="w-full mt-8 py-3.5 bg-white/5 hover:bg-white/10 text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all relative z-10 touch-manipulation"
             >
               Cancel Match
             </button>
@@ -1336,17 +1453,17 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
       {showRules && (
         <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 w-full max-w-xs text-center space-y-4 shadow-xl">
-            <h3 className="text-base font-black uppercase tracking-wider text-neutral-900 dark:text-white">Carrom Guidelines</h3>
-            <ul className="text-left text-xs space-y-3 text-neutral-600 dark:text-neutral-400 font-medium">
+          <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 w-full max-w-xs text-center space-y-4 shadow-xl">
+            <h3 className="text-base font-black uppercase tracking-wider text-white">Carrom Guidelines</h3>
+            <ul className="text-left text-xs space-y-3 text-neutral-400 font-medium">
               {gameRuleMode === "freestyle" ? (
                 <>
-                  <li>🔸 <strong className="text-amber-500">Freestyle Points:</strong> White = 3, Black = 2, Queen = 5.</li>
+                  <li>🔸 <strong className="text-[#CCFF00]">Freestyle Points:</strong> White = 3, Black = 2, Queen = 5.</li>
                   <li>🔸 Potting ANY coin grants an extra turn.</li>
                 </>
               ) : (
                 <>
-                  <li>🔸 <strong className="text-amber-500">Classic Mode:</strong> Potting the first coin dictates your assigned color.</li>
+                  <li>🔸 <strong className="text-[#CCFF00]">Classic Mode:</strong> Potting the first coin dictates your assigned color.</li>
                   <li>🔸 Clear all your assigned color pieces to win!</li>
                   <li>🔸 Potting OPPONENT color is a foul.</li>
                 </>
@@ -1355,7 +1472,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
             </ul>
             <button 
               onClick={() => { soundEngine.playSFX("click"); setShowRules(false); }} 
-              className="w-full mt-2 py-3 bg-neutral-900 dark:bg-white text-white dark:text-black font-bold text-xs uppercase tracking-wider rounded-xl"
+              className="w-full mt-2 py-3 bg-[#CCFF00] text-black font-bold text-xs uppercase tracking-wider rounded-xl touch-manipulation"
             >
               Got It
             </button>
@@ -1365,7 +1482,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
       {toast && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 animate-slide-down pointer-events-none">
-          <div className={`px-5 py-2.5 rounded-full shadow-lg border backdrop-blur-md flex items-center gap-2 ${toast.type === 'foul' ? 'bg-red-500/90 border-red-400 text-white' : toast.type === 'success' ? 'bg-[#CCFF00]/90 border-[#CCFF00] text-black' : 'bg-neutral-900/90 border-neutral-700 text-white'}`}>
+          <div className={`px-5 py-2.5 rounded-full shadow-lg border backdrop-blur-md flex items-center gap-2 ${toast.type === 'foul' ? 'bg-rose-500/90 border-rose-400 text-white' : toast.type === 'success' ? 'bg-[#CCFF00]/90 border-[#CCFF00] text-black' : 'bg-[#18181b]/90 border-white/10 text-white'}`}>
             <span className="material-symbols-outlined text-sm">{toast.type === 'foul' ? 'warning' : toast.type === 'success' ? 'check_circle' : 'info'}</span>
             <span className={`text-[10px] font-black uppercase tracking-widest ${toast.type === 'success' ? 'text-black' : 'text-white'}`}>{toast.msg}</span>
           </div>
@@ -1398,25 +1515,25 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                     style={{ left: p.left, width: '7px', height: '15px', backgroundColor: p.color, borderRadius: '3px', animation: `confetti-fall ${p.duration} linear ${p.delay} infinite`}} 
                   />
                 ))}
-                <div className="relative bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-8 w-full max-w-sm shadow-2xl flex flex-col items-center text-center z-50 animate-scale-up">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#CCFF00] to-green-500 text-black flex items-center justify-center mb-4 shadow-lg border-4 border-[#CCFF00] dark:border-green-900 animate-bounce">
+                <div className="relative bg-[#18181b] border border-white/10 rounded-3xl p-8 w-full max-w-sm shadow-2xl flex flex-col items-center text-center z-50 animate-scale-up">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#CCFF00] to-emerald-500 text-black flex items-center justify-center mb-4 shadow-lg border-4 border-[#CCFF00] animate-bounce">
                     <span className="material-symbols-outlined text-3xl">emoji_events</span>
                   </div>
                   <h3 className="text-[10px] font-black text-[#CCFF00] tracking-widest uppercase mb-1">Victory Sequence</h3>
-                  <h2 className="text-3xl font-black tracking-tight uppercase">Arena Cleared!</h2>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium mt-3 px-2 leading-relaxed">
+                  <h2 className="text-3xl font-black tracking-tight uppercase text-white">Arena Cleared!</h2>
+                  <p className="text-xs text-neutral-400 font-medium mt-3 px-2 leading-relaxed">
                     {playMode === "online" || playMode === "bot" ? (winner === myPlayerRole ? "Incredible skill! You claimed complete server victory." : "The opponent cleared the board.") : `Player ${winner} has completely pocketed their target roster!`}
                   </p>
                   <div className="w-full flex gap-3 mt-8">
                     <button 
                       onClick={handleExitGame} 
-                      className="flex-1 py-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-sm"
+                      className="flex-1 py-3 bg-white/5 border border-white/10 text-neutral-300 font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-sm touch-manipulation"
                     >
                       Exit
                     </button>
                     <button 
                       onClick={handleRematch} 
-                      className="flex-1 py-3 bg-[#CCFF00] text-black font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-md hover:bg-[#b3e600]"
+                      className="flex-1 py-3 bg-[#CCFF00] text-black font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-md hover:bg-[#b3e600] touch-manipulation"
                     >
                       Play Next
                     </button>

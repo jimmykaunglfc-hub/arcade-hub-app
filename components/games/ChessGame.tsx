@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Chess, Square } from "chess.js";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
@@ -15,7 +15,9 @@ interface ChessGameProps {
   opponent?: { name: string; isBot: boolean } | null;
 }
 
-// ♟️ HIGH-DEFINITION LICHESS CDN VECTORS (CORS-Safe, 100% Reliable Asset Delivery)
+const TURN_TIME_LIMIT = 30; // 30-second turn limit requirement
+
+// ♟️ HIGH-DEFINITION LICHESS CDN VECTORS
 const PIECE_SVGS: Record<string, string> = {
   wp: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/wP.svg",
   wn: "https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/cburnett/wN.svg",
@@ -34,6 +36,172 @@ const PIECE_SVGS: Record<string, string> = {
 const PIECE_SYMBOLS: Record<string, string> = {
   p: "♙", n: "♘", b: "♗", r: "♖", q: "♕",
   P: "♟", N: "♞", B: "♝", R: "♜", Q: "♛",
+};
+
+// -------------------------------------------------------------
+// 🧠 CHESS BOT EVALUATION ENGINE (Material + Piece-Square Tables)
+// -------------------------------------------------------------
+const PIECE_VALUES: Record<string, number> = {
+  p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000,
+};
+
+const PST_PAWN = [
+  [ 0,  0,  0,  0,  0,  0,  0,  0],
+  [50, 50, 50, 50, 50, 50, 50, 50],
+  [10, 10, 20, 30, 30, 20, 10, 10],
+  [ 5,  5, 10, 25, 25, 10,  5,  5],
+  [ 0,  0,  0, 20, 20,  0,  0,  0],
+  [ 5, -5,-10,  0,  0,-10, -5,  5],
+  [ 5, 10, 10,-20,-20, 10, 10,  5],
+  [ 0,  0,  0,  0,  0,  0,  0,  0]
+];
+
+const PST_KNIGHT = [
+  [-50,-40,-30,-30,-30,-30,-40,-50],
+  [-40,-20,  0,  0,  0,  0,-20,-40],
+  [-30,  0, 10, 15, 15, 10,  0,-30],
+  [-30,  5, 15, 20, 20, 15,  5,-30],
+  [-30,  0, 15, 20, 20, 15,  0,-30],
+  [-30,  5, 10, 15, 15, 10,  5,-30],
+  [-40,-20,  0,  5,  5,  0,-20,-40],
+  [-50,-40,-30,-30,-30,-30,-40,-50]
+];
+
+const PST_BISHOP = [
+  [-20,-10,-10,-10,-10,-10,-10,-20],
+  [-10,  0,  0,  0,  0,  0,  0,-10],
+  [-10,  0,  5, 10, 10,  5,  0,-10],
+  [-10,  5,  5, 10, 10,  5,  5,-10],
+  [-10,  0, 10, 10, 10, 10,  0,-10],
+  [-10, 10, 10, 10, 10, 10, 10,-10],
+  [-10,  5,  0,  0,  0,  0,  5,-10],
+  [-20,-10,-10,-10,-10,-10,-10,-20]
+];
+
+const PST_ROOK = [
+  [ 0,  0,  0,  0,  0,  0,  0,  0],
+  [ 5, 10, 10, 10, 10, 10, 10,  5],
+  [-5,  0,  0,  0,  0,  0,  0, -5],
+  [-5,  0,  0,  0,  0,  0,  0, -5],
+  [-5,  0,  0,  0,  0,  0,  0, -5],
+  [-5,  0,  0,  0,  0,  0,  0, -5],
+  [-5,  0,  0,  0,  0,  0,  0, -5],
+  [ 0,  0,  0,  5,  5,  0,  0,  0]
+];
+
+const PST_QUEEN = [
+  [-20,-10,-10, -5, -5,-10,-10,-20],
+  [-10,  0,  0,  0,  0,  0,  0,-10],
+  [-10,  0,  5,  5,  5,  5,  0,-10],
+  [ -5,  0,  5,  5,  5,  5,  0, -5],
+  [  0,  0,  5,  5,  5,  5,  0, -5],
+  [-10,  5,  5,  5,  5,  5,  0,-10],
+  [-10,  0,  5,  0,  0,  0,  0,-10],
+  [-20,-10,-10, -5, -5,-10,-10,-20]
+];
+
+const PST_KING = [
+  [-30,-40,-40,-50,-50,-40,-40,-30],
+  [-30,-40,-40,-50,-50,-40,-40,-30],
+  [-30,-40,-40,-50,-50,-40,-40,-30],
+  [-30,-40,-40,-50,-50,-40,-40,-30],
+  [-20,-30,-30,-40,-40,-30,-30,-20],
+  [-10,-20,-20,-20,-20,-20,-20,-10],
+  [ 20, 20,  0,  0,  0,  0, 20, 20],
+  [ 20, 30, 10,  0,  0, 10, 30, 20]
+];
+
+const evaluateBoard = (chessGame: Chess): number => {
+  let totalScore = 0;
+  const board = chessGame.board();
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const piece = board[r][c];
+      if (!piece) continue;
+
+      const val = PIECE_VALUES[piece.type] || 0;
+      let table = PST_PAWN;
+      if (piece.type === "n") table = PST_KNIGHT;
+      else if (piece.type === "b") table = PST_BISHOP;
+      else if (piece.type === "r") table = PST_ROOK;
+      else if (piece.type === "q") table = PST_QUEEN;
+      else if (piece.type === "k") table = PST_KING;
+
+      const row = piece.color === "w" ? r : 7 - r;
+      const pstVal = table[row][c];
+      const pieceScore = val + pstVal;
+
+      if (piece.color === "b") {
+        totalScore += pieceScore; // Black maximizing
+      } else {
+        totalScore -= pieceScore; // White minimizing
+      }
+    }
+  }
+  return totalScore;
+};
+
+const minimax = (
+  chessGame: Chess,
+  depth: number,
+  alpha: number,
+  beta: number,
+  isMaximizing: boolean
+): number => {
+  if (depth === 0 || chessGame.isGameOver()) {
+    return evaluateBoard(chessGame);
+  }
+
+  const moves = chessGame.moves({ verbose: true });
+  moves.sort((a, b) => (b.captured ? 10 : 0) - (a.captured ? 10 : 0));
+
+  if (isMaximizing) {
+    let maxEval = -Infinity;
+    for (const move of moves) {
+      chessGame.move(move);
+      const evaluation = minimax(chessGame, depth - 1, alpha, beta, false);
+      chessGame.undo();
+      maxEval = Math.max(maxEval, evaluation);
+      alpha = Math.max(alpha, evaluation);
+      if (beta <= alpha) break;
+    }
+    return maxEval;
+  } else {
+    let minEval = Infinity;
+    for (const move of moves) {
+      chessGame.move(move);
+      const evaluation = minimax(chessGame, depth - 1, alpha, beta, true);
+      chessGame.undo();
+      minEval = Math.min(minEval, evaluation);
+      beta = Math.min(beta, evaluation);
+      if (beta <= alpha) break;
+    }
+    return minEval;
+  }
+};
+
+const getBestMove = (chessGame: Chess) => {
+  const moves = chessGame.moves({ verbose: true });
+  if (moves.length === 0) return null;
+
+  let bestMove = null;
+  let bestValue = -Infinity;
+
+  moves.sort((a, b) => (b.captured ? 10 : 0) - (a.captured ? 10 : 0));
+
+  for (const move of moves) {
+    chessGame.move(move);
+    const boardValue = minimax(chessGame, 2, -Infinity, Infinity, false);
+    chessGame.undo();
+
+    if (boardValue > bestValue) {
+      bestValue = boardValue;
+      bestMove = move;
+    }
+  }
+
+  return bestMove || moves[Math.floor(Math.random() * moves.length)];
 };
 
 export default function ChessGame({ onClose, preloadedMatchId, opponent }: ChessGameProps) {
@@ -56,7 +224,6 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     isBotMode || preloadedMatchId ? "play" : "menu"
   );
   
-  // State to store generated bot profile
   const [localOpponent, setLocalOpponent] = useState<any>(opponent || null);
 
   const [matchId, setMatchId] = useState<string | null>(
@@ -71,6 +238,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   const [game, setGame] = useState(new Chess());
   const [fen, setFen] = useState(game.fen());
   const [isCheck, setIsCheck] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);
   const [gameOver, setGameOver] = useState<{
     isOver: boolean;
     winner: string | null;
@@ -220,55 +388,9 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
       matchChannel.untrack();
       supabase.removeChannel(matchChannel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId, myUserId, localOpponent, view, playerColor]);
 
-  // 🤖 LOCAL JOE YOKE BOT ENGINE (Greedy Logic)
-  useEffect(() => {
-    const isBotMatch = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
-    
-    // The Bot acts when it is Black's turn and the game isn't over
-    if (isBotMatch && view === "play" && game.turn() === "b" && !gameOver.isOver) {
-      
-      const thinkingDelay = Math.floor(Math.random() * 2000) + 1500;
-      
-      const botTimer = setTimeout(() => {
-        const moves = game.moves({ verbose: true });
-        if (moves.length === 0) return;
-
-        // Simple Greedy AI: Prioritize captures to mimic an aggressive bot
-        const captures = moves.filter(m => m.captured);
-        const moveList = captures.length > 0 ? captures : moves;
-        
-        // Add random element for unpredictability
-        const randomMove = moveList[Math.floor(Math.random() * moveList.length)];
-
-        makeMove(randomMove.from as Square, randomMove.to as Square);
-        
-        // 25% chance the bot reacts with an emote after playing
-        if (Math.random() <= 0.25) {
-          const reactionDelay = Math.floor(Math.random() * 1000) + 800;
-          setTimeout(() => {
-            const EMOJIS = ["🔥", "🤯", "🥶", "😂", "😡"];
-            const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-            soundEngine.playSFX("beep");
-            setOppReaction(randomEmote);
-            setTimeout(() => setOppReaction(null), 3500);
-          }, reactionDelay);
-        }
-
-      }, thinkingDelay);
-
-      return () => clearTimeout(botTimer);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fen, game, gameOver, opponent, localOpponent, view, matchId]);
-
-  useEffect(() => {
-    if (view === "host" && opponentConnected) setView("play");
-  }, [opponentConnected, view]);
-
-  const updateGameStatus = (currentGame: Chess) => {
+  const updateGameStatus = useCallback((currentGame: Chess) => {
     setIsCheck(currentGame.isCheck());
     if (currentGame.isGameOver()) {
       let reason = "Game Over";
@@ -282,34 +404,10 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     } else {
       setGameOver({ isOver: false, winner: null, reason: "" });
     }
-  };
-
-  const capturedPieces = useMemo(() => {
-    const counts = { w: { p: 0, n: 0, b: 0, r: 0, q: 0 }, b: { p: 0, n: 0, b: 0, r: 0, q: 0 } };
-    game.board().forEach((row) =>
-      row.forEach((piece) => {
-        if (piece) counts[piece.color][piece.type as keyof typeof counts.w]++;
-      })
-    );
-
-    const starting = { p: 8, n: 2, b: 2, r: 2, q: 1 };
-    const wCaptured = [];
-    const bCaptured = [];
-
-    for (const type of ["q", "r", "b", "n", "p"] as const) {
-      for (let i = 0; i < starting[type] - counts.w[type]; i++) wCaptured.push(PIECE_SYMBOLS[type.toUpperCase()]);
-      for (let i = 0; i < starting[type] - counts.b[type]; i++) bCaptured.push(PIECE_SYMBOLS[type]);
-    }
-    return { wCaptured, bCaptured };
-  }, [fen, game]);
-
-  const currentTurnColor = game.turn() === "w" ? "white" : "black";
-  
-  const isBotMatchNow = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
-  const displayOrientation = matchId && !isBotMatchNow ? playerColor : "white";
+  }, []);
 
   // Execute Move Engine
-  const makeMove = (source: Square, target: Square): boolean => {
+  const makeMove = useCallback((source: Square, target: Square): boolean => {
     if (gameOver.isOver) return false;
     
     const isBotMatch = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
@@ -324,7 +422,6 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
       const move = gameCopy.move({ from: source, to: target, promotion: "q" });
       if (!move) return false;
 
-      // Play appropriate sound effect based on move result
       if (gameCopy.isCheckmate()) {
         const isWinner = matchId && !isBotMatch
           ? (playerColor === "white" && gameCopy.turn() === "b") || (playerColor === "black" && gameCopy.turn() === "w")
@@ -354,7 +451,103 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     } catch {
       return false;
     }
-  };
+  }, [game, gameOver.isOver, localOpponent, opponent, matchId, opponentConnected, updateGameStatus, channel, playerColor]);
+
+  // -------------------------------------------------------------
+  // ⏱️ 30-SECOND TURN TIMER SYSTEM
+  // -------------------------------------------------------------
+  const handleTimeOut = useCallback(() => {
+    if (gameOver.isOver) return;
+    soundEngine.playSFX("defeat");
+
+    const moves = game.moves({ verbose: true });
+    if (moves.length > 0) {
+      const randomMove = moves[Math.floor(Math.random() * moves.length)];
+      makeMove(randomMove.from as Square, randomMove.to as Square);
+      showToast("Time expired! Auto move executed.");
+    } else {
+      const currentTurn = game.turn();
+      const winner = currentTurn === "w" ? "Black" : "White";
+      setGameOver({ isOver: true, winner, reason: "by Timeout" });
+    }
+  }, [game, gameOver.isOver, makeMove]);
+
+  useEffect(() => {
+    if (view !== "play" || gameOver.isOver) return;
+
+    setTimeLeft(TURN_TIME_LIMIT);
+
+    const timerInterval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerInterval);
+          handleTimeOut();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [fen, view, gameOver.isOver, handleTimeOut]);
+
+  // 🤖 LOCAL BOT ENGINE (Smart Minimax evaluation)
+  useEffect(() => {
+    const isBotMatch = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
+    
+    if (isBotMatch && view === "play" && game.turn() === "b" && !gameOver.isOver) {
+      const thinkingDelay = Math.floor(Math.random() * 1200) + 1000;
+      
+      const botTimer = setTimeout(() => {
+        const bestMove = getBestMove(game);
+        if (!bestMove) return;
+
+        makeMove(bestMove.from as Square, bestMove.to as Square);
+        
+        if (Math.random() <= 0.25) {
+          const reactionDelay = Math.floor(Math.random() * 1000) + 800;
+          setTimeout(() => {
+            const EMOJIS = ["🔥", "🤯", "🥶", "😂", "😡"];
+            const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+            soundEngine.playSFX("beep");
+            setOppReaction(randomEmote);
+            setTimeout(() => setOppReaction(null), 3500);
+          }, reactionDelay);
+        }
+
+      }, thinkingDelay);
+
+      return () => clearTimeout(botTimer);
+    }
+  }, [fen, game, gameOver, opponent, localOpponent, view, matchId, makeMove]);
+
+  useEffect(() => {
+    if (view === "host" && opponentConnected) setView("play");
+  }, [opponentConnected, view]);
+
+  const capturedPieces = useMemo(() => {
+    const counts = { w: { p: 0, n: 0, b: 0, r: 0, q: 0 }, b: { p: 0, n: 0, b: 0, r: 0, q: 0 } };
+    game.board().forEach((row) =>
+      row.forEach((piece) => {
+        if (piece) counts[piece.color][piece.type as keyof typeof counts.w]++;
+      })
+    );
+
+    const starting = { p: 8, n: 2, b: 2, r: 2, q: 1 };
+    const wCaptured = [];
+    const bCaptured = [];
+
+    for (const type of ["q", "r", "b", "n", "p"] as const) {
+      for (let i = 0; i < starting[type] - counts.w[type]; i++) wCaptured.push(PIECE_SYMBOLS[type.toUpperCase()]);
+      for (let i = 0; i < starting[type] - counts.b[type]; i++) bCaptured.push(PIECE_SYMBOLS[type]);
+    }
+    return { wCaptured, bCaptured };
+  }, [fen, game]);
+
+  const currentTurnColor = game.turn() === "w" ? "white" : "black";
+  
+  const isBotMatchNow = localOpponent?.isBot || opponent?.isBot || matchId?.startsWith("bot_");
+  const displayOrientation = matchId && !isBotMatchNow ? playerColor : "white";
 
   const getSquareFromCoords = (clientX: number, clientY: number): Square | null => {
     if (!boardRef.current) return null;
@@ -431,6 +624,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     setGame(newGame);
     setFen(newGame.fen());
     setIsCheck(false);
+    setTimeLeft(TURN_TIME_LIMIT);
     setGameOver({ isOver: false, winner: null, reason: "" });
     setSelectedSquare(null);
     setLegalMoves([]);
@@ -535,7 +729,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
                     soundEngine.playSFX("click");
                     onClose();
                   }}
-                  className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
+                  className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation"
                 >
                   <span className="material-symbols-outlined text-base">shopping_cart</span>
                   Visit Store / Buy Points
@@ -543,7 +737,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
 
                 <button
                   onClick={() => setShowNoPointsModal(false)}
-                  className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5"
+                  className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5 touch-manipulation"
                 >
                   Dismiss
                 </button>
@@ -568,7 +762,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
             </div>
           </div>
 
-          <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5">
+          <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5 touch-manipulation">
             <div className="flex justify-between items-start mb-4">
               <div className="w-10 h-10 bg-[#CCFF00]/10 rounded-xl flex items-center justify-center text-[#CCFF00]">
                 <span className="material-symbols-outlined text-xl">search</span>
@@ -587,7 +781,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
           </button>
 
           <div className="grid grid-cols-2 gap-4 mb-6">
-            <button onClick={hostMatch} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+            <button onClick={hostMatch} className="group bg-[#09090b] border border-white/10 hover:border-teal-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px] touch-manipulation">
               <div className="flex justify-between items-start w-full">
                 <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
                   <span className="material-symbols-outlined text-lg">dns</span>
@@ -600,7 +794,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
               </div>
             </button>
 
-            <button onClick={() => { soundEngine.playSFX("click"); setMatchId(null); setView("play"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px]">
+            <button onClick={() => { soundEngine.playSFX("click"); setMatchId(null); setView("play"); }} className="group bg-[#09090b] border border-white/10 hover:border-pink-500/50 rounded-[24px] p-4 text-left transition-all hover:bg-white/5 flex flex-col justify-between min-h-[140px] touch-manipulation">
               <div className="flex justify-between items-start w-full">
                 <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
                   <span className="material-symbols-outlined text-lg">sports_esports</span>
@@ -631,13 +825,13 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
             <button
               onClick={joinMatch}
               disabled={joinInput.length < 4}
-              className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
+              className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5 touch-manipulation"
             >
               Join
             </button>
           </div>
 
-          <button onClick={() => { soundEngine.playSFX("click"); onClose(); }} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
+          <button onClick={() => { soundEngine.playSFX("click"); onClose(); }} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase touch-manipulation">
             <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
           </button>
 
@@ -658,9 +852,9 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
             <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
           </div>
         </div>
-        <h2 className="font-headline font-black text-2xl text-white mb-2">Locating Opponent</h2>
+        <h2 className="font-headline font-black text-2xl text-white mb-2 uppercase">Locating Opponent</h2>
         <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95">
+        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase touch-manipulation">
           Abort Search
         </button>
       </div>
@@ -697,7 +891,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
           <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
         </p>
 
-        <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">
+        <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] touch-manipulation">
           Enter Match <span className="material-symbols-outlined">arrow_forward</span>
         </button>
       </div>
@@ -709,7 +903,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-body text-white select-none">
         <div className="flex justify-between items-center p-6 bg-gradient-to-b from-black/50 to-transparent">
-          <button onClick={handleExit} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
+          <button onClick={handleExit} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors touch-manipulation">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
           <div className="text-center">
@@ -733,13 +927,13 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
               <span className="font-headline font-bold text-2xl tracking-[0.3em] text-indigo-300">{matchId}</span>
               <button
                 onClick={() => { soundEngine.playSFX("click"); navigator.clipboard.writeText(matchId!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider"
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider touch-manipulation"
               >
                 <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
                 {copied ? "COPIED" : "COPY"}
               </button>
             </div>
-            <button onClick={handleExit} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5">
+            <button onClick={handleExit} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5 uppercase touch-manipulation">
               CANCEL MATCH
             </button>
           </div>
@@ -754,23 +948,23 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   return (
     <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center font-body text-white select-none">
       {toast && (
-        <div className="absolute top-24 z-[300] bg-red-500/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl font-headline font-bold text-sm shadow-2xl animate-fade-in border border-red-400">
+        <div className="absolute top-24 z-[300] bg-rose-500/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl font-headline font-bold text-sm shadow-2xl animate-fade-in border border-rose-400">
           {toast}
         </div>
       )}
 
       {gameOver.isOver && (
-        <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in">
+        <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in touch-none">
           <div className="w-full max-w-[340px] bg-[#18181b] border border-white/10 rounded-[32px] p-8 flex flex-col items-center text-center shadow-2xl">
-            <div className="w-20 h-20 bg-gradient-to-br from-[#CCFF00] to-green-500 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-[#CCFF00]/20">
+            <div className="w-20 h-20 bg-gradient-to-br from-[#CCFF00] to-emerald-500 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-[#CCFF00]/20">
               <span className="material-symbols-outlined text-4xl text-black">{gameOver.winner ? "emoji_events" : "handshake"}</span>
             </div>
             <h2 className="font-headline font-black text-3xl mb-1 uppercase tracking-tight">{gameOver.winner ? `${gameOver.winner} Wins!` : "It's a Draw!"}</h2>
             <p className="font-caps text-[10px] font-bold text-neutral-400 tracking-[0.2em] uppercase mb-8">{gameOver.reason}</p>
-            <button onClick={resetGame} className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black rounded-xl py-4 font-headline font-bold text-sm tracking-widest shadow-lg shadow-[#CCFF00]/20 transition-transform active:scale-95 mb-3">
+            <button onClick={resetGame} className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black rounded-xl py-4 font-headline font-bold text-sm tracking-widest shadow-lg shadow-[#CCFF00]/20 transition-transform active:scale-95 mb-3 touch-manipulation">
               PLAY AGAIN
             </button>
-            <button onClick={matchId ? handleExit : onClose} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-xl py-4 font-headline font-bold text-sm tracking-widest border border-white/5 transition-colors">
+            <button onClick={matchId ? handleExit : onClose} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-xl py-4 font-headline font-bold text-sm tracking-widest border border-white/5 transition-colors touch-manipulation">
               EXIT ARENA
             </button>
           </div>
@@ -792,20 +986,33 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
         </div>
       )}
 
-      {/* Header */}
-      <div className="w-full max-w-[400px] flex items-start justify-between px-4 pt-safe absolute top-0 mt-4 z-10">
-        <button onClick={matchId ? handleExit : onClose} className="w-10 h-10 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10">
+      {/* Header with Turn Countdown Timer */}
+      <div className="w-full max-w-[400px] flex items-center justify-between px-4 pt-safe absolute top-0 mt-4 z-10">
+        <button onClick={matchId ? handleExit : onClose} className="w-10 h-10 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10 touch-manipulation">
           <span className="material-symbols-outlined text-white">arrow_back</span>
         </button>
+        
         <div className="flex flex-col items-center">
           <h2 className="font-headline font-black text-sm uppercase tracking-[0.2em] text-[#CCFF00]">
             {isBotOpponent ? "Bot Match" : matchId ? "Live Arena" : "Local Play"}
           </h2>
-          <span className={`font-caps text-[9px] font-bold uppercase tracking-widest mt-0.5 ${matchId && !isBotOpponent && !opponentConnected ? "text-amber-400 animate-pulse" : isCheck ? "text-red-400 animate-pulse" : "text-neutral-500"}`}>
-            {matchId && !isBotOpponent && !opponentConnected ? "WAITING FOR OPPONENT" : isCheck ? "⚠️ CHECK ⚠️" : `${currentTurnColor} to move`}
-          </span>
+          
+          <div className="flex items-center gap-2 mt-0.5">
+            {/* TURN COUNTDOWN BADGE */}
+            <div className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full border shadow-sm backdrop-blur-md transition-colors ${
+              timeLeft <= 5 ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse" : "bg-[#18181b] border-white/10 text-[#CCFF00]"
+            }`}>
+              <span className="material-symbols-outlined text-[10px]">timer</span>
+              <span className="font-mono font-black text-[10px]">{timeLeft}s</span>
+            </div>
+
+            <span className={`font-caps text-[9px] font-bold uppercase tracking-widest ${matchId && !isBotOpponent && !opponentConnected ? "text-amber-400 animate-pulse" : isCheck ? "text-rose-400 animate-pulse" : "text-neutral-400"}`}>
+              {matchId && !isBotOpponent && !opponentConnected ? "WAITING" : isCheck ? "⚠️ CHECK" : `${currentTurnColor} turn`}
+            </span>
+          </div>
         </div>
-        <button onClick={resetGame} className="w-10 h-10 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10">
+
+        <button onClick={resetGame} className="w-10 h-10 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10 touch-manipulation">
           <span className="material-symbols-outlined text-white">restart_alt</span>
         </button>
       </div>
@@ -879,7 +1086,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
                 return (
                   <div
                     key={sq}
-                    className={`relative flex items-center justify-center transition-colors duration-150 ${
+                    className={`relative flex items-center justify-center transition-colors duration-150 touch-manipulation ${
                       isDark ? darkSquareBg : lightSquareBg
                     }`}
                   >
@@ -898,7 +1105,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
                     )}
 
                     {/* Check Highlight */}
-                    {isKingInCheck && <div className="absolute inset-0 bg-red-500/80 animate-pulse pointer-events-none" />}
+                    {isKingInCheck && <div className="absolute inset-0 bg-rose-500/80 animate-pulse pointer-events-none" />}
 
                     {/* Render Chess Piece */}
                     {pieceKey && (
@@ -915,7 +1122,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
                     {isLegalMove && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         {piece ? (
-                          <div className="w-full h-full border-4 border-red-500/80 rounded-full animate-pulse" />
+                          <div className="w-full h-full border-4 border-rose-500/80 rounded-full animate-pulse" />
                         ) : (
                           <div className={`w-3.5 h-3.5 rounded-full ${
                             isObsidianBoard 
@@ -949,7 +1156,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
             {matchId && !isBotOpponent && (
               <button
                 onClick={() => { soundEngine.playSFX("click"); setShowReactionMenu(!showReactionMenu); }}
-                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center text-neutral-400 hover:text-white relative"
+                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center text-neutral-400 hover:text-white relative touch-manipulation"
               >
                 <span className="material-symbols-outlined text-lg">add_reaction</span>
                 {myReaction && (
@@ -981,7 +1188,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
                   setTimeout(() => setMyReaction(null), 3500);
                   if (channel && matchId) channel.send({ type: "broadcast", event: "reaction", payload: { emoji } });
                 }}
-                className="w-10 h-10 text-2xl hover:bg-white/10 rounded-xl transition-all hover:scale-110 active:scale-90"
+                className="w-10 h-10 text-2xl hover:bg-white/10 rounded-xl transition-all hover:scale-110 active:scale-90 touch-manipulation"
               >
                 {emoji}
               </button>
