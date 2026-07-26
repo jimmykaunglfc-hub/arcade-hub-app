@@ -11,7 +11,7 @@ interface DailyLoginCardProps {
 export default function DailyLoginCard({ userId, onClaimSuccess }: DailyLoginCardProps) {
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
-  const [rewardPoints, setRewardPoints] = useState<number>(50); // Fallback default
+  const [rewardPoints, setRewardPoints] = useState<number>(1000);
   const [hasClaimedToday, setHasClaimedToday] = useState(false);
 
   useEffect(() => {
@@ -22,20 +22,36 @@ export default function DailyLoginCard({ userId, onClaimSuccess }: DailyLoginCar
     }
   }, [userId]);
 
+  const fetchActiveRewardAmount = async (): Promise<number> => {
+    try {
+      // Query reward_rules with fallback column checks
+      const { data: rule, error } = await supabase
+        .from("reward_rules")
+        .select("*")
+        .or("trigger_event.eq.daily_login,title.ilike.%Daily Login%")
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error querying reward_rules:", error.message);
+        return 1000;
+      }
+
+      if (rule) {
+        const pts = rule.payout_amount ?? rule.reward_points ?? rule.points;
+        if (typeof pts === "number") return pts;
+      }
+    } catch (err) {
+      console.error("Failed to fetch reward rule:", err);
+    }
+    return 1000;
+  };
+
   const checkDailyClaimStatus = async () => {
     setLoading(true);
     try {
-      // 1. Fetch the active Daily Login payout rule set in backend (Reward System)
-      const { data: rule } = await supabase
-        .from("reward_rules")
-        .select("reward_points")
-        .eq("trigger_event", "daily_login")
-        .eq("is_active", true)
-        .maybeSingle();
-
-      if (rule?.reward_points) {
-        setRewardPoints(rule.reward_points);
-      }
+      // 1. Fetch live payout amount configured in Admin Panel
+      const liveRewardPts = await fetchActiveRewardAmount();
+      setRewardPoints(liveRewardPts);
 
       // 2. Check user's last claim timestamp from profiles
       const { data: profile } = await supabase
@@ -66,7 +82,10 @@ export default function DailyLoginCard({ userId, onClaimSuccess }: DailyLoginCar
     try {
       const nowISO = new Date().toISOString();
 
-      // 1. Get current balance
+      // 1. Fetch current exact payout rule
+      const activePayout = await fetchActiveRewardAmount();
+
+      // 2. Get current user balance
       const { data: profile } = await supabase
         .from("profiles")
         .select("points")
@@ -74,24 +93,25 @@ export default function DailyLoginCard({ userId, onClaimSuccess }: DailyLoginCar
         .single();
 
       const currentPts = profile?.points ?? 0;
-      const updatedPts = currentPts + rewardPoints;
+      const updatedPts = currentPts + activePayout;
 
-      // 2. Update user profile with points & timestamp
+      // 3. Update user profile with new point total & timestamp
       const { error: updateError } = await supabase
         .from("profiles")
         .update({
           points: updatedPts,
           last_daily_claim_at: nowISO,
-          last_login_claim: nowISO, // Sync both column formats
+          last_login_claim: nowISO,
         })
         .eq("id", userId);
 
       if (updateError) throw updateError;
 
-      // 3. Mark locally as claimed
+      // 4. Update local state
+      setRewardPoints(activePayout);
       setHasClaimedToday(true);
 
-      // 4. Notify app shell to refresh header balance
+      // 5. Notify header/parent component to refresh balance
       if (onClaimSuccess) {
         onClaimSuccess();
       }
@@ -148,7 +168,7 @@ export default function DailyLoginCard({ userId, onClaimSuccess }: DailyLoginCar
           <button
             onClick={handleClaim}
             disabled={claiming}
-            className="bg-white text-[#FF6B00] font-headline font-black text-xs uppercase px-5 py-2.5 rounded-full hover:bg-neutral-100 transition-all shadow-md active:scale-95 disabled:opacity-50"
+            className="bg-[#18181b] text-white font-headline font-black text-xs uppercase px-5 py-2.5 rounded-full hover:bg-black transition-all shadow-md active:scale-95 disabled:opacity-50 border border-white/10"
           >
             {claiming ? "Claiming..." : "Claim"}
           </button>
