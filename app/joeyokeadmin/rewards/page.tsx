@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
+import PointsResetSettings from "../_components/PointsResetSettings";
 import {
   Award,
   Plus,
@@ -21,7 +22,6 @@ import {
   Flame,
   UserPlus,
   X,
-  CheckCircle2,
 } from "lucide-react";
 
 export default function RewardSystemPage() {
@@ -36,7 +36,7 @@ export default function RewardSystemPage() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // --- FORM STATES (Supports empty strings for smooth typing/backspacing) ---
+  // --- FORM STATES ---
   const [formTitle, setFormTitle] = useState("");
   const [formTrigger, setFormTrigger] = useState<string>("daily_login");
   const [formPoints, setFormPoints] = useState<number | "">(100);
@@ -144,7 +144,6 @@ export default function RewardSystemPage() {
     }
   };
 
-  // --- HELPER FOR TRIGGER ICONS ---
   const getTriggerBadge = (trigger: string) => {
     switch (trigger) {
       case "daily_login":
@@ -162,11 +161,9 @@ export default function RewardSystemPage() {
     }
   };
 
-  // --- METRICS ---
   const activeRulesCount = rules.filter((r) => r.is_active).length;
   const totalPotentialPoints = rules.reduce((acc, r) => acc + (r.reward_points || 0), 0);
 
-  // --- FILTERED RULES ---
   const filteredRules = rules.filter((rule) => {
     const matchesSearch =
       (rule.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -251,6 +248,11 @@ export default function RewardSystemPage() {
           </div>
         </div>
       </div>
+
+      {/* --- POINTS RESET SYSTEM CONTROL PANEL --- */}
+      <section className="pt-2">
+        <PointsResetSettings />
+      </section>
 
       {/* FILTER & SEARCH BAR */}
       <div className="bg-[#18181b] border border-white/10 rounded-[20px] p-4 flex flex-col md:flex-row gap-4 justify-between items-center shadow-xl">
