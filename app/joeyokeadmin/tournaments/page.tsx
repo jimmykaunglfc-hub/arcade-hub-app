@@ -1,0 +1,376 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import {
+  Trophy,
+  Plus,
+  Search,
+  Calendar,
+  Users,
+  Coins,
+  RefreshCw,
+  X,
+  Play,
+  CheckCircle,
+  Clock,
+  Sparkles,
+} from "lucide-react";
+
+export default function TournamentsPage() {
+  const [tournaments, setTournaments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Form State
+  const [title, setTitle] = useState("");
+  const [game, setGame] = useState("Chess");
+  const [prizePool, setPrizePool] = useState("10000");
+  const [entryFee, setEntryFee] = useState("0");
+  const [maxPlayers, setMaxPlayers] = useState("32");
+  const [startDate, setStartDate] = useState("");
+
+  useEffect(() => {
+    fetchTournaments();
+  }, []);
+
+  const fetchTournaments = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("tournaments")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setTournaments(data || []);
+    } catch (err: any) {
+      console.error("Error fetching tournaments:", err.message);
+      // Fallback mock data if table doesn't exist yet
+      setTournaments([
+        {
+          id: "1",
+          title: "Joe Yoke Grand Masters Season 1",
+          game: "Chess",
+          prize_pool: 25000,
+          entry_fee: 50,
+          registered_count: 28,
+          max_players: 32,
+          status: "active",
+          start_date: "2026-08-01T14:00:00Z",
+        },
+        {
+          id: "2",
+          title: "Weekly Carrom Championship",
+          game: "Carrom",
+          prize_pool: 5000,
+          entry_fee: 0,
+          registered_count: 64,
+          max_players: 64,
+          status: "upcoming",
+          start_date: "2026-08-05T18:00:00Z",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateTournament = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const { error } = await supabase.from("tournaments").insert({
+        title,
+        game,
+        prize_pool: parseInt(prizePool),
+        entry_fee: parseInt(entryFee),
+        max_players: parseInt(maxPlayers),
+        start_date: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
+        status: "upcoming",
+        registered_count: 0,
+      });
+
+      if (error) throw error;
+      setIsCreateModalOpen(false);
+      fetchTournaments();
+    } catch (err: any) {
+      alert("Error creating tournament: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filteredTournaments = tournaments.filter((t) => {
+    const matchesSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase()) || t.game.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filter === "all" || t.status === filter;
+    return matchesSearch && matchesFilter;
+  });
+
+  return (
+    <div className="space-y-8 animate-fade-in pb-16">
+      {/* HEADER */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="font-headline text-3xl font-black text-white tracking-tight">
+            Tournaments Engine
+          </h2>
+          <p className="font-body text-xs text-neutral-400 mt-1">
+            Create, schedule, and oversee competitive bracket tournaments across all arcade games.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={fetchTournaments}
+            className="flex items-center justify-center w-10 h-10 bg-[#18181b] border border-white/10 rounded-xl text-neutral-400 hover:text-white transition-all"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 bg-[#CCFF00] px-5 py-2.5 rounded-xl text-xs font-black text-black hover:bg-[#b3e600] transition-all shadow-[0_0_20px_rgba(204,255,0,0.25)] active:scale-95"
+          >
+            <Plus className="w-4 h-4" /> Create Tournament
+          </button>
+        </div>
+      </header>
+
+      {/* STATS OVERVIEW */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-[#18181b] border border-white/10 p-5 rounded-[20px] shadow-xl flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Active Events
+            </p>
+            <p className="font-headline text-2xl font-black text-white mt-1">
+              {tournaments.filter((t) => t.status === "active").length}
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-[#CCFF00]/10 border border-[#CCFF00]/20 flex items-center justify-center text-[#CCFF00]">
+            <Play className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-[#18181b] border border-white/10 p-5 rounded-[20px] shadow-xl flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Total Prize Pool
+            </p>
+            <p className="font-headline text-2xl font-black text-[#CCFF00] mt-1">
+              {tournaments.reduce((acc, curr) => acc + (curr.prize_pool || 0), 0).toLocaleString()} PTS
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-[#CCFF00]/10 border border-[#CCFF00]/20 flex items-center justify-center text-[#CCFF00]">
+            <Coins className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-[#18181b] border border-white/10 p-5 rounded-[20px] shadow-xl flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Total Registrations
+            </p>
+            <p className="font-headline text-2xl font-black text-white mt-1">
+              {tournaments.reduce((acc, curr) => acc + (curr.registered_count || 0), 0)} Players
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <Users className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* FILTER & SEARCH */}
+      <div className="bg-[#18181b] border border-white/10 rounded-[20px] p-4 flex flex-col sm:flex-row items-center gap-4 justify-between">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search tournament title or game..."
+            className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-2 text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:border-[#CCFF00]"
+          />
+        </div>
+
+        <div className="flex gap-2 w-full sm:w-auto">
+          {["all", "upcoming", "active", "completed"].map((st) => (
+            <button
+              key={st}
+              onClick={() => setFilter(st)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
+                filter === st
+                  ? "bg-[#CCFF00] text-black border-[#CCFF00]"
+                  : "bg-white/5 text-neutral-400 border-white/5 hover:text-white"
+              }`}
+            >
+              {st}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* TOURNAMENTS LIST */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {loading ? (
+          <div className="col-span-2 py-16 text-center text-xs font-bold text-neutral-500 uppercase tracking-widest animate-pulse">
+            Syncing Bracket Matrix...
+          </div>
+        ) : filteredTournaments.length === 0 ? (
+          <div className="col-span-2 p-12 text-center text-xs text-neutral-500 bg-[#18181b] rounded-2xl border border-white/10">
+            No tournaments found for this filter.
+          </div>
+        ) : (
+          filteredTournaments.map((t) => (
+            <div
+              key={t.id}
+              className="bg-[#18181b] border border-white/10 rounded-[24px] p-5 shadow-xl space-y-4 hover:border-white/20 transition-all"
+            >
+              <div className="flex justify-between items-start gap-2">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#CCFF00] bg-[#CCFF00]/10 border border-[#CCFF00]/20 px-2 py-0.5 rounded-md">
+                    {t.game}
+                  </span>
+                  <h3 className="font-headline font-black text-white text-base mt-2">{t.title}</h3>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
+                    t.status === "active"
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                      : t.status === "upcoming"
+                      ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                      : "bg-neutral-500/10 text-neutral-400 border-neutral-500/30"
+                  }`}
+                >
+                  {t.status === "active" && <Play className="w-3 h-3" />}
+                  {t.status === "upcoming" && <Clock className="w-3 h-3" />}
+                  {t.status === "completed" && <CheckCircle className="w-3 h-3" />}
+                  {t.status}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 bg-white/[0.02] p-3 rounded-xl border border-white/5 text-xs">
+                <div>
+                  <span className="text-[9px] text-neutral-500 uppercase font-bold block">Prize Pool</span>
+                  <span className="font-bold text-[#CCFF00]">{t.prize_pool?.toLocaleString()} PTS</span>
+                </div>
+                <div>
+                  <span className="text-[9px] text-neutral-500 uppercase font-bold block">Entry Fee</span>
+                  <span className="font-bold text-white">{t.entry_fee > 0 ? `${t.entry_fee} Gems` : "Free"}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] text-neutral-500 uppercase font-bold block">Slots</span>
+                  <span className="font-bold text-white">{t.registered_count || 0} / {t.max_players}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* CREATE MODAL */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-[#18181b] border border-white/10 rounded-[28px] p-6 w-full max-w-lg shadow-2xl space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#CCFF00]" />
+                <h3 className="font-headline text-lg font-black text-white">New Tournament</h3>
+              </div>
+              <button onClick={() => setIsCreateModalOpen(false)} className="text-neutral-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTournament} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                  Tournament Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Summer Clash 2026"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                    Game
+                  </label>
+                  <select
+                    value={game}
+                    onChange={(e) => setGame(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                  >
+                    <option value="Chess" className="bg-[#18181b]">Chess</option>
+                    <option value="Carrom" className="bg-[#18181b]">Carrom</option>
+                    <option value="Snooker" className="bg-[#18181b]">Snooker</option>
+                    <option value="Uno" className="bg-[#18181b]">Uno</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                    Max Bracket Slots
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={maxPlayers}
+                    onChange={(e) => setMaxPlayers(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                    Prize Pool (PTS)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={prizePool}
+                    onChange={(e) => setPrizePool(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                    Entry Fee (Gems)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={entryFee}
+                    onChange={(e) => setEntryFee(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full bg-[#CCFF00] text-black font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-[#b3e600] transition-all shadow-[0_0_15px_rgba(204,255,0,0.2)]"
+              >
+                {saving ? "Publishing..." : "Publish Tournament"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
