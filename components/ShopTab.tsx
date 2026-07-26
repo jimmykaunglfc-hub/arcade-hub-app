@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { soundEngine } from "@/lib/soundManager";
 import {
   storeManager,
@@ -8,6 +8,10 @@ import {
   UserStoreData,
   CosmeticItem,
 } from "@/lib/storeManager";
+
+interface ShopTabProps {
+  userId?: string | null;
+}
 
 // 🎡 WHEEL SLOTS DEFINITION
 const WHEEL_SLOTS = [
@@ -23,7 +27,7 @@ const WHEEL_SLOTS = [
 
 const COOLDOWN_24H_MS = 24 * 60 * 60 * 1000;
 
-export default function StorePage() {
+export default function ShopTab({ userId }: ShopTabProps) {
   const [storeData, setStoreData] = useState<UserStoreData>(storeManager.getStoreData());
   const [activeTab, setActiveTab] = useState<"currency" | "cosmetics">("currency");
   
@@ -37,7 +41,7 @@ export default function StorePage() {
   useEffect(() => {
     const loaded = storeManager.getStoreData();
     setStoreData(loaded);
-  }, []);
+  }, [userId]);
 
   // ⏱️ 24-HOUR COOLDOWN TIMER ENGINE
   useEffect(() => {

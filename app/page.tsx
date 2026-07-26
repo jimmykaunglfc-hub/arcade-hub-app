@@ -1,440 +1,316 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { soundEngine } from "../lib/soundManager";
-import {
-  storeManager,
-  CATALOG_COSMETICS,
-  UserStoreData,
-  CosmeticItem,
-} from "../lib/storeManager";
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import { supabase } from "../lib/supabaseClient";
 
-interface ShopTabProps {
-  userId?: string | null;
-}
+// 👇 Ranking utilities
+import { getRankTier, calculateKDA, getHoursPlayed } from "../lib/rankingUtils";
 
-// 🎡 WHEEL SLOTS DEFINITION
-const WHEEL_SLOTS = [
-  { id: 1, label: "250 PTS", type: "points" as const, value: 250 },
-  { id: 2, label: "5 GEMS", type: "gems" as const, value: 5 },
-  { id: 3, label: "500 PTS", type: "points" as const, value: 500 },
-  { id: 4, label: "100 PTS", type: "points" as const, value: 100 },
-  { id: 5, label: "10 GEMS", type: "gems" as const, value: 10 },
-  { id: 6, label: "1,000 PTS", type: "points" as const, value: 1000 },
-  { id: 7, label: "2 GEMS", type: "gems" as const, value: 2 },
-  { id: 8, label: "750 PTS", type: "points" as const, value: 750 },
-];
+import HomeTab from "../components/HomeTab"; 
+import GamesTab from "../components/GamesTab";
+import ChatTab from "../components/ChatTab";
+import ShopTab from "../components/ShopTab";
+import ProfileTab from "../components/ProfileTab";
+import GlobalInviteListener from "../components/GlobalInviteListener";
+import JoeYokeLogo from "../components/JoeYokeLogo";
 
-const COOLDOWN_24H_MS = 24 * 60 * 60 * 1000;
+import GamePlayer from "../components/GamePlayer";
+import GlitchDeck from "../components/games/GlitchDeck";
+import Checkers from "../components/games/Checkers";
+import Carrom from "../components/games/Carrom";
+import NexusBreach from "../components/games/NexusBreach"; 
+import LiarsDice from "../components/games/LiarsDice"; 
+import NeuralDuel from "../components/games/NeuralDuel"; 
+import BiometricOverride from "../components/games/BiometricOverride";
+import ChessGame from "../components/games/ChessGame"; 
+import SnookerGame from "../components/games/SnookerGame";
+import TicTacToeGame from "../components/games/TicTacToeGame";
+import UnoGame from "../components/games/UnoGame";
+import AuthView from "../components/AuthView";
 
-export default function ShopTab({ userId }: ShopTabProps) {
-  const [storeData, setStoreData] = useState<UserStoreData>(storeManager.getStoreData());
-  const [activeTab, setActiveTab] = useState<"currency" | "cosmetics">("currency");
+export default function Home() {
+  const [session, setSession] = useState<any>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   
-  // Wheel States
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [wheelRotation, setWheelRotation] = useState(0);
-  const [rewardModal, setRewardModal] = useState<{ title: string; desc: string } | null>(null);
-  const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState("Home"); 
+  
+  const [userPoints, setUserPoints] = useState<number>(0);
+  const [userGems, setUserGems] = useState<number>(45);
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+  
+  const [rankData, setRankData] = useState<any>(null);
 
-  // Synchronize store data on mount or when userId changes
-  useEffect(() => {
-    const loaded = storeManager.getStoreData();
-    setStoreData(loaded);
-  }, [userId]);
+  const [playingGame, setPlayingGame] = useState<string | null>(null);
+  const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
-  // ⏱️ 24-HOUR COOLDOWN TIMER ENGINE
   useEffect(() => {
-    const checkCooldown = () => {
-      if (!storeData.lastSpinTimestamp) {
-        setCooldownRemaining(0);
-        return;
+    const cachedTheme = localStorage.getItem("app_theme");
+    if (cachedTheme === "light") {
+      setIsDarkMode(false);
+      document.documentElement.classList.remove("dark");
+    } else {
+      setIsDarkMode(true);
+      document.documentElement.classList.add("dark");
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        setMyUserId(session.user.id);
+        fetchLiveBalance(session.user.id);
       }
-      const elapsed = Date.now() - storeData.lastSpinTimestamp;
-      const remaining = COOLDOWN_24H_MS - elapsed;
-      setCooldownRemaining(remaining > 0 ? remaining : 0);
-    };
-
-    checkCooldown();
-    const timer = setInterval(checkCooldown, 1000);
-    return () => clearInterval(timer);
-  }, [storeData.lastSpinTimestamp]);
-
-  const formatCooldown = (ms: number) => {
-    const totalSecs = Math.floor(ms / 1000);
-    const hrs = Math.floor(totalSecs / 3600);
-    const mins = Math.floor((totalSecs % 3600) / 60);
-    const secs = totalSecs % 60;
-    return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  // 🎡 SPIN THE WHEEL MECHANIC
-  const handleSpinCore = async () => {
-    if (isSpinning || cooldownRemaining > 0) {
-      soundEngine.playSFX("defeat");
-      return;
-    }
-
-    soundEngine.playSFX("click");
-    setIsSpinning(true);
-
-    const winningIndex = Math.floor(Math.random() * WHEEL_SLOTS.length);
-    const winningSlot = WHEEL_SLOTS[winningIndex];
-
-    const slotAngle = 360 / WHEEL_SLOTS.length;
-    const targetAngle = 360 * 5 + (360 - winningIndex * slotAngle);
-
-    setWheelRotation(targetAngle);
-    soundEngine.playSFX("dice_roll");
-
-    setTimeout(async () => {
-      setIsSpinning(false);
-      soundEngine.playSFX("victory");
-
-      const updatedPoints = storeData.points + (winningSlot.type === "points" ? winningSlot.value : 0);
-      const updatedGems = storeData.gems + (winningSlot.type === "gems" ? winningSlot.value : 0);
-      const now = Date.now();
-
-      const newData: UserStoreData = {
-        ...storeData,
-        points: updatedPoints,
-        gems: updatedGems,
-        lastSpinTimestamp: now,
-      };
-
-      setStoreData(newData);
-      await storeManager.saveStoreData(newData);
-
-      setRewardModal({
-        title: "CORE EXTRACTION SUCCESS",
-        desc: `You extracted +${winningSlot.value} ${winningSlot.type === "points" ? "PTS" : "GEMS"} from the Matrix Core!`,
-      });
-    }, 3500);
-  };
-
-  // 🛒 PURCHASE CURRENCY PACK
-  const handleBuyCurrency = async (type: "points" | "gems", amount: number, priceLabel: string) => {
-    soundEngine.playSFX("click");
-    
-    setTimeout(async () => {
-      soundEngine.playSFX("victory");
-      const newData: UserStoreData = {
-        ...storeData,
-        points: storeData.points + (type === "points" ? amount : 0),
-        gems: storeData.gems + (type === "gems" ? amount : 0),
-      };
-      setStoreData(newData);
-      await storeManager.saveStoreData(newData);
-
-      setRewardModal({
-        title: "PURCHASE COMPLETE",
-        desc: `Successfully added +${amount.toLocaleString()} ${type === "points" ? "PTS" : "GEMS"} to your matrix account (${priceLabel}).`,
-      });
-    }, 400);
-  };
-
-  // 🛍️ BUY OR EQUIP COSMETIC ITEM
-  const handleCosmeticAction = async (item: CosmeticItem) => {
-    const isOwned = storeData.ownedCosmetics.includes(item.id);
-    const isEquipped = storeData.equippedCosmetics[item.gameId] === item.id;
-
-    if (isEquipped) {
-      soundEngine.playSFX("click");
-      const updatedEquipped = { ...storeData.equippedCosmetics };
-      delete updatedEquipped[item.gameId];
-
-      const newData = { ...storeData, equippedCosmetics: updatedEquipped };
-      setStoreData(newData);
-      await storeManager.saveStoreData(newData);
-      return;
-    }
-
-    if (isOwned) {
-      soundEngine.playSFX("click");
-      const updatedEquipped = {
-        ...storeData.equippedCosmetics,
-        [item.gameId]: item.id,
-      };
-
-      const newData = { ...storeData, equippedCosmetics: updatedEquipped };
-      setStoreData(newData);
-      await storeManager.saveStoreData(newData);
-      return;
-    }
-
-    const currentBalance = item.currency === "points" ? storeData.points : storeData.gems;
-    if (currentBalance < item.price) {
-      soundEngine.playSFX("defeat");
-      setRewardModal({
-        title: "INSUFFICIENT FUNDS",
-        desc: `You need ${item.price.toLocaleString()} ${item.currency === "points" ? "PTS" : "GEMS"} to unlock ${item.name}.`,
-      });
-      return;
-    }
-
-    soundEngine.playSFX("victory");
-    const newPoints = item.currency === "points" ? storeData.points - item.price : storeData.points;
-    const newGems = item.currency === "gems" ? storeData.gems - item.price : storeData.gems;
-    const newOwned = [...storeData.ownedCosmetics, item.id];
-    const newEquipped = { ...storeData.equippedCosmetics, [item.gameId]: item.id };
-
-    const newData: UserStoreData = {
-      ...storeData,
-      points: newPoints,
-      gems: newGems,
-      ownedCosmetics: newOwned,
-      equippedCosmetics: newEquipped,
-    };
-
-    setStoreData(newData);
-    await storeManager.saveStoreData(newData);
-
-    setRewardModal({
-      title: "COSMETIC UNLOCKED!",
-      desc: `${item.name} unlocked and equipped for ${item.gameId.toUpperCase()}.`,
+      setCheckingAuth(false);
     });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(subscription ? session : null);
+      if (session?.user) {
+        setMyUserId(session.user.id);
+        fetchLiveBalance(session.user.id);
+      } else {
+        setMyUserId(null);
+        setUserPoints(0);
+        setRankData(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!myUserId) return;
+
+    const profileChannel = supabase.channel(`live_wallet_${myUserId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${myUserId}` },
+        () => {
+          fetchLiveBalance(myUserId);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(profileChannel); };
+  }, [myUserId]);
+
+  const fetchLiveBalance = async (uid: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select(`
+        points, 
+        mmr, 
+        total_wins, 
+        total_matches, 
+        total_kills, 
+        total_deaths, 
+        total_assists, 
+        total_playtime_seconds
+      `)
+      .eq("id", uid)
+      .maybeSingle();
+
+    if (data) {
+      setUserPoints(data.points ?? 0);
+
+      const matches = data.total_matches ?? 0;
+      const wins = data.total_wins ?? 0;
+      const winRate = matches > 0 ? ((wins / matches) * 100).toFixed(1) : 0;
+
+      const PLACEMENTS_NEEDED = 5;
+      const isPlacing = matches < PLACEMENTS_NEEDED;
+
+      setRankData({
+        tier: isPlacing ? "Unranked" : getRankTier(data.mmr ?? 1000),
+        percentile: null,
+        winRate: Number(winRate),
+        kda: calculateKDA(data.total_kills ?? 0, data.total_deaths ?? 0, data.total_assists ?? 0),
+        hoursPlayed: getHoursPlayed(data.total_playtime_seconds ?? 0)
+      });
+    }
   };
+
+  const toggleTheme = () => {
+    if (isDarkMode) {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("app_theme", "light");
+      setIsDarkMode(false);
+    } else {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("app_theme", "dark");
+      setIsDarkMode(true);
+    }
+  };
+
+  if (checkingAuth) {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center transition-colors duration-300">
+        <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest animate-pulse">
+          Syncing Session Matrix...
+        </span>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full max-w-md mx-auto bg-transparent text-white flex flex-col font-sans select-none animate-fade-in pb-12">
-      
-      {/* 1. DAILY FORTUNE WHEEL CARD */}
-      <div className="w-full bg-surface border border-surface-container-highest rounded-[28px] p-5 mb-6 shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
-        <h2 className="font-headline font-black text-lg text-on-surface mb-1">Daily Fortune Wheel</h2>
-        <p className="text-xs text-on-surface-variant font-medium max-w-[260px] mb-5">
-          Spin the matrix core module to extract free tokens.
-        </p>
-
-        {/* ROTATING WHEEL GRAPHIC */}
-        <div className="relative w-48 h-48 mb-6 flex items-center justify-center">
-          <div className="absolute -top-2 z-30 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[14px] border-t-primary drop-shadow-[0_2px_8px_rgba(204,255,0,0.8)]" />
-
-          <div
-            className="w-full h-full rounded-full border-4 border-surface-container-highest relative overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] transition-transform duration-[3500ms] cubic-bezier(0.15,0.95,0.3,1)"
-            style={{ transform: `rotate(${wheelRotation}deg)` }}
-          >
-            {WHEEL_SLOTS.map((slot, index) => {
-              const angle = (360 / WHEEL_SLOTS.length) * index;
-              return (
-                <div
-                  key={slot.id}
-                  className="absolute w-full h-full top-0 left-0 flex justify-center pt-2"
-                  style={{
-                    transform: `rotate(${angle}deg)`,
-                    transformOrigin: "50% 50%",
-                  }}
-                >
-                  <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-tighter">
-                    {slot.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="absolute inset-0 m-auto w-14 h-14 bg-background border-2 border-primary rounded-full flex items-center justify-center shadow-lg z-20">
-            <span className="material-symbols-outlined text-xl text-primary animate-pulse">
-              bolt
-            </span>
-          </div>
-        </div>
-
-        {/* SPIN ACTION BUTTON */}
-        <button
-          onClick={handleSpinCore}
-          disabled={isSpinning || cooldownRemaining > 0}
-          className={`w-full py-4 rounded-2xl font-black text-sm tracking-wider uppercase transition-all shadow-lg active:scale-95 ${
-            cooldownRemaining > 0
-              ? "bg-surface-container-highest text-on-surface-variant cursor-not-allowed border border-white/5"
-              : "bg-primary hover:opacity-90 text-on-primary shadow-[0_0_20px_rgba(204,255,0,0.25)]"
-          }`}
-        >
-          {isSpinning
-            ? "EXTRACTING CORE..."
-            : cooldownRemaining > 0
-            ? `COOLDOWN: ${formatCooldown(cooldownRemaining)}`
-            : "SPIN CORE"}
-        </button>
-      </div>
-
-      {/* 2. STORE CATEGORY TABS */}
-      <div className="grid grid-cols-2 gap-3 p-1.5 bg-surface border border-surface-container-highest rounded-2xl mb-6">
-        <button
-          onClick={() => { soundEngine.playSFX("click"); setActiveTab("currency"); }}
-          className={`py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
-            activeTab === "currency"
-              ? "bg-primary text-on-primary shadow-md"
-              : "text-on-surface-variant hover:text-on-surface"
-          }`}
-        >
-          Currency
-        </button>
-        <button
-          onClick={() => { soundEngine.playSFX("click"); setActiveTab("cosmetics"); }}
-          className={`py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
-            activeTab === "cosmetics"
-              ? "bg-primary text-on-primary shadow-md"
-              : "text-on-surface-variant hover:text-on-surface"
-          }`}
-        >
-          Cosmetics
-        </button>
-      </div>
-
-      {/* 3. TAB CONTENT: CURRENCY PACKS */}
-      {activeTab === "currency" && (
-        <div className="grid grid-cols-2 gap-4 animate-fade-in">
-          <div className="bg-surface border border-surface-container-highest rounded-3xl p-5 flex flex-col items-center text-center shadow-lg relative overflow-hidden">
-            <div className="w-14 h-14 bg-surface-container-highest rounded-2xl flex items-center justify-center mb-4 border border-white/5">
-              <span className="material-symbols-outlined text-2xl text-primary">bolt</span>
-            </div>
-            <h3 className="font-black text-xl text-on-surface">1,000</h3>
-            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-6">PTS</p>
-            <button
-              onClick={() => handleBuyCurrency("points", 1000, "$0.99")}
-              className="w-full bg-surface-container-highest hover:opacity-80 border border-white/10 text-on-surface font-bold py-3 rounded-xl text-xs transition-colors active:scale-95"
-            >
-              $0.99
-            </button>
-          </div>
-
-          <div className="bg-surface border-2 border-primary/40 rounded-3xl p-5 flex flex-col items-center text-center shadow-xl relative overflow-hidden">
-            <div className="absolute top-0 inset-x-0 bg-primary text-on-primary font-black text-[9px] uppercase tracking-widest py-1">
-              BEST VALUE
-            </div>
-            <div className="w-14 h-14 bg-surface-container-highest rounded-2xl flex items-center justify-center mb-4 mt-3 border border-white/5">
-              <span className="material-symbols-outlined text-2xl text-primary">bolt</span>
-            </div>
-            <h3 className="font-black text-xl text-on-surface">5,000</h3>
-            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-6">PTS</p>
-            <button
-              onClick={() => handleBuyCurrency("points", 5000, "$3.99")}
-              className="w-full bg-primary hover:opacity-90 text-on-primary font-black py-3 rounded-xl text-xs transition-transform active:scale-95 shadow-[0_0_15px_rgba(204,255,0,0.2)]"
-            >
-              $3.99
-            </button>
-          </div>
-
-          <div className="bg-surface border border-surface-container-highest rounded-3xl p-5 flex flex-col items-center text-center shadow-lg relative overflow-hidden">
-            <div className="w-14 h-14 bg-surface-container-highest rounded-2xl flex items-center justify-center mb-4 border border-white/5">
-              <span className="material-symbols-outlined text-2xl text-secondary">diamond</span>
-            </div>
-            <h3 className="font-black text-xl text-on-surface">100</h3>
-            <p className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-6">GEMS</p>
-            <button
-              onClick={() => handleBuyCurrency("gems", 100, "$1.99")}
-              className="w-full bg-surface-container-highest hover:opacity-80 border border-white/10 text-on-surface font-bold py-3 rounded-xl text-xs transition-colors active:scale-95"
-            >
-              $1.99
-            </button>
-          </div>
-
-          <div className="bg-surface border border-surface-container-highest rounded-3xl p-5 flex flex-col items-center text-center shadow-lg relative overflow-hidden">
-            <div className="w-14 h-14 bg-surface-container-highest rounded-2xl flex items-center justify-center mb-4 border border-white/5">
-              <span className="material-symbols-outlined text-2xl text-secondary">diamond</span>
-            </div>
-            <h3 className="font-black text-xl text-on-surface">500</h3>
-            <p className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-6">GEMS</p>
-            <button
-              onClick={() => handleBuyCurrency("gems", 500, "$6.99")}
-              className="w-full bg-surface-container-highest hover:opacity-80 border border-white/10 text-on-surface font-bold py-3 rounded-xl text-xs transition-colors active:scale-95"
-            >
-              $6.99
-            </button>
-          </div>
-        </div>
+    <>
+      {session && (
+        <GlobalInviteListener 
+          onAccept={(gameUrl, matchId) => {
+            setActiveMatchId(matchId);
+            setPlayingGame(gameUrl);
+          }} 
+        />
       )}
 
-      {/* 4. TAB CONTENT: COSMETICS */}
-      {activeTab === "cosmetics" && (
-        <div className="grid grid-cols-2 gap-4 animate-fade-in">
-          {CATALOG_COSMETICS.map((item) => {
-            const isOwned = storeData.ownedCosmetics.includes(item.id);
-            const isEquipped = storeData.equippedCosmetics[item.gameId] === item.id;
+      {/* 🎮 NATIVE ENGINE ROUTER */}
+      {playingGame === "native://glitch-deck" ? (
+        <GlitchDeck onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+      ) : playingGame === "native://chess" ? (
+        <ChessGame onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
+      ) : playingGame === "native://tictactoe" || playingGame === "native://tic-tac-toe" ? (
+        <TicTacToeGame onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
+      ) : playingGame === "native://uno" ? (
+        <UnoGame onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
+      ) : playingGame === "native://checkers" ? (
+        <Checkers onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
+      ) : playingGame === "native://carrom" ? (
+        <Carrom onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
+      ) : playingGame === "native://snooker" ? (
+        <SnookerGame onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
+      ) : playingGame === "native://nexus-breach" ? (
+        <NexusBreach onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+      ) : playingGame === "native://liars-dice" ? (
+        <LiarsDice onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+      ) : playingGame === "native://neural-duel" ? (
+        <NeuralDuel onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+      ) : playingGame === "native://biometric-override" ? (
+        <BiometricOverride onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+      ) : playingGame ? (
+        <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+      ) : null}
 
-            return (
-              <div
-                key={item.id}
-                className={`bg-surface border rounded-3xl p-5 flex flex-col items-center text-center shadow-lg relative overflow-hidden transition-all ${
-                  isEquipped
-                    ? "border-primary shadow-[0_0_20px_rgba(204,255,0,0.15)]"
-                    : "border-surface-container-highest"
-                }`}
-              >
-                <span className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant mb-2">
-                  {item.gameId}
-                </span>
-
-                <div className="w-14 h-14 bg-surface-container-highest rounded-2xl flex items-center justify-center mb-3 border border-white/5">
-                  <span className="material-symbols-outlined text-2xl text-on-surface">
-                    {item.icon}
-                  </span>
+      {/* 📱 SOLID APP SHELL */}
+      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden transition-colors duration-300"}>
+        
+        {/* HEADER */}
+        <header 
+          className="fixed top-0 left-0 right-0 z-50 bg-background flex justify-between items-center px-5 h-[90px] transition-colors duration-300"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
+          <div className="flex items-center gap-3">
+            <JoeYokeLogo className="w-[42px] h-[42px]" />
+            
+            <div className="flex flex-col">
+              <h1 className="font-headline text-lg font-bold text-on-background leading-tight">Joe Yoke</h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex items-center gap-1 bg-primary-container px-2.5 py-0.5 rounded-full">
+                  <span className="material-symbols-outlined text-primary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
+                  <span className="text-on-background text-[11px] font-extrabold">{userPoints.toLocaleString()}</span>
                 </div>
-
-                <h3 className="font-bold text-sm text-on-surface mb-1 line-clamp-1">{item.name}</h3>
-
-                <div className="mb-5">
-                  {isOwned ? (
-                    <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                      UNLOCKED
-                    </span>
-                  ) : (
-                    <div className="flex items-center gap-1 justify-center text-xs font-black">
-                      <span className="material-symbols-outlined text-xs text-primary">
-                        {item.currency === "points" ? "bolt" : "diamond"}
-                      </span>
-                      <span className={item.currency === "points" ? "text-primary" : "text-secondary"}>
-                        {item.price.toLocaleString()}
-                      </span>
-                    </div>
-                  )}
+                <div className="flex items-center gap-1 bg-secondary-container px-2.5 py-0.5 rounded-full">
+                  <span className="material-symbols-outlined text-secondary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
+                  <span className="text-on-background text-[11px] font-extrabold">{userGems}</span>
                 </div>
-
-                <button
-                  onClick={() => handleCosmeticAction(item)}
-                  className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all active:scale-95 ${
-                    isEquipped
-                      ? "bg-primary text-on-primary shadow-md"
-                      : isOwned
-                      ? "bg-white/10 hover:bg-white/20 text-on-surface border border-white/10"
-                      : "bg-surface-container-highest hover:opacity-80 text-on-surface border border-white/10"
-                  }`}
-                >
-                  {isEquipped ? "EQUIPPED ✓" : isOwned ? "EQUIP" : "UNLOCK"}
-                </button>
               </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button 
+              onClick={toggleTheme}
+              className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface hover:opacity-80 transition-opacity border border-surface-container-highest shadow-sm"
+            >
+              <span className="material-symbols-outlined text-[18px]">{isDarkMode ? "light_mode" : "dark_mode"}</span>
+            </button>
+            <button className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface hover:opacity-80 transition-opacity border border-surface-container-highest shadow-sm">
+              <span className="material-symbols-outlined text-[18px]">notifications</span>
+            </button>
+          </div>
+        </header>
+
+        {/* MAIN CONTENT AREA */}
+        <main 
+          className="flex-1 overflow-y-auto no-scrollbar pb-[100px] px-5 w-full z-10"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 100px)' }}
+        >
+          {!session && (activeTab === "Chats" || activeTab === "Store" || activeTab === "Profile") ? (
+            <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
+          ) : (
+            <>
+              {activeTab === "Home" && (
+                <HomeTab 
+                  currentPoints={userPoints}
+                  userId={myUserId}
+                  onPlay={(url) => setPlayingGame(url)}
+                  onNavigate={(tab) => {
+                    if (tab === "explore") setActiveTab("Explore");
+                    if (tab === "store") setActiveTab("Store");
+                  }}
+                  rankData={rankData}
+                  onPointsUpdated={() => fetchLiveBalance(myUserId!)}
+                />
+              )}
+
+              {activeTab === "Explore" && (
+                <GamesTab 
+                  currentPoints={userPoints}
+                  userId={myUserId}
+                  onPlay={(url) => setPlayingGame(url)} 
+                />
+              )}
+              
+              {activeTab === "Chats" && (
+                <ChatTab 
+                  currentPoints={userPoints}
+                  userId={myUserId}
+                  onPlay={(url, matchId) => {
+                    setActiveMatchId(matchId);
+                    setPlayingGame(url);
+                  }} 
+                />
+              )}
+              
+              {activeTab === "Store" && <ShopTab userId={myUserId} />}
+              
+              {activeTab === "Profile" && (
+                <ProfileTab isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
+              )}
+            </>
+          )}
+        </main>
+
+        {/* BOTTOM NAVIGATION */}
+        <nav className="fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-surface-container-highest px-2 pb-safe pt-1 flex justify-around items-center h-[76px] transition-colors duration-300">
+          {[
+            { id: "Home", icon: "home" },
+            { id: "Explore", icon: "explore" }, 
+            { id: "Store", icon: "local_mall" },
+            { id: "Chats", icon: "chat_bubble" },
+            { id: "Profile", icon: "person" }
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button 
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className="relative flex flex-col items-center justify-center w-16 h-full transition-all"
+              >
+                {isActive && (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32px] h-[3px] bg-primary rounded-b-md"></div>
+                )}
+                <span className={`material-symbols-outlined mt-1 text-[24px] ${isActive ? "text-primary" : "text-on-surface-variant"}`}>
+                  {tab.icon}
+                </span>
+                <span className={`text-[10px] font-bold mt-1 tracking-wide ${isActive ? "text-primary" : "text-on-surface-variant"}`}>
+                  {tab.id}
+                </span>
+              </button>
             );
           })}
-        </div>
-      )}
-
-      {/* 5. MODAL NOTIFICATION */}
-      {rewardModal && (
-        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
-          <div className="w-full max-w-xs bg-surface border border-surface-container-highest rounded-[32px] p-6 text-center shadow-2xl flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center mb-4">
-              <span className="material-symbols-outlined text-3xl text-primary">auto_awesome</span>
-            </div>
-
-            <h3 className="font-black text-base text-on-surface tracking-tight mb-2 uppercase">
-              {rewardModal.title}
-            </h3>
-            <p className="text-xs text-on-surface-variant font-medium leading-relaxed mb-6">
-              {rewardModal.desc}
-            </p>
-
-            <button
-              onClick={() => {
-                soundEngine.playSFX("click");
-                setRewardModal(null);
-              }}
-              className="w-full py-3.5 bg-primary hover:opacity-90 text-on-primary font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg active:scale-95 transition-transform"
-            >
-              ACCEPT
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+        </nav>
+      </div>
+    </>
   );
 }
