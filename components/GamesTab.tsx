@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 interface GamesTabProps {
-  rewardClaimed: boolean; 
-  setRewardClaimed: (status: boolean) => void;
   currentPoints: number;
   userId: string | null;
-  // 🎯 STRICT TYPING: Ensures the parent router receives the Bot flag
   onPlay: (url: string, matchId?: string, opponent?: { name: string; isBot: boolean }) => void;
+  onPointsUpdated?: () => void; // 👈 FIXES TYPESCRIPT TS(2322) ERROR
+  rewardClaimed?: boolean; 
+  setRewardClaimed?: (status: boolean) => void;
 }
 
 // 🎮 LOCAL FALLBACK GAMES (Guarantees cards render if Supabase DB is empty or loading)
@@ -25,7 +25,10 @@ const DEFAULT_GAMES = [
 export default function GamesTab({ 
   currentPoints, 
   userId, 
-  onPlay 
+  onPlay,
+  onPointsUpdated,
+  rewardClaimed,
+  setRewardClaimed
 }: GamesTabProps) {
   const [activeCategory, setActiveCategory] = useState<string>("All");
   

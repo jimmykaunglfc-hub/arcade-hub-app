@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
 
-// 👇 NEW: Import your ranking utilities
+// 👇 Ranking utilities
 import { getRankTier, calculateKDA, getHoursPlayed } from "../lib/rankingUtils";
 
 import HomeTab from "../components/HomeTab"; 
@@ -13,7 +13,7 @@ import ChatTab from "../components/ChatTab";
 import ShopTab from "../components/ShopTab";
 import ProfileTab from "../components/ProfileTab";
 import GlobalInviteListener from "../components/GlobalInviteListener";
-import JoeYokeLogo from "../components/JoeYokeLogo"; // 👈 IMPORTED LOGO
+import JoeYokeLogo from "../components/JoeYokeLogo";
 
 import GamePlayer from "../components/GamePlayer";
 import GlitchDeck from "../components/games/GlitchDeck";
@@ -30,7 +30,6 @@ import AuthView from "../components/AuthView";
 export default function Home() {
   const [session, setSession] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [rewardClaimed, setRewardClaimed] = useState(false);
   
   const [activeTab, setActiveTab] = useState("Home"); 
   
@@ -38,7 +37,6 @@ export default function Home() {
   const [userGems, setUserGems] = useState<number>(45);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   
-  // State to hold the user's calculated rank and stats
   const [rankData, setRankData] = useState<any>(null);
 
   const [playingGame, setPlayingGame] = useState<string | null>(null);
@@ -72,7 +70,7 @@ export default function Home() {
       } else {
         setMyUserId(null);
         setUserPoints(0);
-        setRankData(null); // Clear rank data on logout
+        setRankData(null);
       }
     });
 
@@ -86,8 +84,7 @@ export default function Home() {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${myUserId}` },
-        (payload: any) => {
-          // Re-fetch everything if profile updates (like after a game) to keep UI perfectly in sync
+        () => {
           fetchLiveBalance(myUserId);
         }
       )
@@ -101,7 +98,6 @@ export default function Home() {
       .from("profiles")
       .select(`
         points, 
-        last_login_claim, 
         mmr, 
         total_wins, 
         total_matches, 
@@ -115,26 +111,17 @@ export default function Home() {
 
     if (data) {
       setUserPoints(data.points ?? 0);
-      
-      if (data.last_login_claim) {
-        const lastClaim = new Date(data.last_login_claim).toDateString();
-        const today = new Date().toDateString();
-        setRewardClaimed(lastClaim === today);
-      }
 
-      // Calculate the derived stats
       const matches = data.total_matches ?? 0;
       const wins = data.total_wins ?? 0;
       const winRate = matches > 0 ? ((wins / matches) * 100).toFixed(1) : 0;
 
-      // 👇 NEW: Placement Matches Logic
       const PLACEMENTS_NEEDED = 5;
       const isPlacing = matches < PLACEMENTS_NEEDED;
 
       setRankData({
-        // If they haven't played 5 games, hide their rank. Otherwise, show their true tier!
         tier: isPlacing ? "Unranked" : getRankTier(data.mmr ?? 1000),
-        percentile: null, // Placeholder: Can be hooked up to an advanced RPC later
+        percentile: null,
         winRate: Number(winRate),
         kda: calculateKDA(data.total_kills ?? 0, data.total_deaths ?? 0, data.total_assists ?? 0),
         hoursPlayed: getHoursPlayed(data.total_playtime_seconds ?? 0)
@@ -207,7 +194,6 @@ export default function Home() {
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
           <div className="flex items-center gap-3">
-            {/* 👇 IMPLEMENTED: NEW DYNAMIC LOGO */}
             <JoeYokeLogo className="w-[42px] h-[42px]" />
             
             <div className="flex flex-col">
@@ -257,13 +243,12 @@ export default function Home() {
                     if (tab === "store") setActiveTab("Store");
                   }}
                   rankData={rankData}
+                  onPointsUpdated={() => fetchLiveBalance(myUserId!)}
                 />
               )}
 
               {activeTab === "Explore" && (
                 <GamesTab 
-                  rewardClaimed={rewardClaimed} 
-                  setRewardClaimed={(status) => setRewardClaimed(status)}
                   currentPoints={userPoints}
                   userId={myUserId}
                   onPlay={(url) => setPlayingGame(url)} 
@@ -309,7 +294,7 @@ export default function Home() {
                 {isActive && (
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32px] h-[3px] bg-primary rounded-b-md"></div>
                 )}
-                <span className={`material-symbols-outlined mt-1 text-[24px] ${isActive ? "text-primary" : "text-on-surface-variant"}`} style={{ fontVariationSettings: isActive ? "'FILL' 0" : "'FILL' 0" }}>
+                <span className={`material-symbols-outlined mt-1 text-[24px] ${isActive ? "text-primary" : "text-on-surface-variant"}`}>
                   {tab.icon}
                 </span>
                 <span className={`text-[10px] font-bold mt-1 tracking-wide ${isActive ? "text-primary" : "text-on-surface-variant"}`}>

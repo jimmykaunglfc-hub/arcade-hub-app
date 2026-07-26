@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import DailyLoginCard from "./DailyLoginCard";
 
 interface HomeTabProps {
   currentPoints: number;
   userId: string | null;
   onPlay: (url: string) => void;
   onNavigate: (tabId: string) => void;
+  onPointsUpdated?: () => void;
   
   rankData?: {
     tier: string;
@@ -32,11 +34,11 @@ export default function HomeTab({
   userId, 
   onPlay, 
   onNavigate, 
+  onPointsUpdated,
   rankData = null, 
   matchHistory = [] 
 }: HomeTabProps) {
   const [username, setUsername] = useState<string>("Player");
-  const [showDailyReward, setShowDailyReward] = useState<boolean>(true);
   const [showStatsModal, setShowStatsModal] = useState<boolean>(false);
 
   useEffect(() => {
@@ -51,11 +53,6 @@ export default function HomeTab({
     };
     fetchUser();
   }, [userId]);
-
-  const handleClaimPoints = () => {
-    // TODO: Add backend logic here
-    setShowDailyReward(false);
-  };
 
   const getRankIcon = (tier: string) => {
     if (!tier || tier === "Unranked") return "help_center";
@@ -74,38 +71,20 @@ export default function HomeTab({
   return (
     <div className="w-full pb-6 animate-fade-in relative">
       
-      {/* 🎁 DAILY LOGIN BANNER */}
-      {showDailyReward && (
-        <section className="w-full bg-gradient-to-r from-[#FF9D00] to-[#FF6B00] rounded-[24px] p-4 mb-5 shadow-sm flex items-center justify-between transition-all duration-300">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-[16px] bg-white/20 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-white text-[24px]">redeem</span>
-            </div>
-            <div className="flex flex-col items-start">
-              <h2 className="font-headline text-[15px] font-bold text-white leading-tight">Daily Login</h2>
-              <p className="font-body text-[12px] font-medium text-white/90 mt-0.5">+50 Points to play!</p>
-            </div>
-          </div>
-          <button 
-            onClick={handleClaimPoints}
-            className="bg-white text-[#FF6B00] font-headline text-[13px] font-bold px-5 py-2.5 rounded-full hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
-          >
-            Claim
-          </button>
-        </section>
-      )}
+      {/* 🎁 DYNAMIC DAILY LOGIN BANNER */}
+      <div className="mb-5">
+        <DailyLoginCard userId={userId} onClaimSuccess={onPointsUpdated} />
+      </div>
 
       {/* 🏆 HERO CARD: CURRENT SEASON */}
       <section 
         className="w-full bg-primary text-on-primary rounded-[24px] p-6 shadow-sm transition-all duration-300"
         style={{ backgroundColor: 'var(--primary)', color: 'var(--on-primary)' }}
       >
-        {/* 👇 UPDATED: Increased gap to 8 (2rem) to push text right */}
         <div className="flex items-center gap-8">
           
-          {/* LEFT: Much Larger Rank Badge */}
+          {/* LEFT: Rank Badge */}
           <div className="flex items-center justify-center shrink-0">
-            {/* 👇 UPDATED: text-[88px] for a bigger badge and stronger drop-shadow */}
             <span 
               className="material-symbols-outlined text-[88px] drop-shadow-md opacity-90" 
               style={{ fontVariationSettings: "'FILL' 1" }}
