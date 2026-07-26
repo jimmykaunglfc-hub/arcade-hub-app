@@ -5,10 +5,10 @@
 @layer base {
   /* ☀️ LIGHT MODE TOKENS */
   :root {
-    --background: #FFFFFF; /* FIXED: Pure white background */
+    --background: #FFFFFF; 
     --on-background: #0B0F19;
     
-    --surface: #F6F7F9; /* FIXED: Light grey cards to contrast with white bg */
+    --surface: #F6F7F9; 
     --on-surface: #0B0F19;
     --surface-variant: #EAEFF5; 
     --on-surface-variant: #6C7A8E;
@@ -17,11 +17,11 @@
     --surface-container-high: #EAEFF5;
     --surface-container-highest: #E2E7ED;
     
-    --primary: #CCFF00; /* Electric Lime */
+    --primary: #CCFF00; 
     --on-primary: #0B0F19;
     --primary-container: #E5F9C6; 
     
-    --secondary: #9333EA; /* Purple */
+    --secondary: #9333EA; 
     --secondary-container: #F3E8FF;
     --tertiary-container: rgba(147, 51, 234, 0.1);
     --surface-tint: #88E000;
@@ -29,10 +29,10 @@
 
   /* 🌙 DARK MODE TOKENS */
   .dark {
-    --background: #070A12; /* Deep Dark Navy */
+    --background: #070A12; 
     --on-background: #FFFFFF;
     
-    --surface: #121824; /* Dark Surface Card */
+    --surface: #121824; 
     --on-surface: #FFFFFF;
     --surface-variant: #182030; 
     --on-surface-variant: #8E9BAE;
@@ -41,11 +41,11 @@
     --surface-container-high: #1E283C;
     --surface-container-highest: #25324B;
     
-    --primary: #CCFF00; /* Electric Lime Accent */
+    --primary: #CCFF00; 
     --on-primary: #0B0F19;
     --primary-container: rgba(136, 224, 0, 0.15); 
     
-    --secondary: #B259FF; /* Gem Purple Accent */
+    --secondary: #B259FF; 
     --secondary-container: rgba(178, 89, 255, 0.15);
     --tertiary-container: rgba(178, 89, 255, 0.1);
     --surface-tint: #88E000;
@@ -56,8 +56,8 @@
   html, body {
     overscroll-behavior-y: none; 
     height: 100%;
-    overflow: hidden; 
-    -webkit-overflow-scrolling: auto;
+    /* REMOVED: overflow: hidden; */
+    -webkit-overflow-scrolling: touch;
     -webkit-user-select: none;  
     -moz-user-select: none;     
     -ms-user-select: none;      
@@ -66,7 +66,7 @@
   }
 
   body {
-    @apply bg-background text-on-background overflow-x-hidden transition-colors duration-300;
+    @apply bg-background text-on-background transition-colors duration-300;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
@@ -81,6 +81,22 @@
     -ms-user-select: text;
     user-select: text;
   }
+}
+
+/* Custom Sleek Scrollbar for Control Core */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(204, 255, 0, 0.5); /* Neon hover effect */
 }
 
 .no-scrollbar::-webkit-scrollbar {

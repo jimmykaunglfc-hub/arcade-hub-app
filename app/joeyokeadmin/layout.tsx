@@ -62,10 +62,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-[#09090b] text-white font-sans antialiased">
+    // FIXED: Changed min-h-screen to h-screen and added overflow-hidden to the parent
+    <div className="flex h-screen w-full bg-[#09090b] text-white font-sans antialiased overflow-hidden">
       <AdminSidebar />
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-7xl mx-auto">{children}</div>
+      {/* FIXED: Added h-full and min-w-0 to ensure flexbox allows this child to scroll properly */}
+      <main className="flex-1 h-full overflow-y-auto min-w-0 p-8">
+        <div className="max-w-7xl mx-auto pb-10">{children}</div>
       </main>
     </div>
   );
