@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
+import { RefreshCw, Edit2, ShieldAlert, ShieldCheck } from "lucide-react";
 
 export default function UsersManager() {
   const [users, setUsers] = useState<any[]>([]);
@@ -55,72 +56,110 @@ export default function UsersManager() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6">
+    <div className="space-y-8 animate-fade-in">
+      {/* HEADER */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-headline text-2xl font-black text-neutral-900 dark:text-white">User Nodes</h2>
-          <p className="font-body text-xs text-neutral-500 dark:text-white/60 mt-1">Manage player accounts, adjust balances, and enforce moderation.</p>
+          <h2 className="font-headline text-2xl font-black text-white tracking-tight">User Nodes</h2>
+          <p className="font-body text-xs text-neutral-400 mt-1">
+            Manage player accounts, adjust balances, and enforce moderation.
+          </p>
         </div>
-        <button onClick={fetchUsers} className="flex items-center gap-2 bg-neutral-100 dark:bg-white/10 px-4 py-2 rounded-lg border border-neutral-200 dark:border-white/5 text-xs font-bold hover:bg-neutral-200 dark:hover:bg-white/20 transition-colors w-fit">
-          <span className="material-symbols-outlined text-sm">refresh</span> Refresh List
+        <button 
+          onClick={fetchUsers} 
+          className="flex items-center gap-2 bg-[#18181b] px-5 py-2.5 rounded-xl border border-white/10 text-xs font-bold text-white hover:bg-white/5 hover:border-white/20 transition-all w-fit shadow-lg group"
+        >
+          <RefreshCw className="w-4 h-4 text-neutral-400 group-hover:text-white transition-colors" /> 
+          Refresh Grid
         </button>
       </header>
 
-      <div className="bg-white dark:bg-[#111c33] border border-neutral-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm">
+      {/* DATA TABLE */}
+      <div className="bg-[#18181b] border border-white/10 rounded-[24px] overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-neutral-50 dark:bg-white/5 border-b border-neutral-200 dark:border-white/5">
+            <thead className="border-b border-white/10 bg-white/[0.02]">
               <tr>
-                <th className="px-6 py-4 font-caps text-[10px] font-bold text-neutral-400 dark:text-white/40 uppercase tracking-widest">Player</th>
-                <th className="px-6 py-4 font-caps text-[10px] font-bold text-neutral-400 dark:text-white/40 uppercase tracking-widest">Role</th>
-                <th className="px-6 py-4 font-caps text-[10px] font-bold text-neutral-400 dark:text-white/40 uppercase tracking-widest">Credits (PTS)</th>
-                <th className="px-6 py-4 font-caps text-[10px] font-bold text-neutral-400 dark:text-white/40 uppercase tracking-widest">Status</th>
-                <th className="px-6 py-4 font-caps text-[10px] font-bold text-neutral-400 dark:text-white/40 uppercase tracking-widest text-right">Actions</th>
+                <th className="px-6 py-5 font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Player</th>
+                <th className="px-6 py-5 font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Role</th>
+                <th className="px-6 py-5 font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Credits (PTS)</th>
+                <th className="px-6 py-5 font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Status</th>
+                <th className="px-6 py-5 font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
+            <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-xs text-neutral-400">Loading network nodes...</td>
+                  <td colSpan={5} className="px-6 py-12 text-center">
+                    <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest animate-pulse">
+                      Loading network nodes...
+                    </span>
+                  </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-xs text-neutral-400">No standard player accounts recorded in database.</td>
+                  <td colSpan={5} className="px-6 py-12 text-center text-xs text-neutral-500">
+                    No standard player accounts recorded in database.
+                  </td>
                 </tr>
               ) : (
                 users.map((user) => (
-                  <tr key={user.id} className="hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors">
+                  <tr key={user.id} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img src={user.avatar_url || "https://img.icons8.com/illustrations/xlarge/robot.png"} alt="avatar" className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-white/10 p-0.5 object-cover" />
+                      <div className="flex items-center gap-4">
+                        <img 
+                          src={user.avatar_url || "https://img.icons8.com/illustrations/xlarge/robot.png"} 
+                          alt="avatar" 
+                          className="w-10 h-10 rounded-full bg-white/5 p-0.5 object-cover border border-white/10" 
+                        />
                         <div>
-                          <p className="font-headline font-bold text-neutral-900 dark:text-white">{user.username}</p>
-                          <p className="text-[10px] text-neutral-500 dark:text-white/40">{user.email || "No Email"}</p>
+                          <p className="font-headline font-bold text-white tracking-wide">{user.username}</p>
+                          <p className="text-[10px] text-neutral-500 mt-0.5">{user.email || "No Email"}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-white/60">
+                      <span className="px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest bg-white/5 text-neutral-400 border border-white/5">
                         {user.role}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="font-bold text-amber-500">{user.points?.toLocaleString() || 0}</span>
+                      <span className="font-headline font-black text-[#CCFF00] tracking-wide drop-shadow-[0_0_10px_rgba(204,255,0,0.1)]">
+                        {user.points?.toLocaleString() || 0}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       {user.is_banned ? (
-                        <span className="flex items-center gap-1 text-[10px] text-red-500 font-bold uppercase"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Banned</span>
+                        <span className="flex items-center gap-2 text-[10px] text-rose-500 font-bold uppercase tracking-wider">
+                          <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]"></span> 
+                          Banned
+                        </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-bold uppercase"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>
+                        <span className="flex items-center gap-2 text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"></span> 
+                          Active
+                        </span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => handleAdjustPoints(user.id, user.points)} className="p-1.5 bg-neutral-100 dark:bg-white/5 hover:bg-neutral-200 dark:hover:bg-white/10 rounded-lg text-neutral-600 dark:text-white/60 transition-colors" title="Edit Balance">
-                          <span className="material-symbols-outlined text-[18px]">edit_square</span>
+                      <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => handleAdjustPoints(user.id, user.points)} 
+                          className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-neutral-400 hover:text-white transition-all border border-transparent hover:border-white/10" 
+                          title="Edit Balance"
+                        >
+                          <Edit2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleToggleBan(user.id, user.is_banned)} className="p-1.5 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 rounded-lg text-red-500 transition-colors" title={user.is_banned ? "Unban User" : "Ban User"}>
-                          <span className="material-symbols-outlined text-[18px]">{user.is_banned ? "lock_open" : "gavel"}</span>
+                        <button 
+                          onClick={() => handleToggleBan(user.id, user.is_banned)} 
+                          className={`p-2 rounded-xl transition-all border ${
+                            user.is_banned 
+                              ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20" 
+                              : "bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/20"
+                          }`}
+                          title={user.is_banned ? "Unban User" : "Ban User"}
+                        >
+                          {user.is_banned ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
                         </button>
                       </div>
                     </td>

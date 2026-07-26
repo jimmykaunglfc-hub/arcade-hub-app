@@ -1,7 +1,20 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { supabase } from "../../../lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
+import { 
+  FolderPlus, 
+  PlusCircle, 
+  RefreshCw, 
+  X, 
+  Upload, 
+  CheckCircle2, 
+  Edit2, 
+  Star, 
+  Trash2, 
+  Gamepad2, 
+  Activity 
+} from "lucide-react";
 
 export default function GameCatalogManager() {
   const [games, setGames] = useState<any[]>([]);
@@ -79,7 +92,6 @@ export default function GameCatalogManager() {
     e.preventDefault();
     if (!catName.trim()) return alert("Please provide a category name.");
     
-    // Require an icon if it's a brand new category
     if (!editingCategoryId && !catIcon) return alert("Please provide an icon for the new category.");
     
     setUploadingCategory(true);
@@ -87,7 +99,6 @@ export default function GameCatalogManager() {
     try {
       let finalIconUrl = currentCategoryIconUrl;
 
-      // Only upload to storage if they actually selected a new file
       if (catIcon) {
         const fileExt = catIcon.name.split('.').pop();
         const fileName = `icon_${Date.now()}.${fileExt}`;
@@ -104,11 +115,9 @@ export default function GameCatalogManager() {
       };
 
       if (editingCategoryId) {
-        // UPDATE existing category
         const { error: dbError } = await supabase.from("game_categories").update(categoryData).eq("id", editingCategoryId);
         if (dbError) throw dbError;
       } else {
-        // INSERT new category
         const { error: dbError } = await supabase.from("game_categories").insert(categoryData);
         if (dbError) throw dbError;
       }
@@ -162,7 +171,6 @@ export default function GameCatalogManager() {
     fetchData();
   };
 
-  // --- TOGGLE FEATURED HERO BANNER ---
   const handleToggleFeature = async (gameId: string, currentStatus: boolean) => {
     if (!currentStatus) {
       await supabase.from("games").update({ is_featured: false }).neq("id", "00000000-0000-0000-0000-000000000000");
@@ -229,7 +237,6 @@ export default function GameCatalogManager() {
     }
   };
 
-  // Group games by category
   const groupedGames = games.reduce((acc: Record<string, any[]>, game) => {
     const category = game.category || "Uncategorized";
     if (!acc[category]) acc[category] = [];
@@ -238,66 +245,87 @@ export default function GameCatalogManager() {
   }, {});
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 relative">
+    <div className="space-y-8 animate-fade-in relative">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-headline text-2xl font-black text-neutral-900 dark:text-white">Game Catalog</h2>
-          <p className="font-body text-xs text-neutral-500 dark:text-white/60 mt-1">Manage titles, images, categories, and matchmaking status.</p>
+          <h2 className="font-headline text-2xl font-black text-white tracking-tight">Game Catalog</h2>
+          <p className="font-body text-xs text-neutral-400 mt-1">Manage titles, images, categories, and matchmaking status.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={openAddCategoryModal} className="flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-600 transition-colors shadow-sm">
-            <span className="material-symbols-outlined text-sm">category</span> Add Category
+        <div className="flex flex-wrap gap-3">
+          <button 
+            onClick={openAddCategoryModal} 
+            className="flex items-center gap-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-500/20 transition-all shadow-lg"
+          >
+            <FolderPlus className="w-4 h-4" /> Add Category
           </button>
           
-          <button onClick={openAddGameModal} className="flex items-center gap-2 bg-[#c3f400] text-neutral-900 px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#d4ff1a] transition-colors shadow-sm">
-            <span className="material-symbols-outlined text-sm">add_circle</span> Add Game
+          <button 
+            onClick={openAddGameModal} 
+            className="flex items-center gap-2 bg-[#CCFF00] text-black px-4 py-2.5 rounded-xl text-xs font-black hover:bg-[#b3e600] transition-all shadow-[0_0_15px_rgba(204,255,0,0.2)]"
+          >
+            <PlusCircle className="w-4 h-4" /> Add Game
           </button>
           
-          <button onClick={fetchData} className="flex items-center gap-2 bg-neutral-100 dark:bg-white/10 px-4 py-2 rounded-lg border border-neutral-200 dark:border-white/5 text-xs font-bold hover:bg-neutral-200 dark:hover:bg-white/20 transition-colors shadow-sm">
-            <span className="material-symbols-outlined text-sm">refresh</span>
+          <button 
+            onClick={fetchData} 
+            className="flex items-center justify-center w-10 h-10 bg-[#18181b] border border-white/10 rounded-xl text-neutral-400 hover:text-white hover:border-white/20 transition-all shadow-lg group"
+          >
+            <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
           </button>
         </div>
       </header>
 
       {/* --- ADD / EDIT CATEGORY MODAL --- */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#111c33] border border-neutral-200 dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-[#18181b] border border-white/10 rounded-[24px] p-8 w-full max-w-md shadow-2xl relative">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="font-headline text-lg font-black dark:text-white">{editingCategoryId ? "Edit Game Category" : "New Game Category"}</h3>
-              <button onClick={() => setIsCategoryModalOpen(false)} className="text-neutral-500 hover:text-white">
-                <span className="material-symbols-outlined">close</span>
+              <h3 className="font-headline text-lg font-black text-white">{editingCategoryId ? "Edit Category" : "New Category"}</h3>
+              <button onClick={() => setIsCategoryModalOpen(false)} className="text-neutral-500 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveCategory} className="space-y-4">
+            <form onSubmit={handleSaveCategory} className="space-y-5">
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-white/60 block mb-1">Category Name</label>
-                <input type="text" required value={catName} onChange={(e) => setCatName(e.target.value)} placeholder="e.g., Arcade Classics" className="w-full bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm dark:text-white focus:outline-none focus:border-[#c3f400] transition-colors" />
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">Category Name</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={catName} 
+                  onChange={(e) => setCatName(e.target.value)} 
+                  placeholder="e.g., Arcade Classics" 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
+                />
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-white/60 block mb-1">Upload Icon</label>
-                <div onClick={() => categoryInputRef.current?.click()} className="w-full h-24 border-2 border-dashed border-neutral-300 dark:border-white/20 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors relative overflow-hidden">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">Upload Icon</label>
+                <div 
+                  onClick={() => categoryInputRef.current?.click()} 
+                  className="w-full h-28 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 hover:border-white/20 transition-all group"
+                >
                   {catIcon ? (
-                    <span className="text-sm font-bold text-emerald-500 flex items-center gap-2"><span className="material-symbols-outlined">check_circle</span> New Icon Selected</span>
+                    <span className="text-xs font-bold text-emerald-400 flex flex-col items-center gap-2">
+                      <CheckCircle2 className="w-6 h-6" /> New Icon Selected
+                    </span>
                   ) : currentCategoryIconUrl ? (
                     <div className="flex flex-col items-center">
-                      <img src={currentCategoryIconUrl} alt="Current" className="h-10 w-10 object-contain opacity-70 mb-1" />
-                      <span className="text-[10px] text-neutral-400 font-bold uppercase">Click to change</span>
+                      <img src={currentCategoryIconUrl} alt="Current" className="h-10 w-10 object-contain opacity-80 mb-2" />
+                      <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest group-hover:text-neutral-300 transition-colors">Click to change</span>
                     </div>
                   ) : (
                     <>
-                      <span className="material-symbols-outlined text-neutral-400 mb-1">upload_file</span>
-                      <span className="text-xs text-neutral-500 font-bold">Click to browse files</span>
+                      <Upload className="w-6 h-6 text-neutral-500 mb-2 group-hover:text-white transition-colors" />
+                      <span className="text-xs text-neutral-500 font-bold group-hover:text-neutral-300 transition-colors">Click to browse files</span>
                     </>
                   )}
                 </div>
-                <input type="file" accept="image/png, image/jpeg, image/svg+xml, image/webp" className="hidden" ref={categoryInputRef} onChange={handleCategoryIconChange} />
-                <p className="text-[9px] text-neutral-400 mt-2 text-center uppercase tracking-widest">Format: PNG, SVG, WEBP | Max: 1MB</p>
+                <input type="file" accept="image/png, image/svg+xml, image/webp" className="hidden" ref={categoryInputRef} onChange={handleCategoryIconChange} />
+                <p className="text-[9px] text-neutral-500 mt-2 text-center uppercase tracking-widest">Format: PNG, SVG, WEBP | Max: 1MB</p>
               </div>
 
-              <button type="submit" disabled={uploadingCategory} className="w-full bg-indigo-500 text-white font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-indigo-600 transition-colors disabled:opacity-50 mt-4">
+              <button type="submit" disabled={uploadingCategory} className="w-full bg-indigo-500 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl hover:bg-indigo-600 transition-all disabled:opacity-50 mt-2 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
                 {uploadingCategory ? "Deploying..." : (editingCategoryId ? "Save Category" : "Create Category")}
               </button>
             </form>
@@ -307,55 +335,88 @@ export default function GameCatalogManager() {
 
       {/* --- ADD/EDIT GAME MODAL --- */}
       {isGameModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#111c33] border border-neutral-200 dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-[#18181b] border border-white/10 rounded-[24px] p-8 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="font-headline text-lg font-black dark:text-white">{editingId ? "Edit Game" : "Add New Game"}</h3>
-              <button onClick={() => setIsGameModalOpen(false)} className="text-neutral-500 hover:text-white">
-                <span className="material-symbols-outlined">close</span>
+              <h3 className="font-headline text-lg font-black text-white">{editingId ? "Edit Game" : "Add New Game"}</h3>
+              <button onClick={() => setIsGameModalOpen(false)} className="text-neutral-500 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveGame} className="space-y-4">
+            <form onSubmit={handleSaveGame} className="space-y-5">
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-white/60 block mb-1">Game Title</label>
-                <input type="text" required value={formTitle} onChange={(e) => setFormTitle(e.target.value)} className="w-full bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm dark:text-white focus:outline-none focus:border-[#c3f400] transition-colors" />
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">Game Title</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={formTitle} 
+                  onChange={(e) => setFormTitle(e.target.value)} 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
+                />
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-white/60 block mb-1">Description</label>
-                <textarea value={formDesc} onChange={(e) => setFormDesc(e.target.value)} rows={2} className="w-full bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm dark:text-white focus:outline-none focus:border-[#c3f400] transition-colors"></textarea>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">Description</label>
+                <textarea 
+                  value={formDesc} 
+                  onChange={(e) => setFormDesc(e.target.value)} 
+                  rows={3} 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors resize-none"
+                ></textarea>
               </div>
 
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-white/60 block mb-1">Category</label>
-                  <select value={formCategory} onChange={(e) => setFormCategory(e.target.value)} className="w-full bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm dark:text-white focus:outline-none focus:border-[#c3f400] transition-colors">
-                    <option value="Uncategorized">Uncategorized</option>
-                    {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">Category</label>
+                  <select 
+                    value={formCategory} 
+                    onChange={(e) => setFormCategory(e.target.value)} 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors appearance-none"
+                  >
+                    <option value="Uncategorized" className="bg-[#18181b]">Uncategorized</option>
+                    {categories.map(c => <option key={c.id} value={c.name} className="bg-[#18181b]">{c.name}</option>)}
                   </select>
                 </div>
                 <div className="flex-1">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-white/60 block mb-1">Entry Fee (PTS)</label>
-                  <input type="number" min="0" required value={formFee} onChange={(e) => setFormFee(parseInt(e.target.value) || 0)} className="w-full bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm dark:text-white focus:outline-none focus:border-[#c3f400] transition-colors" />
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">Entry Fee (PTS)</label>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    required 
+                    value={formFee} 
+                    onChange={(e) => setFormFee(parseInt(e.target.value) || 0)} 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 dark:text-white/60 block mb-1">Cover Image</label>
-                <div onClick={() => gameInputRef.current?.click()} className="w-full h-24 border-2 border-dashed border-neutral-300 dark:border-white/20 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors relative overflow-hidden">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">Cover Image</label>
+                <div 
+                  onClick={() => gameInputRef.current?.click()} 
+                  className="w-full h-32 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 hover:border-white/20 transition-all relative overflow-hidden group"
+                >
                   {formImage ? (
-                    <span className="text-sm font-bold text-emerald-500 flex items-center gap-2"><span className="material-symbols-outlined">check_circle</span> New Image Selected</span>
+                    <span className="text-xs font-bold text-emerald-400 flex flex-col items-center gap-2 relative z-10">
+                      <CheckCircle2 className="w-6 h-6" /> New Image Selected
+                    </span>
                   ) : currentImageUrl ? (
-                    <img src={currentImageUrl} alt="Current" className="h-full w-full object-cover opacity-50" />
+                    <>
+                      <img src={currentImageUrl} alt="Current" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-30 transition-opacity" />
+                      <span className="relative z-10 text-[9px] text-white font-bold uppercase tracking-widest px-3 py-1.5 bg-black/50 rounded-lg backdrop-blur-md">Change Image</span>
+                    </>
                   ) : (
-                    <span className="text-xs text-neutral-500 font-bold">Click to upload</span>
+                    <>
+                      <Upload className="w-6 h-6 text-neutral-500 mb-2 group-hover:text-white transition-colors" />
+                      <span className="text-xs text-neutral-500 font-bold group-hover:text-neutral-300 transition-colors">Click to upload</span>
+                    </>
                   )}
                 </div>
                 <input type="file" accept="image/*" className="hidden" ref={gameInputRef} onChange={handleGameImageChange} />
               </div>
 
-              <button type="submit" disabled={uploadingGame} className="w-full bg-[#c3f400] text-neutral-900 font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-[#d4ff1a] transition-colors disabled:opacity-50 mt-4">
+              <button type="submit" disabled={uploadingGame} className="w-full bg-[#CCFF00] text-black font-black text-xs uppercase tracking-widest py-3.5 rounded-xl hover:bg-[#b3e600] transition-all disabled:opacity-50 mt-2 shadow-[0_0_15px_rgba(204,255,0,0.2)]">
                 {uploadingGame ? "Saving..." : "Save Game"}
               </button>
             </form>
@@ -365,75 +426,100 @@ export default function GameCatalogManager() {
 
       {/* --- CATALOG GRID --- */}
       {loading ? (
-        <div className="py-12 text-center text-xs font-bold text-neutral-400 tracking-widest uppercase animate-pulse">Loading Catalog...</div>
+        <div className="py-12 text-center text-xs font-bold text-neutral-500 tracking-widest uppercase animate-pulse">Loading Catalog...</div>
       ) : (
-        <div className="space-y-10 mt-6">
+        <div className="space-y-12 pt-4">
           {Object.entries(groupedGames).map(([categoryName, categoryGames]) => {
             const catData = categories.find(c => c.name === categoryName);
             return (
               <div key={categoryName}>
                 
                 {/* --- CATEGORY HEADER --- */}
-                <div className="flex items-center gap-3 mb-4 border-b border-neutral-200 dark:border-white/10 pb-2 group">
+                <div className="flex items-center gap-3 mb-6 border-b border-white/10 pb-3 group">
                   {catData ? (
-                    <img src={catData.icon_url} alt="" className="w-6 h-6 object-contain" onError={(e) => e.currentTarget.style.display = 'none'} />
+                    <img src={catData.icon_url} alt="" className="w-6 h-6 object-contain filter brightness-200" onError={(e) => e.currentTarget.style.display = 'none'} />
                   ) : (
-                    <span className="material-symbols-outlined text-[#c3f400]">sports_esports</span>
+                    <Gamepad2 className="w-6 h-6 text-[#CCFF00]" />
                   )}
                   
-                  <h3 className="font-headline text-lg font-black text-neutral-900 dark:text-white uppercase tracking-wide">{categoryName}</h3>
+                  <h3 className="font-headline text-lg font-black text-white uppercase tracking-wide">{categoryName}</h3>
                   
-                  {/* EDIT CATEGORY BUTTON */}
                   {catData && (
                     <button 
                       onClick={() => openEditCategoryModal(catData)}
-                      className="ml-2 p-1 bg-neutral-200 dark:bg-white/10 text-neutral-600 dark:text-white/60 rounded-md hover:bg-indigo-500 hover:text-white dark:hover:bg-indigo-500 transition-colors opacity-0 group-hover:opacity-100"
+                      className="ml-2 p-1.5 bg-white/5 text-neutral-400 rounded-lg hover:bg-white/10 hover:text-white transition-all opacity-0 group-hover:opacity-100"
                       title="Edit Category"
                     >
-                      <span className="material-symbols-outlined text-[16px]">edit</span>
+                      <Edit2 className="w-3.5 h-3.5" />
                     </button>
                   )}
 
-                  <span className="ml-auto bg-neutral-100 dark:bg-white/10 text-neutral-600 dark:text-white/60 px-2.5 py-0.5 rounded-full text-[10px] font-bold">{categoryGames.length} Game{categoryGames.length !== 1 && 's'}</span>
+                  <span className="ml-auto bg-white/5 border border-white/10 text-neutral-400 px-3 py-1 rounded-full text-[10px] font-bold">
+                    {categoryGames.length} Game{categoryGames.length !== 1 && 's'}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {categoryGames.map((game) => (
-                    <div key={game.id} className="bg-white dark:bg-[#111c33] border border-neutral-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm flex flex-col group relative">
+                    <div key={game.id} className="bg-[#18181b] border border-white/10 rounded-[24px] overflow-hidden shadow-xl flex flex-col group relative hover:border-white/20 transition-colors">
                       
-                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10">
-                        {/* FEATURE / STAR BUTTON */}
+                      {/* QUICK ACTIONS */}
+                      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10">
                         <button 
                           onClick={() => handleToggleFeature(game.id, game.is_featured)} 
-                          className={`p-1.5 rounded-lg text-white shadow-md transition-colors ${game.is_featured ? 'bg-amber-500' : 'bg-neutral-700 hover:bg-amber-500'}`}
+                          className={`p-2 rounded-xl text-white shadow-lg transition-all ${game.is_featured ? 'bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]' : 'bg-black/50 backdrop-blur-md hover:bg-amber-500'}`}
                           title={game.is_featured ? "Featured on Hero Banner" : "Feature this game"}
                         >
-                          <span className="material-symbols-outlined text-sm">star</span>
+                          <Star className={`w-4 h-4 ${game.is_featured ? 'fill-current' : ''}`} />
                         </button>
-
-                        <button onClick={() => openEditGameModal(game)} className="p-1.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 shadow-md transition-colors"><span className="material-symbols-outlined text-sm">edit</span></button>
-                        <button onClick={() => handleDeleteGame(game.id, game.title)} className="p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 shadow-md transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
+                        <button 
+                          onClick={() => openEditGameModal(game)} 
+                          className="p-2 bg-black/50 backdrop-blur-md text-white rounded-xl hover:bg-indigo-500 shadow-lg transition-all"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteGame(game.id, game.title)} 
+                          className="p-2 bg-black/50 backdrop-blur-md text-white rounded-xl hover:bg-rose-500 shadow-lg transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
 
-                      <div className="p-5 border-b border-neutral-200 dark:border-white/5 flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-white/5 flex items-center justify-center p-2 shrink-0 overflow-hidden">
-                          <img src={game.image_url} alt={game.title} className="w-full h-full object-cover" />
+                      <div className="p-6 border-b border-white/10 flex items-start gap-4">
+                        <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center p-2 shrink-0 overflow-hidden border border-white/10">
+                          <img src={game.image_url} alt={game.title} className="w-full h-full object-cover rounded-xl" />
                         </div>
                         <div>
-                          <h3 className="font-headline text-sm font-black text-neutral-900 dark:text-white">{game.title}</h3>
-                          <p className="font-body text-[10px] text-neutral-500 dark:text-white/50 mt-1 line-clamp-2">{game.description}</p>
+                          <h3 className="font-headline text-base font-black text-white tracking-wide">{game.title}</h3>
+                          <p className="font-body text-xs text-neutral-400 mt-1.5 line-clamp-2 leading-relaxed">{game.description}</p>
                         </div>
                       </div>
 
-                      <div className="p-5 flex-1 flex flex-col justify-end space-y-4">
+                      <div className="p-6 flex-1 flex flex-col justify-end space-y-4 bg-white/[0.02]">
                         <div className="flex items-center justify-between">
-                          <span className="font-caps text-[9px] font-bold text-neutral-400 dark:text-white/40 uppercase tracking-widest">Entry Cost</span>
-                          <span className="font-headline text-sm font-black text-amber-500">{game.entry_fee.toLocaleString()} PTS</span>
+                          <span className="font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Entry Cost</span>
+                          <span className="font-headline text-sm font-black text-[#CCFF00] drop-shadow-[0_0_10px_rgba(204,255,0,0.1)]">
+                            {game.entry_fee.toLocaleString()} PTS
+                          </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="font-caps text-[9px] font-bold text-neutral-400 dark:text-white/40 uppercase tracking-widest">Network Status</span>
-                          <button onClick={() => handleCycleStatus(game.id, game.status)} className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 transition-colors ${game.status === 'active' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : game.status === 'maintenance' ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' : 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400'}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${game.status === 'active' ? 'bg-emerald-500' : game.status === 'maintenance' ? 'bg-amber-500' : 'bg-red-500'}`}></span>
+                          <span className="font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Network Status</span>
+                          <button 
+                            onClick={() => handleCycleStatus(game.id, game.status)} 
+                            className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all border ${
+                              game.status === 'active' 
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20' 
+                                : game.status === 'maintenance' 
+                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20' 
+                                : 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
+                            }`}
+                          >
+                            <span className={`w-2 h-2 rounded-full ${
+                              game.status === 'active' ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 
+                              game.status === 'maintenance' ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]' : 
+                              'bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.6)]'
+                            }`}></span>
                             {game.status}
                           </button>
                         </div>

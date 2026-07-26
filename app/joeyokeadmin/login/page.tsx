@@ -2,8 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { supabase } from "../../../lib/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
+import { 
+  Fingerprint, 
+  Mail, 
+  KeyRound, 
+  Loader2, 
+  ShieldAlert 
+} from "lucide-react";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -42,49 +48,73 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#091428]">
-      <div className="w-full max-w-sm p-8 bg-[#111c33] border border-white/10 rounded-2xl shadow-2xl">
+    <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden selection:bg-[#CCFF00] selection:text-black">
+      
+      {/* Background Ambient Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#CCFF00]/5 rounded-full blur-[120px] pointer-events-none"></div>
+
+      <div className="w-full max-w-sm p-8 bg-[#18181b]/80 backdrop-blur-xl border border-white/10 rounded-[24px] shadow-2xl relative z-10 animate-in fade-in zoom-in-95 duration-500">
+        
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-[#c3f400] rounded-2xl flex items-center justify-center shadow-lg mb-4">
-            <span className="material-symbols-outlined text-3xl text-neutral-900 font-bold">admin_panel_settings</span>
+          <div className="w-16 h-16 bg-[#CCFF00]/10 border border-[#CCFF00]/20 rounded-2xl flex items-center justify-center shadow-[0_0_15px_rgba(204,255,0,0.15)] mb-5 relative group">
+            <div className="absolute inset-0 rounded-2xl bg-[#CCFF00]/20 animate-ping opacity-20"></div>
+            <Fingerprint className="w-8 h-8 text-[#CCFF00]" />
           </div>
-          <h1 className="text-xl font-black text-white uppercase tracking-widest">Control Core</h1>
-          <p className="text-[10px] text-white/40 font-bold tracking-widest uppercase mt-1">Authorized Personnel Only</p>
+          <h1 className="font-headline text-2xl font-black text-white uppercase tracking-[0.2em] text-center">Control Core</h1>
+          <p className="text-[9px] text-neutral-500 font-bold tracking-[0.3em] uppercase mt-2">Authorized Personnel Only</p>
         </div>
 
         {errorMsg && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-bold rounded-lg text-center uppercase tracking-wider">
-            {errorMsg}
+          <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-bold rounded-xl flex items-start gap-3 uppercase tracking-widest animate-in slide-in-from-top-2">
+            <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+            <p className="leading-relaxed">{errorMsg}</p>
           </div>
         )}
 
-        <form onSubmit={handleAdminLogin} className="space-y-4">
-          <div>
-            <label className="text-[9px] text-white/60 font-bold uppercase tracking-widest pl-1 mb-1 block">Admin Email</label>
-            <input 
-              type="email" 
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#c3f400] transition-colors"
-            />
+        <form onSubmit={handleAdminLogin} className="space-y-5">
+          <div className="space-y-1.5">
+            <label className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest pl-1">Admin Email</label>
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+              <input 
+                type="email" 
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="node@joeyoke.com"
+                className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#CCFF00] focus:bg-white/10 transition-all"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-[9px] text-white/60 font-bold uppercase tracking-widest pl-1 mb-1 block">Master Passkey</label>
-            <input 
-              type="password" 
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-[#c3f400] transition-colors"
-            />
+
+          <div className="space-y-1.5">
+            <label className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest pl-1">Master Passkey</label>
+            <div className="relative">
+              <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+              <input 
+                type="password" 
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#CCFF00] focus:bg-white/10 transition-all"
+              />
+            </div>
           </div>
+
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full mt-2 bg-[#c3f400] hover:bg-[#d4ff1a] text-neutral-900 font-black text-xs uppercase tracking-widest py-3 rounded-xl transition-colors active:scale-95 disabled:opacity-50"
+            className="w-full mt-4 bg-[#CCFF00] hover:bg-[#b3e600] text-black font-black text-xs uppercase tracking-[0.2em] py-4 rounded-xl transition-all active:scale-95 disabled:opacity-50 shadow-[0_0_15px_rgba(204,255,0,0.2)] flex justify-center items-center gap-2"
           >
-            {loading ? "Authenticating..." : "Initialize Session"}
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Authenticating...
+              </>
+            ) : (
+              "Initialize Session"
+            )}
           </button>
         </form>
       </div>
