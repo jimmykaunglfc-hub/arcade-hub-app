@@ -33,11 +33,34 @@ export async function processGameEntry({
     }
 
     const updatedPoints = data.updatedPoints ?? data.new_points;
+    let matchId = data.match_id;
+
+    // 🛡️ Fallback: If RPC didn't return a match_id, insert directly from client
+    if (!matchId) {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        const { data: insertedMatch } = await supabase
+          .from("match_history")
+          .insert({
+            user_id: userData.user.id,
+            game_title: gameTitle,
+            opponent_name: opponentName,
+            result: "Played",
+            points_change: -entryFee,
+          })
+          .select("id")
+          .single();
+
+        if (insertedMatch) {
+          matchId = insertedMatch.id;
+        }
+      }
+    }
 
     return {
       success: true,
       updatedPoints,
-      matchId: data.match_id,
+      matchId,
     };
   } catch (err: any) {
     return { success: false, error: err.message || "Network Error" };
@@ -45,7 +68,7 @@ export async function processGameEntry({
 }
 
 /**
- * Optional helper to update a match status when game completes
+ * Updates a match record when a game finishes
  */
 export async function recordMatchResult(
   matchId: string,
@@ -54,10 +77,10 @@ export async function recordMatchResult(
 ) {
   try {
     const { error } = await supabase
-      .from("matches")
+      .from("match_history")
       .update({
         result,
-        points_changed: pointsEarned,
+        points_change: pointsEarned,
       })
       .eq("id", matchId);
 
