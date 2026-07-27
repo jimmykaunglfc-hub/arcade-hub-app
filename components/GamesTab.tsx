@@ -7,7 +7,7 @@ interface GamesTabProps {
   currentPoints: number;
   userId: string | null;
   onPlay: (url: string, matchId?: string, opponent?: { name: string; isBot: boolean }) => void;
-  onPointsUpdated?: () => void; // 👈 FIXES TYPESCRIPT TS(2322) ERROR
+  onPointsUpdated?: () => void; 
   rewardClaimed?: boolean; 
   setRewardClaimed?: (status: boolean) => void;
 }
@@ -20,6 +20,7 @@ const DEFAULT_GAMES = [
   { id: "checkers", title: "Checkers", category: "Strategy", entry_fee: 0, rating: "4.7", icon: "grid_4x4" },
   { id: "snooker", title: "Snooker", category: "Sports", entry_fee: 0, rating: "4.8", icon: "sports_bar" },
   { id: "tictactoe", title: "Tic Tac Toe", category: "Strategy", entry_fee: 0, rating: "4.8", icon: "grid_3x3" },
+  { id: "biometric_override", title: "Biometric Override", category: "Puzzle", entry_fee: 0, rating: "5.0", icon: "fingerprint" },
 ];
 
 export default function GamesTab({ 
