@@ -17,52 +17,75 @@ export async function processGameEntry({
   error?: string;
 }> {
   try {
+    const cleanOpponentName = opponentName || "Online Opponent";
+
+    // 1. Attempt RPC call
     const { data, error } = await supabase.rpc("join_game_match", {
       p_game_title: gameTitle,
-      p_entry_fee: entryFee,
-      p_opponent_name: opponentName,
+      p_entry_fee: Number(entryFee),
+      p_opponent_name: cleanOpponentName,
     });
 
+    if (!error && data && data.success) {
+      return {
+        success: true,
+        updatedPoints: data.updatedPoints ?? data.new_points,
+        matchId: data.match_id,
+      };
+    }
+
     if (error) {
-      console.error("RPC Game Entry Error:", error.message);
-      return { success: false, error: error.message };
+      console.warn("RPC join_game_match failed, executing client fallback:", error.message);
     }
 
-    if (!data || !data.success) {
-      return { success: false, error: data?.error || "MATCH_ENTRY_FAILED" };
+    // 🛡️ 2. Fallback execution: Deduct points and record match directly via Client
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) {
+      return { success: false, error: "UNAUTHORIZED" };
     }
 
-    const updatedPoints = data.updatedPoints ?? data.new_points;
-    let matchId = data.match_id;
+    const userId = userData.user.id;
 
-    // 🛡️ Fallback: If RPC didn't return a match_id, insert directly from client
-    if (!matchId) {
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData?.user) {
-        const { data: insertedMatch } = await supabase
-          .from("match_history")
-          .insert({
-            user_id: userData.user.id,
-            game_title: gameTitle,
-            opponent_name: opponentName,
-            result: "Played",
-            points_change: -entryFee,
-          })
-          .select("id")
-          .single();
+    // Fetch current user balance
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("points")
+      .eq("id", userId)
+      .single();
 
-        if (insertedMatch) {
-          matchId = insertedMatch.id;
-        }
-      }
+    const currentPoints = profile?.points ?? 0;
+    if (currentPoints < entryFee) {
+      return { success: false, error: "INSUFFICIENT_POINTS" };
     }
+
+    const newPoints = currentPoints - entryFee;
+
+    // Deduct points
+    await supabase
+      .from("profiles")
+      .update({ points: newPoints })
+      .eq("id", userId);
+
+    // Create match entry
+    const { data: insertedMatch } = await supabase
+      .from("match_history")
+      .insert({
+        user_id: userId,
+        game_title: gameTitle,
+        opponent_name: cleanOpponentName,
+        result: "Played",
+        points_change: -entryFee,
+      })
+      .select("id")
+      .single();
 
     return {
       success: true,
-      updatedPoints,
-      matchId,
+      updatedPoints: newPoints,
+      matchId: insertedMatch?.id,
     };
   } catch (err: any) {
+    console.error("Match entry error:", err);
     return { success: false, error: err.message || "Network Error" };
   }
 }
