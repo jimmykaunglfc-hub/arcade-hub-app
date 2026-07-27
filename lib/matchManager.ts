@@ -91,3 +91,30 @@ export async function recordMatchResult(
     console.error("Failed to record match result:", err);
   }
 }
+
+/**
+ * Fetches recent match history for the logged-in user
+ */
+export async function getRecentMatches(limit = 5) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from("match_history")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error("Error fetching match history:", error.message);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error("Failed to fetch recent matches:", err);
+    return [];
+  }
+}

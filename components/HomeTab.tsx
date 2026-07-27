@@ -26,6 +26,8 @@ interface HomeTabProps {
     reward: string;
     timeAgo: string;
     isVictory: boolean;
+    isDraw?: boolean;
+    opponentName?: string;
   }>;
 }
 
@@ -36,7 +38,19 @@ interface MatchRecord {
   reward: string;
   timeAgo: string;
   isVictory: boolean;
+  isDraw: boolean;
+  opponentName?: string;
 }
+
+const GAME_ICONS: Record<string, string> = {
+  Chess: "workspace_premium",
+  Carrom: "sports_esports",
+  Snooker: "sports_bar",
+  "Tic Tac Toe": "grid_3x3",
+  Uno: "style",
+  Checkers: "grid_4x4",
+  "Liars Dice": "casino",
+};
 
 // Helper to format timestamps dynamically
 function formatTimeAgo(isoString: string): string {
@@ -95,13 +109,26 @@ export default function HomeTab({
       if (matches && !error) {
         const formatted: MatchRecord[] = matches.map((m: any) => {
           const pts = m.points_change ?? m.points_changed ?? 0;
+          const resStr = (m.result || "Played").trim().toLowerCase();
+          
+          const isWin = resStr === "win" || resStr === "victory";
+          const isDraw = resStr === "draw";
+          const isLoss = resStr === "loss" || resStr === "defeat";
+
+          let displayResult = "Played";
+          if (isWin) displayResult = "Victory";
+          else if (isLoss) displayResult = "Defeat";
+          else if (isDraw) displayResult = "Draw";
+
           return {
             id: m.id,
             gameName: m.game_title || "Arcade Match",
-            result: m.result === "win" ? "Victory" : m.result === "loss" ? "Defeat" : m.result || "Played",
-            reward: pts >= 0 ? `+${pts} PTS` : `${pts} PTS`,
+            result: displayResult,
+            reward: pts > 0 ? `+${pts} PTS` : `${pts} PTS`,
             timeAgo: formatTimeAgo(m.created_at),
-            isVictory: m.result === "win" || m.result === "Victory",
+            isVictory: isWin,
+            isDraw: isDraw,
+            opponentName: m.opponent_name || null,
           };
         });
         setDbMatches(formatted);
@@ -174,7 +201,18 @@ export default function HomeTab({
   const currentRankIcon = getRankIcon(currentTier);
 
   // Use database fetched matches if present; otherwise fallback to prop history
-  const activeMatchList = dbMatches.length > 0 ? dbMatches : matchHistory;
+  const activeMatchList: MatchRecord[] = dbMatches.length > 0 
+    ? dbMatches 
+    : matchHistory.map((m) => ({
+        id: m.id,
+        gameName: m.gameName,
+        result: m.result,
+        reward: m.reward,
+        timeAgo: m.timeAgo,
+        isVictory: m.isVictory,
+        isDraw: m.isDraw ?? false,
+        opponentName: m.opponentName,
+      }));
 
   return (
     <div className="w-full pb-6 animate-fade-in relative">
@@ -293,7 +331,10 @@ export default function HomeTab({
             Recent Matches
           </h2>
           {activeMatchList.length > 0 && (
-            <button className="font-headline text-xs font-bold text-primary hover:opacity-80 transition-opacity">
+            <button 
+              onClick={() => onNavigate("explore")}
+              className="font-headline text-xs font-bold text-primary hover:opacity-80 transition-opacity"
+            >
               See All
             </button>
           )}
@@ -317,25 +358,49 @@ export default function HomeTab({
               </button>
             </div>
           ) : (
-            activeMatchList.map((match) => (
-              <button key={match.id} className="w-full bg-surface border border-surface-container-highest rounded-[20px] p-4 flex items-center justify-between hover:bg-surface-variant transition-colors active:scale-[0.98] shadow-sm touch-manipulation">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-[14px] flex items-center justify-center shrink-0 ${match.isVictory ? 'bg-primary-container text-primary' : 'bg-surface-container-highest text-on-surface-variant'}`}>
-                    <span className="material-symbols-outlined text-[22px]">
-                      {match.isVictory ? "emoji_events" : "sports_esports"}
-                    </span>
+            activeMatchList.map((match) => {
+              const iconName = GAME_ICONS[match.gameName] || "sports_esports";
+
+              return (
+                <button 
+                  key={match.id} 
+                  onClick={() => onNavigate("explore")}
+                  className="w-full bg-surface border border-surface-container-highest rounded-[20px] p-4 flex items-center justify-between hover:bg-surface-variant transition-colors active:scale-[0.98] shadow-sm touch-manipulation"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-[14px] flex items-center justify-center shrink-0 ${
+                      match.isVictory 
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                        : match.isDraw 
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                    }`}>
+                      <span className="material-symbols-outlined text-[22px]">
+                        {iconName}
+                      </span>
+                    </div>
+
+                    <div className="text-left">
+                      <h3 className="font-headline text-sm font-bold text-on-surface leading-tight">
+                        {match.gameName}
+                      </h3>
+                      <p className="font-body text-[11px] text-on-surface-variant mt-0.5">
+                        {match.opponentName ? `vs ${match.opponentName} • ` : ""}
+                        <span className={match.isVictory ? "text-emerald-400 font-bold" : match.isDraw ? "text-amber-400 font-bold" : "text-rose-400 font-bold"}>
+                          {match.result}
+                        </span>
+                        {` • ${match.reward}`}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-left">
-                    <h3 className="font-headline text-sm font-bold text-on-surface leading-tight">{match.gameName}</h3>
-                    <p className="font-body text-[11px] text-on-surface-variant mt-0.5">{match.result} • {match.reward}</p>
+
+                  <div className="flex flex-col items-end justify-center gap-1">
+                    <span className="font-body text-[10px] text-on-surface-variant">{match.timeAgo}</span>
+                    <span className="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
                   </div>
-                </div>
-                <div className="flex flex-col items-end justify-center gap-1">
-                  <span className="font-body text-[10px] text-on-surface-variant">{match.timeAgo}</span>
-                  <span className="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
-                </div>
-              </button>
-            ))
+                </button>
+              );
+            })
           )}
         </div>
       </section>
