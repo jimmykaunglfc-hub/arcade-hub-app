@@ -6,14 +6,14 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
-import { processGameEntry } from "../../lib/matchManager";
+import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 
 // --- HYPER-REALISTIC ENGINE CONSTANTS ---
 const BOARD_SIZE = 1000;
 const FRAME_THICKNESS = 35;   
 const BOUND_MIN = FRAME_THICKNESS;
 const BOUND_MAX = BOARD_SIZE - FRAME_THICKNESS;
-const HOLE_POS = 42;          
+const HOLE_POS = 42;         
 const HOLE_RADIUS = 46;       
 const POCKET_TRIGGER = 44;    
 const STRIKER_RADIUS = 34;    
@@ -136,6 +136,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     preloadedMatchId || (isBotMode ? `bot_match_${Date.now()}` : "")
   );
 
+  // Match History ID tracked for recording final results
+  const [historyMatchId, setHistoryMatchId] = useState<string | null>(null);
+
   const [roomCode, setRoomCode] = useState(""); 
   const [joinCode, setJoinCode] = useState("");
   const [copied, setCopied] = useState(false);
@@ -242,7 +245,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     const result = await processGameEntry({
       gameTitle: "Carrom",
       entryFee,
-      opponentName: localOpponent?.name,
+      opponentName: localOpponent?.name || "Online Opponent",
     });
 
     if (!result.success) {
@@ -256,8 +259,24 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     if (result.updatedPoints !== undefined) {
       setUserPoints(result.updatedPoints);
     }
+
+    if (result.matchId) {
+      setHistoryMatchId(result.matchId);
+    }
+
     return true;
   };
+
+  // 🏆 RECORD MATCH RESULT WHEN WINNER IS DETERMINED
+  useEffect(() => {
+    if (winner === null || !historyMatchId) return;
+
+    const isWin = winner === myPlayerRole;
+    const outcomeResult = isWin ? "Win" : "Loss";
+    const rewardPoints = isWin ? entryFee * 2 : 0;
+
+    recordMatchResult(historyMatchId, outcomeResult, rewardPoints);
+  }, [winner, historyMatchId, myPlayerRole, entryFee]);
 
   // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {

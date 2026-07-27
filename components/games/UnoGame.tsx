@@ -5,7 +5,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
-import { processGameEntry } from "../../lib/matchManager";
+import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 
 interface UnoGameProps {
   onClose?: () => void;
@@ -88,6 +88,9 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     preloadedMatchId || (isBotMode ? `bot_match_${Date.now()}` : null)
   );
 
+  // Match History ID tracked for recording final results
+  const [historyMatchId, setHistoryMatchId] = useState<string | null>(null);
+
   const [joinInput, setJoinInput] = useState("");
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -154,7 +157,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     const result = await processGameEntry({
       gameTitle: "Uno",
       entryFee,
-      opponentName: localOpponent?.name,
+      opponentName: localOpponent?.name || "Online Opponent",
     });
 
     if (!result.success) {
@@ -168,8 +171,24 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     if (result.updatedPoints !== undefined) {
       setUserPoints(result.updatedPoints);
     }
+
+    if (result.matchId) {
+      setHistoryMatchId(result.matchId);
+    }
+
     return true;
   };
+
+  // 🏆 RECORD MATCH RESULT WHEN WINNER IS DETERMINED
+  useEffect(() => {
+    if (winnerTeam === null || !historyMatchId) return;
+
+    const isUserVictory = winnerTeam === players[0]?.team;
+    const outcomeResult = isUserVictory ? "Win" : "Loss";
+    const rewardPoints = isUserVictory ? entryFee * 2 : 0;
+
+    recordMatchResult(historyMatchId, outcomeResult, rewardPoints);
+  }, [winnerTeam, historyMatchId, players, entryFee]);
 
   // 📡 SUPABASE REALTIME SYNC HUB
   useEffect(() => {

@@ -6,7 +6,7 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
-import { processGameEntry } from "../../lib/matchManager";
+import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 
 const BALL_TYPES = {
   Red: { points: 1, color: "#ff2a2a", spec: "#ffe4e4" },
@@ -64,6 +64,9 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const [matchId, setMatchId] = useState<string>(
     preloadedMatchId || (isBotMode ? `bot_match_${Date.now()}` : "")
   );
+
+  // Match History ID tracked for recording final results
+  const [historyMatchId, setHistoryMatchId] = useState<string | null>(null);
 
   const [roomCode, setRoomCode] = useState("");
   const [joinCode, setJoinCode] = useState("");
@@ -192,7 +195,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     const result = await processGameEntry({
       gameTitle: "Snooker",
       entryFee,
-      opponentName: localOpponent?.name,
+      opponentName: localOpponent?.name || "Online Opponent",
     });
 
     if (!result.success) {
@@ -206,8 +209,30 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     if (result.updatedPoints !== undefined) {
       setUserPoints(result.updatedPoints);
     }
+
+    if (result.matchId) {
+      setHistoryMatchId(result.matchId);
+    }
+
     return true;
   };
+
+  // 🏆 RECORD MATCH RESULT WHEN WINNER IS DETERMINED
+  useEffect(() => {
+    if (!winner || !historyMatchId) return;
+
+    let isWin = false;
+    if (winner === "Player 1") {
+      isWin = myPlayerRole === 1;
+    } else if (winner === "Player 2") {
+      isWin = myPlayerRole === 2;
+    }
+
+    const outcomeResult = isWin ? "Win" : winner === "Draw Match" ? "Draw" : "Loss";
+    const rewardPoints = isWin ? entryFee * 2 : 0;
+
+    recordMatchResult(historyMatchId, outcomeResult, rewardPoints);
+  }, [winner, historyMatchId, myPlayerRole, entryFee]);
 
   useEffect(() => {
     if (toast) {

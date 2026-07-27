@@ -5,7 +5,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
-import { processGameEntry } from "../../lib/matchManager";
+import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 
 interface TicTacToeProps {
   onClose?: () => void;
@@ -45,6 +45,9 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   const [matchId, setMatchId] = useState<string | null>(
     preloadedMatchId || (isBotMode ? `bot_match_${Date.now()}` : null)
   );
+
+  // Match History ID tracked for recording final results
+  const [historyMatchId, setHistoryMatchId] = useState<string | null>(null);
 
   const [joinInput, setJoinInput] = useState("");
   const [copied, setCopied] = useState(false);
@@ -103,7 +106,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     const result = await processGameEntry({
       gameTitle: "Tic Tac Toe",
       entryFee,
-      opponentName: localOpponent?.name,
+      opponentName: localOpponent?.name || "Online Opponent",
     });
 
     if (!result.success) {
@@ -117,8 +120,31 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     if (result.updatedPoints !== undefined) {
       setUserPoints(result.updatedPoints);
     }
+
+    if (result.matchId) {
+      setHistoryMatchId(result.matchId);
+    }
+
     return true;
   };
+
+  // 🏆 RECORD MATCH RESULT WHEN WINNER IS DETERMINED
+  useEffect(() => {
+    if (!winner || !historyMatchId) return;
+
+    let outcomeResult: "Win" | "Loss" | "Draw" = "Draw";
+    let isWin = false;
+
+    if (winner === "draw") {
+      outcomeResult = "Draw";
+    } else {
+      isWin = winner === myPlayerSymbol;
+      outcomeResult = isWin ? "Win" : "Loss";
+    }
+
+    const rewardPoints = isWin ? entryFee * 2 : 0;
+    recordMatchResult(historyMatchId, outcomeResult, rewardPoints);
+  }, [winner, historyMatchId, myPlayerSymbol, entryFee]);
 
   // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {

@@ -5,7 +5,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
-import { processGameEntry } from "../../lib/matchManager";
+import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 
 const EMPTY = 0, P1 = 1, P2 = 2, P1_KING = 3, P2_KING = 4;
 const TURN_TIME_LIMIT = 30; // 30-second turn limit
@@ -60,6 +60,9 @@ export default function Checkers({
     preloadedMatchId || (isBotMode ? `bot_match_${Date.now()}` : "")
   );
 
+  // Match History ID tracked for recording final results
+  const [historyMatchId, setHistoryMatchId] = useState<string | null>(null);
+
   const [roomCode, setRoomCode] = useState<string>(""); 
   const [joinCode, setJoinCode] = useState<string>("");
   const [copied, setCopied] = useState(false); 
@@ -78,11 +81,11 @@ export default function Checkers({
   const [p2Score, setP2Score] = useState(0);
   const [winner, setWinner] = useState<number | null>(null);
 
-  // 🤩 Live Emojis
+  // Live Emojis
   const [floatingEmojis, setFloatingEmojis] = useState<{id: number, emoji: string, role: number}[]>([]);
   const [showEmojiMenu, setShowEmojiMenu] = useState(false);
 
-  // 🎉 Celebration Confetti Generator
+  // Celebration Confetti Generator
   const confettiPieces = useMemo(() => {
     const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6'];
     return Array.from({ length: 60 }).map((_, i) => ({
@@ -128,7 +131,7 @@ export default function Checkers({
     const result = await processGameEntry({
       gameTitle: "Checkers",
       entryFee,
-      opponentName: localOpponent?.name,
+      opponentName: localOpponent?.name || "Online Opponent",
     });
 
     if (!result.success) {
@@ -142,8 +145,24 @@ export default function Checkers({
     if (result.updatedPoints !== undefined) {
       setUserPoints(result.updatedPoints);
     }
+
+    if (result.matchId) {
+      setHistoryMatchId(result.matchId);
+    }
+
     return true;
   };
+
+  // 🏆 RECORD MATCH RESULT WHEN WINNER IS DETERMINED
+  useEffect(() => {
+    if (winner === null || !historyMatchId) return;
+
+    const isWin = winner === myPlayerRole;
+    const outcomeResult = isWin ? "Win" : "Loss";
+    const rewardPoints = isWin ? entryFee * 2 : 0;
+
+    recordMatchResult(historyMatchId, outcomeResult, rewardPoints);
+  }, [winner, historyMatchId, myPlayerRole, entryFee]);
 
   // Move Calculation Helpers
   const getValidMovesForPiece = useCallback((r: number, c: number, piece: number, currentBoard: number[][]) => {
