@@ -6,6 +6,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
+import { processGameEntry } from "../../lib/matchManager";
 
 // --- HYPER-REALISTIC ENGINE CONSTANTS ---
 const BOARD_SIZE = 1000;
@@ -142,7 +143,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myPlayerRole, setMyPlayerRole] = useState<1 | 2>(1);
   const [turn, setTurn] = useState<1 | 2>(1);
-  const [turnNonce, setTurnNonce] = useState<number>(0); // Increments to force bot re-trigger on extra turn
+  const [turnNonce, setTurnNonce] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);
   
   const [p1Score, setP1Score] = useState(0);
@@ -177,7 +178,18 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   const gameRuleModeRef = useRef(gameRuleMode);
   const playModeRef = useRef(playMode);
 
-  // 🧭 PERSPECTIVE LOGIC: Rotates the board 180 degrees ONLY for P2 in Online Mode
+  // 🔒 SCORE & COLOR REFS (PREVENTS STALE CLOSURES IN ANIMATION LOOPS)
+  const p1ScoreRef = useRef(p1Score);
+  const p2ScoreRef = useRef(p2Score);
+  const p1ColorRef = useRef(p1Color);
+  const p2ColorRef = useRef(p2Color);
+
+  useEffect(() => { p1ScoreRef.current = p1Score; }, [p1Score]);
+  useEffect(() => { p2ScoreRef.current = p2Score; }, [p2Score]);
+  useEffect(() => { p1ColorRef.current = p1Color; }, [p1Color]);
+  useEffect(() => { p2ColorRef.current = p2Color; }, [p2Color]);
+
+  // 🧭 PERSPECTIVE LOGIC: Rotates board 180 degrees ONLY for P2 in Online Mode
   const shouldFlipBoard = playMode === "online" && myPlayerRole === 2;
 
   useEffect(() => { turnRef.current = turn; }, [turn]);
@@ -225,38 +237,25 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     fetchGameData();
   }, []);
 
-  // 🔒 CHECK POINTS AND DEDUCT ENTRY FEE
+  // 🔒 CHECK POINTS & DEDUCT VIA CENTRAL MATCH MANAGER
   const checkPointsAndDeduct = async (): Promise<boolean> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
+    const result = await processGameEntry({
+      gameTitle: "Carrom",
+      entryFee,
+      opponentName: localOpponent?.name,
+    });
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("points")
-      .eq("id", user.id)
-      .single();
-
-    const currentPoints = profile?.points ?? 0;
-    setUserPoints(currentPoints);
-
-    if (currentPoints < entryFee) {
-      soundEngine.playSFX("defeat");
-      setShowNoPointsModal(true);
+    if (!result.success) {
+      if (result.error === "INSUFFICIENT_POINTS") {
+        soundEngine.playSFX("defeat");
+        setShowNoPointsModal(true);
+      }
       return false;
     }
 
-    // Deduct entry fee
-    const { error } = await supabase
-      .from("profiles")
-      .update({ points: currentPoints - entryFee })
-      .eq("id", user.id);
-
-    if (error) {
-      console.error("Error deducting entry fee:", error.message);
-      return false;
+    if (result.updatedPoints !== undefined) {
+      setUserPoints(result.updatedPoints);
     }
-
-    setUserPoints(currentPoints - entryFee);
     return true;
   };
 
@@ -364,11 +363,11 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           payload: {
             coins: currentCoins,
             nextTurn,
-            p1S: p1Score,
-            p2S: p2Score,
+            p1S: p1ScoreRef.current,
+            p2S: p2ScoreRef.current,
             win: null,
-            p1C: p1Color,
-            p2C: p2Color,
+            p1C: p1ColorRef.current,
+            p2C: p2ColorRef.current,
             msg: "Time's up! Turn lost.",
             msgType: 'foul',
             rulesMode: gameRuleModeRef.current
@@ -382,7 +381,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   };
 
   // -------------------------------------------------------------
-  // 🤖 LOCAL BOT ENGINE (FIXED: re-triggers on turnNonce for extra turns)
+  // 🤖 LOCAL BOT ENGINE
   // -------------------------------------------------------------
   const triggerBotShot = useCallback(() => {
     if (isMovingRef.current) return;
@@ -392,8 +391,8 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     if (!striker) return;
 
     let targetTypes = ["white", "black", "queen"];
-    if (gameRuleMode === "classic" && p2Color) {
-      targetTypes = [p2Color, "queen"];
+    if (gameRuleMode === "classic" && p2ColorRef.current) {
+      targetTypes = [p2ColorRef.current, "queen"];
     }
     
     const targets = currentCoins.filter(c => c.active && targetTypes.includes(c.type));
@@ -437,7 +436,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         }, reactionDelay);
       }
     }, 800);
-  }, [gameRuleMode, p2Color]);
+  }, [gameRuleMode]);
 
   useEffect(() => {
     if (playMode === "bot" && turn === 2 && !winner) {
@@ -450,7 +449,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
       return () => clearTimeout(botActionDelay);
     }
-  }, [turn, turnNonce, playMode, winner, p2Color, gameRuleMode, triggerBotShot]);
+  }, [turn, turnNonce, playMode, winner, gameRuleMode, triggerBotShot]);
 
   useEffect(() => {
     if (toast) {
@@ -548,11 +547,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         coinsRef.current = coins;
         setTurn(nextTurn); 
         setTurnNonce(prev => prev + 1);
-        setP1Score(p1S); 
-        setP2Score(p2S); 
+        
+        setP1Score(p1S); p1ScoreRef.current = p1S;
+        setP2Score(p2S); p2ScoreRef.current = p2S;
+        setP1Color(p1C); p1ColorRef.current = p1C;
+        setP2Color(p2C); p2ColorRef.current = p2C;
+        
         setWinner(win);
-        setP1Color(p1C); 
-        setP2Color(p2C);
         
         if (rulesMode) setGameRuleMode(rulesMode);
         
@@ -761,7 +762,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     }
   };
 
-  // 🎯 EVALUATE TURN END (WITH TURN NONCE BUMP FOR BOT CONTINUATION)
+  // 🎯 EVALUATE TURN END (ACCURATE SCORE RETENTION VIA REFS)
   const evaluateTurnEnd = () => {
     const prevCoins = turnSnapshotRef.current;
     const currentCoins = coinsRef.current;
@@ -769,10 +770,10 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     const pocketedThisTurn = currentCoins.filter(c => !c.active && prevCoins.find(p => p.id === c.id)?.active);
     const strikerFoul = pocketedThisTurn.some(c => c.type === "striker");
     
-    let newP1Score = p1Score; 
-    let newP2Score = p2Score;
-    let newP1Color = p1Color; 
-    let newP2Color = p2Color;
+    let newP1Score = p1ScoreRef.current; 
+    let newP2Score = p2ScoreRef.current;
+    let newP1Color = p1ColorRef.current; 
+    let newP2Color = p2ColorRef.current;
     let nextTurn = turnRef.current; 
     let fouled = false;
     let validPocket = false;
@@ -892,11 +893,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     }
 
     setTurn(nextTurn); 
-    setTurnNonce(prev => prev + 1); // Force state change to trigger Bot if same turn
-    setP1Score(newP1Score); 
-    setP2Score(newP2Score);
-    setP1Color(newP1Color); 
-    setP2Color(newP2Color); 
+    setTurnNonce(prev => prev + 1);
+    
+    setP1Score(newP1Score); p1ScoreRef.current = newP1Score;
+    setP2Score(newP2Score); p2ScoreRef.current = newP2Score;
+    setP1Color(newP1Color); p1ColorRef.current = newP1Color;
+    setP2Color(newP2Color); p2ColorRef.current = newP2Color;
+    
     setWinner(win);
   };
 
@@ -974,10 +977,12 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     setTimeLeft(TURN_TIME_LIMIT);
     setP1Slider(500); 
     setP2Slider(500);
-    setP1Score(0); 
-    setP2Score(0);
-    setP1Color(null); 
-    setP2Color(null);
+    
+    setP1Score(0); p1ScoreRef.current = 0;
+    setP2Score(0); p2ScoreRef.current = 0;
+    setP1Color(null); p1ColorRef.current = null;
+    setP2Color(null); p2ColorRef.current = null;
+    
     setRenderTrigger(prev => prev + 1);
   };
 

@@ -6,15 +6,16 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
+import { processGameEntry } from "../../lib/matchManager";
 
 const BALL_TYPES = {
   Red: { points: 1, color: "#ff2a2a", spec: "#ffe4e4" },
   Yellow: { points: 2, color: "#eab308", spec: "#fef08a" },
   Green: { points: 3, color: "#10b981", spec: "#a7f3d0" },
-  Brown: { points: 4, color: "#5c2e0b", spec: "#c68a4c" },
-  Blue: { points: 5, color: "#06b6d4", spec: "#a5f3fc" },
+  Brown: { points: 4, color: "#78350f", spec: "#d97706" },
+  Blue: { points: 5, color: "#2563eb", spec: "#93c5fd" }, // Vibrant Royal Blue
   Pink: { points: 6, color: "#ec4899", spec: "#fbcfe8" },
-  Black: { points: 7, color: "#1f2937", spec: "#9ca3af" },
+  Black: { points: 7, color: "#111827", spec: "#6b7280" },
 };
 
 const COLOR_SEQUENCE = ["Yellow", "Green", "Brown", "Blue", "Pink", "Black"];
@@ -112,6 +113,19 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const wasMovingRef = useRef(false);
   const didIShootRef = useRef(false);
 
+  // Synchronized State Refs to eliminate closure bugs inside Engine Loop
+  const currentTurnRef = useRef(currentTurn);
+  const scoresRef = useRef(scores);
+  const gamePhaseRef = useRef(gamePhase);
+  const nextRequiredBallRef = useRef(nextRequiredBall);
+  const colorSeqIndexRef = useRef(colorSeqIndex);
+
+  useEffect(() => { currentTurnRef.current = currentTurn; }, [currentTurn]);
+  useEffect(() => { scoresRef.current = scores; }, [scores]);
+  useEffect(() => { gamePhaseRef.current = gamePhase; }, [gamePhase]);
+  useEffect(() => { nextRequiredBallRef.current = nextRequiredBall; }, [nextRequiredBall]);
+  useEffect(() => { colorSeqIndexRef.current = colorSeqIndex; }, [colorSeqIndex]);
+
   // Live Emojis
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; role: number }[]>([]);
   const [showEmojiMenu, setShowEmojiMenu] = useState(false);
@@ -123,14 +137,15 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const baulkLineY = 550;
   const dZoneRadius = 55;
 
-  const pockets = [
-    { x: 20, y: 20 },
-    { x: tableWidth - 20, y: 20 },
-    { x: 15, y: tableHeight / 2 },
-    { x: tableWidth - 15, y: tableHeight / 2 },
-    { x: 20, y: tableHeight - 20 },
-    { x: tableWidth - 20, y: tableHeight - 20 },
-  ];
+  // 🎯 PROFESSIONALLY REALIGNED SNOOKER POCKETS
+  const pockets = useMemo(() => [
+    { x: 22, y: 22 },
+    { x: tableWidth - 22, y: 22 },
+    { x: 18, y: tableHeight / 2 },
+    { x: tableWidth - 18, y: tableHeight / 2 },
+    { x: 22, y: tableHeight - 22 },
+    { x: tableWidth - 22, y: tableHeight - 22 },
+  ], [tableWidth, tableHeight]);
 
   const confettiPieces = useMemo(() => {
     const colors = ["#f59e0b", "#10b981", "#4f46e5", "#ec4899", "#3b82f6"];
@@ -172,38 +187,25 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     fetchGameData();
   }, []);
 
-  // 🔒 CHECK POINTS AND DEDUCT ENTRY FEE
+  // 🔒 CHECK POINTS & DEDUCT VIA CENTRAL MATCH MANAGER
   const checkPointsAndDeduct = async (): Promise<boolean> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
+    const result = await processGameEntry({
+      gameTitle: "Snooker",
+      entryFee,
+      opponentName: localOpponent?.name,
+    });
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("points")
-      .eq("id", user.id)
-      .single();
-
-    const currentPoints = profile?.points ?? 0;
-    setUserPoints(currentPoints);
-
-    if (currentPoints < entryFee) {
-      soundEngine.playSFX("defeat");
-      setShowNoPointsModal(true);
+    if (!result.success) {
+      if (result.error === "INSUFFICIENT_POINTS") {
+        soundEngine.playSFX("defeat");
+        setShowNoPointsModal(true);
+      }
       return false;
     }
 
-    // Deduct entry fee
-    const { error } = await supabase
-      .from("profiles")
-      .update({ points: currentPoints - entryFee })
-      .eq("id", user.id);
-
-    if (error) {
-      console.error("Error deducting entry fee:", error.message);
-      return false;
+    if (result.updatedPoints !== undefined) {
+      setUserPoints(result.updatedPoints);
     }
-
-    setUserPoints(currentPoints - entryFee);
     return true;
   };
 
@@ -301,39 +303,125 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   }, [shouldConnect, matchId, myUserId, playMode, myPlayerRole]);
 
   // -------------------------------------------------------------
-  // 🤖 SMART SNOOKER BOT SHOT EXECUTION ENGINE
+  // 🧠 ENHANCED SMART SNOOKER BOT (GHOST BALL CUT ANGLE ENGINE)
   // -------------------------------------------------------------
   const executeBotShot = useCallback(() => {
     if (isMoving) return;
     const cueBall = ballsRef.current.find((b) => b.isCue);
     if (!cueBall) return;
 
-    let activeTargets = ballsRef.current.filter((b) => !b.isCue && !b.isPotted);
-    if (nextRequiredBall === "Red") {
-      activeTargets = activeTargets.filter((b) => b.type === "Red");
-    } else if (nextRequiredBall === "Color") {
-      activeTargets = activeTargets.filter((b) => b.type !== "Red");
+    let targetBallTypes: string[] = [];
+    const nextReq = nextRequiredBallRef.current;
+
+    if (nextReq === "Red") {
+      targetBallTypes = ["Red"];
+    } else if (nextReq === "Color") {
+      targetBallTypes = COLOR_SEQUENCE;
     } else {
-      activeTargets = activeTargets.filter((b) => b.type === nextRequiredBall);
+      targetBallTypes = [nextReq];
     }
 
-    if (activeTargets.length === 0) return;
+    const eligibleBalls = ballsRef.current.filter(
+      (b) => !b.isCue && !b.isPotted && targetBallTypes.includes(b.type)
+    );
 
-    // Smart positioning: sort targets by distance to cue ball
-    activeTargets.sort((a, b) => {
-      const distA = Math.hypot(a.x - cueBall.x, a.y - cueBall.y);
-      const distB = Math.hypot(b.x - cueBall.x, b.y - cueBall.y);
-      return distA - distB;
-    });
+    if (eligibleBalls.length === 0) return;
 
-    const target = activeTargets[0];
-    const dx = target.x - cueBall.x;
-    const dy = target.y - cueBall.y;
-    const shotAngle = Math.atan2(dy, dx) + (Math.random() * 0.06 - 0.03);
+    let bestShot: { vx: number; vy: number; quality: number } | null = null;
+    let highestScore = -Infinity;
 
-    const power = 11 + Math.random() * 7;
-    cueBall.vx = Math.cos(shotAngle) * power;
-    cueBall.vy = Math.sin(shotAngle) * power;
+    for (const ball of eligibleBalls) {
+      for (const pocket of pockets) {
+        const ballToPocketX = pocket.x - ball.x;
+        const ballToPocketY = pocket.y - ball.y;
+        const distBallToPocket = Math.hypot(ballToPocketX, ballToPocketY);
+
+        if (distBallToPocket === 0) continue;
+
+        const dirPocketX = ballToPocketX / distBallToPocket;
+        const dirPocketY = ballToPocketY / distBallToPocket;
+
+        // Ghost ball center position where cue ball must make contact
+        const ghostX = ball.x - dirPocketX * (ballRadius * 2);
+        const ghostY = ball.y - dirPocketY * (ballRadius * 2);
+
+        const cueToGhostX = ghostX - cueBall.x;
+        const cueToGhostY = ghostY - cueBall.y;
+        const distCueToGhost = Math.hypot(cueToGhostX, cueToGhostY);
+
+        if (distCueToGhost === 0) continue;
+
+        const dirCueGhostX = cueToGhostX / distCueToGhost;
+        const dirCueGhostY = cueToGhostY / distCueToGhost;
+
+        // Calculate cut angle accuracy (dot product)
+        const dot = dirCueGhostX * dirPocketX + dirCueGhostY * dirPocketY;
+
+        if (dot < 0.2) continue; // Cut angle too sharp (> 78 deg)
+
+        // Line of sight check for object ball -> pocket
+        let pocketBlocked = false;
+        for (const obstacle of ballsRef.current) {
+          if (obstacle.isPotted || obstacle.id === ball.id || obstacle.isCue) continue;
+          const obsDx = obstacle.x - ball.x;
+          const obsDy = obstacle.y - ball.y;
+          const proj = obsDx * dirPocketX + obsDy * dirPocketY;
+          if (proj > 0 && proj < distBallToPocket) {
+            const perp = Math.abs(-dirPocketY * obsDx + dirPocketX * obsDy);
+            if (perp < ballRadius * 2) {
+              pocketBlocked = true;
+              break;
+            }
+          }
+        }
+        if (pocketBlocked) continue;
+
+        // Line of sight check for cue ball -> ghost ball
+        let cueBlocked = false;
+        for (const obstacle of ballsRef.current) {
+          if (obstacle.isPotted || obstacle.id === ball.id || obstacle.isCue) continue;
+          const obsDx = obstacle.x - cueBall.x;
+          const obsDy = obstacle.y - cueBall.y;
+          const proj = obsDx * dirCueGhostX + obsDy * dirCueGhostY;
+          if (proj > 0 && proj < distCueToGhost) {
+            const perp = Math.abs(-dirCueGhostY * obsDx + dirCueGhostX * obsDy);
+            if (perp < ballRadius * 2) {
+              cueBlocked = true;
+              break;
+            }
+          }
+        }
+        if (cueBlocked) continue;
+
+        const shotScore = dot * 1000 - distCueToGhost * 0.5 - distBallToPocket * 0.3;
+        if (shotScore > highestScore) {
+          highestScore = shotScore;
+          const power = Math.min(18, Math.max(9, (distCueToGhost + distBallToPocket) * 0.035));
+          bestShot = {
+            vx: dirCueGhostX * power,
+            vy: dirCueGhostY * power,
+            quality: shotScore,
+          };
+        }
+      }
+    }
+
+    // Fallback: Safe touch shot if no direct pocket is open
+    if (!bestShot) {
+      const target = eligibleBalls[Math.floor(Math.random() * eligibleBalls.length)];
+      const dx = target.x - cueBall.x;
+      const dy = target.y - cueBall.y;
+      const dist = Math.hypot(dx, dy);
+      const power = 8 + Math.random() * 4;
+      bestShot = {
+        vx: (dx / dist) * power,
+        vy: (dy / dist) * power,
+        quality: 0,
+      };
+    }
+
+    cueBall.vx = bestShot.vx;
+    cueBall.vy = bestShot.vy;
 
     setIsBallInHand(false);
     setIsMoving(true);
@@ -349,7 +437,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
       }, reactionDelay);
     }
-  }, [isMoving, nextRequiredBall]);
+  }, [isMoving, pockets]);
 
   // -------------------------------------------------------------
   // ⏱️ 30-SECOND TURN TIMER SYSTEM
@@ -358,7 +446,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     if (isMoving || winner) return;
     soundEngine.playSFX("defeat");
 
-    if (playMode === "bot" && currentTurn === "player2") {
+    if (playMode === "bot" && currentTurnRef.current === "player2") {
       executeBotShot();
     } else {
       const cueBall = ballsRef.current.find((b) => b.isCue);
@@ -372,7 +460,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         setToast({ msg: "Time expired! Auto shot executed.", type: "foul" });
       }
     }
-  }, [isMoving, winner, playMode, currentTurn, executeBotShot, aimAngle, isBallInHand]);
+  }, [isMoving, winner, playMode, executeBotShot, aimAngle, isBallInHand]);
 
   useEffect(() => {
     if (playMode === "menu" || playMode === "searching" || playMode === "confirmed" || playMode === "host" || playMode === "join" || winner) return;
@@ -475,9 +563,16 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     }
   }, [baulkLineY, tableHeight, tableWidth]);
 
+  // 🎯 EVALUATE TURN END (ACCURATE SCORE CALCULATIONS VIA REFS)
   const evaluateTurnEnd = useCallback(() => {
     const tracking = turnTrackingRef.current;
-    const opponentPlayer = currentTurn === "player1" ? "player2" : "player1";
+    const turnVal = currentTurnRef.current;
+    const scoresVal = scoresRef.current;
+    const phaseVal = gamePhaseRef.current;
+    const nextReqVal = nextRequiredBallRef.current;
+    const seqIdxVal = colorSeqIndexRef.current;
+
+    const opponentPlayer = turnVal === "player1" ? "player2" : "player1";
     let turnSwitched = false;
     let penalty = 0;
 
@@ -485,26 +580,27 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     const activeBalls = ballsRef.current.filter((b) => !b.isPotted);
 
     if (activeBalls.length === 1 && activeBalls[0].isCue) {
-      const winState = scores.player1 > scores.player2 ? "Player 1" : scores.player2 > scores.player1 ? "Player 2" : "Draw Match";
+      const winState = scoresVal.player1 > scoresVal.player2 ? "Player 1" : scoresVal.player2 > scoresVal.player1 ? "Player 2" : "Draw Match";
       setWinner(winState);
       soundEngine.playSFX("victory");
       return;
     }
 
     const isCuePotted = tracking.firstHitBallType === "FOUL_SCRATCH";
-    const isFoul = isCuePotted || tracking.firstHitBallType === "";
+    const isNoHitFoul = tracking.firstHitBallType === "";
+    const isFoul = isCuePotted || isNoHitFoul;
 
-    let newScores = { ...scores };
-    let newPhase = gamePhase;
-    let newNextReq = nextRequiredBall;
-    let nextTurn = currentTurn;
+    let newScores = { ...scoresVal };
+    let newPhase = phaseVal;
+    let newNextReq = nextReqVal;
+    let nextTurn = turnVal;
 
-    if (gamePhase === "REDS") {
+    if (phaseVal === "REDS") {
       if (isFoul) {
         if (tracking.colorsPotted.length > 0) tracking.colorsPotted.forEach((c) => respotColorBall(c));
         penalty = 4; turnSwitched = true; newNextReq = "Red";
         soundEngine.playSFX("defeat");
-      } else if (nextRequiredBall === "Red") {
+      } else if (nextReqVal === "Red") {
         if (tracking.firstHitBallType !== "Red") {
           if (tracking.colorsPotted.length > 0) tracking.colorsPotted.forEach((c) => respotColorBall(c));
           penalty = 4; turnSwitched = true; newNextReq = "Red";
@@ -514,7 +610,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           penalty = 4; turnSwitched = true; newNextReq = "Red";
           soundEngine.playSFX("defeat");
         } else if (tracking.redsPotted > 0) {
-          newScores[currentTurn] += tracking.redsPotted;
+          newScores[turnVal] += tracking.redsPotted;
           soundEngine.playSFX("capture");
           if (redsLeft === 0) {
             newPhase = "LAST_RED_COLOR";
@@ -533,13 +629,13 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         } else {
           const colorName = tracking.colorsPotted[0];
           const pts = BALL_TYPES[colorName as keyof typeof BALL_TYPES]?.points || 2;
-          newScores[currentTurn] += pts;
+          newScores[turnVal] += pts;
           soundEngine.playSFX("capture");
           respotColorBall(colorName);
           newNextReq = "Red";
         }
       }
-    } else if (gamePhase === "LAST_RED_COLOR") {
+    } else if (phaseVal === "LAST_RED_COLOR") {
       if (isFoul || tracking.colorsPotted.length !== 1) {
         if (tracking.colorsPotted.length > 0) tracking.colorsPotted.forEach((c) => respotColorBall(c));
         penalty = 4; turnSwitched = true;
@@ -550,24 +646,24 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       } else {
         const colorName = tracking.colorsPotted[0];
         const pts = BALL_TYPES[colorName as keyof typeof BALL_TYPES]?.points || 2;
-        newScores[currentTurn] += pts;
+        newScores[turnVal] += pts;
         soundEngine.playSFX("capture");
         respotColorBall(colorName);
         newPhase = "COLORS_SEQUENCE";
         setColorSeqIndex(0);
         newNextReq = "Yellow";
       }
-    } else if (gamePhase === "COLORS_SEQUENCE") {
-      const targetColor = COLOR_SEQUENCE[colorSeqIndex];
+    } else if (phaseVal === "COLORS_SEQUENCE") {
+      const targetColor = COLOR_SEQUENCE[seqIdxVal];
       if (isFoul || tracking.firstHitBallType !== targetColor || tracking.colorsPotted.length > 1) {
         if (tracking.colorsPotted.length > 0) tracking.colorsPotted.forEach((c) => respotColorBall(c));
         penalty = 4; turnSwitched = true;
         soundEngine.playSFX("defeat");
       } else if (tracking.colorsPotted.length === 1 && tracking.colorsPotted[0] === targetColor) {
         const pts = BALL_TYPES[targetColor as keyof typeof BALL_TYPES]?.points || 2;
-        newScores[currentTurn] += pts;
+        newScores[turnVal] += pts;
         soundEngine.playSFX("capture");
-        const nextIdx = colorSeqIndex + 1;
+        const nextIdx = seqIdxVal + 1;
         setColorSeqIndex(nextIdx);
         if (nextIdx < COLOR_SEQUENCE.length) {
           newNextReq = COLOR_SEQUENCE[nextIdx];
@@ -606,7 +702,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         },
       });
     }
-  }, [currentTurn, nextRequiredBall, gamePhase, colorSeqIndex, scores, respotColorBall, playMode, winner]);
+  }, [respotColorBall, playMode, winner]);
+
+  const evaluateTurnEndRef = useRef(evaluateTurnEnd);
+  useEffect(() => { evaluateTurnEndRef.current = evaluateTurnEnd; }, [evaluateTurnEnd]);
 
   const initBalls = useCallback(() => {
     soundEngine.playSFX("click");
@@ -738,6 +837,9 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     });
   };
 
+  // -------------------------------------------------------------
+  // 🎱 ANIMATION & PHYSICS ENGINE LOOP
+  // -------------------------------------------------------------
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -892,10 +994,11 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       setIsMoving(dynamicMotion);
 
       if (wasMovingRef.current && !dynamicMotion) {
-        evaluateTurnEnd();
+        evaluateTurnEndRef.current();
       }
       wasMovingRef.current = dynamicMotion;
 
+      // Draw Table Frame & Cushions
       ctx.fillStyle = "#2b1408";
       ctx.fillRect(0, 0, tableWidth, tableHeight);
 
@@ -912,6 +1015,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       ctx.lineWidth = 2;
       ctx.strokeRect(25, 25, tableWidth - 50, tableHeight - 50);
 
+      // Render Pockets
       pockets.forEach((p) => {
         const pocketRadius = ballRadius * 2.5;
         ctx.save();
@@ -922,11 +1026,13 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         ctx.restore();
       });
 
+      // Baulk Line & D-Zone
       ctx.strokeStyle = isCyberTable ? "rgba(204,255,0,0.25)" : "rgba(255,255,255,0.25)";
       ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(25, baulkLineY); ctx.lineTo(tableWidth - 25, baulkLineY); ctx.stroke();
       ctx.beginPath(); ctx.arc(tableWidth / 2, baulkLineY, dZoneRadius, 0, Math.PI, false); ctx.stroke();
 
+      // Ball Shadows
       ballsRef.current.forEach((ball) => {
         const currentRadius = ballRadius * (ball.scale ?? 1);
         ctx.save();
@@ -940,16 +1046,18 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       const now = Date.now();
       const pulseScale = 1 + Math.sin(now * 0.008) * 0.25;
 
+      // Targeted Ball Highlights
       ballsRef.current.forEach((ball) => {
         if (ball.isCue || ball.isPotted) return;
 
         let isTarget = false;
-        if (nextRequiredBall === "Red") {
+        const nextReq = nextRequiredBallRef.current;
+        if (nextReq === "Red") {
           isTarget = ball.type === "Red";
-        } else if (nextRequiredBall === "Color") {
+        } else if (nextReq === "Color") {
           isTarget = ball.type !== "Red";
         } else {
-          isTarget = ball.type === nextRequiredBall;
+          isTarget = ball.type === nextReq;
         }
 
         if (isTarget && !dynamicMotion) {
@@ -964,6 +1072,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         }
       });
 
+      // Render Snooker Balls with Radial Gradients
       ballsRef.current.forEach((ball) => {
         const currentRadius = ballRadius * (ball.scale ?? 1);
         if (currentRadius <= 0.5) return;
@@ -994,6 +1103,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         return;
       }
 
+      // Render Aiming & Cue Stick
       if (!dynamicMotion && !isBallInHand) {
         let closestDist = 999999;
         let hitBall: Ball | null = null;
@@ -1021,7 +1131,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         if (hitBall) {
           setTargetedColor((hitBall as Ball).type);
         } else {
-          setTargetedColor(nextRequiredBall === "Color" ? "Yellow" : nextRequiredBall);
+          setTargetedColor(nextRequiredBallRef.current === "Color" ? "Yellow" : nextRequiredBallRef.current);
         }
 
         ctx.save();
@@ -1059,6 +1169,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         }
         ctx.restore();
 
+        // 🎨 HIGH-VISIBILITY CUE STICK RENDERING
         ctx.save();
         const stickDist = 18 + uiPower * 0.4;
         const stickLen = 160;
@@ -1068,14 +1179,21 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         const endX = cueBall.x - cos * (stickDist + stickLen);
         const endY = cueBall.y - sin * (stickDist + stickLen);
 
-        ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.lineCap = "round";
-        ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(startX - cos * 5, startY - sin * 5); ctx.stroke();
+        // Cue Tip (Bright White)
+        ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3.5; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(startX - cos * 6, startY - sin * 6); ctx.stroke();
 
-        ctx.strokeStyle = isCyberTable ? "#CCFF00" : "#d97706"; ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.moveTo(startX - cos * 5, startY - sin * 5); ctx.lineTo(startX - cos * 100, startY - sin * 100); ctx.stroke();
+        // Cue Shaft (Golden Ivory - High Contrast)
+        ctx.strokeStyle = "#fef08a"; ctx.lineWidth = 4.5;
+        ctx.beginPath(); ctx.moveTo(startX - cos * 6, startY - sin * 6); ctx.lineTo(startX - cos * 90, startY - sin * 90); ctx.stroke();
 
-        ctx.strokeStyle = "#111827"; ctx.lineWidth = 5.5;
-        ctx.beginPath(); ctx.moveTo(startX - cos * 100, startY - sin * 100); ctx.lineTo(endX, endY); ctx.stroke();
+        // Brass Divider Ring
+        ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(startX - cos * 90, startY - sin * 90); ctx.lineTo(startX - cos * 96, startY - sin * 96); ctx.stroke();
+
+        // Cue Butt / Handle (Vivid Accent - Completely Visible)
+        ctx.strokeStyle = isCyberTable ? "#CCFF00" : "#ea580c"; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.moveTo(startX - cos * 96, startY - sin * 96); ctx.lineTo(endX, endY); ctx.stroke();
 
         ctx.restore();
       }
@@ -1085,7 +1203,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
     engineLoop();
     return () => cancelAnimationFrame(animId);
-  }, [aimAngle, uiPower, nextRequiredBall, isBallInHand, isMoving, evaluateTurnEnd, baulkLineY, isCyberTable]);
+  }, [aimAngle, uiPower, isBallInHand, baulkLineY, isCyberTable, pockets]);
 
   const handleCanvasInteraction = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (isMoving) return;
@@ -1770,10 +1888,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             style={{ height: `${containerScale.height}px` }}
             className="flex items-center justify-center gap-1.5 sm:gap-2 w-full max-w-full relative transition-all duration-100 touch-none px-1"
           >
-            {/* 1. LEFT PULL POWER CONTROLLER */}
-            <div 
-              style={{ height: `${containerScale.height}px` }}
-              className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none"
+            {/* 1. LEFT PULL POWER CONTROLLER (REDUCED HEIGHT BY 50%) */}
+            <div
+              style={{ height: `${containerScale.height * 0.5}px` }}
+              className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none my-auto"
             >
               <span className="text-[6px] md:text-[8px] font-bold text-neutral-400 uppercase tracking-widest pointer-events-none">PULL</span>
 
@@ -1821,10 +1939,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
               )}
             </div>
 
-            {/* 3. RIGHT TUNE WHEEL & SPIN CONTROLLER */}
-            <div 
-              style={{ height: `${containerScale.height}px` }}
-              className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none"
+            {/* 3. RIGHT TUNE WHEEL & SPIN CONTROLLER (REDUCED HEIGHT BY 50%) */}
+            <div
+              style={{ height: `${containerScale.height * 0.5}px` }}
+              className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none my-auto"
             >
               <span className="text-[6px] md:text-[8px] font-bold text-neutral-400 uppercase tracking-widest pointer-events-none">TUNE</span>
 

@@ -4,9 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
-
-// 👇 Import the Bot Utility
 import { getRandomBotOpponent } from "../../lib/botUtils";
+import { processGameEntry } from "../../lib/matchManager";
 
 const EMPTY = 0, P1 = 1, P2 = 2, P1_KING = 3, P2_KING = 4;
 const TURN_TIME_LIMIT = 30; // 30-second turn limit
@@ -124,38 +123,25 @@ export default function Checkers({
     fetchGameData();
   }, []);
 
-  // 🔒 CHECK POINTS AND DEDUCT ENTRY FEE
+  // 🔒 CHECK POINTS & DEDUCT VIA CENTRAL MATCH MANAGER
   const checkPointsAndDeduct = async (): Promise<boolean> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
+    const result = await processGameEntry({
+      gameTitle: "Checkers",
+      entryFee,
+      opponentName: localOpponent?.name,
+    });
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("points")
-      .eq("id", user.id)
-      .single();
-
-    const currentPoints = profile?.points ?? 0;
-    setUserPoints(currentPoints);
-
-    if (currentPoints < entryFee) {
-      soundEngine.playSFX("defeat");
-      setShowNoPointsModal(true);
+    if (!result.success) {
+      if (result.error === "INSUFFICIENT_POINTS") {
+        soundEngine.playSFX("defeat");
+        setShowNoPointsModal(true);
+      }
       return false;
     }
 
-    // Deduct entry fee
-    const { error } = await supabase
-      .from("profiles")
-      .update({ points: currentPoints - entryFee })
-      .eq("id", user.id);
-
-    if (error) {
-      console.error("Error deducting entry fee:", error.message);
-      return false;
+    if (result.updatedPoints !== undefined) {
+      setUserPoints(result.updatedPoints);
     }
-
-    setUserPoints(currentPoints - entryFee);
     return true;
   };
 

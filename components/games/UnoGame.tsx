@@ -4,9 +4,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
-
-// 🤖 Import the Bot Utility for Opponents
 import { getRandomBotOpponent } from "../../lib/botUtils";
+import { processGameEntry } from "../../lib/matchManager";
 
 interface UnoGameProps {
   onClose?: () => void;
@@ -150,38 +149,25 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     fetchGameData();
   }, []);
 
-  // 🔒 CHECK POINTS AND DEDUCT ENTRY FEE
+  // 🔒 CHECK POINTS & DEDUCT VIA CENTRAL MATCH MANAGER
   const checkPointsAndDeduct = async (): Promise<boolean> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
+    const result = await processGameEntry({
+      gameTitle: "Uno",
+      entryFee,
+      opponentName: localOpponent?.name,
+    });
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("points")
-      .eq("id", user.id)
-      .single();
-
-    const currentPoints = profile?.points ?? 0;
-    setUserPoints(currentPoints);
-
-    if (currentPoints < entryFee) {
-      soundEngine.playSFX("defeat");
-      setShowNoPointsModal(true);
+    if (!result.success) {
+      if (result.error === "INSUFFICIENT_POINTS") {
+        soundEngine.playSFX("defeat");
+        setShowNoPointsModal(true);
+      }
       return false;
     }
 
-    // Deduct entry fee
-    const { error } = await supabase
-      .from("profiles")
-      .update({ points: currentPoints - entryFee })
-      .eq("id", user.id);
-
-    if (error) {
-      console.error("Error deducting entry fee:", error.message);
-      return false;
+    if (result.updatedPoints !== undefined) {
+      setUserPoints(result.updatedPoints);
     }
-
-    setUserPoints(currentPoints - entryFee);
     return true;
   };
 
@@ -475,7 +461,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     }, 600);
   };
 
-  // ⏱️ TIMER LOGIC (UPDATED: 1 second interval to prevent iOS re-render/shaking bug)
+  // ⏱️ TIMER LOGIC
   useEffect(() => {
     if (view !== "play" || winnerTeam !== null) return;
 
@@ -549,9 +535,9 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   const getCardBg = (color: CardColor) => {
     switch(color) {
       case "red": return "bg-rose-600 border-rose-800";
-      case "blue": return "bg-cyan-600 border-cyan-800";
+      case "blue": return "bg-[#003B46] border-cyan-800";
       case "green": return "bg-emerald-600 border-emerald-800";
-      case "yellow": return "bg-amber-400 border-amber-600";
+      case "yellow": return "bg-[#F4D03F] border-amber-600";
       default: return "bg-[#18181b] border-white/10";
     }
   };
@@ -565,7 +551,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     return value;
   };
 
-  // 🃏 CARD COMPONENT (FIXED: touch-manipulation & iOS active state stability)
+  // 🃏 CARD COMPONENT
   const CardComponent = ({ card, hidden = false, onClick, active = false }: { card: Card, hidden?: boolean, onClick?: () => void, active?: boolean }) => {
     if (hidden) {
       return (
