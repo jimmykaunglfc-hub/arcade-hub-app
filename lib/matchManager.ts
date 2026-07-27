@@ -23,11 +23,14 @@ export async function processGameEntry({
       return { success: false, error: error.message };
     }
 
-    if (!data.success) {
-      return { success: false, error: data.error };
+    if (!data || !data.success) {
+      return { success: false, error: data?.error || "MATCH_ENTRY_FAILED" };
     }
 
-    return { success: true, updatedPoints: data.new_points };
+    // Supports both 'updatedPoints' and 'new_points' keys returned from PostgreSQL
+    const updatedPoints = data.updatedPoints ?? data.new_points;
+
+    return { success: true, updatedPoints };
   } catch (err: any) {
     return { success: false, error: err.message || "Network Error" };
   }
