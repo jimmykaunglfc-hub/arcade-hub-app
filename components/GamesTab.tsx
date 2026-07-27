@@ -19,6 +19,7 @@ const DEFAULT_GAMES = [
   { id: "chess", title: "Chess", category: "Strategy", entry_fee: 0, rating: "4.9", icon: "workspace_premium" },
   { id: "checkers", title: "Checkers", category: "Strategy", entry_fee: 0, rating: "4.7", icon: "grid_4x4" },
   { id: "snooker", title: "Snooker", category: "Sports", entry_fee: 0, rating: "4.8", icon: "sports_bar" },
+  { id: "pool", title: "8-Ball Pool", category: "Sports", entry_fee: 0, rating: "4.9", icon: "sports_score" },
   { id: "tictactoe", title: "Tic Tac Toe", category: "Strategy", entry_fee: 0, rating: "4.8", icon: "grid_3x3" },
   { id: "biometric_override", title: "Biometric Override", category: "Puzzle", entry_fee: 0, rating: "5.0", icon: "fingerprint" },
 ];

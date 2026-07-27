@@ -7,6 +7,7 @@ import Checkers from "./games/Checkers";
 import SnookerGame from "./games/SnookerGame";
 import TicTacToeGame from "./games/TicTacToeGame";
 import BiometricOverride from "./games/BiometricOverride";
+import PoolGame from "./games/PoolGame";
 
 interface GamePlayerProps {
   gameUrl: string;
@@ -63,6 +64,15 @@ export default function GamePlayer({
       case "snooker":
         return (
           <SnookerGame 
+            onClose={onClose} 
+            preloadedMatchId={matchId} 
+            opponent={opponent} 
+          />
+        );
+      case "8-ball-pool":
+      case "pool":
+        return (
+          <PoolGame 
             onClose={onClose} 
             preloadedMatchId={matchId} 
             opponent={opponent} 
