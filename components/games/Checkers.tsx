@@ -155,14 +155,30 @@ export default function Checkers({
 
   // 🏆 RECORD MATCH RESULT WHEN WINNER IS DETERMINED
   useEffect(() => {
-    if (winner === null || !historyMatchId) return;
+    if (winner === null) return;
 
-    const isWin = winner === myPlayerRole;
-    const outcomeResult = isWin ? "Win" : "Loss";
-    const rewardPoints = isWin ? entryFee * 2 : 0;
+    const saveMatch = async () => {
+      const isWin = winner === myPlayerRole;
+      const outcomeResult = isWin ? "Win" : "Loss"; 
+      const rewardPoints = isWin ? entryFee * 2 : 0; 
+      const oppName = localOpponent?.name || opponent?.name || "Online Opponent";
 
-    recordMatchResult(historyMatchId, outcomeResult, rewardPoints);
-  }, [winner, historyMatchId, myPlayerRole, entryFee]);
+      try {
+        await recordMatchResult({
+          game_id: "checkers",
+          game_title: "Checkers",
+          opponent_name: oppName,
+          result: outcomeResult,
+          points_change: rewardPoints
+        });
+        console.log("Checkers match successfully saved to database!");
+      } catch (error) {
+        console.error("Failed to save match data:", error);
+      }
+    };
+
+    saveMatch();
+  }, [winner, myPlayerRole, entryFee, localOpponent, opponent]);
 
   // Move Calculation Helpers
   const getValidMovesForPiece = useCallback((r: number, c: number, piece: number, currentBoard: number[][]) => {

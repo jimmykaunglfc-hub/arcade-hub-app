@@ -181,14 +181,30 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
   // 🏆 RECORD MATCH RESULT WHEN WINNER IS DETERMINED
   useEffect(() => {
-    if (winnerTeam === null || !historyMatchId) return;
+    if (winnerTeam === null) return;
 
-    const isUserVictory = winnerTeam === players[0]?.team;
-    const outcomeResult = isUserVictory ? "Win" : "Loss";
-    const rewardPoints = isUserVictory ? entryFee * 2 : 0;
+    const saveMatch = async () => {
+      const isUserVictory = winnerTeam === players[0]?.team;
+      const outcomeResult = isUserVictory ? "Win" : "Loss";
+      const rewardPoints = isUserVictory ? entryFee * 2 : 0;
+      const oppName = localOpponent?.name || opponent?.name || "Online Opponent";
 
-    recordMatchResult(historyMatchId, outcomeResult, rewardPoints);
-  }, [winnerTeam, historyMatchId, players, entryFee]);
+      try {
+        await recordMatchResult({
+          game_id: "uno",
+          game_title: "Uno",
+          opponent_name: oppName,
+          result: outcomeResult,
+          points_change: rewardPoints
+        });
+        console.log("Uno match successfully saved to database!");
+      } catch (error) {
+        console.error("Failed to save match data:", error);
+      }
+    };
+
+    saveMatch();
+  }, [winnerTeam, players, entryFee, localOpponent, opponent]);
 
   // 📡 SUPABASE REALTIME SYNC HUB
   useEffect(() => {

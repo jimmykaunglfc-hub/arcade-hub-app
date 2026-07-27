@@ -330,20 +330,36 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
 
   // 🏆 RECORD MATCH RESULT WHEN GAME OVER IS DETERMINED
   useEffect(() => {
-    if (!gameOver.isOver || !historyMatchId) return;
+    if (!gameOver.isOver) return;
 
-    let isWin = false;
-    if (gameOver.winner) {
-      const winningColor = gameOver.winner.toLowerCase();
-      const myColor = playerColor.toLowerCase();
-      isWin = winningColor === myColor;
-    }
+    const saveMatch = async () => {
+      let isWin = false;
+      if (gameOver.winner) {
+        const winningColor = gameOver.winner.toLowerCase();
+        const myColor = playerColor.toLowerCase();
+        isWin = winningColor === myColor;
+      }
 
-    const outcomeResult = isWin ? "Win" : gameOver.winner ? "Loss" : "Draw";
-    const rewardPoints = isWin ? entryFee * 2 : 0;
+      const outcomeResult = isWin ? "Win" : gameOver.winner ? "Loss" : "Draw";
+      const rewardPoints = isWin ? entryFee * 2 : 0;
+      const oppName = localOpponent?.name || opponent?.name || "Online Opponent";
 
-    recordMatchResult(historyMatchId, outcomeResult, rewardPoints);
-  }, [gameOver.isOver, gameOver.winner, historyMatchId, playerColor, entryFee]);
+      try {
+        await recordMatchResult({
+          game_id: "chess",
+          game_title: "Chess",
+          opponent_name: oppName,
+          result: outcomeResult,
+          points_change: rewardPoints
+        });
+        console.log("Chess match successfully saved to database!");
+      } catch (error) {
+        console.error("Failed to save match data:", error);
+      }
+    };
+
+    saveMatch();
+  }, [gameOver.isOver, gameOver.winner, playerColor, entryFee, localOpponent, opponent]);
 
   // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {

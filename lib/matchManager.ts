@@ -6,6 +6,14 @@ interface GameEntryParams {
   opponentName?: string;
 }
 
+interface MatchResultPayload {
+  game_id: string;
+  game_title: string;
+  opponent_name: string;
+  result: string;
+  points_change: number;
+}
+
 /**
  * Handles entry fees and creates an initial match record when a user enters a game.
  */
@@ -98,50 +106,27 @@ export async function processGameEntry({
 }
 
 /**
- * Updates an existing match record when a game finishes.
- * If matchId is missing or record update fails, creates a direct match entry fallback so matches are never lost.
+ * Inserts a completed match record into the database.
  */
-export async function recordMatchResult(
-  matchId: string | null | undefined,
-  result: "Win" | "Loss" | "Draw",
-  pointsEarned: number = 0,
-  gameTitle: string = "Arcade Match",
-  opponentName: string = "Online Opponent"
-) {
+export async function recordMatchResult(payload: MatchResultPayload) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 1. If a valid matchId is present, try updating existing row
-    if (matchId) {
-      const { data, error } = await supabase
-        .from("match_history")
-        .update({
-          result,
-          points_change: pointsEarned,
-        })
-        .eq("id", matchId)
-        .select();
-
-      // If update succeeded and touched a row, exit
-      if (!error && data && data.length > 0) {
-        return;
-      }
-    }
-
-    // 🛡️ 2. Fallback Insert: Create a fresh match history record if matchId didn't exist or UPDATE failed
+    // Insert directly using the new structured payload
     const { error: insertError } = await supabase
       .from("match_history")
       .insert({
         user_id: user.id,
-        game_title: gameTitle,
-        opponent_name: opponentName,
-        result: result,
-        points_change: pointsEarned,
+        game_id: payload.game_id,
+        game_title: payload.game_title,
+        opponent_name: payload.opponent_name,
+        result: payload.result,
+        points_change: payload.points_change,
       });
 
     if (insertError) {
-      console.error("Failed to insert fallback match history:", insertError.message);
+      console.error("Failed to insert match history:", insertError.message);
     }
   } catch (err) {
     console.error("Failed to record match result:", err);

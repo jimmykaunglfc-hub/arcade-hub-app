@@ -130,21 +130,38 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
 
   // 🏆 RECORD MATCH RESULT WHEN WINNER IS DETERMINED
   useEffect(() => {
-    if (!winner || !historyMatchId) return;
+    if (!winner) return;
 
-    let outcomeResult: "Win" | "Loss" | "Draw" = "Draw";
-    let isWin = false;
+    const saveMatch = async () => {
+      let outcomeResult: "Win" | "Loss" | "Draw" = "Draw";
+      let isWin = false;
 
-    if (winner === "draw") {
-      outcomeResult = "Draw";
-    } else {
-      isWin = winner === myPlayerSymbol;
-      outcomeResult = isWin ? "Win" : "Loss";
-    }
+      if (winner === "draw") {
+        outcomeResult = "Draw";
+      } else {
+        isWin = winner === myPlayerSymbol;
+        outcomeResult = isWin ? "Win" : "Loss";
+      }
 
-    const rewardPoints = isWin ? entryFee * 2 : 0;
-    recordMatchResult(historyMatchId, outcomeResult, rewardPoints);
-  }, [winner, historyMatchId, myPlayerSymbol, entryFee]);
+      const rewardPoints = isWin ? entryFee * 2 : 0;
+      const oppName = localOpponent?.name || opponent?.name || "Online Opponent";
+
+      try {
+        await recordMatchResult({
+          game_id: "tictactoe",
+          game_title: "Tic Tac Toe",
+          opponent_name: oppName,
+          result: outcomeResult,
+          points_change: rewardPoints
+        });
+        console.log("Tic Tac Toe match successfully saved to database!");
+      } catch (error) {
+        console.error("Failed to save match data:", error);
+      }
+    };
+
+    saveMatch();
+  }, [winner, myPlayerSymbol, entryFee, localOpponent, opponent]);
 
   // 🤝 SAFE RULE PARSER & BOT HANDLER
   useEffect(() => {

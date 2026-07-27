@@ -219,20 +219,36 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   // 🏆 RECORD MATCH RESULT WHEN WINNER IS DETERMINED
   useEffect(() => {
-    if (!winner || !historyMatchId) return;
+    if (!winner) return;
 
-    let isWin = false;
-    if (winner === "Player 1") {
-      isWin = myPlayerRole === 1;
-    } else if (winner === "Player 2") {
-      isWin = myPlayerRole === 2;
-    }
+    const saveMatch = async () => {
+      let isWin = false;
+      if (winner === "Player 1") {
+        isWin = myPlayerRole === 1;
+      } else if (winner === "Player 2") {
+        isWin = myPlayerRole === 2;
+      }
 
-    const outcomeResult = isWin ? "Win" : winner === "Draw Match" ? "Draw" : "Loss";
-    const rewardPoints = isWin ? entryFee * 2 : 0;
+      const outcomeResult = isWin ? "Win" : winner === "Draw Match" ? "Draw" : "Loss";
+      const rewardPoints = isWin ? entryFee * 2 : 0;
+      const oppName = localOpponent?.name || opponent?.name || "Online Opponent";
 
-    recordMatchResult(historyMatchId, outcomeResult, rewardPoints);
-  }, [winner, historyMatchId, myPlayerRole, entryFee]);
+      try {
+        await recordMatchResult({
+          game_id: "snooker",
+          game_title: "Snooker",
+          opponent_name: oppName,
+          result: outcomeResult,
+          points_change: rewardPoints
+        });
+        console.log("Snooker match successfully saved to database!");
+      } catch (error) {
+        console.error("Failed to save match data:", error);
+      }
+    };
+
+    saveMatch();
+  }, [winner, myPlayerRole, entryFee, localOpponent, opponent]);
 
   useEffect(() => {
     if (toast) {
