@@ -6,6 +6,9 @@ interface GameEntryParams {
   opponentName?: string;
 }
 
+/**
+ * Handles entry fees and creates an initial match record when a user enters a game.
+ */
 export async function processGameEntry({
   gameTitle,
   entryFee,
@@ -35,10 +38,10 @@ export async function processGameEntry({
     }
 
     if (error) {
-      console.warn("RPC join_game_match failed, executing client fallback:", error.message);
+      console.warn("RPC join_game_match warning, attempting client fallback:", error.message);
     }
 
-    // 🛡️ 2. Fallback execution: Deduct points and record match directly via Client
+    // 🛡️ 2. Fallback: Deduct points and record initial match directly via Client
     const { data: userData } = await supabase.auth.getUser();
     if (!userData?.user) {
       return { success: false, error: "UNAUTHORIZED" };
@@ -60,14 +63,14 @@ export async function processGameEntry({
 
     const newPoints = currentPoints - entryFee;
 
-    // Deduct points
+    // Deduct entry fee
     await supabase
       .from("profiles")
       .update({ points: newPoints })
       .eq("id", userId);
 
     // Create match entry
-    const { data: insertedMatch } = await supabase
+    const { data: insertedMatch, error: insertError } = await supabase
       .from("match_history")
       .insert({
         user_id: userId,
@@ -78,6 +81,10 @@ export async function processGameEntry({
       })
       .select("id")
       .single();
+
+    if (insertError) {
+      console.error("Client fallback match insertion failed:", insertError.message);
+    }
 
     return {
       success: true,
@@ -91,24 +98,50 @@ export async function processGameEntry({
 }
 
 /**
- * Updates a match record when a game finishes
+ * Updates an existing match record when a game finishes.
+ * If matchId is missing or record update fails, creates a direct match entry fallback so matches are never lost.
  */
 export async function recordMatchResult(
-  matchId: string,
+  matchId: string | null | undefined,
   result: "Win" | "Loss" | "Draw",
-  pointsEarned: number = 0
+  pointsEarned: number = 0,
+  gameTitle: string = "Arcade Match",
+  opponentName: string = "Online Opponent"
 ) {
   try {
-    const { error } = await supabase
-      .from("match_history")
-      .update({
-        result,
-        points_change: pointsEarned,
-      })
-      .eq("id", matchId);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-    if (error) {
-      console.error("Error updating match result:", error.message);
+    // 1. If a valid matchId is present, try updating existing row
+    if (matchId) {
+      const { data, error } = await supabase
+        .from("match_history")
+        .update({
+          result,
+          points_change: pointsEarned,
+        })
+        .eq("id", matchId)
+        .select();
+
+      // If update succeeded and touched a row, exit
+      if (!error && data && data.length > 0) {
+        return;
+      }
+    }
+
+    // 🛡️ 2. Fallback Insert: Create a fresh match history record if matchId didn't exist or UPDATE failed
+    const { error: insertError } = await supabase
+      .from("match_history")
+      .insert({
+        user_id: user.id,
+        game_title: gameTitle,
+        opponent_name: opponentName,
+        result: result,
+        points_change: pointsEarned,
+      });
+
+    if (insertError) {
+      console.error("Failed to insert fallback match history:", insertError.message);
     }
   } catch (err) {
     console.error("Failed to record match result:", err);
@@ -118,7 +151,7 @@ export async function recordMatchResult(
 /**
  * Fetches recent match history for the logged-in user
  */
-export async function getRecentMatches(limit = 5) {
+export async function getRecentMatches(limit = 10) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];

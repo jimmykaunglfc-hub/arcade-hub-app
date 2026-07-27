@@ -84,14 +84,16 @@ export default function HomeTab({
 
   // 1. FETCH USER PROFILE & RECENT MATCH HISTORY FROM SUPABASE
   const fetchUserDataAndMatches = useCallback(async () => {
-    if (!userId) return;
-
     try {
+      // Direct session fallback if userId prop is null on mount
+      const activeUserId = userId || (await supabase.auth.getUser()).data.user?.id;
+      if (!activeUserId) return;
+
       // Fetch Profile Data
       const { data: profile } = await supabase
         .from("profiles")
         .select("username")
-        .eq("id", userId)
+        .eq("id", activeUserId)
         .single();
       
       if (profile?.username) {
@@ -102,7 +104,7 @@ export default function HomeTab({
       const { data: matches, error } = await supabase
         .from("match_history")
         .select("*")
-        .eq("user_id", userId)
+        .eq("user_id", activeUserId)
         .order("created_at", { ascending: false })
         .limit(10);
 
@@ -140,49 +142,58 @@ export default function HomeTab({
 
   // 2. REALTIME SUBSCRIPTION FOR POINTS & MATCH UPDATES
   useEffect(() => {
-    if (!userId) return;
+    let profileChannel: any;
+    let matchesChannel: any;
 
-    fetchUserDataAndMatches();
+    const setupSubscriptions = async () => {
+      const activeUserId = userId || (await supabase.auth.getUser()).data.user?.id;
+      
+      fetchUserDataAndMatches();
 
-    // 📡 Realtime Listener on 'profiles' table
-    const profileChannel = supabase
-      .channel(`home_profile_${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${userId}`,
-        },
-        () => {
-          if (onPointsUpdated) {
-            onPointsUpdated();
+      if (!activeUserId) return;
+
+      // 📡 Realtime Listener on 'profiles' table
+      profileChannel = supabase
+        .channel(`home_profile_${activeUserId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "profiles",
+            filter: `id=eq.${activeUserId}`,
+          },
+          () => {
+            if (onPointsUpdated) {
+              onPointsUpdated();
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
 
-    // 📡 Realtime Listener on 'match_history' table
-    const matchesChannel = supabase
-      .channel(`home_matches_${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "match_history",
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          fetchUserDataAndMatches();
-        }
-      )
-      .subscribe();
+      // 📡 Realtime Listener on 'match_history' table
+      matchesChannel = supabase
+        .channel(`home_matches_${activeUserId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "match_history",
+            filter: `user_id=eq.${activeUserId}`,
+          },
+          () => {
+            fetchUserDataAndMatches();
+          }
+        )
+        .subscribe();
+    };
+
+    setupSubscriptions();
 
     return () => {
-      supabase.removeChannel(profileChannel);
-      supabase.removeChannel(matchesChannel);
+      if (profileChannel) supabase.removeChannel(profileChannel);
+      if (matchesChannel) supabase.removeChannel(matchesChannel);
     };
   }, [userId, fetchUserDataAndMatches, onPointsUpdated]);
 
