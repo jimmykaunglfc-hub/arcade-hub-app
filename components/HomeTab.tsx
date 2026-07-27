@@ -84,7 +84,7 @@ export default function HomeTab({
         setUsername(profile.username);
       }
 
-      // Fetch Recent Match Records
+      // Fetch Recent Match Records from match_history table
       const { data: matches, error } = await supabase
         .from("match_history")
         .select("*")
@@ -93,14 +93,17 @@ export default function HomeTab({
         .limit(10);
 
       if (matches && !error) {
-        const formatted: MatchRecord[] = matches.map((m: any) => ({
-          id: m.id,
-          gameName: m.game_title || "Arcade Match",
-          result: m.result === "win" ? "Victory" : m.result === "loss" ? "Defeat" : m.result,
-          reward: m.points_change >= 0 ? `+${m.points_change} PTS` : `${m.points_change} PTS`,
-          timeAgo: formatTimeAgo(m.created_at),
-          isVictory: m.result === "win",
-        }));
+        const formatted: MatchRecord[] = matches.map((m: any) => {
+          const pts = m.points_change ?? m.points_changed ?? 0;
+          return {
+            id: m.id,
+            gameName: m.game_title || "Arcade Match",
+            result: m.result === "win" ? "Victory" : m.result === "loss" ? "Defeat" : m.result || "Played",
+            reward: pts >= 0 ? `+${pts} PTS` : `${pts} PTS`,
+            timeAgo: formatTimeAgo(m.created_at),
+            isVictory: m.result === "win" || m.result === "Victory",
+          };
+        });
         setDbMatches(formatted);
       }
     } catch (err) {
@@ -114,7 +117,7 @@ export default function HomeTab({
 
     fetchUserDataAndMatches();
 
-    // 📡 Realtime Listener on 'profiles' table (e.g. entry fee point deductions)
+    // 📡 Realtime Listener on 'profiles' table
     const profileChannel = supabase
       .channel(`home_profile_${userId}`)
       .on(
