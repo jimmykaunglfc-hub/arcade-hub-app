@@ -10,7 +10,12 @@ export async function processGameEntry({
   gameTitle,
   entryFee,
   opponentName = "Online Opponent",
-}: GameEntryParams): Promise<{ success: boolean; updatedPoints?: number; error?: string }> {
+}: GameEntryParams): Promise<{
+  success: boolean;
+  updatedPoints?: number;
+  matchId?: string;
+  error?: string;
+}> {
   try {
     const { data, error } = await supabase.rpc("join_game_match", {
       p_game_title: gameTitle,
@@ -27,11 +32,39 @@ export async function processGameEntry({
       return { success: false, error: data?.error || "MATCH_ENTRY_FAILED" };
     }
 
-    // Supports both 'updatedPoints' and 'new_points' keys returned from PostgreSQL
     const updatedPoints = data.updatedPoints ?? data.new_points;
 
-    return { success: true, updatedPoints };
+    return {
+      success: true,
+      updatedPoints,
+      matchId: data.match_id,
+    };
   } catch (err: any) {
     return { success: false, error: err.message || "Network Error" };
+  }
+}
+
+/**
+ * Optional helper to update a match status when game completes
+ */
+export async function recordMatchResult(
+  matchId: string,
+  result: "Win" | "Loss" | "Draw",
+  pointsEarned: number = 0
+) {
+  try {
+    const { error } = await supabase
+      .from("matches")
+      .update({
+        result,
+        points_changed: pointsEarned,
+      })
+      .eq("id", matchId);
+
+    if (error) {
+      console.error("Error updating match result:", error.message);
+    }
+  } catch (err) {
+    console.error("Failed to record match result:", err);
   }
 }
