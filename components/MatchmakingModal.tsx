@@ -35,13 +35,11 @@ export default function MatchmakingModal({
     let pollInterval: NodeJS.Timeout;
     isCancelledRef.current = false;
 
-    // Timer UI
     const timer = setInterval(() => {
       if (isMounted) setSearchTime((prev) => prev + 1);
     }, 1000);
 
     const startHeartbeat = async () => {
-      // 1. Resolve User ID
       let activeUserId = userId;
       if (!isValidUuid(activeUserId)) {
         const { data: { user } } = await supabase.auth.getUser();
@@ -53,29 +51,24 @@ export default function MatchmakingModal({
       }
       activeUserRef.current = activeUserId;
 
-      // 2. Get Username for pairing
       let username = "Online Player";
       const { data: profile } = await supabase.from("profiles").select("username").eq("id", activeUserId).single();
       if (profile?.username) username = profile.username;
 
       if (!isMounted) return;
 
-      // 3. The Unified Heartbeat Poll (Runs every 1.5 seconds)
-      pollInterval = setInterval(async () => {
-        if (isCancelledRef.current || !isMounted) {
-          clearInterval(pollInterval);
-          return;
-        }
+      const checkMatch = async () => {
+        if (isCancelledRef.current || !isMounted) return;
 
         const { data, error } = await supabase.rpc("poll_matchmaking", {
           p_user_id: activeUserId,
-          p_game_key: gameKey.trim().toLowerCase(), // Normalize game keys
+          p_game_key: gameKey.trim().toLowerCase(),
           p_username: username
         });
 
         if (error) {
           console.error("Matchmaking error:", error);
-          return; // Ignore transient network errors and try again next tick
+          return;
         }
 
         if (data && data.matched && isMounted) {
@@ -86,9 +79,14 @@ export default function MatchmakingModal({
             opponent: { name: data.opponent_name || "Online Player", isBot: false, avatarIcon: "person", elo: 1200 },
           });
         }
-      }, 1500);
+      };
 
-      // 4. 20-Second Timeout Fallback
+      // FIRE INSTANTLY: Do not wait 1.5 seconds for the first check!
+      await checkMatch();
+
+      // Loop every 1.5 seconds after the first immediate check
+      pollInterval = setInterval(checkMatch, 1500);
+
       setTimeout(() => {
         if (!isCancelledRef.current && isMounted) {
           clearInterval(pollInterval);
@@ -103,19 +101,20 @@ export default function MatchmakingModal({
       isMounted = false;
       clearInterval(timer);
       if (pollInterval) clearInterval(pollInterval);
-      cleanUpQueueTicket(); // Ensure ghost tickets die when closing modal
+      // NOTE: We intentionally DO NOT delete the ticket here anymore to prevent React Strict Mode sabotage.
+      // The database auto-purges old tickets every 2 minutes.
     };
   }, [gameKey, userId]);
-
-  const cleanUpQueueTicket = async () => {
-    if (activeUserRef.current) {
-      await supabase.from("matchmaking_queue").delete().eq("user_id", activeUserRef.current);
-    }
-  };
 
   const triggerBotFallback = async () => {
     if (isCancelledRef.current) return;
     const botOpponent = getRandomBotOpponent();
+    
+    // Explicitly delete ticket when timing out to a bot
+    if (activeUserRef.current) {
+      await supabase.from("matchmaking_queue").delete().eq("user_id", activeUserRef.current);
+    }
+    
     await finishMatchmaking({
       matchId: `bot_match_${Date.now()}`,
       role: 1,
@@ -124,7 +123,6 @@ export default function MatchmakingModal({
   };
 
   const finishMatchmaking = async (matchData: any) => {
-    await cleanUpQueueTicket();
     if (!isCancelledRef.current) {
       onMatchFound(matchData);
     }
@@ -158,7 +156,10 @@ export default function MatchmakingModal({
         <button
           onClick={async () => {
             isCancelledRef.current = true;
-            await cleanUpQueueTicket();
+            // Explicitly delete ONLY on manual cancel
+            if (activeUserRef.current) {
+              await supabase.from("matchmaking_queue").delete().eq("user_id", activeUserRef.current);
+            }
             onCancel();
           }}
           className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 font-headline font-bold text-xs uppercase tracking-wider py-3.5 rounded-2xl transition-all border border-white/5 active:scale-95 touch-manipulation"
