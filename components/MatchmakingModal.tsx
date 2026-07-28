@@ -102,17 +102,17 @@ export default function MatchmakingModal({
       clearInterval(timer);
       if (pollInterval) clearInterval(pollInterval);
       // NOTE: We intentionally DO NOT delete the ticket here anymore to prevent React Strict Mode sabotage.
-      // The database auto-purges old lobbies every 2 minutes.
+      // The database auto-purges old queue tickets every 2 minutes.
     };
   }, [gameKey, userId]);
 
-  // NEW: Extracted cleanup function to handle the new player1_id / player2_id schema
+  // UPDATED: Simple cleanup targeting the new user_id column for the two-table architecture
   const cleanUpQueueTicket = async () => {
     if (activeUserRef.current) {
       await supabase
         .from("matchmaking_queue")
         .delete()
-        .or(`player1_id.eq.${activeUserRef.current},player2_id.eq.${activeUserRef.current}`);
+        .eq("user_id", activeUserRef.current);
     }
   };
 
@@ -120,7 +120,7 @@ export default function MatchmakingModal({
     if (isCancelledRef.current) return;
     const botOpponent = getRandomBotOpponent();
     
-    // Explicitly delete lobby when timing out to a bot
+    // Explicitly delete from queue when timing out to a bot
     await cleanUpQueueTicket();
     
     await finishMatchmaking({
