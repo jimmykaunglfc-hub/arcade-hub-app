@@ -57,6 +57,9 @@ export default function MatchmakingModal({
 
       if (!isMounted) return;
 
+      // THE FIX: Wipe all previous ghost matches and old tickets before we do anything else!
+      await supabase.rpc("reset_matchmaking", { p_user_id: activeUserId });
+
       const checkMatch = async () => {
         if (isCancelledRef.current || !isMounted) return;
 
@@ -81,7 +84,7 @@ export default function MatchmakingModal({
         }
       };
 
-      // FIRE INSTANTLY: Do not wait 1.5 seconds for the first check!
+      // FIRE INSTANTLY: Check for a new match
       await checkMatch();
 
       // Loop every 1.5 seconds after the first immediate check
@@ -101,18 +104,13 @@ export default function MatchmakingModal({
       isMounted = false;
       clearInterval(timer);
       if (pollInterval) clearInterval(pollInterval);
-      // NOTE: We intentionally DO NOT delete the ticket here anymore to prevent React Strict Mode sabotage.
-      // The database auto-purges old queue tickets every 2 minutes.
     };
   }, [gameKey, userId]);
 
-  // UPDATED: Simple cleanup targeting the new user_id column for the two-table architecture
+  // Use the new SQL function to cleanly wipe everything if they cancel
   const cleanUpQueueTicket = async () => {
     if (activeUserRef.current) {
-      await supabase
-        .from("matchmaking_queue")
-        .delete()
-        .eq("user_id", activeUserRef.current);
+      await supabase.rpc("reset_matchmaking", { p_user_id: activeUserRef.current });
     }
   };
 
@@ -120,7 +118,6 @@ export default function MatchmakingModal({
     if (isCancelledRef.current) return;
     const botOpponent = getRandomBotOpponent();
     
-    // Explicitly delete from queue when timing out to a bot
     await cleanUpQueueTicket();
     
     await finishMatchmaking({
@@ -164,7 +161,6 @@ export default function MatchmakingModal({
         <button
           onClick={async () => {
             isCancelledRef.current = true;
-            // Explicitly delete ONLY on manual cancel
             await cleanUpQueueTicket();
             onCancel();
           }}
