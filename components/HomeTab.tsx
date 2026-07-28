@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../lib/supabaseClient";
 import DailyLoginCard from "./DailyLoginCard";
 
@@ -80,6 +81,10 @@ export default function HomeTab({
   rankData = null, 
   matchHistory = [] 
 }: HomeTabProps) {
+  // Mount state for safely using Portals in Next.js/SSR
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
+
   const [username, setUsername] = useState<string>("Player");
   const [showStatsModal, setShowStatsModal] = useState<boolean>(false);
   const [dbMatches, setDbMatches] = useState<MatchRecord[]>([]);
@@ -232,7 +237,7 @@ export default function HomeTab({
       if (!groups[match.gameName]) groups[match.gameName] = [];
       groups[match.gameName].push(match);
     });
-    // Convert to array and keep chronological order (since activeMatchList is already sorted by created_at desc)
+    // Convert to array and keep chronological order
     return Object.entries(groups);
   }, [activeMatchList]);
 
@@ -466,9 +471,12 @@ export default function HomeTab({
         )}
       </section>
 
-      {/* 📊 PROFESSIONAL STATS MODAL OVERLAY */}
-      {showStatsModal && (
-        <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in touch-none">
+      {/* 📊 PROFESSIONAL STATS MODAL OVERLAY (USING REACT PORTAL) */}
+      {showStatsModal && isMounted && createPortal(
+        <div 
+          className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in touch-none"
+          style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh' }}
+        >
           <div className="bg-[#18181b] border border-white/10 rounded-[32px] p-6 w-full max-w-[340px] shadow-2xl relative">
             
             {/* Close Button */}
@@ -515,7 +523,8 @@ export default function HomeTab({
               Close Dashboard
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
