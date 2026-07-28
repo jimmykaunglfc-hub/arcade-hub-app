@@ -50,28 +50,25 @@ export default function MatchmakingModal({
       }
 
       try {
-        // 1. Check if join_matchmaking RPC exists for instant pairing
+        // 1. Single Atomic RPC Call
         const { data: rpcData, error: rpcError } = await supabase.rpc("join_matchmaking", {
           p_game_key: gameKey,
           p_user_id: activeUserId,
         });
 
-        if (!rpcError && rpcData && rpcData.matched) {
-          let oppName = "Online Player";
-          if (rpcData.opponent_id) {
-            const { data: prof } = await supabase
-              .from("profiles")
-              .select("username")
-              .eq("id", rpcData.opponent_id)
-              .maybeSingle();
-            if (prof?.username) oppName = prof.username;
-          }
+        if (rpcError) {
+          console.error("RPC Error:", rpcError);
+          triggerBotFallback();
+          return;
+        }
 
+        // Case A: Matched immediately as Player 2
+        if (rpcData && rpcData.matched) {
           cleanupAndFinish({
             matchId: rpcData.match_id || `match_${Date.now()}`,
             role: (rpcData.role as 1 | 2) || 2,
             opponent: {
-              name: oppName,
+              name: rpcData.opponent_name || "Online Player",
               isBot: false,
               avatarIcon: "person",
               elo: 1200,
@@ -80,26 +77,16 @@ export default function MatchmakingModal({
           return;
         }
 
-        // 2. Direct insert into matchmaking_queue
-        const { data: queueData, error: queueError } = await supabase
-          .from("matchmaking_queue")
-          .insert({
-            user_id: activeUserId,
-            game_key: gameKey,
-            status: "waiting",
-          })
-          .select("id")
-          .single();
-
-        if (queueError || !queueData) {
+        // Case B: No match yet -> Track the exact ticket ID created by RPC
+        const ticketId = rpcData?.ticket_id;
+        if (!ticketId) {
           triggerBotFallback();
           return;
         }
 
-        const ticketId = queueData.id;
         queueTicketIdRef.current = ticketId;
 
-        // 3. Realtime Postgres Changes Subscription
+        // 2. Subscribe to Realtime Updates on this exact Ticket ID
         const channel = supabase
           .channel(`queue_${ticketId}`)
           .on(
@@ -113,13 +100,14 @@ export default function MatchmakingModal({
             async (payload) => {
               const updatedRow = payload.new;
               if (updatedRow.status === "matched" && !isCancelledRef.current) {
-                await handleMatchedTicket(updatedRow, activeUserId);
+                supabase.removeChannel(channel);
+                await handleMatchedTicket(updatedRow);
               }
             }
           )
           .subscribe();
 
-        // 4. Safe Polling (Uses SELECT * to prevent 400 Bad Request errors)
+        // 3. Fallback Polling on the SAME Ticket ID
         const pollInterval = setInterval(async () => {
           if (isCancelledRef.current || !queueTicketIdRef.current) {
             clearInterval(pollInterval);
@@ -135,11 +123,11 @@ export default function MatchmakingModal({
           if (!error && data && data.status === "matched") {
             clearInterval(pollInterval);
             supabase.removeChannel(channel);
-            await handleMatchedTicket(data, activeUserId);
+            await handleMatchedTicket(data);
           }
         }, 1500);
 
-        // 5. Timeout safeguard (15 seconds)
+        // 4. Timeout Safeguard (15s)
         setTimeout(() => {
           if (!isCancelledRef.current && queueTicketIdRef.current) {
             clearInterval(pollInterval);
@@ -163,24 +151,12 @@ export default function MatchmakingModal({
     };
   }, [gameKey, userId]);
 
-  const handleMatchedTicket = async (ticketData: any, currentUserId: string) => {
-    let oppName = "Online Player";
-    const opponentId = ticketData.opponent_id || ticketData.matched_user_id;
-
-    if (opponentId) {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", opponentId)
-        .maybeSingle();
-      if (prof?.username) oppName = prof.username;
-    }
-
+  const handleMatchedTicket = async (ticketData: any) => {
     cleanupAndFinish({
       matchId: ticketData.match_id || `match_${Date.now()}`,
-      role: ticketData.user_id === currentUserId ? 1 : 2,
+      role: (ticketData.role as 1 | 2) || 1,
       opponent: {
-        name: oppName,
+        name: ticketData.opponent_name || "Online Player",
         isBot: false,
         avatarIcon: "person",
         elo: 1200,
