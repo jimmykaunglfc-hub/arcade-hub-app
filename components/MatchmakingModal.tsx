@@ -18,7 +18,7 @@ export default function MatchmakingModal({
   onMatchFound,
   onCancel
 }: MatchmakingModalProps) {
-  const [timer, setTimer] = useState(10); // 10-second matchmaking window
+  const [timer, setTimer] = useState(15); // 15-second matchmaking window
   const [statusText, setStatusText] = useState("Searching for online players...");
   const queueIdRef = useRef<string | null>(null);
 
@@ -67,7 +67,7 @@ export default function MatchmakingModal({
 
       if (error || !data) {
         setStatusText("Matchmaking error. Trying bot mode...");
-        triggerBotFallback(); // Fixed: changed from triggerBotMatch()
+        triggerBotFallback(); 
         return;
       }
 
