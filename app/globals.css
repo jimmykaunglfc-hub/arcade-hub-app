@@ -20,7 +20,7 @@
     --surface-container-highest: #E2E6EC;
     
     /* 🚨 THE NEON FIX: Split Primary into Background vs Foreground */
-    --primary: #BEFF00;             /* Solid Buttons stay Neon */
+    --primary: #93b700;             /* Solid Buttons stay Neon */
     --on-primary: #0B0F19;          /* Black text inside buttons */
     --primary-fg: #4A6B00;          /* Deep, rich green for Icons & Text! */
     --primary-container: #E5F9C6; 
