@@ -24,8 +24,8 @@ export default function MatchmakingModal({
   onCancel,
 }: MatchmakingModalProps) {
   const [searchTime, setSearchTime] = useState(0);
-  const queueTicketIdRef = useRef<string | null>(null);
   const isCancelledRef = useRef(false);
+  const activeUserRef = useRef<string | null>(null);
 
   const isValidUuid = (id: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -35,131 +35,95 @@ export default function MatchmakingModal({
     let pollInterval: NodeJS.Timeout;
     isCancelledRef.current = false;
 
+    // Timer UI
     const timer = setInterval(() => {
       if (isMounted) setSearchTime((prev) => prev + 1);
     }, 1000);
 
-    const initMatchmaking = async () => {
+    const startHeartbeat = async () => {
+      // 1. Resolve User ID
       let activeUserId = userId;
       if (!isValidUuid(activeUserId)) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) activeUserId = user.id;
       }
-
-      if (!isValidUuid(activeUserId) || !isMounted) {
+      if (!isValidUuid(activeUserId)) {
         if (isMounted) triggerBotFallback();
         return;
       }
+      activeUserRef.current = activeUserId;
 
-      try {
-        const { data: rpcData, error: rpcError } = await supabase.rpc("join_matchmaking", {
-          p_game_key: gameKey,
+      // 2. Get Username for pairing
+      let username = "Online Player";
+      const { data: profile } = await supabase.from("profiles").select("username").eq("id", activeUserId).single();
+      if (profile?.username) username = profile.username;
+
+      if (!isMounted) return;
+
+      // 3. The Unified Heartbeat Poll (Runs every 1.5 seconds)
+      pollInterval = setInterval(async () => {
+        if (isCancelledRef.current || !isMounted) {
+          clearInterval(pollInterval);
+          return;
+        }
+
+        const { data, error } = await supabase.rpc("poll_matchmaking", {
           p_user_id: activeUserId,
+          p_game_key: gameKey.trim().toLowerCase(), // Normalize game keys
+          p_username: username
         });
 
-        if (!isMounted) return;
-
-        if (rpcError) {
-          console.error("Matchmaking RPC Error:", rpcError);
-          triggerBotFallback();
-          return;
+        if (error) {
+          console.error("Matchmaking error:", error);
+          return; // Ignore transient network errors and try again next tick
         }
 
-        if (rpcData && rpcData.matched) {
-          cleanupAndFinish({
-            matchId: rpcData.match_id || `match_${Date.now()}`,
-            role: (rpcData.role as 1 | 2) || 2,
-            opponent: { name: rpcData.opponent_name, isBot: false, avatarIcon: "person", elo: 1200 },
+        if (data && data.matched && isMounted) {
+          clearInterval(pollInterval);
+          await finishMatchmaking({
+            matchId: data.match_id,
+            role: (data.role as 1 | 2),
+            opponent: { name: data.opponent_name || "Online Player", isBot: false, avatarIcon: "person", elo: 1200 },
           });
-          return;
         }
+      }, 1500);
 
-        const ticketId = rpcData?.ticket_id;
-        if (!ticketId) {
+      // 4. 20-Second Timeout Fallback
+      setTimeout(() => {
+        if (!isCancelledRef.current && isMounted) {
+          clearInterval(pollInterval);
           triggerBotFallback();
-          return;
         }
-
-        queueTicketIdRef.current = ticketId;
-
-        // Polling (We pass p_game_key and p_user_id so the DB can resolve race conditions)
-        pollInterval = setInterval(async () => {
-          if (isCancelledRef.current || !queueTicketIdRef.current || !isMounted) {
-            clearInterval(pollInterval);
-            return;
-          }
-
-          const { data: statusData, error: statusError } = await supabase.rpc(
-            "check_match_status",
-            { p_ticket_id: ticketId, p_game_key: gameKey, p_user_id: activeUserId }
-          );
-
-          if (!isMounted) return;
-
-          if (!statusError && statusData && statusData.found && statusData.status === "matched") {
-            clearInterval(pollInterval);
-            await handleMatchedTicket(statusData);
-          }
-        }, 1200);
-
-        setTimeout(() => {
-          if (!isCancelledRef.current && queueTicketIdRef.current && isMounted) {
-            clearInterval(pollInterval);
-            triggerBotFallback();
-          }
-        }, 20000);
-
-      } catch (err) {
-        console.error("Matchmaking error:", err);
-        if (isMounted) triggerBotFallback();
-      }
+      }, 20000);
     };
 
-    initMatchmaking();
+    startHeartbeat();
 
     return () => {
       isMounted = false;
       clearInterval(timer);
       if (pollInterval) clearInterval(pollInterval);
+      cleanUpQueueTicket(); // Ensure ghost tickets die when closing modal
     };
   }, [gameKey, userId]);
 
-  const handleMatchedTicket = async (ticketData: any) => {
-    cleanupAndFinish({
-      matchId: ticketData.match_id || `match_${Date.now()}`,
-      role: (ticketData.role as 1 | 2) || 1,
-      opponent: {
-        name: ticketData.opponent_name || "Online Player",
-        isBot: false,
-        avatarIcon: "person",
-        elo: 1200,
-      },
-    });
-  };
-
   const cleanUpQueueTicket = async () => {
-    if (queueTicketIdRef.current) {
-      const idToRemove = queueTicketIdRef.current;
-      queueTicketIdRef.current = null;
-      await supabase.from("matchmaking_queue").delete().eq("id", idToRemove);
+    if (activeUserRef.current) {
+      await supabase.from("matchmaking_queue").delete().eq("user_id", activeUserRef.current);
     }
   };
 
-  const triggerBotFallback = () => {
+  const triggerBotFallback = async () => {
     if (isCancelledRef.current) return;
     const botOpponent = getRandomBotOpponent();
-    cleanupAndFinish({
+    await finishMatchmaking({
       matchId: `bot_match_${Date.now()}`,
       role: 1,
       opponent: { name: botOpponent.name, isBot: true, avatarIcon: botOpponent.avatarIcon || "smart_toy", elo: 1200 },
     });
   };
 
-  const cleanupAndFinish = async (matchData: {
-    matchId: string;
-    role: 1 | 2;
-    opponent: { name: string; isBot: boolean; avatarIcon?: string; elo?: number };
-  }) => {
+  const finishMatchmaking = async (matchData: any) => {
     await cleanUpQueueTicket();
     if (!isCancelledRef.current) {
       onMatchFound(matchData);
