@@ -26,20 +26,17 @@ export default function MatchmakingModal({
   const [searchTime, setSearchTime] = useState(0);
   const queueTicketIdRef = useRef<string | null>(null);
   const isCancelledRef = useRef(false);
-  const effectRan = useRef(false); // STRICT MODE GUARD
 
   const isValidUuid = (id: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
   useEffect(() => {
-    // Prevent React Strict Mode from double-firing the RPC and deleting the ticket
-    if (effectRan.current) return;
-    effectRan.current = true;
-    
+    let isMounted = true;
+    let pollInterval: NodeJS.Timeout;
     isCancelledRef.current = false;
 
     const timer = setInterval(() => {
-      setSearchTime((prev) => prev + 1);
+      if (isMounted) setSearchTime((prev) => prev + 1);
     }, 1000);
 
     const initMatchmaking = async () => {
@@ -49,8 +46,8 @@ export default function MatchmakingModal({
         if (user) activeUserId = user.id;
       }
 
-      if (!isValidUuid(activeUserId)) {
-        triggerBotFallback();
+      if (!isValidUuid(activeUserId) || !isMounted) {
+        if (isMounted) triggerBotFallback();
         return;
       }
 
@@ -59,6 +56,8 @@ export default function MatchmakingModal({
           p_game_key: gameKey,
           p_user_id: activeUserId,
         });
+
+        if (!isMounted) return;
 
         if (rpcError) {
           console.error("Matchmaking RPC Error:", rpcError);
@@ -70,12 +69,7 @@ export default function MatchmakingModal({
           cleanupAndFinish({
             matchId: rpcData.match_id || `match_${Date.now()}`,
             role: (rpcData.role as 1 | 2) || 2,
-            opponent: {
-              name: rpcData.opponent_name || "Online Player",
-              isBot: false,
-              avatarIcon: "person",
-              elo: 1200,
-            },
+            opponent: { name: rpcData.opponent_name, isBot: false, avatarIcon: "person", elo: 1200 },
           });
           return;
         }
@@ -88,63 +82,45 @@ export default function MatchmakingModal({
 
         queueTicketIdRef.current = ticketId;
 
-        const channel = supabase
-          .channel(`queue_${ticketId}`)
-          .on(
-            "postgres_changes",
-            {
-              event: "UPDATE",
-              schema: "public",
-              table: "matchmaking_queue",
-              filter: `id=eq.${ticketId}`,
-            },
-            async (payload) => {
-              const updatedRow = payload.new;
-              if (updatedRow.status === "matched" && !isCancelledRef.current) {
-                supabase.removeChannel(channel);
-                await handleMatchedTicket(updatedRow);
-              }
-            }
-          )
-          .subscribe();
-
-        const pollInterval = setInterval(async () => {
-          if (isCancelledRef.current || !queueTicketIdRef.current) {
+        // Polling (We pass p_game_key and p_user_id so the DB can resolve race conditions)
+        pollInterval = setInterval(async () => {
+          if (isCancelledRef.current || !queueTicketIdRef.current || !isMounted) {
             clearInterval(pollInterval);
             return;
           }
 
           const { data: statusData, error: statusError } = await supabase.rpc(
             "check_match_status",
-            { p_ticket_id: ticketId }
+            { p_ticket_id: ticketId, p_game_key: gameKey, p_user_id: activeUserId }
           );
+
+          if (!isMounted) return;
 
           if (!statusError && statusData && statusData.found && statusData.status === "matched") {
             clearInterval(pollInterval);
-            supabase.removeChannel(channel);
             await handleMatchedTicket(statusData);
           }
         }, 1200);
 
         setTimeout(() => {
-          if (!isCancelledRef.current && queueTicketIdRef.current) {
+          if (!isCancelledRef.current && queueTicketIdRef.current && isMounted) {
             clearInterval(pollInterval);
-            supabase.removeChannel(channel);
             triggerBotFallback();
           }
         }, 20000);
 
       } catch (err) {
         console.error("Matchmaking error:", err);
-        triggerBotFallback();
+        if (isMounted) triggerBotFallback();
       }
     };
 
     initMatchmaking();
 
     return () => {
-      isCancelledRef.current = true;
+      isMounted = false;
       clearInterval(timer);
+      if (pollInterval) clearInterval(pollInterval);
     };
   }, [gameKey, userId]);
 
@@ -175,12 +151,7 @@ export default function MatchmakingModal({
     cleanupAndFinish({
       matchId: `bot_match_${Date.now()}`,
       role: 1,
-      opponent: {
-        name: botOpponent.name,
-        isBot: true,
-        avatarIcon: botOpponent.avatarIcon || "smart_toy",
-        elo: botOpponent.elo || 1200,
-      },
+      opponent: { name: botOpponent.name, isBot: true, avatarIcon: botOpponent.avatarIcon || "smart_toy", elo: 1200 },
     });
   };
 
