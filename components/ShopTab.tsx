@@ -220,7 +220,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
                       transformOrigin: "50% 50%",
                     }}
                   >
-                    <span className="text-[9px] font-black text-neutral-300 uppercase tracking-tighter">
+                    <span className="text-[9px] font-black text-on-surface dark:text-neutral-300 uppercase tracking-tighter">
                       {slot.label}
                     </span>
                   </div>
