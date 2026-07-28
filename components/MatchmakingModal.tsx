@@ -23,40 +23,64 @@ export default function MatchmakingModal({
   onMatchFound,
   onCancel,
 }: MatchmakingModalProps) {
-  const [statusText, setStatusMsg] = useState("Searching for opponent...");
   const [searchTime, setSearchTime] = useState(0);
   const queueTicketIdRef = useRef<string | null>(null);
   const isCancelledRef = useRef(false);
 
-  // Validate UUID format (prevents PostgREST 400 Bad Request errors)
   const isValidUuid = (id: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
   useEffect(() => {
     isCancelledRef.current = false;
 
-    // Timer display counter
     const timer = setInterval(() => {
       setSearchTime((prev) => prev + 1);
     }, 1000);
 
     const initMatchmaking = async () => {
-      // 1. Fetch authenticated user ID safely if empty prop passed
       let activeUserId = userId;
       if (!isValidUuid(activeUserId)) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) activeUserId = user.id;
       }
 
-      // If still no valid UUID, pair with Bot immediately (prevents crash)
       if (!isValidUuid(activeUserId)) {
-        console.warn("Invalid or missing User ID. Pairing with Bot fallback.");
         triggerBotFallback();
         return;
       }
 
       try {
-        // 2. Call RPC or insert into matchmaking_queue
+        // 1. Check if join_matchmaking RPC exists for instant pairing
+        const { data: rpcData, error: rpcError } = await supabase.rpc("join_matchmaking", {
+          p_game_key: gameKey,
+          p_user_id: activeUserId,
+        });
+
+        if (!rpcError && rpcData && rpcData.matched) {
+          let oppName = "Online Player";
+          if (rpcData.opponent_id) {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("username")
+              .eq("id", rpcData.opponent_id)
+              .maybeSingle();
+            if (prof?.username) oppName = prof.username;
+          }
+
+          cleanupAndFinish({
+            matchId: rpcData.match_id || `match_${Date.now()}`,
+            role: (rpcData.role as 1 | 2) || 2,
+            opponent: {
+              name: oppName,
+              isBot: false,
+              avatarIcon: "person",
+              elo: 1200,
+            },
+          });
+          return;
+        }
+
+        // 2. Direct insert into matchmaking_queue
         const { data: queueData, error: queueError } = await supabase
           .from("matchmaking_queue")
           .insert({
@@ -68,8 +92,6 @@ export default function MatchmakingModal({
           .single();
 
         if (queueError || !queueData) {
-          console.error("Failed to join queue:", queueError);
-          // If RPC / insert fails, check if an existing match room exists or fallback
           triggerBotFallback();
           return;
         }
@@ -77,9 +99,9 @@ export default function MatchmakingModal({
         const ticketId = queueData.id;
         queueTicketIdRef.current = ticketId;
 
-        // 3. Realtime Subscription to avoid HTTP Polling 400 issues
+        // 3. Realtime Postgres Changes Subscription
         const channel = supabase
-          .channel(`queue_ticket_${ticketId}`)
+          .channel(`queue_${ticketId}`)
           .on(
             "postgres_changes",
             {
@@ -88,25 +110,16 @@ export default function MatchmakingModal({
               table: "matchmaking_queue",
               filter: `id=eq.${ticketId}`,
             },
-            (payload) => {
+            async (payload) => {
               const updatedRow = payload.new;
               if (updatedRow.status === "matched" && !isCancelledRef.current) {
-                cleanupAndFinish({
-                  matchId: updatedRow.match_id || `match_${Date.now()}`,
-                  role: updatedRow.role || 2,
-                  opponent: {
-                    name: updatedRow.opponent_name || "Online Player",
-                    isBot: false,
-                    avatarIcon: "person",
-                    elo: 1200,
-                  },
-                });
+                await handleMatchedTicket(updatedRow, activeUserId);
               }
             }
           )
           .subscribe();
 
-        // 4. Polling Fallback (Safely guarded against bad query syntax)
+        // 4. Safe Polling (Uses SELECT * to prevent 400 Bad Request errors)
         const pollInterval = setInterval(async () => {
           if (isCancelledRef.current || !queueTicketIdRef.current) {
             clearInterval(pollInterval);
@@ -115,36 +128,28 @@ export default function MatchmakingModal({
 
           const { data, error } = await supabase
             .from("matchmaking_queue")
-            .select("status, match_id, role, opponent_name")
+            .select("*")
             .eq("id", ticketId)
             .maybeSingle();
 
           if (!error && data && data.status === "matched") {
             clearInterval(pollInterval);
-            cleanupAndFinish({
-              matchId: data.match_id || `match_${Date.now()}`,
-              role: (data.role as 1 | 2) || 2,
-              opponent: {
-                name: data.opponent_name || "Online Player",
-                isBot: false,
-                avatarIcon: "person",
-                elo: 1200,
-              },
-            });
+            supabase.removeChannel(channel);
+            await handleMatchedTicket(data, activeUserId);
           }
         }, 1500);
 
-        // 5. Bot Fallback Timeout (If no human joins within 10 seconds)
+        // 5. Timeout safeguard (15 seconds)
         setTimeout(() => {
           if (!isCancelledRef.current && queueTicketIdRef.current) {
             clearInterval(pollInterval);
             supabase.removeChannel(channel);
             triggerBotFallback();
           }
-        }, 10000);
+        }, 15000);
 
       } catch (err) {
-        console.error("Unexpected Matchmaking Error:", err);
+        console.error("Matchmaking error:", err);
         triggerBotFallback();
       }
     };
@@ -157,6 +162,31 @@ export default function MatchmakingModal({
       cleanUpQueueTicket();
     };
   }, [gameKey, userId]);
+
+  const handleMatchedTicket = async (ticketData: any, currentUserId: string) => {
+    let oppName = "Online Player";
+    const opponentId = ticketData.opponent_id || ticketData.matched_user_id;
+
+    if (opponentId) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", opponentId)
+        .maybeSingle();
+      if (prof?.username) oppName = prof.username;
+    }
+
+    cleanupAndFinish({
+      matchId: ticketData.match_id || `match_${Date.now()}`,
+      role: ticketData.user_id === currentUserId ? 1 : 2,
+      opponent: {
+        name: oppName,
+        isBot: false,
+        avatarIcon: "person",
+        elo: 1200,
+      },
+    });
+  };
 
   const cleanUpQueueTicket = async () => {
     if (queueTicketIdRef.current) {
@@ -195,8 +225,6 @@ export default function MatchmakingModal({
   return (
     <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in touch-none select-none font-sans text-white">
       <div className="bg-[#18181b] border border-white/10 rounded-[32px] p-8 max-w-[340px] w-full flex flex-col items-center text-center shadow-2xl relative overflow-hidden">
-        
-        {/* Radar Scanner Animation */}
         <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full border-2 border-[#CCFF00]/20 animate-ping"></div>
           <div className="absolute inset-2 rounded-full border border-[#CCFF00]/40 animate-pulse"></div>
@@ -210,9 +238,8 @@ export default function MatchmakingModal({
         <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
           {gameName}
         </h3>
-        <p className="text-xs text-neutral-400 font-medium mb-4">{statusText}</p>
+        <p className="text-xs text-neutral-400 font-medium mb-4">Searching for opponent...</p>
 
-        {/* Timer Badge */}
         <div className="bg-[#09090b] border border-white/10 px-4 py-1.5 rounded-full mb-8 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#CCFF00] animate-pulse"></span>
           <span className="font-mono text-xs font-bold text-neutral-300">
@@ -220,7 +247,6 @@ export default function MatchmakingModal({
           </span>
         </div>
 
-        {/* Cancel Button */}
         <button
           onClick={async () => {
             isCancelledRef.current = true;
