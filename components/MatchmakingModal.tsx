@@ -146,7 +146,9 @@ export default function MatchmakingModal({
     return () => {
       isCancelledRef.current = true;
       clearInterval(timer);
-      cleanUpQueueTicket();
+      // STRICT MODE FIX: We intentionally DO NOT call cleanUpQueueTicket() here.
+      // This prevents React from prematurely deleting your ticket in the database
+      // during background dev-server refreshes.
     };
   }, [gameKey, userId]);
 
