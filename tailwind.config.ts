@@ -26,6 +26,18 @@ const config: Config = {
         "secondary-container": "var(--secondary-container)",
         "tertiary-container": "var(--tertiary-container)",
         "surface-tint": "var(--surface-tint)",
+        
+        // Custom Status Colors Mapping
+        status: {
+          success: "var(--status-success)",
+          "success-bg": "var(--status-success-bg)",
+          warning: "var(--status-warning)",
+          "warning-bg": "var(--status-warning-bg)",
+          error: "var(--status-error)",
+          "error-bg": "var(--status-error-bg)",
+          info: "var(--status-info)",
+          "info-bg": "var(--status-info-bg)",
+        },
       },
       fontFamily: {
         headline: ["var(--font-headline)", "sans-serif"],

@@ -25,6 +25,19 @@
     --secondary-container: #F3E8FF;
     --tertiary-container: rgba(147, 51, 234, 0.1);
     --surface-tint: #88E000;
+
+    /* ☀️ Light Mode Status Colors (Rich & Deep for Contrast) */
+    --status-success: #059669;    /* emerald-600 */
+    --status-success-bg: #D1FAE5; /* emerald-100 */
+    
+    --status-warning: #D97706;    /* amber-600 */
+    --status-warning-bg: #FEF3C7; /* amber-100 */
+    
+    --status-error: #E11D48;      /* rose-600 */
+    --status-error-bg: #FFE4E6;   /* rose-100 */
+    
+    --status-info: #2563EB;       /* blue-600 */
+    --status-info-bg: #DBEAFE;    /* blue-100 */
   }
 
   /* 🌙 DARK MODE TOKENS */
@@ -49,6 +62,19 @@
     --secondary-container: rgba(178, 89, 255, 0.15);
     --tertiary-container: rgba(178, 89, 255, 0.1);
     --surface-tint: #88E000;
+
+    /* 🌙 Dark Mode Status Colors (Glowing & Neon) */
+    --status-success: #34D399;    /* emerald-400 */
+    --status-success-bg: rgba(16, 185, 129, 0.1); /* emerald-500/10 */
+    
+    --status-warning: #FBBF24;    /* amber-400 */
+    --status-warning-bg: rgba(245, 158, 11, 0.1); /* amber-500/10 */
+    
+    --status-error: #FB7185;      /* rose-400 */
+    --status-error-bg: rgba(244, 63, 94, 0.1); /* rose-500/10 */
+    
+    --status-info: #60A5FA;       /* blue-400 */
+    --status-info-bg: rgba(59, 130, 246, 0.1); /* blue-500/10 */
   }
 }
 
@@ -56,7 +82,6 @@
   html, body {
     overscroll-behavior-y: none; 
     height: 100%;
-    /* REMOVED: overflow: hidden; */
     -webkit-overflow-scrolling: touch;
     -webkit-user-select: none;  
     -moz-user-select: none;     
