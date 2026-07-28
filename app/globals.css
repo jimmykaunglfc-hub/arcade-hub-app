@@ -3,22 +3,26 @@
 @tailwind utilities;
 
 @layer base {
-  /* ☀️ LIGHT MODE TOKENS */
+  /* ☀️ HIGH-CONTRAST LIGHT MODE TOKENS */
   :root {
-    --background: #FFFFFF; 
+    /* Deeper cool-grey background to frame the white cards */
+    --background: #E8ECEF; 
     --on-background: #0B0F19;
     
-    --surface: #F6F7F9; 
+    /* Surfaces stay crisp white to create depth */
+    --surface: #FFFFFF; 
     --on-surface: #0B0F19;
-    --surface-variant: #EAEFF5; 
-    --on-surface-variant: #6C7A8E;
+    --surface-variant: #F1F4F7; 
+    --on-surface-variant: #5A6B82;
     
     --surface-container: #FFFFFF;
-    --surface-container-high: #EAEFF5;
-    --surface-container-highest: #E2E7ED;
+    --surface-container-high: #F1F4F7;
+    --surface-container-highest: #E2E6EC;
     
-    --primary: #CCFF00; 
-    --on-primary: #0B0F19;
+    /* 🚨 THE NEON FIX: Split Primary into Background vs Foreground */
+    --primary: #CCFF00;             /* Solid Buttons stay Neon */
+    --on-primary: #0B0F19;          /* Black text inside buttons */
+    --primary-fg: #4A6B00;          /* Deep, rich green for Icons & Text! */
     --primary-container: #E5F9C6; 
     
     --secondary: #9333EA; 
@@ -26,7 +30,7 @@
     --tertiary-container: rgba(147, 51, 234, 0.1);
     --surface-tint: #88E000;
 
-    /* ☀️ Light Mode Status Colors (Rich & Deep for Contrast) */
+    /* ☀️ Light Mode Status Colors */
     --status-success: #059669;    /* emerald-600 */
     --status-success-bg: #D1FAE5; /* emerald-100 */
     
@@ -56,6 +60,7 @@
     
     --primary: #CCFF00; 
     --on-primary: #0B0F19;
+    --primary-fg: #CCFF00;          /* In Dark Mode, foreground goes back to Neon! */
     --primary-container: rgba(136, 224, 0, 0.15); 
     
     --secondary: #B259FF; 
@@ -63,7 +68,7 @@
     --tertiary-container: rgba(178, 89, 255, 0.1);
     --surface-tint: #88E000;
 
-    /* 🌙 Dark Mode Status Colors (Glowing & Neon) */
+    /* 🌙 Dark Mode Status Colors */
     --status-success: #34D399;    /* emerald-400 */
     --status-success-bg: rgba(16, 185, 129, 0.1); /* emerald-500/10 */
     
@@ -108,7 +113,7 @@
   }
 }
 
-/* Custom Sleek Scrollbar for Control Core */
+/* Custom Sleek Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -121,7 +126,7 @@
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(204, 255, 0, 0.5); /* Neon hover effect */
+  background: rgba(204, 255, 0, 0.5); 
 }
 
 .no-scrollbar::-webkit-scrollbar {

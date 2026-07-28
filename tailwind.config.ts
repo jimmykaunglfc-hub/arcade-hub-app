@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: "class", // Enables manual or system dark mode switching
+  darkMode: "class", 
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -19,9 +19,13 @@ const config: Config = {
         "surface-container": "var(--surface-container)",
         "surface-container-high": "var(--surface-container-high)",
         "surface-container-highest": "var(--surface-container-highest)",
+        
+        // Split Primary Colors
         primary: "var(--primary)",
         "on-primary": "var(--on-primary)",
+        "primary-fg": "var(--primary-fg)", // New Foreground Token added here
         "primary-container": "var(--primary-container)",
+        
         secondary: "var(--secondary)",
         "secondary-container": "var(--secondary-container)",
         "tertiary-container": "var(--tertiary-container)",
