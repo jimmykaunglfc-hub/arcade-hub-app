@@ -26,11 +26,16 @@ export default function MatchmakingModal({
   const [searchTime, setSearchTime] = useState(0);
   const queueTicketIdRef = useRef<string | null>(null);
   const isCancelledRef = useRef(false);
+  const effectRan = useRef(false); // STRICT MODE GUARD
 
   const isValidUuid = (id: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
   useEffect(() => {
+    // Prevent React Strict Mode from double-firing the RPC and deleting the ticket
+    if (effectRan.current) return;
+    effectRan.current = true;
+    
     isCancelledRef.current = false;
 
     const timer = setInterval(() => {
@@ -50,7 +55,6 @@ export default function MatchmakingModal({
       }
 
       try {
-        // 1. Execute Atomic Matchmaking RPC
         const { data: rpcData, error: rpcError } = await supabase.rpc("join_matchmaking", {
           p_game_key: gameKey,
           p_user_id: activeUserId,
@@ -62,7 +66,6 @@ export default function MatchmakingModal({
           return;
         }
 
-        // Case A: Matched immediately as Player 2
         if (rpcData && rpcData.matched) {
           cleanupAndFinish({
             matchId: rpcData.match_id || `match_${Date.now()}`,
@@ -77,7 +80,6 @@ export default function MatchmakingModal({
           return;
         }
 
-        // Case B: Created waiting ticket as Player 1
         const ticketId = rpcData?.ticket_id;
         if (!ticketId) {
           triggerBotFallback();
@@ -86,7 +88,6 @@ export default function MatchmakingModal({
 
         queueTicketIdRef.current = ticketId;
 
-        // 2. Subscribe via Realtime Postgres Changes
         const channel = supabase
           .channel(`queue_${ticketId}`)
           .on(
@@ -107,7 +108,6 @@ export default function MatchmakingModal({
           )
           .subscribe();
 
-        // 3. RPC Polling (Bypasses RLS blocks completely)
         const pollInterval = setInterval(async () => {
           if (isCancelledRef.current || !queueTicketIdRef.current) {
             clearInterval(pollInterval);
@@ -126,7 +126,6 @@ export default function MatchmakingModal({
           }
         }, 1200);
 
-        // 4. Timeout Safeguard (20 seconds)
         setTimeout(() => {
           if (!isCancelledRef.current && queueTicketIdRef.current) {
             clearInterval(pollInterval);
@@ -146,9 +145,6 @@ export default function MatchmakingModal({
     return () => {
       isCancelledRef.current = true;
       clearInterval(timer);
-      // STRICT MODE FIX: We intentionally DO NOT call cleanUpQueueTicket() here.
-      // This prevents React from prematurely deleting your ticket in the database
-      // during background dev-server refreshes.
     };
   }, [gameKey, userId]);
 
