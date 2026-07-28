@@ -31,9 +31,10 @@ export default function MatchmakingModal({
   const [timer, setTimer] = useState(15); // 15-second matchmaking window
   const [statusText, setStatusText] = useState("Searching for online players...");
   const queueIdRef = useRef<string | null>(null);
+  const isMatchedRef = useRef(false);
 
   const cancelQueue = async () => {
-    if (queueIdRef.current) {
+    if (queueIdRef.current && !isMatchedRef.current) {
       await supabase
         .from("matchmaking_queue")
         .update({ status: "cancelled" })
@@ -42,12 +43,15 @@ export default function MatchmakingModal({
   };
 
   const triggerBotFallback = async () => {
+    if (isMatchedRef.current) return;
     setStatusText("No online player found. Pairing with AI Opponent...");
     await cancelQueue();
 
     const botOpponent = getRandomBotOpponent();
 
     setTimeout(() => {
+      if (isMatchedRef.current) return;
+      isMatchedRef.current = true;
       onMatchFound({
         matchId: `bot_match_${Date.now()}`,
         opponent: botOpponent,
@@ -61,6 +65,9 @@ export default function MatchmakingModal({
     opponentId: string,
     role: number = 1
   ) => {
+    if (isMatchedRef.current) return;
+    isMatchedRef.current = true;
+
     const { data } = await supabase
       .from("profiles")
       .select("username, points")
@@ -79,8 +86,28 @@ export default function MatchmakingModal({
     });
   };
 
+  // Direct table check helper to catch missed Realtime broadcasts
+  const checkQueueStatus = async (qId: string) => {
+    if (isMatchedRef.current) return;
+
+    const { data } = await supabase
+      .from("matchmaking_queue")
+      .select("status, match_id, opponent_id, player_role, role")
+      .eq("id", qId)
+      .maybeSingle();
+
+    if (data && data.status === "matched" && !isMatchedRef.current) {
+      fetchOpponentProfileAndStart(
+        data.match_id,
+        data.opponent_id,
+        data.role || data.player_role || 2
+      );
+    }
+  };
+
   useEffect(() => {
     let countdownInterval: NodeJS.Timeout;
+    let pollInterval: NodeJS.Timeout;
     let realtimeChannel: any;
 
     const startMatchmaking = async () => {
@@ -95,7 +122,7 @@ export default function MatchmakingModal({
         return;
       }
 
-      // 2. Immediate human match found!
+      // 2. Immediate human match found via RPC return!
       if (data.status === "matched") {
         fetchOpponentProfileAndStart(
           data.match_id,
@@ -105,9 +132,10 @@ export default function MatchmakingModal({
         return;
       }
 
-      // 3. Waiting in queue: Subscribe to Realtime updates on queue row
+      // 3. Waiting in queue: Record Queue ID
       queueIdRef.current = data.queue_id;
 
+      // 4. Subscribe to Realtime updates on queue row
       realtimeChannel = supabase
         .channel(`matchmaking_${data.queue_id}`)
         .on(
@@ -128,13 +156,26 @@ export default function MatchmakingModal({
             }
           }
         )
-        .subscribe();
+        .subscribe(async (status) => {
+          if (status === "SUBSCRIBED" && queueIdRef.current) {
+            // Immediate post-subscription double check (catches instant matches)
+            checkQueueStatus(queueIdRef.current);
+          }
+        });
 
-      // 4. Start 15-Second Countdown
+      // 5. Backup polling every 2.5s (safety net for missed WebSocket packets)
+      pollInterval = setInterval(() => {
+        if (queueIdRef.current) {
+          checkQueueStatus(queueIdRef.current);
+        }
+      }, 2500);
+
+      // 6. Start 15-Second Countdown
       countdownInterval = setInterval(() => {
         setTimer((prev) => {
           if (prev <= 1) {
             clearInterval(countdownInterval);
+            clearInterval(pollInterval);
             triggerBotFallback();
             return 0;
           }
@@ -147,6 +188,7 @@ export default function MatchmakingModal({
 
     return () => {
       if (countdownInterval) clearInterval(countdownInterval);
+      if (pollInterval) clearInterval(pollInterval);
       if (realtimeChannel) supabase.removeChannel(realtimeChannel);
       cancelQueue();
     };
