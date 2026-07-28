@@ -50,14 +50,14 @@ export default function MatchmakingModal({
       }
 
       try {
-        // 1. Single Atomic RPC Call
+        // 1. Execute Atomic Matchmaking RPC
         const { data: rpcData, error: rpcError } = await supabase.rpc("join_matchmaking", {
           p_game_key: gameKey,
           p_user_id: activeUserId,
         });
 
         if (rpcError) {
-          console.error("RPC Error:", rpcError);
+          console.error("Matchmaking RPC Error:", rpcError);
           triggerBotFallback();
           return;
         }
@@ -77,7 +77,7 @@ export default function MatchmakingModal({
           return;
         }
 
-        // Case B: No match yet -> Track the exact ticket ID created by RPC
+        // Case B: Created waiting ticket as Player 1
         const ticketId = rpcData?.ticket_id;
         if (!ticketId) {
           triggerBotFallback();
@@ -86,7 +86,7 @@ export default function MatchmakingModal({
 
         queueTicketIdRef.current = ticketId;
 
-        // 2. Subscribe to Realtime Updates on this exact Ticket ID
+        // 2. Subscribe via Realtime Postgres Changes
         const channel = supabase
           .channel(`queue_${ticketId}`)
           .on(
@@ -107,34 +107,33 @@ export default function MatchmakingModal({
           )
           .subscribe();
 
-        // 3. Fallback Polling on the SAME Ticket ID
+        // 3. RPC Polling (Bypasses RLS blocks completely)
         const pollInterval = setInterval(async () => {
           if (isCancelledRef.current || !queueTicketIdRef.current) {
             clearInterval(pollInterval);
             return;
           }
 
-          const { data, error } = await supabase
-            .from("matchmaking_queue")
-            .select("*")
-            .eq("id", ticketId)
-            .maybeSingle();
+          const { data: statusData, error: statusError } = await supabase.rpc(
+            "check_match_status",
+            { p_ticket_id: ticketId }
+          );
 
-          if (!error && data && data.status === "matched") {
+          if (!statusError && statusData && statusData.found && statusData.status === "matched") {
             clearInterval(pollInterval);
             supabase.removeChannel(channel);
-            await handleMatchedTicket(data);
+            await handleMatchedTicket(statusData);
           }
-        }, 1500);
+        }, 1200);
 
-        // 4. Timeout Safeguard (15s)
+        // 4. Timeout Safeguard (20 seconds)
         setTimeout(() => {
           if (!isCancelledRef.current && queueTicketIdRef.current) {
             clearInterval(pollInterval);
             supabase.removeChannel(channel);
             triggerBotFallback();
           }
-        }, 15000);
+        }, 20000);
 
       } catch (err) {
         console.error("Matchmaking error:", err);
