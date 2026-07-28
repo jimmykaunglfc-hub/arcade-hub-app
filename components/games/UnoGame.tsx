@@ -6,6 +6,7 @@ import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
+import MatchmakingModal from "../MatchmakingModal";
 
 interface UnoGameProps {
   onClose?: () => void;
@@ -34,6 +35,7 @@ interface PlayerConfig {
 }
 
 const COLORS: CardColor[] = ["red", "blue", "green", "yellow"];
+const EMOJIS = ["👍", "😂", "🔥", "😡", "😭", "🤯"];
 const TURN_TIME_LIMIT = 15;
 
 const generateDeck = (includeExtraSpecial = false): Card[] => {
@@ -75,6 +77,10 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   const [entryFee, setEntryFee] = useState<number>(100);
   const [showNoPointsModal, setShowNoPointsModal] = useState(false);
 
+  // 🌐 MATCHMAKING MODAL STATES
+  const [showMatchmaker, setShowMatchmaker] = useState(false);
+  const [pendingMatch, setPendingMatch] = useState<{ matchId: string; role: number; isBot: boolean } | null>(null);
+
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
@@ -99,6 +105,10 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   const [channel, setChannel] = useState<any>(null);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [opponentConnected, setOpponentConnected] = useState(false);
+
+  // 🎭 REACTIONS
+  const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; role: number }[]>([]);
+  const [showEmojiMenu, setShowEmojiMenu] = useState(false);
 
   // 🃏 UNO GAME STATES
   const [players, setPlayers] = useState<PlayerConfig[]>([]);
@@ -216,6 +226,12 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
     matchChannel
       .on("broadcast", { event: "game_sync" }, () => {})
+      .on("broadcast", { event: "emoji" }, (payload) => {
+        const { emoji, role } = payload.payload;
+        const newEmoji = { id: Date.now() + Math.random(), emoji, role };
+        setFloatingEmojis((prev) => [...prev, newEmoji]);
+        setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
+      })
       .on("presence", { event: "sync" }, () => {
         const state = matchChannel.presenceState();
         const users = Object.keys(state);
@@ -308,16 +324,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     const canPlay = await checkPointsAndDeduct();
     if (!canPlay) return;
 
-    setView("searching");
-    setTimeout(() => {
-      setView(prev => {
-        if (prev === "searching") {
-          setLocalOpponent(getRandomBotOpponent());
-          return "confirmed";
-        }
-        return prev;
-      });
-    }, 2800);
+    setShowMatchmaker(true);
   };
 
   const hostMatch = async () => {
@@ -344,6 +351,32 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     setMatchId(`bot_match_${Date.now()}`);
     showToastMessage(`Playing against ${localOpponent?.name || 'Bot'}`);
     startModeGame("quick", localOpponent);
+  };
+
+  const enterConfirmedMatch = () => {
+    soundEngine.playSFX("click");
+    if (pendingMatch) {
+      setMatchId(pendingMatch.matchId);
+      if (pendingMatch.isBot) {
+        startModeGame("quick", localOpponent);
+      } else {
+        setView(pendingMatch.role === 1 ? "host" : "play");
+      }
+    } else {
+      enterBotMatch();
+    }
+  };
+
+  const sendEmoji = (emoji: string) => {
+    soundEngine.playSFX("click");
+    setShowEmojiMenu(false);
+    if (channel && matchId) {
+      channel.send({ type: "broadcast", event: "emoji", payload: { emoji, role: 1 } });
+    } else {
+      const newEmoji = { id: Date.now(), emoji, role: 1 };
+      setFloatingEmojis((prev) => [...prev, newEmoji]);
+      setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
+    }
   };
 
   const handleExit = () => {
@@ -556,6 +589,16 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
             : COLORS[Math.floor(Math.random() * COLORS.length)];
         }
         executePlay(cardToPlay, currentPObj.id, chosenColor);
+
+        if (Math.random() <= 0.25) {
+          const reactionDelay = Math.floor(Math.random() * 1000) + 800;
+          setTimeout(() => {
+            const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+            const newEmoji = { id: Date.now() + Math.random(), emoji: randomEmote, role: 2 };
+            setFloatingEmojis((prev) => [...prev, newEmoji]);
+            setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
+          }, reactionDelay);
+        }
       } else {
         drawCardForPlayer(currentPObj.id, 1);
         const nextP = getNextPlayerIndex(currentPObj.id, 1);
@@ -686,6 +729,31 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
           </div>
         )}
 
+        {/* GLOBAL MATCHMAKING OVERLAY */}
+        {showMatchmaker && (
+          <MatchmakingModal
+            gameKey="uno"
+            gameName="Uno Arena"
+            userId={myUserId || ""}
+            onMatchFound={(matchData) => {
+              setShowMatchmaker(false);
+              setLocalOpponent(matchData.opponent);
+
+              setPendingMatch({
+                matchId: matchData.matchId || `bot_match_${Date.now()}`,
+                role: (matchData as any).role || 1,
+                isBot: matchData.opponent.isBot || false,
+              });
+
+              setView("confirmed");
+            }}
+            onCancel={() => {
+              soundEngine.playSFX("click");
+              setShowMatchmaker(false);
+            }}
+          />
+        )}
+
         {toast && (
           <div className="absolute top-24 z-[300] bg-rose-500/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl font-headline font-bold text-sm shadow-2xl animate-fade-in border border-rose-400">
             {toast}
@@ -781,27 +849,6 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     );
   }
 
-  // LOCATING OPPONENT SCREEN
-  if (view === "searching") {
-    return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-sans select-none">
-        <div className="relative w-32 h-32 flex items-center justify-center mb-8">
-          <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
-          <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
-          <div className="absolute inset-8 border border-[#CCFF00]/10 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '1s' }}></div>
-          <div className="w-16 h-16 bg-[#CCFF00]/10 rounded-full flex items-center justify-center border border-[#CCFF00]/20 relative z-10">
-            <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
-          </div>
-        </div>
-        <h2 className="font-headline font-black text-2xl text-white mb-2 uppercase">Locating Opponent</h2>
-        <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase touch-manipulation">
-          Abort Search
-        </button>
-      </div>
-    );
-  }
-
   // MATCH CONFIRMED SCREEN
   if (view === "confirmed") {
     return (
@@ -832,7 +879,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
           <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
         </p>
 
-        <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] touch-manipulation">
+        <button onClick={enterConfirmedMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] touch-manipulation">
           Enter Match <span className="material-symbols-outlined">arrow_forward</span>
         </button>
       </div>
@@ -898,16 +945,46 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
   return (
     <div className="fixed inset-0 bg-[#09090b] text-white flex flex-col font-sans overflow-hidden select-none z-[100]">
+      {/* FLOATING EMOJI LAYER */}
+      {floatingEmojis.map((em) => (
+        <div key={em.id} className="absolute z-50 text-4xl animate-float-up pointer-events-none right-10 bottom-10">
+          {em.emoji}
+        </div>
+      ))}
+
       {/* HEADER */}
       <div className="w-full h-12 bg-[#18181b] border-b border-white/10 flex items-center justify-between px-4 shrink-0 shadow-md relative z-30 pt-safe">
         <button onClick={handleExit} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition touch-manipulation">
            <span className="material-symbols-outlined text-sm">arrow_back</span>
         </button>
         <span className="font-headline font-black text-sm tracking-widest text-rose-500 italic uppercase">UNO <span className="text-white not-italic">MATRIX</span></span>
-        <div className="w-8 flex items-center justify-center">
-            {matchId && !localOpponent?.isBot && !opponentConnected && (
-               <span className="w-2 h-2 rounded-full bg-[#CCFF00] animate-pulse"></span>
+        
+        <div className="flex items-center gap-2">
+          {/* Reaction Button */}
+          <div className="relative">
+            <button
+              onClick={() => { soundEngine.playSFX("click"); setShowEmojiMenu(!showEmojiMenu); }}
+              className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition shadow-sm hover:bg-white/10 touch-manipulation"
+            >
+              <span className="material-symbols-outlined text-sm">add_reaction</span>
+            </button>
+            
+            {showEmojiMenu && (
+              <div className="absolute top-10 right-0 bg-[#18181b] border border-white/10 p-2 rounded-2xl shadow-2xl flex gap-1 z-50">
+                {EMOJIS.map((em) => (
+                  <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1 touch-manipulation">
+                    {em}
+                  </button>
+                ))}
+              </div>
             )}
+          </div>
+
+          <div className="w-8 flex items-center justify-center">
+              {matchId && !localOpponent?.isBot && !opponentConnected && (
+                 <span className="w-2 h-2 rounded-full bg-[#CCFF00] animate-pulse"></span>
+              )}
+          </div>
         </div>
       </div>
 

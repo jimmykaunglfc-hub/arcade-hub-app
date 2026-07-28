@@ -6,6 +6,7 @@ import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
+import MatchmakingModal from "../MatchmakingModal";
 
 const EMPTY = 0, P1 = 1, P2 = 2, P1_KING = 3, P2_KING = 4;
 const TURN_TIME_LIMIT = 30; // 30-second turn limit
@@ -44,6 +45,10 @@ export default function Checkers({
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [entryFee, setEntryFee] = useState<number>(100);
   const [showNoPointsModal, setShowNoPointsModal] = useState(false);
+
+  // 🌐 MATCHMAKING MODAL STATES
+  const [showMatchmaker, setShowMatchmaker] = useState(false);
+  const [pendingMatch, setPendingMatch] = useState<{ matchId: string; role: number; isBot: boolean } | null>(null);
 
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
@@ -463,16 +468,7 @@ export default function Checkers({
     const canPlay = await checkPointsAndDeduct();
     if (!canPlay) return;
 
-    setPlayMode("searching");
-    setTimeout(() => {
-      setPlayMode(prev => {
-        if (prev === "searching") {
-          setLocalOpponent(getRandomBotOpponent());
-          return "confirmed";
-        }
-        return prev;
-      });
-    }, 2800);
+    setShowMatchmaker(true);
   };
 
   const enterBotMatch = () => {
@@ -480,6 +476,26 @@ export default function Checkers({
     setMatchId(`bot_match_${Date.now()}`);
     setMyPlayerRole(P1);
     setPlayMode("bot");
+  };
+
+  const enterConfirmedMatch = () => {
+    soundEngine.playSFX("click");
+    if (pendingMatch) {
+      setMatchId(pendingMatch.matchId);
+      setMyPlayerRole(pendingMatch.role);
+      
+      if (pendingMatch.isBot) {
+        setPlayMode("bot");
+      } else {
+        // Real human: transition them to host or join so Supabase Realtime picks them up
+        setPlayMode(pendingMatch.role === P1 ? "host" : "join");
+      }
+    } else {
+      // Fallback just in case
+      setMatchId(`bot_match_${Date.now()}`);
+      setMyPlayerRole(P1);
+      setPlayMode("bot");
+    }
   };
 
   useEffect(() => {
@@ -698,6 +714,32 @@ export default function Checkers({
         </div>
       )}
 
+      {/* GLOBAL MATCHMAKING OVERLAY */}
+      {showMatchmaker && (
+        <MatchmakingModal
+          gameKey="checkers" 
+          gameName="Checkers Arena"
+          userId={myUserId || ""}
+          onMatchFound={(matchData) => {
+            setShowMatchmaker(false);
+            setLocalOpponent(matchData.opponent);
+            
+            setPendingMatch({
+              matchId: matchData.matchId || `bot_match_${Date.now()}`,
+              role: (matchData as any).role || P1,
+              isBot: matchData.opponent.isBot || false
+            });
+            
+            // Go straight to confirmed screen
+            setPlayMode("confirmed"); 
+          }}
+          onCancel={() => {
+            soundEngine.playSFX("click");
+            setShowMatchmaker(false);
+          }}
+        />
+      )}
+
       {/* LOBBY MENU */}
       {playMode === "menu" && (
         <div className="absolute inset-0 z-50 bg-[#09090b] flex items-center justify-center p-6">
@@ -790,25 +832,6 @@ export default function Checkers({
         </div>
       )}
 
-      {/* LOCATING OPPONENT SCREEN */}
-      {playMode === "searching" && (
-        <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
-          <div className="relative w-32 h-32 flex items-center justify-center mb-8">
-            <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
-            <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
-            <div className="absolute inset-8 border border-[#CCFF00]/10 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '1s' }}></div>
-            <div className="w-16 h-16 bg-[#CCFF00]/10 rounded-full flex items-center justify-center border border-[#CCFF00]/20 relative z-10">
-              <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
-            </div>
-          </div>
-          <h2 className="font-headline font-black text-2xl text-white mb-2 uppercase">Locating Opponent</h2>
-          <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-          <button onClick={() => { soundEngine.playSFX("click"); setPlayMode("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase touch-manipulation">
-            Abort Search
-          </button>
-        </div>
-      )}
-
       {/* MATCH CONFIRMED SCREEN */}
       {playMode === "confirmed" && (
         <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
@@ -838,7 +861,7 @@ export default function Checkers({
             <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
           </p>
 
-          <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] touch-manipulation">
+          <button onClick={enterConfirmedMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] touch-manipulation">
             Enter Match <span className="material-symbols-outlined">arrow_forward</span>
           </button>
         </div>

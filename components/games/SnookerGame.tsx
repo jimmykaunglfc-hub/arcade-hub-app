@@ -7,6 +7,7 @@ import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
+import MatchmakingModal from "../MatchmakingModal";
 
 const BALL_TYPES = {
   Red: { points: 1, color: "#ff2a2a", spec: "#ffe4e4" },
@@ -51,6 +52,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [entryFee, setEntryFee] = useState<number>(100);
   const [showNoPointsModal, setShowNoPointsModal] = useState(false);
+
+  // 🌐 MATCHMAKING MODAL STATES
+  const [showMatchmaker, setShowMatchmaker] = useState(false);
+  const [pendingMatch, setPendingMatch] = useState<{ matchId: string; role: 1 | 2; isBot: boolean } | null>(null);
 
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
@@ -1395,16 +1400,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     const canPlay = await checkPointsAndDeduct();
     if (!canPlay) return;
 
-    setPlayMode("searching");
-    setTimeout(() => {
-      setPlayMode((prev) => {
-        if (prev === "searching") {
-          setLocalOpponent(getRandomBotOpponent());
-          return "confirmed";
-        }
-        return prev;
-      });
-    }, 2800);
+    setShowMatchmaker(true);
   };
 
   const hostMatch = async () => {
@@ -1436,6 +1432,28 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     setMyPlayerRole(1);
     setPlayMode("bot");
     setToast({ msg: `Playing against ${localOpponent?.name || "Bot"}`, type: "success" });
+  };
+
+  const enterConfirmedMatch = () => {
+    soundEngine.playSFX("click");
+    if (pendingMatch) {
+      setMatchId(pendingMatch.matchId);
+      setMyPlayerRole(pendingMatch.role);
+
+      if (pendingMatch.isBot) {
+        setPlayMode("bot");
+        setToast({ msg: `Playing against ${localOpponent?.name || "Bot"}`, type: "success" });
+      } else {
+        // Real human: transition them to host or join so Supabase Realtime picks them up
+        setPlayMode(pendingMatch.role === 1 ? "host" : "join");
+      }
+    } else {
+      // Fallback
+      setMatchId(`bot_match_${Date.now()}`);
+      setMyPlayerRole(1);
+      setPlayMode("bot");
+      setToast({ msg: `Playing against ${localOpponent?.name || "Bot"}`, type: "success" });
+    }
   };
 
   const handleCopyCode = () => {
@@ -1529,6 +1547,31 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             </p>
           </div>
         </div>
+      )}
+
+      {/* GLOBAL MATCHMAKING OVERLAY */}
+      {showMatchmaker && (
+        <MatchmakingModal
+          gameKey="snooker"
+          gameName="Snooker Matrix"
+          userId={myUserId || ""}
+          onMatchFound={(matchData) => {
+            setShowMatchmaker(false);
+            setLocalOpponent(matchData.opponent);
+
+            setPendingMatch({
+              matchId: matchData.matchId || `bot_match_${Date.now()}`,
+              role: (matchData as any).role || 1,
+              isBot: matchData.opponent.isBot || false,
+            });
+
+            setPlayMode("confirmed");
+          }}
+          onCancel={() => {
+            soundEngine.playSFX("click");
+            setShowMatchmaker(false);
+          }}
+        />
       )}
 
       {/* LOBBY MENU */}
@@ -1646,31 +1689,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         </div>
       )}
 
-      {/* LOCATING OPPONENT SCREEN */}
-      {playMode === "searching" && (
-        <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
-          <div className="relative w-32 h-32 flex items-center justify-center mb-8">
-            <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: "2s" }}></div>
-            <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: "2s", animationDelay: "0.5s" }}></div>
-            <div className="absolute inset-8 border border-[#CCFF00]/10 rounded-full animate-ping" style={{ animationDuration: "2s", animationDelay: "1s" }}></div>
-            <div className="w-16 h-16 bg-[#CCFF00]/10 rounded-full flex items-center justify-center border border-[#CCFF00]/20 relative z-10">
-              <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
-            </div>
-          </div>
-          <h2 className="font-headline font-black text-2xl text-white mb-2 uppercase">Locating Opponent</h2>
-          <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-          <button
-            onClick={() => {
-              soundEngine.playSFX("click");
-              setPlayMode("menu");
-            }}
-            className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase touch-manipulation"
-          >
-            Abort Search
-          </button>
-        </div>
-      )}
-
       {/* MATCH CONFIRMED SCREEN */}
       {playMode === "confirmed" && (
         <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
@@ -1701,7 +1719,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           </p>
 
           <button
-            onClick={enterBotMatch}
+            onClick={enterConfirmedMatch}
             className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] uppercase touch-manipulation"
           >
             Enter Match <span className="material-symbols-outlined">arrow_forward</span>
@@ -1929,7 +1947,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             style={{ height: `${containerScale.height}px` }}
             className="flex items-center justify-center gap-1.5 sm:gap-2 w-full max-w-full relative transition-all duration-100 touch-none px-1"
           >
-            {/* 1. LEFT PULL POWER CONTROLLER (REDUCED HEIGHT BY 50%) */}
+            {/* 1. LEFT PULL POWER CONTROLLER */}
             <div
               style={{ height: `${containerScale.height * 0.5}px` }}
               className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none my-auto"
@@ -1980,7 +1998,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
               )}
             </div>
 
-            {/* 3. RIGHT TUNE WHEEL & SPIN CONTROLLER (REDUCED HEIGHT BY 50%) */}
+            {/* 3. RIGHT TUNE WHEEL & SPIN CONTROLLER */}
             <div
               style={{ height: `${containerScale.height * 0.5}px` }}
               className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none my-auto"
@@ -2030,7 +2048,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         <div className="w-full max-w-[480px] flex justify-between items-center px-1 shrink-0">
           <button
             onClick={initBalls}
-            className="ml-auto px-3 py-1 bg-[#18181b] border border-white/10 hover:bg-white/10 text-neutral-300 text-[8px] md:text-[9px] font-black uppercase tracking-widest rounded-lg active:scale-95 transition-transform cursor-pointer touch-manipulation"
+            className="ml-auto px-3 py-1 bg-[#18181b] border border-white/10 hover:bg-[#white]/10 text-neutral-300 text-[8px] md:text-[9px] font-black uppercase tracking-widest rounded-lg active:scale-95 transition-transform cursor-pointer touch-manipulation"
           >
             Reset Match
           </button>

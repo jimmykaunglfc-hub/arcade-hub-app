@@ -2,12 +2,22 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { getRandomBotOpponent } from "../lib/botUtils";
 
 interface MatchmakingModalProps {
   gameKey: string;
   gameName: string;
   userId: string;
-  onMatchFound: (matchData: { matchId: string; opponent: { name: string; isBot: boolean } }) => void;
+  onMatchFound: (matchData: {
+    matchId: string;
+    opponent: {
+      name: string;
+      isBot: boolean;
+      avatarIcon?: string;
+      elo?: number;
+    };
+    role?: number;
+  }) => void;
   onCancel: () => void;
 }
 
@@ -16,7 +26,7 @@ export default function MatchmakingModal({
   gameName,
   userId,
   onMatchFound,
-  onCancel
+  onCancel,
 }: MatchmakingModalProps) {
   const [timer, setTimer] = useState(15); // 15-second matchmaking window
   const [statusText, setStatusText] = useState("Searching for online players...");
@@ -32,28 +42,40 @@ export default function MatchmakingModal({
   };
 
   const triggerBotFallback = async () => {
-    setStatusText("No player found. Pairing with Joe Yoke Bot...");
+    setStatusText("No online player found. Pairing with AI Opponent...");
     await cancelQueue();
+
+    const botOpponent = getRandomBotOpponent();
 
     setTimeout(() => {
       onMatchFound({
         matchId: `bot_match_${Date.now()}`,
-        opponent: {
-          name: "Joe Yoke Bot",
-          isBot: true
-        }
+        opponent: botOpponent,
+        role: 1, // Default user to Player 1 against bot
       });
     }, 1200);
   };
 
-  const fetchOpponentProfileAndStart = async (matchId: string, opponentId: string, isBot: boolean) => {
-    const { data } = await supabase.from("profiles").select("username").eq("id", opponentId).single();
+  const fetchOpponentProfileAndStart = async (
+    matchId: string,
+    opponentId: string,
+    role: number = 1
+  ) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("username, points")
+      .eq("id", opponentId)
+      .single();
+
     onMatchFound({
       matchId,
       opponent: {
         name: data?.username || "Challenger",
-        isBot: false
-      }
+        isBot: false,
+        avatarIcon: "person",
+        elo: data?.points ? Math.floor(data.points * 1.2) : 1200,
+      },
+      role,
     });
   };
 
@@ -62,42 +84,53 @@ export default function MatchmakingModal({
     let realtimeChannel: any;
 
     const startMatchmaking = async () => {
-      // 1. Call RPC function
-      const { data, error } = await supabase.rpc("join_matchmaking", { p_game_key: gameKey });
+      // 1. Call Supabase RPC function to enter queue / find match
+      const { data, error } = await supabase.rpc("join_matchmaking", {
+        p_game_key: gameKey,
+      });
 
       if (error || !data) {
         setStatusText("Matchmaking error. Trying bot mode...");
-        triggerBotFallback(); 
+        triggerBotFallback();
         return;
       }
 
       // 2. Immediate human match found!
       if (data.status === "matched") {
-        fetchOpponentProfileAndStart(data.match_id, data.opponent_id, false);
+        fetchOpponentProfileAndStart(
+          data.match_id,
+          data.opponent_id,
+          data.role || data.player_role || 1
+        );
         return;
       }
 
-      // 3. Waiting in queue: Subscribe to Realtime update on our queue row
+      // 3. Waiting in queue: Subscribe to Realtime updates on queue row
       queueIdRef.current = data.queue_id;
 
-      realtimeChannel = supabase.channel(`matchmaking_${data.queue_id}`)
+      realtimeChannel = supabase
+        .channel(`matchmaking_${data.queue_id}`)
         .on(
           "postgres_changes",
           {
             event: "UPDATE",
             schema: "public",
             table: "matchmaking_queue",
-            filter: `id=eq.${data.queue_id}`
+            filter: `id=eq.${data.queue_id}`,
           },
           (payload: any) => {
             if (payload.new.status === "matched") {
-              fetchOpponentProfileAndStart(payload.new.match_id, payload.new.opponent_id, false);
+              fetchOpponentProfileAndStart(
+                payload.new.match_id,
+                payload.new.opponent_id,
+                payload.new.role || payload.new.player_role || 2
+              );
             }
           }
         )
         .subscribe();
 
-      // 4. Start Countdown
+      // 4. Start 15-Second Countdown
       countdownInterval = setInterval(() => {
         setTimer((prev) => {
           if (prev <= 1) {
@@ -120,29 +153,31 @@ export default function MatchmakingModal({
   }, [gameKey]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-sm bg-surface rounded-[24px] p-6 border border-surface-container-highest shadow-2xl text-center flex flex-col items-center">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in select-none">
+      <div className="w-full max-w-[340px] bg-[#18181b] rounded-[32px] p-6 border border-white/10 shadow-2xl text-center flex flex-col items-center relative overflow-hidden">
         
-        {/* Animated Radar Pulse */}
-        <div className="relative w-20 h-20 flex items-center justify-center my-4">
-          <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping"></div>
-          <div className="w-16 h-16 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-xl shadow-lg relative z-10">
+        {/* Animated Neon Radar Pulse */}
+        <div className="relative w-24 h-24 flex items-center justify-center my-4">
+          <div className="absolute inset-0 rounded-full border border-[#CCFF00]/30 animate-ping" style={{ animationDuration: '2s' }}></div>
+          <div className="absolute inset-3 rounded-full border border-[#CCFF00]/20 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
+          
+          <div className="w-16 h-16 rounded-full bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] flex items-center justify-center font-mono font-black text-2xl shadow-[0_0_20px_rgba(204,255,0,0.2)] relative z-10">
             {timer}s
           </div>
         </div>
 
-        <h2 className="font-headline text-lg font-bold text-on-surface mb-1">
+        <h2 className="font-headline text-lg font-black text-white uppercase tracking-tight mb-1">
           {gameName}
         </h2>
-        <p className="font-body text-xs text-on-surface-variant mb-6">
+        <p className="font-body text-xs font-semibold text-[#CCFF00] mb-6 animate-pulse">
           {statusText}
         </p>
 
         <button
           onClick={onCancel}
-          className="w-full bg-surface-container-highest text-on-surface font-headline text-sm font-bold py-3 rounded-full hover:bg-surface-variant active:scale-95 transition-all"
+          className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 border border-white/10 font-headline text-xs font-bold py-3.5 rounded-2xl uppercase tracking-wider active:scale-95 transition-all touch-manipulation"
         >
-          Cancel Matchmaking
+          Cancel Search
         </button>
       </div>
     </div>

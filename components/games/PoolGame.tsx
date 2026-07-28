@@ -7,12 +7,16 @@ import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
+import MatchmakingModal from "../MatchmakingModal";
 
 // 🎱 Table Dimensions & Definitions
 const TABLE_WIDTH = 360;
 const TABLE_HEIGHT = 640;
 const BALL_RADIUS = 10;
 const HEAD_LINE_Y = 480;
+const TURN_TIME_LIMIT = 30; // 30-second turn limit requirement
+
+const EMOJIS = ["👍", "😂", "🔥", "😡", "😭", "🤯"];
 
 const BALL_TYPES: Record<number, { name: string; type: "Solid" | "Stripes" | "Black" | "Cue"; color: string }> = {
   0: { name: "Cue Ball", type: "Cue", color: "#ffffff" },
@@ -137,6 +141,10 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
   const [entryFee, setEntryFee] = useState<number>(100);
   const [showNoPointsModal, setShowNoPointsModal] = useState(false);
 
+  // 🌐 MATCHMAKING MODAL STATES
+  const [showMatchmaker, setShowMatchmaker] = useState(false);
+  const [pendingMatch, setPendingMatch] = useState<{ matchId: string; role: 1 | 2; isBot: boolean } | null>(null);
+
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
@@ -180,6 +188,11 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
   const [aimAngle, setAimAngle] = useState(-Math.PI / 2);
   const [uiPower, setUiPower] = useState(0);
+  const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);
+
+  // 🎭 REACTIONS
+  const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; role: number }[]>([]);
+  const [showEmojiMenu, setShowEmojiMenu] = useState(false);
 
   const aimAngleRef = useRef(-Math.PI / 2);
   const uiPowerRef = useRef(0);
@@ -283,6 +296,58 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     });
   }, [winner, historyMatchId, myPlayerRole, entryFee, localOpponent]);
 
+  // ⏱️ 30-SECOND TURN TIMER SYSTEM
+  const triggerFoulAlert = (msg: string) => {
+    setFoulMessage(msg);
+    setTimeout(() => setFoulMessage(null), 2500);
+  };
+
+  const handleTimeOut = useCallback(() => {
+    if (winner || isMoving) return;
+    soundEngine.playSFX("defeat");
+
+    const nextTurn = currentTurn === "player1" ? "player2" : "player1";
+    triggerFoulAlert("🚨 TIME EXPIRED! TURN LOST");
+    setCurrentTurn(nextTurn);
+    setIsBallInHand(true);
+    setShowConfirmBtn(true);
+    setSpinOffset({ x: 0, y: 0 });
+    setUiPower(0);
+
+    if (playMode === "online" && channelRef.current) {
+      channelRef.current.send({
+        type: "broadcast",
+        event: "turn_sync",
+        payload: {
+          balls: ballsRef.current,
+          nextTurn,
+          groups: playerGroups,
+          win: winner,
+          foul: "🚨 TIME EXPIRED! TURN LOST"
+        },
+      });
+    }
+  }, [currentTurn, winner, isMoving, playMode, playerGroups]);
+
+  useEffect(() => {
+    if (playMode === "menu" || playMode === "searching" || playMode === "confirmed" || playMode === "host" || playMode === "join" || winner || isMoving) return;
+
+    setTimeLeft(TURN_TIME_LIMIT);
+
+    const timerInterval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerInterval);
+          handleTimeOut();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [currentTurn, winner, isMoving, playMode, handleTimeOut]);
+
   // 📡 SUPABASE MULTIPLAYER SYNC
   const shouldConnect = matchId && myUserId && playMode !== "menu" && playMode !== "local" && playMode !== "bot" && playMode !== "searching" && playMode !== "confirmed";
 
@@ -336,6 +401,12 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           setWinner(win);
           soundEngine.playSFX("victory");
         }
+      })
+      .on("broadcast", { event: "emoji" }, (payload) => {
+        const { emoji, role } = payload.payload;
+        const newEmoji = { id: Date.now() + Math.random(), emoji, role };
+        setFloatingEmojis((prev) => [...prev, newEmoji]);
+        setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
       });
 
     channel.subscribe(async (status) => {
@@ -357,9 +428,16 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     }
   };
 
-  const triggerFoulAlert = (msg: string) => {
-    setFoulMessage(msg);
-    setTimeout(() => setFoulMessage(null), 2500);
+  const sendEmoji = (emoji: string) => {
+    soundEngine.playSFX("click");
+    setShowEmojiMenu(false);
+    if (playMode === "online" && channelRef.current) {
+      channelRef.current.send({ type: "broadcast", event: "emoji", payload: { emoji, role: myPlayerRole } });
+    } else {
+      const newEmoji = { id: Date.now(), emoji, role: currentTurn === "player1" ? 1 : 2 };
+      setFloatingEmojis((prev) => [...prev, newEmoji]);
+      setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
+    }
   };
 
   const evaluateTurnEnd = useCallback(() => {
@@ -1331,16 +1409,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     const canPlay = await checkPointsAndDeduct();
     if (!canPlay) return;
 
-    setPlayMode("searching");
-    setTimeout(() => {
-      setPlayMode((prev) => {
-        if (prev === "searching") {
-          setLocalOpponent(getRandomBotOpponent());
-          return "confirmed";
-        }
-        return prev;
-      });
-    }, 2800);
+    setShowMatchmaker(true);
   };
 
   const hostMatch = async () => {
@@ -1372,6 +1441,28 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     setMyPlayerRole(1);
     setPlayMode("bot");
     setToast({ msg: `Playing against ${localOpponent?.name || "Bot"}`, type: "success" });
+  };
+
+  const enterConfirmedMatch = () => {
+    soundEngine.playSFX("click");
+    if (pendingMatch) {
+      setMatchId(pendingMatch.matchId);
+      setMyPlayerRole(pendingMatch.role);
+      
+      if (pendingMatch.isBot) {
+        setPlayMode("bot");
+        setToast({ msg: `Playing against ${localOpponent?.name || 'Bot'}`, type: 'success' });
+      } else {
+        // Real human: transition them to host or join so Supabase Realtime picks them up
+        setPlayMode(pendingMatch.role === 1 ? "host" : "join");
+      }
+    } else {
+      // Fallback just in case
+      setMatchId(`bot_match_${Date.now()}`);
+      setMyPlayerRole(1);
+      setPlayMode("bot");
+      setToast({ msg: `Playing against ${localOpponent?.name || 'Bot'}`, type: 'success' });
+    }
   };
 
   const handleCopyCode = () => {
@@ -1434,6 +1525,31 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
             </div>
           </div>
         </div>
+      )}
+
+      {/* GLOBAL MATCHMAKING OVERLAY */}
+      {showMatchmaker && (
+        <MatchmakingModal
+          gameKey="pool" 
+          gameName="8-Ball Pool"
+          userId={myUserId || ""}
+          onMatchFound={(matchData) => {
+            setShowMatchmaker(false);
+            setLocalOpponent(matchData.opponent);
+            
+            setPendingMatch({
+              matchId: matchData.matchId || `bot_match_${Date.now()}`,
+              role: (matchData as any).role || 1,
+              isBot: matchData.opponent.isBot || false
+            });
+            
+            setPlayMode("confirmed"); 
+          }}
+          onCancel={() => {
+            soundEngine.playSFX("click");
+            setShowMatchmaker(false);
+          }}
+        />
       )}
 
       {/* LOBBY MENU */}
@@ -1551,31 +1667,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         </div>
       )}
 
-      {/* LOCATING OPPONENT SCREEN */}
-      {playMode === "searching" && (
-        <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
-          <div className="relative w-32 h-32 flex items-center justify-center mb-8">
-            <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: "2s" }}></div>
-            <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: "2s", animationDelay: "0.5s" }}></div>
-            <div className="absolute inset-8 border border-[#CCFF00]/10 rounded-full animate-ping" style={{ animationDuration: "2s", animationDelay: "1s" }}></div>
-            <div className="w-16 h-16 bg-[#CCFF00]/10 rounded-full flex items-center justify-center border border-[#CCFF00]/20 relative z-10">
-              <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
-            </div>
-          </div>
-          <h2 className="font-headline font-black text-2xl text-white mb-2 uppercase">Locating Opponent</h2>
-          <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-          <button
-            onClick={() => {
-              soundEngine.playSFX("click");
-              setPlayMode("menu");
-            }}
-            className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase touch-manipulation"
-          >
-            Abort Search
-          </button>
-        </div>
-      )}
-
       {/* MATCH CONFIRMED SCREEN */}
       {playMode === "confirmed" && (
         <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
@@ -1606,7 +1697,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           </p>
 
           <button
-            onClick={enterBotMatch}
+            onClick={enterConfirmedMatch}
             className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] uppercase touch-manipulation"
           >
             Enter Match <span className="material-symbols-outlined">arrow_forward</span>
@@ -1657,6 +1748,18 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
       {/* ACTIVE GAMEPLAY OVERLAYS */}
       {(playMode === "local" || playMode === "online" || playMode === "bot") && (
         <>
+          {/* FLOATING EMOJI LAYER */}
+          {floatingEmojis.map((em) => {
+            const isMine = em.role === myPlayerRole;
+            return (
+              <div key={em.id} className={`absolute z-40 text-4xl animate-float-up pointer-events-none ${
+                isMine ? "right-10 bottom-10" : "left-10 top-10"
+              }`}>
+                {em.emoji}
+              </div>
+            );
+          })}
+
           {foulMessage && (
             <div className="absolute top-16 z-[999999] bg-rose-600 border-2 border-white text-white font-black text-xs px-6 py-2 rounded-full shadow-2xl animate-bounce tracking-widest uppercase">
               {foulMessage}
@@ -1712,6 +1815,14 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               </div>
             </div>
 
+            {/* 30-SECOND COUNTDOWN TIMER BADGE */}
+            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full border shadow-sm backdrop-blur-md transition-colors ${
+              timeLeft <= 5 ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse" : "bg-[#18181b] border-white/10 text-[#CCFF00]"
+            }`}>
+              <span className="material-symbols-outlined text-xs">timer</span>
+              <span className="font-mono font-black text-xs">{timeLeft}s</span>
+            </div>
+
             <div className="flex items-center gap-1.5 bg-[#030712] px-3 py-1 rounded-full border border-slate-800">
               <span className="text-[9px] font-black text-slate-400 tracking-widest uppercase">TARGET</span>
               {currentActiveGroup === "Open" || isCurrentGroupCleared ? (
@@ -1733,6 +1844,30 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                 <span className={`text-[10px] font-black ${currentTurn === "player2" ? "text-rose-400" : "text-slate-400"} tracking-wider uppercase`}>{playMode === "bot" ? (localOpponent?.name || "Bot") : "PLAYER 2"}</span>
                 <span className="text-xs font-black text-amber-400 uppercase">{playerGroups.player2}</span>
               </div>
+            </div>
+
+            {/* REACTION MENU TOGGLE BUTTON */}
+            <div className="relative">
+              <button
+                onClick={() => { soundEngine.playSFX("click"); setShowEmojiMenu(!showEmojiMenu); }}
+                className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white shadow-sm active:scale-90 touch-manipulation ml-1"
+              >
+                <span className="material-symbols-outlined text-sm">add_reaction</span>
+              </button>
+              
+              {showEmojiMenu && (
+                <div className="absolute top-10 right-0 bg-[#18181b] border border-white/10 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
+                  {EMOJIS.map(em => (
+                    <button
+                      key={em}
+                      onClick={() => sendEmoji(em)}
+                      className="text-xl hover:scale-125 transition-transform p-1 touch-manipulation"
+                    >
+                      {em}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button

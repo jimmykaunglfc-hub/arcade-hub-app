@@ -6,6 +6,7 @@ import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
+import MatchmakingModal from "../MatchmakingModal";
 
 interface TicTacToeProps {
   onClose?: () => void;
@@ -23,6 +24,9 @@ const WINNING_COMBINATIONS = [
   [0, 4, 8], [2, 4, 6]              // Diagonals
 ];
 
+const TURN_TIME_LIMIT = 30; // 30-second turn limit
+const EMOJIS = ["👍", "😂", "🔥", "😡", "😭", "🤯"];
+
 export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: TicTacToeProps) {
   // 🛍️ STORE COSMETICS ENGINE SYNC
   const equippedCosmetic = storeManager.getEquippedCosmetic("tictactoe");
@@ -32,6 +36,10 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [entryFee, setEntryFee] = useState<number>(100);
   const [showNoPointsModal, setShowNoPointsModal] = useState(false);
+
+  // 🌐 MATCHMAKING MODAL STATES
+  const [showMatchmaker, setShowMatchmaker] = useState(false);
+  const [pendingMatch, setPendingMatch] = useState<{ matchId: string; role: number; isBot: boolean } | null>(null);
 
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
@@ -66,6 +74,11 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   const [winner, setWinner] = useState<Player | "draw" | null>(null);
   const [winningLine, setWinningLine] = useState<number[] | null>(null);
   const [scores, setScores] = useState({ X: 0, O: 0, ties: 0 });
+  const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);
+
+  // 🎭 REACTIONS
+  const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; role: number }[]>([]);
+  const [showEmojiMenu, setShowEmojiMenu] = useState(false);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -197,6 +210,14 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
 
         if (line !== undefined) setWinningLine(line);
         if (newScores) setScores(newScores);
+      })
+      .on("broadcast", { event: "emoji" }, (payload) => {
+        const { emoji, role } = payload.payload;
+        const newEmoji = { id: Date.now() + Math.random(), emoji, role };
+        setFloatingEmojis((prev) => [...prev, newEmoji]);
+        setTimeout(() => {
+          setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id));
+        }, 2500);
       })
       .on("presence", { event: "sync" }, () => {
         const state = matchChannel.presenceState();
@@ -375,6 +396,41 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     }
   }, [board, winner, winningLine, scores, channel, matchId, localOpponent, preloadedMatchId, myPlayerSymbol, gameMode]);
 
+  // ⏱️ 30-SECOND TURN TIMER SYSTEM
+  const handleTimeOut = useCallback(() => {
+    if (winner || view !== "play") return;
+    soundEngine.playSFX("defeat");
+
+    const emptyIndices = board
+      .map((val, idx) => (val === null ? idx : null))
+      .filter((val): val is number => val !== null);
+
+    if (emptyIndices.length > 0) {
+      const randomIndex = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+      makeMove(randomIndex, turn);
+      showToast("Time expired! Auto move executed.");
+    }
+  }, [board, turn, winner, view, makeMove]);
+
+  useEffect(() => {
+    if (view !== "play" || winner) return;
+
+    setTimeLeft(TURN_TIME_LIMIT);
+
+    const timerInterval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerInterval);
+          handleTimeOut();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [turn, view, winner, handleTimeOut]);
+
   // 🤖 BOT / AI MOVE TRIGGER
   useEffect(() => {
     const isBotMatch = localOpponent?.isBot || matchId?.startsWith("bot_") || gameMode !== "pvp";
@@ -397,6 +453,16 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
         }
 
         makeMove(moveIndex, "O");
+
+        if (Math.random() <= 0.25) {
+          const reactionDelay = Math.floor(Math.random() * 1000) + 800;
+          setTimeout(() => {
+            const randomEmote = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+            const newEmoji = { id: Date.now() + Math.random(), emoji: randomEmote, role: 2 };
+            setFloatingEmojis((prev) => [...prev, newEmoji]);
+            setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
+          }, reactionDelay);
+        }
       }, thinkingDelay);
 
       return () => clearTimeout(timer);
@@ -469,16 +535,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     const canPlay = await checkPointsAndDeduct();
     if (!canPlay) return;
 
-    setView("searching");
-    setTimeout(() => {
-      setView(prev => {
-        if (prev === "searching") {
-          setLocalOpponent(getRandomBotOpponent());
-          return "confirmed";
-        }
-        return prev;
-      });
-    }, 2800);
+    setShowMatchmaker(true);
   };
 
   const enterBotMatch = () => {
@@ -486,6 +543,36 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     setMatchId(`bot_match_${Date.now()}`);
     showToast(`Playing against ${localOpponent?.name || 'Bot'}`);
     startNewGame("ai_unbeatable", localOpponent);
+  };
+
+  const enterConfirmedMatch = () => {
+    soundEngine.playSFX("click");
+    if (pendingMatch) {
+      setMatchId(pendingMatch.matchId);
+      setMyPlayerSymbol(pendingMatch.role === 1 ? "X" : "O");
+
+      if (pendingMatch.isBot) {
+        startNewGame("ai_unbeatable", localOpponent);
+      } else {
+        setView(pendingMatch.role === 1 ? "host" : "play");
+        setGameMode("pvp");
+      }
+    } else {
+      enterBotMatch();
+    }
+  };
+
+  const sendEmoji = (emoji: string) => {
+    soundEngine.playSFX("click");
+    setShowEmojiMenu(false);
+    const myRole = myPlayerSymbol === "X" ? 1 : 2;
+    if (channel && matchId) {
+      channel.send({ type: "broadcast", event: "emoji", payload: { emoji, role: myRole } });
+    } else {
+      const newEmoji = { id: Date.now(), emoji, role: myRole };
+      setFloatingEmojis((prev) => [...prev, newEmoji]);
+      setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
+    }
   };
 
   const isBotOpponent = localOpponent?.isBot || matchId?.startsWith("bot_") || gameMode !== "pvp";
@@ -544,6 +631,31 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
               </p>
             </div>
           </div>
+        )}
+
+        {/* GLOBAL MATCHMAKING OVERLAY */}
+        {showMatchmaker && (
+          <MatchmakingModal
+            gameKey="tictactoe"
+            gameName="Tic-Tac-Toe"
+            userId={myUserId || ""}
+            onMatchFound={(matchData) => {
+              setShowMatchmaker(false);
+              setLocalOpponent(matchData.opponent);
+
+              setPendingMatch({
+                matchId: matchData.matchId || `bot_match_${Date.now()}`,
+                role: (matchData as any).role || 1,
+                isBot: matchData.opponent.isBot || false,
+              });
+
+              setView("confirmed");
+            }}
+            onCancel={() => {
+              soundEngine.playSFX("click");
+              setShowMatchmaker(false);
+            }}
+          />
         )}
 
         <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
@@ -635,27 +747,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     );
   }
 
-  // SEARCHING & CONFIRMED SCREENS
-  if (view === "searching") {
-    return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-sans select-none">
-        <div className="relative w-32 h-32 flex items-center justify-center mb-8">
-          <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: "2s" }}></div>
-          <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: "2s", animationDelay: "0.5s" }}></div>
-          <div className="absolute inset-8 border border-[#CCFF00]/10 rounded-full animate-ping" style={{ animationDuration: "2s", animationDelay: "1s" }}></div>
-          <div className="w-16 h-16 bg-[#CCFF00]/10 rounded-full flex items-center justify-center border border-[#CCFF00]/20 relative z-10">
-            <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
-          </div>
-        </div>
-        <h2 className="font-headline font-black text-2xl text-white mb-2 uppercase">Locating Opponent</h2>
-        <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase">
-          Abort Search
-        </button>
-      </div>
-    );
-  }
-
+  // CONFIRMED MATCH SCREEN
   if (view === "confirmed") {
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-sans select-none">
@@ -685,7 +777,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
           <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
         </p>
 
-        <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">
+        <button onClick={enterConfirmedMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">
           Enter Match <span className="material-symbols-outlined">arrow_forward</span>
         </button>
       </div>
@@ -743,6 +835,18 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   return (
     <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-start pt-safe animate-fade-in overflow-hidden transition-colors text-white select-none">
       
+      {/* FLOATING EMOJI LAYER */}
+      {floatingEmojis.map((em) => {
+        const isMine = (em.role === 1 && myPlayerSymbol === "X") || (em.role === 2 && myPlayerSymbol === "O");
+        return (
+          <div key={em.id} className={`absolute z-40 text-4xl animate-float-up pointer-events-none ${
+            isMine ? "right-10 bottom-10" : "left-10 top-10"
+          }`}>
+            {em.emoji}
+          </div>
+        );
+      })}
+
       {toast && (
         <div className="absolute top-20 z-[300] bg-[#CCFF00] text-black px-6 py-2.5 rounded-2xl font-headline font-bold text-xs shadow-2xl animate-fade-in">
           {toast}
@@ -762,9 +866,31 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
           </span>
         </div>
 
-        <button onClick={resetBoard} className="bg-white/5 hover:bg-white/10 text-[10px] font-black tracking-wider text-white px-3 py-2 rounded-xl border border-white/10 transition-colors shadow-sm active:scale-95 uppercase">
-          RESET
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Reaction Menu Button */}
+          <div className="relative">
+            <button
+              onClick={() => { soundEngine.playSFX("click"); setShowEmojiMenu(!showEmojiMenu); }}
+              className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10"
+            >
+              <span className="material-symbols-outlined text-base">add_reaction</span>
+            </button>
+            
+            {showEmojiMenu && (
+              <div className="absolute top-12 right-0 bg-[#18181b] border border-white/10 p-2 rounded-2xl shadow-2xl flex gap-1 z-50">
+                {EMOJIS.map((em) => (
+                  <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1 touch-manipulation">
+                    {em}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button onClick={resetBoard} className="bg-white/5 hover:bg-white/10 text-[10px] font-black tracking-wider text-white px-3 py-2 rounded-xl border border-white/10 transition-colors shadow-sm active:scale-95 uppercase">
+            RESET
+          </button>
+        </div>
       </div>
 
       {/* Score HUD */}
@@ -790,11 +916,21 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
           </div>
         </div>
 
-        <div className="h-6 flex items-center justify-center">
+        {/* Turn Indicator & Countdown Timer */}
+        <div className="h-8 flex items-center justify-center gap-3">
           {!winner && (
-            <span className="text-xs font-bold tracking-widest uppercase text-neutral-400">
-              Turn: <span className={turn === "X" ? "text-cyan-400 font-black" : "text-rose-400 font-black"}>{turn}</span>
-            </span>
+            <>
+              <div className={`flex items-center gap-1 px-3 py-0.5 rounded-full border shadow-sm backdrop-blur-md transition-colors ${
+                timeLeft <= 5 ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse" : "bg-[#18181b] border-white/10 text-[#CCFF00]"
+              }`}>
+                <span className="material-symbols-outlined text-xs">timer</span>
+                <span className="font-mono font-black text-xs">{timeLeft}s</span>
+              </div>
+
+              <span className="text-xs font-bold tracking-widest uppercase text-neutral-400">
+                Turn: <span className={turn === "X" ? "text-cyan-400 font-black" : "text-rose-400 font-black"}>{turn}</span>
+              </span>
+            </>
           )}
         </div>
       </div>

@@ -7,6 +7,7 @@ import { soundEngine } from "../../lib/soundManager";
 import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
+import MatchmakingModal from "../MatchmakingModal";
 
 interface ChessGameProps {
   onClose: () => void;
@@ -214,6 +215,10 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [entryFee, setEntryFee] = useState<number>(100);
   const [showNoPointsModal, setShowNoPointsModal] = useState(false);
+
+  // 🌐 MATCHMAKING MODAL STATES
+  const [showMatchmaker, setShowMatchmaker] = useState(false);
+  const [pendingMatch, setPendingMatch] = useState<{ matchId: string; role: number; isBot: boolean } | null>(null);
 
   // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
@@ -695,16 +700,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     const canPlay = await checkPointsAndDeduct();
     if (!canPlay) return;
 
-    setView("searching");
-    setTimeout(() => {
-      setView(prev => {
-        if (prev === "searching") {
-          setLocalOpponent(getRandomBotOpponent());
-          return "confirmed";
-        }
-        return prev;
-      });
-    }, 2800);
+    setShowMatchmaker(true);
   };
 
   const enterBotMatch = () => {
@@ -713,6 +709,28 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     setPlayerColor("white");
     setView("play");
     showToast(`Playing against ${localOpponent?.name || 'Bot'}`);
+  };
+
+  const enterConfirmedMatch = () => {
+    soundEngine.playSFX("click");
+    if (pendingMatch) {
+      setMatchId(pendingMatch.matchId);
+      setPlayerColor(pendingMatch.role === 1 ? "white" : "black");
+      
+      if (pendingMatch.isBot) {
+        setView("play");
+        showToast(`Playing against ${localOpponent?.name || 'Bot'}`);
+      } else {
+        // Real human: transition them to host or play so Supabase Realtime picks them up
+        setView(pendingMatch.role === 1 ? "host" : "play");
+      }
+    } else {
+      // Fallback just in case
+      setMatchId(`bot_match_${Date.now()}`);
+      setPlayerColor("white");
+      setView("play");
+      showToast(`Playing against ${localOpponent?.name || 'Bot'}`);
+    }
   };
 
   const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
@@ -775,6 +793,32 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
               </p>
             </div>
           </div>
+        )}
+
+        {/* GLOBAL MATCHMAKING OVERLAY */}
+        {showMatchmaker && (
+          <MatchmakingModal
+            gameKey="chess" 
+            gameName="Chess Arena"
+            userId={myUserId || ""}
+            onMatchFound={(matchData) => {
+              setShowMatchmaker(false);
+              setLocalOpponent(matchData.opponent);
+              
+              setPendingMatch({
+                matchId: matchData.matchId || `bot_match_${Date.now()}`,
+                role: (matchData as any).role || 1,
+                isBot: matchData.opponent.isBot || false
+              });
+              
+              // Go straight to confirmed screen
+              setView("confirmed"); 
+            }}
+            onCancel={() => {
+              soundEngine.playSFX("click");
+              setShowMatchmaker(false);
+            }}
+          />
         )}
 
         <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
@@ -867,27 +911,6 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
     );
   }
 
-  // LOCATING OPPONENT SCREEN
-  if (view === "searching") {
-    return (
-      <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-body select-none">
-        <div className="relative w-32 h-32 flex items-center justify-center mb-8">
-          <div className="absolute inset-0 border border-[#CCFF00]/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
-          <div className="absolute inset-4 border border-[#CCFF00]/20 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
-          <div className="absolute inset-8 border border-[#CCFF00]/10 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '1s' }}></div>
-          <div className="w-16 h-16 bg-[#CCFF00]/10 rounded-full flex items-center justify-center border border-[#CCFF00]/20 relative z-10">
-            <span className="material-symbols-outlined text-3xl text-[#CCFF00]">search</span>
-          </div>
-        </div>
-        <h2 className="font-headline font-black text-2xl text-white mb-2 uppercase">Locating Opponent</h2>
-        <p className="text-sm text-[#CCFF00] font-bold mb-12 animate-pulse">Searching global matchmaking pool...</p>
-        <button onClick={() => { soundEngine.playSFX("click"); setView("menu"); }} className="bg-[#18181b] text-white px-8 py-3 rounded-full font-headline font-bold text-sm border border-white/10 hover:bg-white/10 transition-colors active:scale-95 uppercase touch-manipulation">
-          Abort Search
-        </button>
-      </div>
-    );
-  }
-
   // MATCH CONFIRMED SCREEN
   if (view === "confirmed") {
     return (
@@ -918,7 +941,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
           <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
         </p>
 
-        <button onClick={enterBotMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] touch-manipulation">
+        <button onClick={enterConfirmedMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] touch-manipulation">
           Enter Match <span className="material-symbols-outlined">arrow_forward</span>
         </button>
       </div>
