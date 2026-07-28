@@ -721,15 +721,10 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
         setView("play");
         showToast(`Playing against ${localOpponent?.name || 'Bot'}`);
       } else {
-        // Real human: transition them to host or play so Supabase Realtime picks them up
-        setView(pendingMatch.role === 1 ? "host" : "play");
+        setView("play");
       }
     } else {
-      // Fallback just in case
-      setMatchId(`bot_match_${Date.now()}`);
-      setPlayerColor("white");
-      setView("play");
-      showToast(`Playing against ${localOpponent?.name || 'Bot'}`);
+      enterBotMatch();
     }
   };
 
@@ -807,7 +802,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
               
               setPendingMatch({
                 matchId: matchData.matchId || `bot_match_${Date.now()}`,
-                role: (matchData as any).role || 1,
+                role: matchData.role || 1,
                 isBot: matchData.opponent.isBot || false
               });
               

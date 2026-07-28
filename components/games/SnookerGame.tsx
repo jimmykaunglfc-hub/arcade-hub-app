@@ -1444,15 +1444,11 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         setPlayMode("bot");
         setToast({ msg: `Playing against ${localOpponent?.name || "Bot"}`, type: "success" });
       } else {
-        // Real human: transition them to host or join so Supabase Realtime picks them up
-        setPlayMode(pendingMatch.role === 1 ? "host" : "join");
+        // Transition both real human players directly into live online play
+        setPlayMode("online");
       }
     } else {
-      // Fallback
-      setMatchId(`bot_match_${Date.now()}`);
-      setMyPlayerRole(1);
-      setPlayMode("bot");
-      setToast({ msg: `Playing against ${localOpponent?.name || "Bot"}`, type: "success" });
+      enterBotMatch();
     }
   };
 
@@ -1561,7 +1557,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
             setPendingMatch({
               matchId: matchData.matchId || `bot_match_${Date.now()}`,
-              role: (matchData as any).role || 1,
+              role: (matchData.role as 1 | 2) || 1,
               isBot: matchData.opponent.isBot || false,
             });
 

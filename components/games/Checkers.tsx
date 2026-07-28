@@ -478,7 +478,7 @@ export default function Checkers({
     setPlayMode("bot");
   };
 
-  const enterConfirmedMatch = () => {
+  const enterConfirmedMatch = async () => {
     soundEngine.playSFX("click");
     if (pendingMatch) {
       setMatchId(pendingMatch.matchId);
@@ -487,14 +487,21 @@ export default function Checkers({
       if (pendingMatch.isBot) {
         setPlayMode("bot");
       } else {
-        // Real human: transition them to host or join so Supabase Realtime picks them up
-        setPlayMode(pendingMatch.role === P1 ? "host" : "join");
+        // Initialize match record in DB if Player 1
+        if (pendingMatch.role === P1 && myUserId) {
+          await supabase.from('checkers_matches').upsert({
+            id: pendingMatch.matchId,
+            p1_id: myUserId,
+            board: INITIAL_BOARD,
+            turn: P1,
+            status: 'playing'
+          });
+        }
+        // Transition human players directly into active online arena
+        setPlayMode("online");
       }
     } else {
-      // Fallback just in case
-      setMatchId(`bot_match_${Date.now()}`);
-      setMyPlayerRole(P1);
-      setPlayMode("bot");
+      enterBotMatch();
     }
   };
 
@@ -726,7 +733,7 @@ export default function Checkers({
             
             setPendingMatch({
               matchId: matchData.matchId || `bot_match_${Date.now()}`,
-              role: (matchData as any).role || P1,
+              role: matchData.role || P1,
               isBot: matchData.opponent.isBot || false
             });
             

@@ -670,11 +670,11 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         setPlayMode("bot");
         setToast({ msg: `Playing against ${localOpponent?.name || 'Bot'}`, type: 'success' });
       } else {
-        // Real human: transition them to host or join so Supabase Realtime picks them up
-        setPlayMode(pendingMatch.role === 1 ? "host" : "join");
+        // Route public human players directly into live online play mode
+        setPlayMode("online");
       }
     } else {
-      // Fallback just in case
+      // Fallback
       setMatchId(`bot_match_${Date.now()}`);
       setMyPlayerRole(1);
       setPlayMode("bot");
@@ -1242,7 +1242,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
             
             setPendingMatch({
               matchId: matchData.matchId || `bot_match_${Date.now()}`,
-              role: (matchData as any) .role || 1,
+              role: (matchData.role as 1 | 2) || 1,
               isBot: matchData.opponent.isBot || false
             });
             

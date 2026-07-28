@@ -554,8 +554,9 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
       if (pendingMatch.isBot) {
         startNewGame("ai_unbeatable", localOpponent);
       } else {
-        setView(pendingMatch.role === 1 ? "host" : "play");
+        // Direct transition into live online gameplay for both human players
         setGameMode("pvp");
+        setView("play");
       }
     } else {
       enterBotMatch();
@@ -645,7 +646,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
 
               setPendingMatch({
                 matchId: matchData.matchId || `bot_match_${Date.now()}`,
-                role: (matchData as any).role || 1,
+                role: (matchData.role as number) || 1,
                 isBot: matchData.opponent.isBot || false,
               });
 

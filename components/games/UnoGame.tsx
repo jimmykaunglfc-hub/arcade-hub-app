@@ -360,7 +360,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
       if (pendingMatch.isBot) {
         startModeGame("quick", localOpponent);
       } else {
-        setView(pendingMatch.role === 1 ? "host" : "play");
+        startModeGame("quick", localOpponent);
       }
     } else {
       enterBotMatch();
@@ -741,7 +741,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
               setPendingMatch({
                 matchId: matchData.matchId || `bot_match_${Date.now()}`,
-                role: (matchData as any).role || 1,
+                role: (matchData.role as number) || 1,
                 isBot: matchData.opponent.isBot || false,
               });
 
