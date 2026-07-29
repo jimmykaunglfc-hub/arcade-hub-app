@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   Coins,
+  Diamond,
   Ban,
   UserCheck,
   Edit3,
@@ -38,7 +39,8 @@ export default function UserManagementPage() {
   // --- FORM EDIT STATES ---
   const [editRole, setEditRole] = useState("user");
   const [editIsBanned, setEditIsBanned] = useState(false);
-  const [pointDelta, setPointDelta] = useState<number | "">("");
+  const [currencyType, setCurrencyType] = useState<"points" | "gems">("points");
+  const [balanceDelta, setBalanceDelta] = useState<number | "">("");
   const [deltaType, setDeltaType] = useState<"add" | "deduct">("add");
 
   useEffect(() => {
@@ -68,7 +70,8 @@ export default function UserManagementPage() {
     setSelectedUser(user);
     setEditRole(user.role || "user");
     setEditIsBanned(user.is_banned || false);
-    setPointDelta("");
+    setCurrencyType("points");
+    setBalanceDelta("");
     setDeltaType("add");
     setIsModalOpen(true);
   };
@@ -79,17 +82,20 @@ export default function UserManagementPage() {
     setSaving(true);
 
     try {
-      let currentPoints = selectedUser.points || 0;
-      if (pointDelta !== "" && Number(pointDelta) > 0) {
-        const delta = Number(pointDelta);
-        currentPoints = deltaType === "add" ? currentPoints + delta : Math.max(0, currentPoints - delta);
-      }
-
-      const updates = {
+      const updates: any = {
         role: editRole,
         is_banned: editIsBanned,
-        points: currentPoints,
       };
+
+      // Process Currency Adjustments
+      if (balanceDelta !== "" && Number(balanceDelta) > 0) {
+        const delta = Number(balanceDelta);
+        const currentBalance = selectedUser[currencyType] || 0;
+        
+        updates[currencyType] = deltaType === "add" 
+          ? currentBalance + delta 
+          : Math.max(0, currentBalance - delta);
+      }
 
       const { error } = await supabase
         .from("profiles")
@@ -112,6 +118,7 @@ export default function UserManagementPage() {
   const adminCount = users.filter((u) => u.role === "admin" || u.role === "super_admin").length;
   const bannedCount = users.filter((u) => u.is_banned).length;
   const totalPointsCirculating = users.reduce((acc, u) => acc + (u.points || 0), 0);
+  const totalGemsCirculating = users.reduce((acc, u) => acc + (u.gems || 0), 0);
 
   // --- FILTERED USERS ---
   const filteredUsers = users.filter((user) => {
@@ -154,7 +161,7 @@ export default function UserManagementPage() {
       </header>
 
       {/* METRICS CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <div className="bg-[#18181b] border border-white/10 rounded-[20px] p-5 flex items-center gap-4 shadow-xl">
           <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
             <Users className="w-6 h-6 text-indigo-400" />
@@ -207,6 +214,20 @@ export default function UserManagementPage() {
             </p>
             <p className="font-headline text-2xl font-black text-amber-400 mt-0.5">
               {totalPointsCirculating.toLocaleString()}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-[#18181b] border border-purple-500/20 rounded-[20px] p-5 flex items-center gap-4 shadow-xl">
+          <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+            <Diamond className="w-6 h-6 text-purple-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
+              Circulating Gems
+            </p>
+            <p className="font-headline text-2xl font-black text-purple-400 mt-0.5">
+              {totalGemsCirculating.toLocaleString()}
             </p>
           </div>
         </div>
@@ -281,13 +302,13 @@ export default function UserManagementPage() {
                     Role
                   </th>
                   <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
-                    Points Balance
+                    Points
+                  </th>
+                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                    Gems
                   </th>
                   <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
                     Status
-                  </th>
-                  <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-neutral-500">
-                    Joined
                   </th>
                   <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-neutral-500 text-right">
                     Actions
@@ -348,6 +369,14 @@ export default function UserManagementPage() {
                       </span>
                     </td>
 
+                    {/* GEMS */}
+                    <td className="p-4">
+                      <span className="font-headline font-black text-purple-400 flex items-center gap-1">
+                        <Diamond className="w-3.5 h-3.5" />
+                        {(user.gems || 0).toLocaleString()} GEMS
+                      </span>
+                    </td>
+
                     {/* STATUS */}
                     <td className="p-4">
                       {user.is_banned ? (
@@ -359,11 +388,6 @@ export default function UserManagementPage() {
                           <UserCheck className="w-3 h-3" /> Active
                         </span>
                       )}
-                    </td>
-
-                    {/* JOINED DATE */}
-                    <td className="p-4 text-neutral-400 font-mono text-[11px]">
-                      {user.created_at ? new Date(user.created_at).toLocaleDateString() : "N/A"}
                     </td>
 
                     {/* ACTIONS */}
@@ -435,20 +459,44 @@ export default function UserManagementPage() {
                 </select>
               </div>
 
-              {/* MANUAL POINT ADJUSTMENT */}
-              <div className="space-y-2 bg-white/[0.02] p-3.5 rounded-xl border border-white/5">
+              {/* MANUAL BALANCE ADJUSTMENT */}
+              <div className="space-y-3 bg-white/[0.02] p-3.5 rounded-xl border border-white/5">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 flex items-center justify-between">
-                  <span>Adjust Points</span>
-                  <span className="text-amber-400 font-mono">Current: {(selectedUser.points || 0).toLocaleString()} PTS</span>
+                  <span>Adjust Balance</span>
+                  <span className={currencyType === "points" ? "text-amber-400 font-mono" : "text-purple-400 font-mono"}>
+                    Current: {(selectedUser[currencyType] || 0).toLocaleString()} {currencyType === "points" ? "PTS" : "GEMS"}
+                  </span>
                 </label>
+
+                {/* Currency Toggle */}
+                <div className="flex bg-white/5 border border-white/10 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => { setCurrencyType("points"); setBalanceDelta(""); }}
+                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      currencyType === "points" ? "bg-[#18181b] text-amber-400 shadow-md" : "text-neutral-500 hover:text-white"
+                    }`}
+                  >
+                    <Coins className="w-3.5 h-3.5" /> Points
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCurrencyType("gems"); setBalanceDelta(""); }}
+                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      currencyType === "gems" ? "bg-[#18181b] text-purple-400 shadow-md" : "text-neutral-500 hover:text-white"
+                    }`}
+                  >
+                    <Diamond className="w-3.5 h-3.5" /> Gems
+                  </button>
+                </div>
 
                 <div className="flex gap-2">
                   <div className="flex bg-white/5 border border-white/10 p-1 rounded-xl">
                     <button
                       type="button"
                       onClick={() => setDeltaType("add")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 ${
-                        deltaType === "add" ? "bg-emerald-500 text-black" : "text-neutral-400 hover:text-white"
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors ${
+                        deltaType === "add" ? "bg-emerald-500 text-black" : "text-neutral-500 hover:text-white"
                       }`}
                     >
                       <Plus className="w-3 h-3" /> Add
@@ -456,8 +504,8 @@ export default function UserManagementPage() {
                     <button
                       type="button"
                       onClick={() => setDeltaType("deduct")}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 ${
-                        deltaType === "deduct" ? "bg-rose-500 text-white" : "text-neutral-400 hover:text-white"
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors ${
+                        deltaType === "deduct" ? "bg-rose-500 text-white" : "text-neutral-500 hover:text-white"
                       }`}
                     >
                       <Minus className="w-3 h-3" /> Deduct
@@ -467,16 +515,16 @@ export default function UserManagementPage() {
                   <input
                     type="number"
                     min="1"
-                    value={pointDelta}
-                    onChange={(e) => setPointDelta(e.target.value === "" ? "" : Number(e.target.value))}
+                    value={balanceDelta}
+                    onChange={(e) => setBalanceDelta(e.target.value === "" ? "" : Number(e.target.value))}
                     placeholder="Amount..."
-                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                    className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
                   />
                 </div>
               </div>
 
               {/* BAN / UNBAN TOGGLE */}
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.02] border border-white/5">
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.02] border border-white/5 mt-2">
                 <div>
                   <p className="text-xs font-bold text-white">Account Suspension</p>
                   <p className="text-[10px] text-neutral-500">Block player from logging in or using store.</p>
