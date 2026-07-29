@@ -40,9 +40,14 @@ export default function Checkers({
 }: CheckersProps) {
 
   // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
-  const { modifiers } = useEquippedCosmetic("checkers");
-  // If modifiers exist, the user has equipped a cosmetic board
-  const isCyberBoard = !!modifiers;
+  // We extract the cosmetic object to access the image_url you uploaded in the admin panel
+  const { modifiers, cosmetic } = useEquippedCosmetic("checkers") as any;
+  
+  // Safely extract the image URL whether it is attached to the cosmetic record directly or nested in store_items
+  const customBoardImage = cosmetic?.image_url || cosmetic?.store_items?.image_url || modifiers?.image_url || null;
+  
+  // Fallback for hardcoded modifiers if no image is present
+  const isCyberBoard = !customBoardImage && !!modifiers;
 
   // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
   const [userPoints, setUserPoints] = useState<number | null>(null);
@@ -1061,24 +1066,33 @@ export default function Checkers({
 
             {/* CHECKERS BOARD FRAME */}
             <div className={`w-full max-h-full aspect-square rounded-[1.5rem] p-3 shadow-2xl border transition-all duration-300 relative ${
-              isCyberBoard
+              customBoardImage 
+                ? "bg-[#2a2a2a] border-white/20 shadow-[0_0_30px_rgba(0,0,0,0.5)]"
+                : isCyberBoard
                 ? "bg-[#09090b] border-[#CCFF00] shadow-[0_0_30px_rgba(204,255,0,0.25)]"
                 : "bg-[#e6c48f] border-[#cfaa75]"
             }`}>
-              <div className={`w-full h-full grid grid-cols-8 grid-rows-8 border-4 shadow-inner transition-transform duration-500 ${
-                isCyberBoard ? "border-[#CCFF00]/40" : "border-[#333]"
-              } ${shouldFlipBoard ? "rotate-180" : "rotate-0"}`}>
+              <div 
+                className={`w-full h-full grid grid-cols-8 grid-rows-8 border-4 shadow-inner transition-transform duration-500 overflow-hidden ${
+                  customBoardImage ? "border-white/20" : isCyberBoard ? "border-[#CCFF00]/40" : "border-[#333]"
+                } ${shouldFlipBoard ? "rotate-180" : "rotate-0"}`}
+                style={customBoardImage ? { backgroundImage: `url(${customBoardImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+              >
                 {viewIndices.map((r) => 
                   viewIndices.map((c) => {
                     const playable = isPlayableSquare(r, c);
                     
-                    const squareClass = playable 
-                      ? isCyberBoard
-                        ? "bg-[#09090b] shadow-[inset_0_0_10px_rgba(204,255,0,0.1)] cursor-pointer"
-                        : "bg-[#1a1a1a] shadow-[inset_0_2px_6px_rgba(0,0,0,0.5)] cursor-pointer" 
-                      : isCyberBoard
-                        ? "bg-[#18181b]"
-                        : "bg-[#e6c48f]";
+                    // If custom image is used, make unplayable squares transparent so the board image shows,
+                    // and give playable squares a slight dark tint for visibility.
+                    const squareClass = customBoardImage
+                      ? playable ? "bg-black/30 hover:bg-black/10 cursor-pointer shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]" : "bg-transparent"
+                      : playable 
+                        ? isCyberBoard
+                          ? "bg-[#09090b] shadow-[inset_0_0_10px_rgba(204,255,0,0.1)] cursor-pointer"
+                          : "bg-[#1a1a1a] shadow-[inset_0_2px_6px_rgba(0,0,0,0.5)] cursor-pointer" 
+                        : isCyberBoard
+                          ? "bg-[#18181b]"
+                          : "bg-[#e6c48f]";
                     
                     const isSelected = selected?.r === r && selected?.c === c;
                     const isTarget = activeMoveTargets.some((m) => m.r === r && m.c === c);
@@ -1106,12 +1120,12 @@ export default function Checkers({
                         key={`${r}-${c}`}
                         onClick={() => playable && handleSquareClick(r, c)}
                         className={`relative w-full h-full flex items-center justify-center transition-colors touch-manipulation ${squareClass} ${
-                          isSelected ? (isCyberBoard ? "ring-inset ring-2 ring-[#CCFF00] bg-[#CCFF00]/20" : "ring-inset ring-2 ring-[#4f46e5] bg-indigo-900/40") : ""
-                        } ${isTarget ? (isCyberBoard ? "bg-[#CCFF00]/40" : "bg-[#CCFF00]/30") : ""}`}
+                          isSelected ? (isCyberBoard || customBoardImage ? "ring-inset ring-2 ring-[#CCFF00] bg-[#CCFF00]/20" : "ring-inset ring-2 ring-[#4f46e5] bg-indigo-900/40") : ""
+                        } ${isTarget ? (isCyberBoard || customBoardImage ? "bg-[#CCFF00]/40" : "bg-[#CCFF00]/30") : ""}`}
                       >
                         {isTarget && (
                           <div className={`w-3 h-3 rounded-full animate-pulse ${
-                            isCyberBoard ? "bg-[#CCFF00] shadow-[0_0_15px_rgba(204,255,0,1)]" : "bg-[#CCFF00] shadow-[0_0_10px_rgba(204,255,0,0.8)]"
+                            isCyberBoard || customBoardImage ? "bg-[#CCFF00] shadow-[0_0_15px_rgba(204,255,0,1)]" : "bg-[#CCFF00] shadow-[0_0_10px_rgba(204,255,0,0.8)]"
                           }`}></div>
                         )}
 
