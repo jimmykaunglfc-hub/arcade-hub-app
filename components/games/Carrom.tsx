@@ -144,10 +144,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               .in("id", cosmeticIds);
 
             if (storeData && storeData.length > 0) {
+              // 🎯 TARGETED MATCHER: Specifically match striker/carrom/disc items and exclude boards
               const strikerItem = storeData.find((item: any) => {
                 const name = (item.name || "").toLowerCase();
-                return name.includes("striker") || name.includes("carrom") || name.includes("royal");
-              }) || storeData[0];
+                const isCarromItem = name.includes("striker") || name.includes("carrom") || name.includes("disc");
+                const isBoard = name.includes("board") || name.includes("checkers");
+                return isCarromItem && !isBoard;
+              });
 
               if (strikerItem?.image_url) {
                 console.log("Equipped Striker Loaded:", strikerItem.image_url);
@@ -1297,7 +1300,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               isBot: matchData.opponent.isBot || false
             });
             
-            // Go straight to confirmed screen
             setPlayMode("confirmed"); 
           }}
           onCancel={() => {
