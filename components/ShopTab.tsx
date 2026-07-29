@@ -174,22 +174,35 @@ export default function ShopTab({ userId }: ShopTabProps) {
       return;
     }
 
-    // Pass the required price_points to the RPC (ensure your RPC is updated to check this value!)
+    // Call the RPC function
     const { data: success, error } = await supabase.rpc("buy_cosmetic", {
       p_user_id: userId,
       p_cosmetic_id: item.id,
       p_price: item.price_points 
     });
 
-    if (error || !success) {
+    // Handle Database/RPC Errors directly
+    if (error) {
+      console.error("Purchase Error:", error);
       soundEngine.playSFX("defeat");
       setRewardModal({
-        title: "INSUFFICIENT FUNDS",
-        desc: `You need ${item.price_points.toLocaleString()} ${item.price_currency.toUpperCase()} to unlock ${item.name}.`,
+        title: "TRANSACTION FAILED",
+        desc: `System Error: ${error.message}. Ensure your database RPC and Foreign Keys are updated.`,
       });
       return;
     }
 
+    // Handle Insufficient Funds
+    if (!success) {
+      soundEngine.playSFX("defeat");
+      setRewardModal({
+        title: "INSUFFICIENT FUNDS",
+        desc: `You need ${item.price_points.toLocaleString()} ${(item.price_currency || 'GEMS').toUpperCase()} to unlock ${item.name}.`,
+      });
+      return;
+    }
+
+    // Success
     soundEngine.playSFX("victory");
     fetchStoreData();
     setRewardModal({
