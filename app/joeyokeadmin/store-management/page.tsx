@@ -39,7 +39,9 @@ export default function StoreManagement() {
   const [formSku, setFormSku] = useState("");
   const [formDesc, setFormDesc] = useState("");
   const [formCategory, setFormCategory] = useState("digital");
-  const [formPrice, setFormPrice] = useState<number | "">(100);
+  const [formPricePoints, setFormPricePoints] = useState<number | "">(100);
+  const [formPriceFiat, setFormPriceFiat] = useState<number | "">("");
+  const [formPriceCurrency, setFormPriceCurrency] = useState("points");
   const [formStock, setFormStock] = useState<number | "">(-1);
   const [isInfiniteStock, setIsInfiniteStock] = useState(true);
   const [formIsActive, setFormIsActive] = useState(true);
@@ -75,7 +77,9 @@ export default function StoreManagement() {
     setFormSku(`SKU-${Math.floor(1000 + Math.random() * 9000)}`);
     setFormDesc("");
     setFormCategory("digital");
-    setFormPrice(100);
+    setFormPricePoints(100);
+    setFormPriceFiat("");
+    setFormPriceCurrency("points");
     setFormStock(-1);
     setIsInfiniteStock(true);
     setFormIsActive(true);
@@ -90,7 +94,9 @@ export default function StoreManagement() {
     setFormSku(item.sku);
     setFormDesc(item.description || "");
     setFormCategory(item.category || "digital");
-    setFormPrice(item.price_points ?? 0);
+    setFormPricePoints(item.price_points ?? 0);
+    setFormPriceFiat(item.price_fiat ?? "");
+    setFormPriceCurrency(item.price_currency || "points");
     const stockVal = item.stock_quantity ?? -1;
     setFormStock(stockVal);
     setIsInfiniteStock(stockVal === -1);
@@ -106,6 +112,18 @@ export default function StoreManagement() {
       if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
       if (file.size > 2 * 1024 * 1024) return alert("File size too large. Max 2MB.");
       setFormImageFile(file);
+    }
+  };
+
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setFormCategory(val);
+    if (val === "currency") {
+      setFormPriceCurrency("fiat_usd");
+      setFormPricePoints(0);
+    } else if (formPriceCurrency === "fiat_usd") {
+      setFormPriceCurrency("points");
+      setFormPriceFiat("");
     }
   };
 
@@ -141,7 +159,9 @@ export default function StoreManagement() {
         sku: formSku.trim().toUpperCase(),
         description: formDesc.trim(),
         category: formCategory,
-        price_points: formPrice === "" ? 0 : Number(formPrice),
+        price_points: formCategory === "currency" ? 0 : (formPricePoints === "" ? 0 : Number(formPricePoints)),
+        price_fiat: formCategory === "currency" ? (formPriceFiat === "" ? null : Number(formPriceFiat)) : null,
+        price_currency: formPriceCurrency,
         stock_quantity: finalStock,
         is_active: formIsActive,
         image_url: finalImageUrl || "https://img.icons8.com/color/96/present.png",
@@ -239,7 +259,7 @@ export default function StoreManagement() {
             <option value="all" className="bg-[#18181b]">All Categories</option>
             <option value="digital" className="bg-[#18181b]">Digital Cosmetics</option>
             <option value="physical" className="bg-[#18181b]">Physical Prizes</option>
-            <option value="currency" className="bg-[#18181b]">Token Packs</option>
+            <option value="currency" className="bg-[#18181b]">Token / Gem Packs</option>
           </select>
         </div>
       </div>
@@ -314,7 +334,7 @@ export default function StoreManagement() {
                       item.category === "physical" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
                       "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                     }`}>
-                      {item.category}
+                      {item.category === "currency" ? "Gem Pack" : item.category}
                     </span>
                   </div>
                   <h3 className="font-headline text-base font-black text-white tracking-wide truncate mt-1">{item.name}</h3>
@@ -325,10 +345,12 @@ export default function StoreManagement() {
               <div className="p-6 flex-1 flex flex-col justify-end space-y-4 bg-white/[0.02]">
                 <div className="flex items-center justify-between">
                   <span className="font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Coins className="w-3.5 h-3.5 text-amber-500" /> Price
+                    <Coins className={`w-3.5 h-3.5 ${item.price_currency === 'fiat_usd' ? 'text-emerald-500' : item.price_currency === 'gems' ? 'text-indigo-400' : 'text-amber-500'}`} /> Price
                   </span>
                   <span className="font-headline text-base font-black text-[#CCFF00] drop-shadow-[0_0_10px_rgba(204,255,0,0.15)]">
-                    {item.price_points.toLocaleString()} PTS
+                    {item.price_currency === 'fiat_usd' 
+                      ? `$${Number(item.price_fiat).toFixed(2)} USD` 
+                      : `${item.price_points.toLocaleString()} ${item.price_currency.toUpperCase()}`}
                   </span>
                 </div>
 
@@ -346,7 +368,7 @@ export default function StoreManagement() {
         </div>
       )}
 
-      {/* --- PORTALED MODAL (Fixes Backdrop Overflow Bug) --- */}
+      {/* --- PORTALED MODAL --- */}
       {isModalOpen && mounted && createPortal(
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
           <div className="bg-[#18181b] border border-white/10 rounded-[28px] p-6 w-full max-w-md shadow-2xl max-h-[85vh] flex flex-col my-auto">
@@ -397,12 +419,12 @@ export default function StoreManagement() {
                   <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Category</label>
                   <select 
                     value={formCategory} 
-                    onChange={(e) => setFormCategory(e.target.value)} 
+                    onChange={handleCategoryChange} 
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors appearance-none cursor-pointer"
                   >
                     <option value="digital" className="bg-[#18181b]">Digital Cosmetic</option>
                     <option value="physical" className="bg-[#18181b]">Physical Prize</option>
-                    <option value="currency" className="bg-[#18181b]">Token Pack</option>
+                    <option value="currency" className="bg-[#18181b]">Token / Gem Pack</option>
                   </select>
                 </div>
               </div>
@@ -418,16 +440,55 @@ export default function StoreManagement() {
                 ></textarea>
               </div>
 
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Price (PTS)</label>
-                <input 
-                  type="number" 
-                  min="0" 
-                  value={formPrice} 
-                  onChange={(e) => setFormPrice(e.target.value === "" ? "" : Number(e.target.value))} 
-                  placeholder="100"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
-                />
+              {/* DYNAMIC PRICING SECTION */}
+              <div className="flex gap-3">
+                {formCategory === "currency" ? (
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Price (USD)</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      min="0" 
+                      value={formPriceFiat} 
+                      onChange={(e) => setFormPriceFiat(e.target.value === "" ? "" : Number(e.target.value))} 
+                      placeholder="e.g. 4.99"
+                      required
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
+                    />
+                  </div>
+                ) : (
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Price Amount</label>
+                    <input 
+                      type="number" 
+                      min="0" 
+                      value={formPricePoints} 
+                      onChange={(e) => setFormPricePoints(e.target.value === "" ? "" : Number(e.target.value))} 
+                      placeholder="100"
+                      required
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
+                    />
+                  </div>
+                )}
+                
+                <div className="flex-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Currency</label>
+                  <select 
+                    value={formPriceCurrency} 
+                    onChange={(e) => setFormPriceCurrency(e.target.value)} 
+                    disabled={formCategory === "currency"}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {formCategory === "currency" ? (
+                      <option value="fiat_usd" className="bg-[#18181b]">Fiat (USD)</option>
+                    ) : (
+                      <>
+                        <option value="points" className="bg-[#18181b]">Points (PTS)</option>
+                        <option value="gems" className="bg-[#18181b]">Gems</option>
+                      </>
+                    )}
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-2 bg-white/[0.02] p-3 rounded-xl border border-white/5">
