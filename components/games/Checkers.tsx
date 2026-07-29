@@ -45,7 +45,7 @@ export default function Checkers({
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // 1. Fetch equipped items from user_inventory
+        // Fetch equipped items from user_inventory
         const { data: invData } = await supabase
           .from("user_inventory")
           .select("*")
@@ -56,7 +56,7 @@ export default function Checkers({
           const cosmeticIds = invData.map((inv: any) => inv.cosmetic_id).filter(Boolean);
 
           if (cosmeticIds.length > 0) {
-            // 2. Fetch corresponding item details from store_items
+            // Fetch corresponding item details from store_items
             const { data: storeData } = await supabase
               .from("store_items")
               .select("*")
@@ -529,7 +529,6 @@ export default function Checkers({
       if (pendingMatch.isBot) {
         setPlayMode("bot");
       } else {
-        // Initialize match record in DB if Player 1
         if (pendingMatch.role === P1 && myUserId) {
           await supabase.from('checkers_matches').upsert({
             id: pendingMatch.matchId,
@@ -539,7 +538,6 @@ export default function Checkers({
             status: 'playing'
           });
         }
-        // Transition human players directly into active online arena
         setPlayMode("online");
       }
     } else {
@@ -779,7 +777,6 @@ export default function Checkers({
               isBot: matchData.opponent.isBot || false
             });
             
-            // Go straight to confirmed screen
             setPlayMode("confirmed"); 
           }}
           onCancel={() => {
@@ -1099,23 +1096,32 @@ export default function Checkers({
             )}
 
             {/* CHECKERS BOARD FRAME */}
-            <div className={`w-full max-h-full aspect-square rounded-[1.5rem] p-3 shadow-2xl border transition-all duration-300 relative ${
-              customBoardImage 
-                ? "bg-[#2a2a2a] border-white/20 shadow-[0_0_30px_rgba(0,0,0,0.5)]"
-                : "bg-[#e6c48f] border-[#cfaa75]"
-            }`}>
+            <div 
+              className={`w-full max-h-full aspect-square rounded-[1.5rem] shadow-2xl transition-all duration-300 relative overflow-hidden flex items-center justify-center ${
+                customBoardImage 
+                  ? "border-2 border-amber-500/40 shadow-[0_0_30px_rgba(0,0,0,0.8)]"
+                  : "bg-[#e6c48f] border-[#cfaa75] p-3"
+              }`}
+              style={customBoardImage ? { 
+                backgroundImage: `url(${customBoardImage})`, 
+                backgroundSize: '100% 100%', 
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+              } : {}}
+            >
               <div 
-                className={`w-full h-full grid grid-cols-8 grid-rows-8 border-4 shadow-inner transition-transform duration-500 overflow-hidden ${
-                  customBoardImage ? "border-white/20" : "border-[#333]"
+                className={`w-full h-full grid grid-cols-8 grid-rows-8 transition-transform duration-500 ${
+                  customBoardImage ? "p-[7.5%]" : "border-4 border-[#333] shadow-inner"
                 } ${shouldFlipBoard ? "rotate-180" : "rotate-0"}`}
-                style={customBoardImage ? { backgroundImage: `url(${customBoardImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
               >
                 {viewIndices.map((r) => 
                   viewIndices.map((c) => {
                     const playable = isPlayableSquare(r, c);
                     
                     const squareClass = customBoardImage
-                      ? playable ? "bg-black/30 hover:bg-black/10 cursor-pointer shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]" : "bg-transparent"
+                      ? playable 
+                        ? "bg-transparent hover:bg-white/10 cursor-pointer rounded-sm" 
+                        : "bg-transparent"
                       : playable 
                         ? "bg-[#1a1a1a] shadow-[inset_0_2px_6px_rgba(0,0,0,0.5)] cursor-pointer" 
                         : "bg-[#e6c48f]";
@@ -1130,12 +1136,12 @@ export default function Checkers({
                     let starColor = "";
                     
                     if (piece === P1 || piece === P1_KING) {
-                      pieceOuter = "bg-[#f3ead3] shadow-[0_4px_6px_rgba(0,0,0,0.5)]";
+                      pieceOuter = "bg-[#f3ead3] shadow-[0_4px_8px_rgba(0,0,0,0.7)]";
                       pieceRing = "border-[#dccfb4]";
                       pieceCenter = "bg-[#dccfb4]";
                       starColor = "text-[#bdae93]";
                     } else if (piece === P2 || piece === P2_KING) {
-                      pieceOuter = "bg-[#4d2f1d] shadow-[0_4px_6px_rgba(0,0,0,0.6)]";
+                      pieceOuter = "bg-[#4d2f1d] shadow-[0_4px_8px_rgba(0,0,0,0.8)]";
                       pieceRing = "border-[#362114]";
                       pieceCenter = "bg-[#362114]";
                       starColor = "text-[#24160d]";
@@ -1146,11 +1152,11 @@ export default function Checkers({
                         key={`${r}-${c}`}
                         onClick={() => playable && handleSquareClick(r, c)}
                         className={`relative w-full h-full flex items-center justify-center transition-colors touch-manipulation ${squareClass} ${
-                          isSelected ? "ring-inset ring-2 ring-[#CCFF00] bg-[#CCFF00]/20" : ""
-                        } ${isTarget ? "bg-[#CCFF00]/40" : ""}`}
+                          isSelected ? "ring-inset ring-2 ring-[#CCFF00] bg-[#CCFF00]/30 shadow-[0_0_15px_rgba(204,255,0,0.5)] rounded-sm" : ""
+                        } ${isTarget ? "bg-[#CCFF00]/30 rounded-sm" : ""}`}
                       >
                         {isTarget && (
-                          <div className="w-3 h-3 rounded-full animate-pulse bg-[#CCFF00] shadow-[0_0_15px_rgba(204,255,0,1)]"></div>
+                          <div className="w-3.5 h-3.5 rounded-full animate-pulse bg-[#CCFF00] shadow-[0_0_15px_rgba(204,255,0,1)] z-10"></div>
                         )}
 
                         {piece !== EMPTY && (
