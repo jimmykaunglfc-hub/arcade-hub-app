@@ -7,9 +7,6 @@ import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 import MatchmakingModal from "../MatchmakingModal";
 
-// 🛍️ NEW: Live Database Cosmetic Hook
-import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
-
 const EMPTY = 0, P1 = 1, P2 = 2, P1_KING = 3, P2_KING = 4;
 const TURN_TIME_LIMIT = 30; // 30-second turn limit
 
@@ -39,15 +36,52 @@ export default function Checkers({
   opponent
 }: CheckersProps) {
 
-  // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
-  // We extract the cosmetic object to access the image_url you uploaded in the admin panel
-  const { modifiers, cosmetic } = useEquippedCosmetic("checkers") as any;
-  
-  // Safely extract the image URL whether it is attached to the cosmetic record directly or nested in store_items
-  const customBoardImage = cosmetic?.image_url || cosmetic?.store_items?.image_url || modifiers?.image_url || null;
-  
-  // Fallback for hardcoded modifiers if no image is present
-  const isCyberBoard = !customBoardImage && !!modifiers;
+  // 🛍️ DIRECT SUPABASE EQUIPPED COSMETIC FETCH ENGINE
+  const [customBoardImage, setCustomBoardImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchEquippedBoard = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // 1. Fetch equipped items from user_inventory
+        const { data: invData } = await supabase
+          .from("user_inventory")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("is_equipped", true);
+
+        if (invData && invData.length > 0) {
+          const cosmeticIds = invData.map((inv: any) => inv.cosmetic_id).filter(Boolean);
+
+          if (cosmeticIds.length > 0) {
+            // 2. Fetch corresponding item details from store_items
+            const { data: storeData } = await supabase
+              .from("store_items")
+              .select("*")
+              .in("id", cosmeticIds);
+
+            if (storeData && storeData.length > 0) {
+              const boardItem = storeData.find((item: any) => {
+                const name = (item.name || "").toLowerCase();
+                return name.includes("board") || name.includes("checkers") || name.includes("royal");
+              }) || storeData[0];
+
+              if (boardItem?.image_url) {
+                console.log("Equipped Board Loaded:", boardItem.image_url);
+                setCustomBoardImage(boardItem.image_url);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error loading equipped cosmetic board:", err);
+      }
+    };
+
+    fetchEquippedBoard();
+  }, []);
 
   // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
   const [userPoints, setUserPoints] = useState<number | null>(null);
@@ -1068,13 +1102,11 @@ export default function Checkers({
             <div className={`w-full max-h-full aspect-square rounded-[1.5rem] p-3 shadow-2xl border transition-all duration-300 relative ${
               customBoardImage 
                 ? "bg-[#2a2a2a] border-white/20 shadow-[0_0_30px_rgba(0,0,0,0.5)]"
-                : isCyberBoard
-                ? "bg-[#09090b] border-[#CCFF00] shadow-[0_0_30px_rgba(204,255,0,0.25)]"
                 : "bg-[#e6c48f] border-[#cfaa75]"
             }`}>
               <div 
                 className={`w-full h-full grid grid-cols-8 grid-rows-8 border-4 shadow-inner transition-transform duration-500 overflow-hidden ${
-                  customBoardImage ? "border-white/20" : isCyberBoard ? "border-[#CCFF00]/40" : "border-[#333]"
+                  customBoardImage ? "border-white/20" : "border-[#333]"
                 } ${shouldFlipBoard ? "rotate-180" : "rotate-0"}`}
                 style={customBoardImage ? { backgroundImage: `url(${customBoardImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
               >
@@ -1082,17 +1114,11 @@ export default function Checkers({
                   viewIndices.map((c) => {
                     const playable = isPlayableSquare(r, c);
                     
-                    // If custom image is used, make unplayable squares transparent so the board image shows,
-                    // and give playable squares a slight dark tint for visibility.
                     const squareClass = customBoardImage
                       ? playable ? "bg-black/30 hover:bg-black/10 cursor-pointer shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]" : "bg-transparent"
                       : playable 
-                        ? isCyberBoard
-                          ? "bg-[#09090b] shadow-[inset_0_0_10px_rgba(204,255,0,0.1)] cursor-pointer"
-                          : "bg-[#1a1a1a] shadow-[inset_0_2px_6px_rgba(0,0,0,0.5)] cursor-pointer" 
-                        : isCyberBoard
-                          ? "bg-[#18181b]"
-                          : "bg-[#e6c48f]";
+                        ? "bg-[#1a1a1a] shadow-[inset_0_2px_6px_rgba(0,0,0,0.5)] cursor-pointer" 
+                        : "bg-[#e6c48f]";
                     
                     const isSelected = selected?.r === r && selected?.c === c;
                     const isTarget = activeMoveTargets.some((m) => m.r === r && m.c === c);
@@ -1120,13 +1146,11 @@ export default function Checkers({
                         key={`${r}-${c}`}
                         onClick={() => playable && handleSquareClick(r, c)}
                         className={`relative w-full h-full flex items-center justify-center transition-colors touch-manipulation ${squareClass} ${
-                          isSelected ? (isCyberBoard || customBoardImage ? "ring-inset ring-2 ring-[#CCFF00] bg-[#CCFF00]/20" : "ring-inset ring-2 ring-[#4f46e5] bg-indigo-900/40") : ""
-                        } ${isTarget ? (isCyberBoard || customBoardImage ? "bg-[#CCFF00]/40" : "bg-[#CCFF00]/30") : ""}`}
+                          isSelected ? "ring-inset ring-2 ring-[#CCFF00] bg-[#CCFF00]/20" : ""
+                        } ${isTarget ? "bg-[#CCFF00]/40" : ""}`}
                       >
                         {isTarget && (
-                          <div className={`w-3 h-3 rounded-full animate-pulse ${
-                            isCyberBoard || customBoardImage ? "bg-[#CCFF00] shadow-[0_0_15px_rgba(204,255,0,1)]" : "bg-[#CCFF00] shadow-[0_0_10px_rgba(204,255,0,0.8)]"
-                          }`}></div>
+                          <div className="w-3 h-3 rounded-full animate-pulse bg-[#CCFF00] shadow-[0_0_15px_rgba(204,255,0,1)]"></div>
                         )}
 
                         {piece !== EMPTY && (
