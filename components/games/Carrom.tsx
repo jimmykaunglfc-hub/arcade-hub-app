@@ -16,7 +16,7 @@ const BOARD_SIZE = 1000;
 const FRAME_THICKNESS = 35;   
 const BOUND_MIN = FRAME_THICKNESS;
 const BOUND_MAX = BOARD_SIZE - FRAME_THICKNESS;
-const HOLE_POS = 42;         
+const HOLE_POS = 42;          
 const HOLE_RADIUS = 46;       
 const POCKET_TRIGGER = 44;    
 const STRIKER_RADIUS = 34;    
@@ -115,8 +115,54 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   
   // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
   const { modifiers } = useEquippedCosmetic("carrom");
-  // If modifiers exist, the user has equipped a cosmetic (trigger visual changes)
   const isNeonStriker = !!modifiers;
+
+  // 🛍️ DIRECT SUPABASE EQUIPPED COSMETIC FETCH ENGINE
+  const [customStrikerImage, setCustomStrikerImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchEquippedStriker = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Fetch equipped items from user_inventory
+        const { data: invData } = await supabase
+          .from("user_inventory")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("is_equipped", true);
+
+        if (invData && invData.length > 0) {
+          const cosmeticIds = invData.map((inv: any) => inv.cosmetic_id).filter(Boolean);
+
+          if (cosmeticIds.length > 0) {
+            // Fetch corresponding item details from store_items
+            const { data: storeData } = await supabase
+              .from("store_items")
+              .select("*")
+              .in("id", cosmeticIds);
+
+            if (storeData && storeData.length > 0) {
+              const strikerItem = storeData.find((item: any) => {
+                const name = (item.name || "").toLowerCase();
+                return name.includes("striker") || name.includes("carrom") || name.includes("royal");
+              }) || storeData[0];
+
+              if (strikerItem?.image_url) {
+                console.log("Equipped Striker Loaded:", strikerItem.image_url);
+                setCustomStrikerImage(strikerItem.image_url);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error loading equipped cosmetic striker:", err);
+      }
+    };
+
+    fetchEquippedStriker();
+  }, []);
 
   // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
   const [userPoints, setUserPoints] = useState<number | null>(null);
@@ -456,7 +502,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       const dist = Math.hypot(dx, dy);
       
       const botPower = 180 + Math.random() * 80; 
-      // The Bot always uses standard power. (No cosmetic advantage)
       const powerMultiplier = 0.22;
       const vx = (dx / dist) * botPower * powerMultiplier;
       const vy = (dy / dist) * botPower * powerMultiplier;
@@ -674,11 +719,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         setPlayMode("bot");
         setToast({ msg: `Playing against ${localOpponent?.name || 'Bot'}`, type: 'success' });
       } else {
-        // Route public human players directly into live online play mode
         setPlayMode("online");
       }
     } else {
-      // Fallback
       setMatchId(`bot_match_${Date.now()}`);
       setMyPlayerRole(1);
       setPlayMode("bot");
@@ -1635,6 +1678,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                       <stop offset="60%" stopColor="#88cc00" />
                       <stop offset="100%" stopColor="#334400" />
                     </radialGradient>
+
+                    {/* Dynamic Custom Image Cosmetic Striker Pattern */}
+                    {customStrikerImage && (
+                      <pattern id="vCustomStriker" width="1" height="1" viewBox={`0 0 ${STRIKER_RADIUS * 2} ${STRIKER_RADIUS * 2}`}>
+                        <image href={customStrikerImage} x="0" y="0" width={STRIKER_RADIUS * 2} height={STRIKER_RADIUS * 2} preserveAspectRatio="xMidYMid slice" />
+                      </pattern>
+                    )}
                   </defs>
 
                   <rect x="0" y="0" width={BOARD_SIZE} height={BOARD_SIZE} fill="none" stroke="#2d1606" strokeWidth={FRAME_THICKNESS * 2} />
@@ -1660,7 +1710,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                         y1={activeStriker.y} 
                         x2={activeStriker.x + aimVector.x} 
                         y2={activeStriker.y + aimVector.y} 
-                        stroke={isMaxPower ? "#ef4444" : (isNeonStriker ? "#CCFF00" : "#4f46e5")} 
+                        stroke={isMaxPower ? "#ef4444" : (customStrikerImage ? "#ffd700" : isNeonStriker ? "#CCFF00" : "#4f46e5")} 
                         strokeWidth="8" 
                         strokeDasharray="12 12" 
                         strokeLinecap="round" 
@@ -1670,7 +1720,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                         cx={activeStriker.x + aimVector.x} 
                         cy={activeStriker.y + aimVector.y} 
                         r={activeStriker.radius} 
-                        fill={isMaxPower ? "#ef4444" : (isNeonStriker ? "#CCFF00" : "#4f46e5")} 
+                        fill={isMaxPower ? "#ef4444" : (customStrikerImage ? "#ffd700" : isNeonStriker ? "#CCFF00" : "#4f46e5")} 
                         opacity="0.2" 
                       />
                     </>
@@ -1683,9 +1733,21 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                     let interiorRing = "";
                     
                     if (coin.type === "striker") { 
-                      fillMat = isNeonStriker ? "url(#vNeonStriker)" : "url(#vStriker)"; 
-                      edgeStroke = isNeonStriker ? "#CCFF00" : "#8695a0"; 
-                      interiorRing = isNeonStriker ? "#a3e600" : "#61737e"; 
+                      fillMat = customStrikerImage 
+                        ? "url(#vCustomStriker)" 
+                        : isNeonStriker 
+                        ? "url(#vNeonStriker)" 
+                        : "url(#vStriker)"; 
+                      edgeStroke = customStrikerImage 
+                        ? "#ffd700" 
+                        : isNeonStriker 
+                        ? "#CCFF00" 
+                        : "#8695a0"; 
+                      interiorRing = customStrikerImage 
+                        ? "#b39700" 
+                        : isNeonStriker 
+                        ? "#a3e600" 
+                        : "#61737e"; 
                     }
                     if (coin.type === "queen") { fillMat = "url(#vRed)"; edgeStroke = "#801515"; interiorRing = "#5c0b0b"; }
                     if (coin.type === "white") { fillMat = "url(#vWhite)"; edgeStroke = "#bdae98"; interiorRing = "#968875"; }
@@ -1697,13 +1759,18 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                           r={coin.radius} 
                           fill={fillMat} 
                           stroke={edgeStroke} 
-                          strokeWidth="1.5" 
+                          strokeWidth={customStrikerImage && coin.type === "striker" ? "2.5" : "1.5"} 
                           onPointerDown={(e) => handlePointerDown(e, coin.id)} 
                           className={coin.type === "striker" && !isMovingRef.current && ((playMode === "online" && turn === myPlayerRole) || (playMode === "local" && turn === 1) || (playMode === "local" && turn === 2) || (playMode === "bot" && turn === 1)) ? "cursor-grab active:cursor-grabbing" : ""} 
                         />
-                        <circle r={coin.radius * 0.68} fill="none" stroke={interiorRing} strokeWidth="1.5" opacity="0.6" pointerEvents="none" />
-                        <circle r={coin.radius * 0.36} fill="none" stroke={interiorRing} strokeWidth="1" opacity="0.5" pointerEvents="none" />
-                        {coin.type === "striker" && <circle r="6" fill={isNeonStriker ? "#000000" : "#ef4444"} opacity="0.8" pointerEvents="none"/>}
+                        {/* Only show inner SVG decorative rings if not rendering a custom graphic texture */}
+                        {!(coin.type === "striker" && customStrikerImage) && (
+                          <>
+                            <circle r={coin.radius * 0.68} fill="none" stroke={interiorRing} strokeWidth="1.5" opacity="0.6" pointerEvents="none" />
+                            <circle r={coin.radius * 0.36} fill="none" stroke={interiorRing} strokeWidth="1" opacity="0.5" pointerEvents="none" />
+                          </>
+                        )}
+                        {coin.type === "striker" && <circle r="5" fill={customStrikerImage ? "#ffd700" : isNeonStriker ? "#000000" : "#ef4444"} opacity="0.9" pointerEvents="none"/>}
                       </g>
                     );
                   })}
