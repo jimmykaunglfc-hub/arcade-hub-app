@@ -26,7 +26,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
   const [activeTab, setActiveTab] = useState<"currency" | "cosmetics">("currency");
   
   // Database States
-  const [dbCosmetics, setDbCosmetics] = useState<any[]>([]);
+  const [dbStoreItems, setDbStoreItems] = useState<any[]>([]);
   const [userInventory, setUserInventory] = useState<any[]>([]);
   const [lastSpin, setLastSpin] = useState<number | null>(null);
 
@@ -36,13 +36,18 @@ export default function ShopTab({ userId }: ShopTabProps) {
   const [rewardModal, setRewardModal] = useState<{ title: string; desc: string } | null>(null);
   const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
 
-  // 📡 FETCH LIVE STORE DATA
+  // 📡 FETCH LIVE STORE DATA (From the new store_items table)
   const fetchStoreData = async () => {
     if (!userId) return;
 
-    // 1. Fetch Cosmetics Catalog
-    const { data: cosmetics } = await supabase.from("cosmetics").select("*");
-    if (cosmetics) setDbCosmetics(cosmetics);
+    // 1. Fetch All Active Store Items
+    const { data: storeItems } = await supabase
+      .from("store_items")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+    
+    if (storeItems) setDbStoreItems(storeItems);
 
     // 2. Fetch User Inventory
     const { data: inventory } = await supabase
@@ -111,14 +116,10 @@ export default function ShopTab({ userId }: ShopTabProps) {
       setIsSpinning(false);
       soundEngine.playSFX("victory");
 
-      // Update Database
       const now = new Date().toISOString();
       const columnToUpdate = winningSlot.type === "points" ? "points" : "gems";
       
-      // Fetch current balance
       const { data: profile } = await supabase.from("profiles").select(columnToUpdate).eq("id", userId).single();
-      
-      // Safely access dynamic column property to avoid TS errors
       const currentBalance = profile ? Number((profile as any)[columnToUpdate]) : 0;
       const newBalance = currentBalance + winningSlot.value;
 
@@ -136,46 +137,17 @@ export default function ShopTab({ userId }: ShopTabProps) {
     }, 3500);
   };
 
-  // 🛒 PURCHASE POINTS (MOCKED IAP)
-  const handleBuyPoints = async (amount: number, priceLabel: string) => {
+  // 🛒 PURCHASE CURRENCY PACKS (Mocked IAP/Conversion)
+  const handleBuyCurrencyPack = async (item: any) => {
     if (!userId) return;
     
+    // In a real app, fiat_usd triggers Apple/Google Pay here. 
+    // For now, we mock the success.
     soundEngine.playSFX("victory");
     
-    const { data: profile } = await supabase.from("profiles").select("points").eq("id", userId).single();
-    const newPoints = (profile?.points || 0) + amount;
-
-    await supabase.from("profiles").update({ points: newPoints }).eq("id", userId);
-
     setRewardModal({
       title: "PURCHASE COMPLETE",
-      desc: `Successfully added +${amount.toLocaleString()} PTS to your matrix account (${priceLabel}).`,
-    });
-  };
-
-  // 🔄 CONVERT POINTS TO GEMS
-  const handleConvertCurrency = async (pointsCost: number, gemsReward: number) => {
-    if (!userId) return;
-
-    const { data: success, error } = await supabase.rpc("convert_points_to_gems", {
-      p_user_id: userId,
-      p_points_cost: pointsCost,
-      p_gems_reward: gemsReward
-    });
-
-    if (error || !success) {
-      soundEngine.playSFX("defeat");
-      setRewardModal({
-        title: "INSUFFICIENT POINTS",
-        desc: `You need ${pointsCost.toLocaleString()} PTS to synthesize ${gemsReward} GEMS.`,
-      });
-      return;
-    }
-
-    soundEngine.playSFX("victory");
-    setRewardModal({
-      title: "SYNTHESIS COMPLETE",
-      desc: `Successfully converted ${pointsCost.toLocaleString()} PTS into ${gemsReward} GEMS.`,
+      desc: `Successfully acquired ${item.name}. (Mocked Transaction)`,
     });
   };
 
@@ -188,33 +160,32 @@ export default function ShopTab({ userId }: ShopTabProps) {
     const isEquipped = inventoryItem?.is_equipped;
 
     if (isOwned) {
-      // Toggle Equip/Unequip
       if (isEquipped) {
         await supabase.from("user_inventory").update({ is_equipped: false }).eq("id", inventoryItem.id);
       } else {
         await supabase.rpc("equip_cosmetic", {
           p_user_id: userId,
           p_cosmetic_id: item.id,
-          p_category: item.game_category
+          p_category: item.sku 
         });
       }
-      soundEngine.playSFX("move"); // Replaced "pop" with an existing valid sound
+      soundEngine.playSFX("move");
       fetchStoreData();
       return;
     }
 
-    // Attempt Purchase
+    // Pass the required price_points to the RPC (ensure your RPC is updated to check this value!)
     const { data: success, error } = await supabase.rpc("buy_cosmetic", {
       p_user_id: userId,
       p_cosmetic_id: item.id,
-      p_price: item.price_gems
+      p_price: item.price_points 
     });
 
     if (error || !success) {
       soundEngine.playSFX("defeat");
       setRewardModal({
-        title: "INSUFFICIENT GEMS",
-        desc: `You need ${item.price_gems.toLocaleString()} GEMS to unlock ${item.name}.`,
+        title: "INSUFFICIENT FUNDS",
+        desc: `You need ${item.price_points.toLocaleString()} ${item.price_currency.toUpperCase()} to unlock ${item.name}.`,
       });
       return;
     }
@@ -223,9 +194,13 @@ export default function ShopTab({ userId }: ShopTabProps) {
     fetchStoreData();
     setRewardModal({
       title: "COSMETIC UNLOCKED!",
-      desc: `${item.name} unlocked for ${item.game_category.toUpperCase()}.`,
+      desc: `${item.name} unlocked successfully.`,
     });
   };
+
+  // Filter items for tabs
+  const currencyItems = dbStoreItems.filter(item => item.category === "currency");
+  const cosmeticItems = dbStoreItems.filter(item => item.category === "digital" || item.category === "physical");
 
   return (
     <>
@@ -314,81 +289,44 @@ export default function ShopTab({ userId }: ShopTabProps) {
           </button>
         </div>
 
-        {/* 3. TAB CONTENT: CURRENCY PACKS */}
+        {/* 3. TAB CONTENT: CURRENCY PACKS (Dynamic) */}
         {activeTab === "currency" && (
           <div className="grid grid-cols-2 gap-4">
-            {/* 1,000 PTS (IAP) */}
-            <div className="bg-surface border border-surface-container-highest dark:bg-[#18181b] dark:border-white/5 rounded-3xl p-5 flex flex-col items-center text-center shadow-lg relative overflow-hidden">
-              <div className="w-14 h-14 bg-surface-container-highest dark:bg-[#27272a] rounded-2xl flex items-center justify-center mb-4">
-                <span className="material-symbols-outlined text-2xl text-primary dark:text-[#CCFF00]">bolt</span>
-              </div>
-              <h3 className="font-headline font-black text-xl text-on-surface dark:text-white">1,000</h3>
-              <p className="text-[10px] font-bold text-primary dark:text-[#CCFF00] uppercase tracking-widest mb-6">PTS</p>
-              <button
-                onClick={() => handleBuyPoints(1000, "$0.99")}
-                className="w-full bg-surface-container-highest hover:opacity-90 dark:bg-[#27272a] text-on-surface dark:text-white font-bold py-3 rounded-xl text-xs transition-colors active:scale-95"
-              >
-                $0.99
-              </button>
-            </div>
-
-            {/* 5,000 PTS (IAP) */}
-            <div className="bg-surface border-2 border-primary dark:border-[#CCFF00]/40 dark:bg-[#18181b] rounded-3xl p-5 flex flex-col items-center text-center shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 inset-x-0 bg-primary dark:bg-[#CCFF00] text-on-primary dark:text-black font-headline font-black text-[9px] uppercase tracking-widest py-1">
-                BEST VALUE
-              </div>
-              <div className="w-14 h-14 bg-surface-container-highest dark:bg-[#27272a] rounded-2xl flex items-center justify-center mb-4 mt-3">
-                <span className="material-symbols-outlined text-2xl text-primary dark:text-[#CCFF00]">bolt</span>
-              </div>
-              <h3 className="font-headline font-black text-xl text-on-surface dark:text-white">5,000</h3>
-              <p className="text-[10px] font-bold text-primary dark:text-[#CCFF00] uppercase tracking-widest mb-6">PTS</p>
-              <button
-                onClick={() => handleBuyPoints(5000, "$3.99")}
-                className="w-full bg-primary dark:bg-[#CCFF00] text-on-primary dark:text-black font-headline font-black py-3 rounded-xl text-xs transition-transform active:scale-95 shadow-md"
-              >
-                $3.99
-              </button>
-            </div>
-
-            {/* 100 GEMS (CONVERSION) */}
-            <div className="bg-surface border border-surface-container-highest dark:bg-[#18181b] dark:border-white/5 rounded-3xl p-5 flex flex-col items-center text-center shadow-lg relative overflow-hidden">
-              <div className="w-14 h-14 bg-surface-container-highest dark:bg-[#27272a] rounded-2xl flex items-center justify-center mb-4">
-                <span className="material-symbols-outlined text-2xl text-purple-400">diamond</span>
-              </div>
-              <h3 className="font-headline font-black text-xl text-on-surface dark:text-white">100</h3>
-              <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-6">GEMS</p>
-              <button
-                onClick={() => handleConvertCurrency(10000, 100)}
-                className="w-full bg-surface-container-highest hover:opacity-90 dark:bg-[#27272a] text-on-surface dark:text-white font-bold py-3 rounded-xl text-xs transition-colors active:scale-95 flex items-center justify-center gap-1"
-              >
-                10,000 <span className="material-symbols-outlined text-[14px] text-primary">bolt</span>
-              </button>
-            </div>
-
-            {/* 500 GEMS (CONVERSION) */}
-            <div className="bg-surface border border-surface-container-highest dark:bg-[#18181b] dark:border-white/5 rounded-3xl p-5 flex flex-col items-center text-center shadow-lg relative overflow-hidden">
-              <div className="w-14 h-14 bg-surface-container-highest dark:bg-[#27272a] rounded-2xl flex items-center justify-center mb-4">
-                <span className="material-symbols-outlined text-2xl text-purple-400">diamond</span>
-              </div>
-              <h3 className="font-headline font-black text-xl text-on-surface dark:text-white">500</h3>
-              <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-6">GEMS</p>
-              <button
-                onClick={() => handleConvertCurrency(45000, 500)}
-                className="w-full bg-surface-container-highest hover:opacity-90 dark:bg-[#27272a] text-on-surface dark:text-white font-bold py-3 rounded-xl text-xs transition-colors active:scale-95 flex items-center justify-center gap-1"
-              >
-                45,000 <span className="material-symbols-outlined text-[14px] text-primary">bolt</span>
-              </button>
-            </div>
+            {currencyItems.length === 0 ? (
+              <p className="col-span-2 text-center text-xs text-on-surface-variant mt-10">No currency packs available.</p>
+            ) : (
+              currencyItems.map((item) => (
+                <div key={item.id} className="bg-surface border border-surface-container-highest dark:bg-[#18181b] dark:border-white/5 rounded-3xl p-5 flex flex-col items-center text-center shadow-lg relative overflow-hidden">
+                  <div className="w-14 h-14 bg-surface-container-highest dark:bg-[#27272a] rounded-2xl flex items-center justify-center mb-4 p-2 overflow-hidden">
+                    {item.image_url && item.image_url !== "https://img.icons8.com/color/96/present.png" ? (
+                       <img src={item.image_url} alt={item.name} className="w-full h-full object-contain" />
+                    ) : (
+                       <span className="material-symbols-outlined text-2xl text-primary dark:text-[#CCFF00]">bolt</span>
+                    )}
+                  </div>
+                  <h3 className="font-headline font-black text-xl text-on-surface dark:text-white line-clamp-1">{item.name}</h3>
+                  <p className="text-[10px] font-bold text-primary dark:text-[#CCFF00] uppercase tracking-widest mb-6 truncate max-w-full">
+                    {item.description || "PACK"}
+                  </p>
+                  <button
+                    onClick={() => handleBuyCurrencyPack(item)}
+                    className="w-full bg-surface-container-highest hover:opacity-90 dark:bg-[#27272a] text-on-surface dark:text-white font-bold py-3 rounded-xl text-xs transition-colors active:scale-95"
+                  >
+                    {item.price_currency === 'fiat_usd' ? `$${Number(item.price_fiat).toFixed(2)}` : `${item.price_points.toLocaleString()} PTS`}
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         )}
 
-        {/* 4. TAB CONTENT: GAME COSMETICS */}
+        {/* 4. TAB CONTENT: GAME COSMETICS (Dynamic) */}
         {activeTab === "cosmetics" && (
           <div className="grid grid-cols-2 gap-4">
-            {dbCosmetics.length === 0 ? (
-              <p className="col-span-2 text-center text-xs text-on-surface-variant mt-10">No cosmetics available in the database yet.</p>
+            {cosmeticItems.length === 0 ? (
+              <p className="col-span-2 text-center text-xs text-on-surface-variant mt-10">No cosmetics available.</p>
             ) : (
-              dbCosmetics.map((item) => {
+              cosmeticItems.map((item) => {
                 const inventoryItem = userInventory.find(inv => inv.cosmetic_id === item.id);
                 const isOwned = !!inventoryItem;
                 const isEquipped = inventoryItem?.is_equipped;
@@ -402,14 +340,18 @@ export default function ShopTab({ userId }: ShopTabProps) {
                         : "border-surface-container-highest dark:border-white/5"
                     }`}
                   >
-                    <span className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant dark:text-neutral-500 mb-2">
-                      {item.game_category}
+                    <span className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant dark:text-neutral-500 mb-2 truncate max-w-full">
+                      {item.sku}
                     </span>
 
-                    <div className="w-14 h-14 bg-surface-container-highest dark:bg-[#27272a] rounded-2xl flex items-center justify-center mb-3">
-                      <div className="w-8 h-8 rounded-full border-2 border-primary/50 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-[16px] text-primary">auto_awesome</span>
-                      </div>
+                    <div className="w-14 h-14 bg-surface-container-highest dark:bg-[#27272a] rounded-2xl flex items-center justify-center mb-3 overflow-hidden p-1">
+                      {item.image_url && item.image_url !== "https://img.icons8.com/color/96/present.png" ? (
+                        <img src={item.image_url} alt={item.name} className="w-full h-full object-contain" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full border-2 border-primary/50 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-[16px] text-primary">auto_awesome</span>
+                        </div>
+                      )}
                     </div>
 
                     <h3 className="font-bold text-sm text-on-surface dark:text-white mb-1 line-clamp-1">{item.name}</h3>
@@ -421,8 +363,14 @@ export default function ShopTab({ userId }: ShopTabProps) {
                         </span>
                       ) : (
                         <div className="flex items-center gap-1 justify-center text-xs font-black">
-                          <span className="material-symbols-outlined text-xs text-purple-400">diamond</span>
-                          <span className="text-purple-400">{item.price_gems.toLocaleString()}</span>
+                          {item.price_currency === 'gems' ? (
+                            <span className="material-symbols-outlined text-xs text-purple-400">diamond</span>
+                          ) : (
+                            <span className="material-symbols-outlined text-xs text-primary dark:text-[#CCFF00]">bolt</span>
+                          )}
+                          <span className={item.price_currency === 'gems' ? "text-purple-400" : "text-primary dark:text-[#CCFF00]"}>
+                            {item.price_points.toLocaleString()}
+                          </span>
                         </div>
                       )}
                     </div>
