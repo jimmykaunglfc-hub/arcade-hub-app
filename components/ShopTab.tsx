@@ -36,7 +36,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
   const [rewardModal, setRewardModal] = useState<{ title: string; desc: string } | null>(null);
   const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
 
-  // 📡 FETCH LIVE STORE DATA (From the new store_items table)
+  // 📡 FETCH LIVE STORE DATA (From store_items & user_inventory)
   const fetchStoreData = async () => {
     if (!userId) return;
 
@@ -141,8 +141,6 @@ export default function ShopTab({ userId }: ShopTabProps) {
   const handleBuyCurrencyPack = async (item: any) => {
     if (!userId) return;
     
-    // In a real app, fiat_usd triggers Apple/Google Pay here. 
-    // For now, we mock the success.
     soundEngine.playSFX("victory");
     
     setRewardModal({
@@ -161,36 +159,30 @@ export default function ShopTab({ userId }: ShopTabProps) {
 
     if (isOwned) {
       if (isEquipped) {
-        await supabase.from("user_inventory").update({ is_equipped: false }).eq("id", inventoryItem.id);
+        // Unequip this item directly
+        await supabase
+          .from("user_inventory")
+          .update({ is_equipped: false })
+          .eq("id", inventoryItem.id);
       } else {
-        // --- THE FIX: SMART MATCHER ---
-        // Dynamically figure out the game slot based on the item name
-        let equipSlot = "general";
-        const itemName = (item.name || "").toLowerCase();
-        
-        if (itemName.includes("board") || itemName.includes("checkers")) equipSlot = "checkers";
-        if (itemName.includes("striker") || itemName.includes("carrom")) equipSlot = "carrom";
-        // Add more game keyword matchers here as you build them!
-
-        await supabase.rpc("equip_cosmetic", {
-          p_user_id: userId,
-          p_cosmetic_id: item.id,
-          p_category: equipSlot 
-        });
+        // Equip this item directly in user_inventory
+        await supabase
+          .from("user_inventory")
+          .update({ is_equipped: true })
+          .eq("id", inventoryItem.id);
       }
       soundEngine.playSFX("move");
       fetchStoreData();
       return;
     }
 
-    // Call the RPC function
+    // Call the buy_cosmetic RPC function
     const { data: success, error } = await supabase.rpc("buy_cosmetic", {
       p_user_id: userId,
       p_cosmetic_id: item.id,
       p_price: item.price_points 
     });
 
-    // Handle Database/RPC Errors directly
     if (error) {
       console.error("Purchase Error:", error);
       soundEngine.playSFX("defeat");
@@ -201,7 +193,6 @@ export default function ShopTab({ userId }: ShopTabProps) {
       return;
     }
 
-    // Handle Insufficient Funds
     if (!success) {
       soundEngine.playSFX("defeat");
       setRewardModal({
@@ -211,7 +202,6 @@ export default function ShopTab({ userId }: ShopTabProps) {
       return;
     }
 
-    // Success
     soundEngine.playSFX("victory");
     fetchStoreData();
     setRewardModal({
