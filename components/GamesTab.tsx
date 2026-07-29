@@ -159,9 +159,9 @@ export default function GamesTab({
                   )}
                   
                   {isPremium && (
-                    <div className="absolute top-2 right-2 bg-secondary-container text-secondary px-2 py-1 rounded-full flex items-center gap-1 shadow-sm border border-secondary/10">
-                      <span className="material-symbols-outlined text-secondary text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
-                      <span className="font-bold text-[9px] uppercase tracking-wider">Gems</span>
+                    <div className="absolute top-2 right-2 bg-primary-container text-primary px-2 py-1 rounded-full flex items-center gap-1 shadow-sm border border-primary/10">
+                      <span className="material-symbols-outlined text-primary text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
+                      <span className="font-bold text-[9px] uppercase tracking-wider">{game.entry_fee.toLocaleString()} PTS</span>
                     </div>
                   )}
                 </div>

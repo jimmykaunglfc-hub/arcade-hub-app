@@ -1,3 +1,4 @@
+// lib/matchManager.ts
 import { supabase } from "./supabaseClient";
 
 interface GameEntryParams {
@@ -106,14 +107,42 @@ export async function processGameEntry({
 }
 
 /**
- * Inserts a completed match record into the database.
+ * Inserts a completed match record into the database and awards points if the user won.
  */
 export async function recordMatchResult(payload: MatchResultPayload) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Insert directly using the new structured payload
+    // 1. Award Points to the User's Profile if they won (points_change > 0)
+    if (payload.points_change > 0) {
+      // Attempt the secure RPC first
+      const { error: rpcError } = await supabase.rpc("award_winner", {
+        winner_id: user.id,
+        reward: payload.points_change,
+      });
+
+      // 🛡️ Fallback: Update points directly via Client if RPC fails
+      if (rpcError) {
+        console.warn("RPC award_winner warning, attempting client fallback:", rpcError.message);
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("points")
+          .eq("id", user.id)
+          .single();
+
+        if (profile) {
+          const newBalance = profile.points + payload.points_change;
+          await supabase
+            .from("profiles")
+            .update({ points: newBalance })
+            .eq("id", user.id);
+        }
+      }
+    }
+
+    // 2. Insert the visual match result into history
     const { error: insertError } = await supabase
       .from("match_history")
       .insert({

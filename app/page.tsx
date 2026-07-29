@@ -36,7 +36,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("Home"); 
   
   const [userPoints, setUserPoints] = useState<number>(0);
-  const [userGems, setUserGems] = useState<number>(45);
+  const [userGems, setUserGems] = useState<number>(0); // 💎 Initialized to 0 (dynamic)
   const [myUserId, setMyUserId] = useState<string | null>(null);
   
   const [rankData, setRankData] = useState<any>(null);
@@ -72,6 +72,7 @@ export default function Home() {
       } else {
         setMyUserId(null);
         setUserPoints(0);
+        setUserGems(0);
         setRankData(null);
       }
     });
@@ -100,6 +101,7 @@ export default function Home() {
       .from("profiles")
       .select(`
         points, 
+        gems,
         mmr, 
         total_wins, 
         total_matches, 
@@ -113,6 +115,7 @@ export default function Home() {
 
     if (data) {
       setUserPoints(data.points ?? 0);
+      setUserGems(data.gems ?? 0); // 💎 Fetch live gems from DB
 
       const matches = data.total_matches ?? 0;
       const wins = data.total_wins ?? 0;
@@ -211,7 +214,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center gap-1 bg-secondary-container px-2.5 py-0.5 rounded-full">
                   <span className="material-symbols-outlined text-secondary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
-                  <span className="text-on-background text-[11px] font-extrabold">{userGems}</span>
+                  <span className="text-on-background text-[11px] font-extrabold">{userGems.toLocaleString()}</span>
                 </div>
               </div>
             </div>
