@@ -4,10 +4,12 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { supabase } from "../../lib/supabaseClient";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { soundEngine } from "../../lib/soundManager";
-import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 import MatchmakingModal from "../MatchmakingModal";
+
+// 🛍️ NEW: Live Database Cosmetic Hook
+import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
 
 const BALL_TYPES = {
   Red: { points: 1, color: "#ff2a2a", spec: "#ffe4e4" },
@@ -44,9 +46,9 @@ interface SnookerGameProps {
 }
 
 export default function SnookerGame({ onClose, preloadedMatchId, opponent }: SnookerGameProps) {
-  // 🛍️ STORE COSMETICS ENGINE SYNC
-  const equippedTheme = storeManager.getEquippedCosmetic("snooker");
-  const isCyberTable = equippedTheme === "cyber_snooker_table" || true;
+  // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
+  const { modifiers } = useEquippedCosmetic("snooker");
+  const isCyberTable = !!modifiers;
 
   // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
   const [userPoints, setUserPoints] = useState<number | null>(null);
@@ -180,7 +182,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         if (profile) setUserPoints(profile.points ?? 0);
       }
 
-      // Fetch dynamic entry cost from `games` table
       const { data: gameData } = await supabase
         .from("games")
         .select("entry_fee")
@@ -387,7 +388,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         const dirPocketX = ballToPocketX / distBallToPocket;
         const dirPocketY = ballToPocketY / distBallToPocket;
 
-        // Ghost ball center position where cue ball must make contact
         const ghostX = ball.x - dirPocketX * (ballRadius * 2);
         const ghostY = ball.y - dirPocketY * (ballRadius * 2);
 
@@ -400,12 +400,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         const dirCueGhostX = cueToGhostX / distCueToGhost;
         const dirCueGhostY = cueToGhostY / distCueToGhost;
 
-        // Calculate cut angle accuracy (dot product)
         const dot = dirCueGhostX * dirPocketX + dirCueGhostY * dirPocketY;
 
-        if (dot < 0.2) continue; // Cut angle too sharp (> 78 deg)
+        if (dot < 0.2) continue;
 
-        // Line of sight check for object ball -> pocket
         let pocketBlocked = false;
         for (const obstacle of ballsRef.current) {
           if (obstacle.isPotted || obstacle.id === ball.id || obstacle.isCue) continue;
@@ -422,7 +420,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         }
         if (pocketBlocked) continue;
 
-        // Line of sight check for cue ball -> ghost ball
         let cueBlocked = false;
         for (const obstacle of ballsRef.current) {
           if (obstacle.isPotted || obstacle.id === ball.id || obstacle.isCue) continue;
@@ -452,7 +449,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       }
     }
 
-    // Fallback: Safe touch shot if no direct pocket is open
     if (!bestShot) {
       const target = eligibleBalls[Math.floor(Math.random() * eligibleBalls.length)];
       const dx = target.x - cueBall.x;
@@ -882,6 +878,8 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       y: Math.max(-1, Math.min(1, normY)),
     });
   };
+
+  const handleSpinPointerUp = () => setShowSpinModal(false);
 
   // -------------------------------------------------------------
   // 🎱 ANIMATION & PHYSICS ENGINE LOOP
@@ -1444,7 +1442,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         setPlayMode("bot");
         setToast({ msg: `Playing against ${localOpponent?.name || "Bot"}`, type: "success" });
       } else {
-        // Transition both real human players directly into live online play
         setPlayMode("online");
       }
     } else {
@@ -1763,98 +1760,101 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         </div>
       )}
 
-      {/* 🎯 SPIN SELECTOR MODAL */}
-      {showSpinModal && (
-        <div
-          onClick={() => setShowSpinModal(false)}
-          className="absolute inset-0 bg-black/80 backdrop-blur-md z-[999999] flex justify-center items-center p-4 animate-fade-in touch-none"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[#18181b] border border-white/10 rounded-2xl p-4 flex flex-col items-center max-w-[220px] w-full shadow-2xl"
-          >
-            <h3 className="text-white text-[10px] font-black uppercase tracking-widest mb-2 font-headline">
-              Cue Ball Strike Point
-            </h3>
+      {/* ACTIVE GAMEPLAY OVERLAYS */}
+      {(playMode === "local" || playMode === "online" || playMode === "bot") && (
+        <div className="w-full flex-1 flex flex-col justify-between items-center min-h-0 pt-safe pb-safe">
+          
+          {floatingEmojis.map((em) => {
+            const isMine = em.role === myPlayerRole;
+            return (
+              <div key={em.id} className={`absolute z-40 text-4xl animate-float-up pointer-events-none ${
+                isMine ? "right-10 bottom-10" : "left-10 top-10"
+              }`}>
+                {em.emoji}
+              </div>
+            );
+          })}
 
-            <canvas
-              ref={spinCanvasRef}
-              width={160}
-              height={160}
-              onPointerDown={handleSpinCanvasInteraction}
-              onPointerMove={(e) => {
-                if (e.buttons === 1) handleSpinCanvasInteraction(e);
-              }}
-              onPointerUp={() => setShowSpinModal(false)}
-              className="bg-transparent cursor-crosshair rounded-full shadow-inner touch-none"
-            />
-          </div>
-        </div>
-      )}
+          {toast && (
+            <div className="absolute top-16 z-[999999] bg-rose-600 border-2 border-white text-white font-black text-xs px-6 py-2 rounded-full shadow-2xl animate-bounce tracking-widest uppercase">
+              {toast.msg}
+            </div>
+          )}
 
-      {/* WINNER MODAL */}
-      {winner && (
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col justify-center items-center z-[999999] p-6 text-center animate-fade-in touch-none">
-          {confettiPieces.map((p) => (
+          {showSpinModal && (
             <div
-              key={p.id}
-              className="absolute top-0 z-[60]"
-              style={{
-                left: p.left,
-                width: "7px",
-                height: "15px",
-                backgroundColor: p.color,
-                borderRadius: "3px",
-                animation: `confetti-fall ${p.duration} linear ${p.delay} infinite`,
-              }}
-            />
-          ))}
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#CCFF00] to-green-500 text-black flex items-center justify-center mb-4 shadow-lg border-4 border-[#CCFF00] animate-bounce">
-            <span className="material-symbols-outlined text-4xl">emoji_events</span>
-          </div>
-          <h2 className="text-3xl font-black text-[#CCFF00] uppercase tracking-widest mb-2 font-headline">{winner} Wins!</h2>
-          <p className="text-neutral-300 text-xs mb-6">
-            Match Completed! Score: Player 1 ({scores.player1} pts) - Player 2 ({scores.player2} pts)
-          </p>
-          <button
-            onClick={initBalls}
-            className="px-8 py-3.5 bg-[#CCFF00] hover:bg-[#b3e600] text-black font-black uppercase tracking-wider rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer text-xs touch-manipulation"
-          >
-            Play Again 🔄
-          </button>
-        </div>
-      )}
-
-      {/* HEADER SCOREBOARD HUD */}
-      {playMode !== "menu" && playMode !== "searching" && playMode !== "confirmed" && (
-        <div className="w-full max-w-[100vw] px-2 flex justify-between items-center bg-[#18181b] border border-white/10 p-1.5 rounded-xl shadow-xl text-white shrink-0 z-10">
-          {/* PLAYER 1 SCORECARD */}
-          <div
-            className={`text-center min-w-[65px] p-1 rounded-lg transition-all duration-300 relative ${
-              currentTurn === "player1"
-                ? "bg-[#CCFF00]/10 border-2 border-[#CCFF00] shadow-[0_0_12px_rgba(204,255,0,0.4)] animate-pulse"
-                : "opacity-60 border border-transparent"
-            }`}
-          >
-            {currentTurn === "player1" && (
-              <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-[#CCFF00] text-black text-[6px] font-black uppercase px-1.5 py-0.2 rounded-full animate-bounce">
-                TURN
-              </span>
-            )}
-            <span
-              className={`text-[8px] md:text-[9px] uppercase tracking-wider block font-black ${
-                currentTurn === "player1" ? "text-[#CCFF00]" : "text-neutral-500"
-              }`}
+              onClick={() => setShowSpinModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md z-[999999] flex justify-center items-center p-4 animate-fade-in touch-none"
             >
-              Player 1
-            </span>
-            <p className="text-xs md:text-base font-black font-mono leading-tight">
-              {scores.player1} <span className="text-[8px] text-neutral-400 font-normal">pts</span>
-            </p>
-          </div>
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="bg-[#18181b] border border-white/10 rounded-2xl p-4 flex flex-col items-center max-w-[220px] w-full shadow-2xl"
+              >
+                <h3 className="text-white text-[10px] font-black uppercase tracking-widest mb-2 font-headline">
+                  Cue Ball Strike Point
+                </h3>
+                <canvas
+                  ref={spinCanvasRef}
+                  width={160}
+                  height={160}
+                  onPointerDown={handleSpinCanvasInteraction}
+                  onPointerMove={(e) => {
+                    if (e.buttons === 1) handleSpinCanvasInteraction(e);
+                  }}
+                  onPointerUp={() => setShowSpinModal(false)}
+                  className="bg-transparent cursor-crosshair rounded-full shadow-inner touch-none"
+                />
+              </div>
+            </div>
+          )}
 
-          {/* TURN COUNTDOWN TIMER & TARGET BALL INDICATOR */}
-          <div className="flex items-center gap-2">
+          {winner && (
+            <div className="absolute inset-0 bg-black/85 backdrop-blur-md flex flex-col justify-center items-center z-[999999] p-6 text-center animate-fade-in">
+              {confettiPieces.map((p) => (
+                <div
+                  key={p.id}
+                  className="absolute top-0 z-[60]"
+                  style={{
+                    left: p.left,
+                    width: "7px",
+                    height: "15px",
+                    backgroundColor: p.color,
+                    borderRadius: "3px",
+                    animation: `confetti-fall ${p.duration} linear ${p.delay} infinite`,
+                  }}
+                />
+              ))}
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#CCFF00] to-green-500 text-black flex items-center justify-center mb-4 shadow-lg border-4 border-[#CCFF00] animate-bounce">
+                <span className="material-symbols-outlined text-4xl">emoji_events</span>
+              </div>
+              <h2 className="text-3xl font-black text-[#CCFF00] uppercase tracking-widest mb-2 font-headline">{winner} Wins!</h2>
+              <p className="text-neutral-300 text-xs mb-6">
+                Match Completed! Score: Player 1 ({scores.player1} pts) - Player 2 ({scores.player2} pts)
+              </p>
+              <button
+                onClick={initBalls}
+                className="px-8 py-3.5 bg-[#CCFF00] hover:bg-[#b3e600] text-black font-black uppercase tracking-wider rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer text-xs touch-manipulation"
+              >
+                Play Again 🔄
+              </button>
+            </div>
+          )}
+
+          {/* HEADER SCOREBOARD HUD */}
+          <div className="w-full max-w-[420px] flex justify-between items-center bg-[#0b1329]/90 border border-slate-800/80 p-2 px-3 rounded-2xl shadow-2xl relative shrink-0 my-1">
+            <div className="relative">
+              {currentTurn === "player1" && (
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-cyan-500 text-black font-black text-[8px] uppercase px-2.5 py-0.5 rounded-full tracking-widest shadow-lg animate-bounce z-10">
+                  TURN
+                </div>
+              )}
+              <div className={`flex flex-col items-start min-w-[70px] px-2 py-1 rounded-xl transition-all duration-300 ${currentTurn === "player1" ? "border-2 border-cyan-400/90 bg-cyan-950/40 shadow-[0_0_12px_rgba(34,211,238,0.3)] animate-pulse" : "bg-black/30 opacity-70"}`}>
+                <span className={`text-[9px] font-black ${currentTurn === "player1" ? "text-cyan-400" : "text-slate-400"} tracking-wider uppercase`}>P1</span>
+                <span className="text-xs font-black font-mono text-white">{scores.player1} <span className="text-[8px] text-neutral-400">pts</span></span>
+              </div>
+            </div>
+
+            {/* 30-SECOND COUNTDOWN TIMER BADGE */}
             <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full border shadow-sm backdrop-blur-md transition-colors ${
               timeLeft <= 5 ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse" : "bg-[#18181b] border-white/10 text-[#CCFF00]"
             }`}>
@@ -1862,192 +1862,168 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
               <span className="font-mono font-black text-[10px]">{timeLeft}s</span>
             </div>
 
-            <div className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded-lg border border-white/5">
-              <span className="text-[7px] md:text-[8px] text-neutral-400 font-bold uppercase tracking-widest">TARGET</span>
+            <div className="flex items-center gap-1 bg-[#030712] px-2.5 py-1 rounded-full border border-slate-800">
+              <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase">TARGET</span>
               <div
-                className="w-3.5 h-3.5 md:w-5 md:h-5 rounded-full shadow-md transition-colors duration-200 border border-white/20"
+                className="w-4 h-4 rounded-full shadow-md border border-white/20"
                 style={{
-                  background: `radial-gradient(circle at 6px 6px, #ffffff, ${currentDisplayBallColor} 40%, #000000 100%)`,
+                  background: `radial-gradient(circle at 4px 4px, #ffffff, ${currentDisplayBallColor} 40%, #000000 100%)`,
                 }}
               />
             </div>
-          </div>
 
-          {/* PLAYER 2 SCORECARD */}
-          <div className="flex items-center gap-1.5">
-            <div
-              className={`text-center min-w-[65px] p-1 rounded-lg transition-all duration-300 relative ${
-                currentTurn === "player2"
-                  ? "bg-rose-500/10 border-2 border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.4)] animate-pulse"
-                  : "opacity-60 border border-transparent"
-              }`}
-            >
+            <div className="relative">
               {currentTurn === "player2" && (
-                <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-rose-400 text-black text-[6px] font-black uppercase px-1.5 py-0.2 rounded-full animate-bounce">
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-rose-500 text-white font-black text-[8px] uppercase px-2.5 py-0.5 rounded-full tracking-widest shadow-lg animate-bounce z-10">
                   TURN
-                </span>
+                </div>
               )}
-              <span
-                className={`text-[8px] md:text-[9px] uppercase tracking-wider block font-black ${
-                  currentTurn === "player2" ? "text-rose-400" : "text-neutral-500"
-                }`}
+              <div className={`flex flex-col items-end min-w-[70px] px-2 py-1 rounded-xl transition-all duration-300 ${currentTurn === "player2" ? "border-2 border-rose-500/90 bg-rose-950/40 shadow-[0_0_12px_rgba(244,63,94,0.3)] animate-pulse" : "bg-black/30 opacity-70"}`}>
+                <span className={`text-[9px] font-black ${currentTurn === "player2" ? "text-rose-400" : "text-slate-400"} tracking-wider uppercase`}>{playMode === "bot" ? "BOT" : "P2"}</span>
+                <span className="text-xs font-black font-mono text-white">{scores.player2} <span className="text-[8px] text-neutral-400">pts</span></span>
+              </div>
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={() => { soundEngine.playSFX("click"); setShowEmojiMenu(!showEmojiMenu); }}
+                className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white shadow-sm active:scale-90 touch-manipulation ml-0.5"
               >
-                {playMode === "bot" ? localOpponent?.name || "Bot" : "Player 2"}
-              </span>
-              <p className="text-xs md:text-base font-black font-mono leading-tight">
-                {scores.player2} <span className="text-[8px] text-neutral-400 font-normal">pts</span>
-              </p>
+                <span className="material-symbols-outlined text-xs">add_reaction</span>
+              </button>
+              
+              {showEmojiMenu && (
+                <div className="absolute top-9 right-0 bg-[#18181b] border border-white/10 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
+                  {EMOJIS.map(em => (
+                    <button
+                      key={em}
+                      onClick={() => sendEmoji(em)}
+                      className="text-lg hover:scale-125 transition-transform p-1 touch-manipulation"
+                    >
+                      {em}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button
-              onClick={() => setShowEmojiMenu(!showEmojiMenu)}
-              className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-neutral-300 active:scale-90 transition-all shadow-sm hover:bg-white/10 touch-manipulation"
-            >
-              <span className="material-symbols-outlined text-xs">add_reaction</span>
-            </button>
-
-            {showEmojiMenu && (
-              <div className="absolute top-14 right-10 bg-[#18181b] border border-white/10 p-2 rounded-2xl shadow-2xl flex gap-1 z-50">
-                {EMOJIS.map((em) => (
-                  <button key={em} onClick={() => sendEmoji(em)} className="text-xl hover:scale-125 transition-transform p-1 touch-manipulation">
-                    {em}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <button
               onClick={handleExitToHome}
-              className="pointer-events-auto bg-rose-600 border border-rose-500 hover:bg-rose-500 px-2 py-1 rounded-lg text-[8px] md:text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all text-white cursor-pointer shadow-md flex items-center gap-1 touch-manipulation"
+              className="bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-black px-2.5 py-1.5 rounded-full uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md ml-0.5 touch-manipulation"
             >
               EXIT
             </button>
           </div>
-        </div>
-      )}
 
-      {/* FLOATING EMOJI LAYER */}
-      {floatingEmojis.map((em) => {
-        const isMine = em.role === myPlayerRole;
-        return (
-          <div key={em.id} className={`absolute z-40 text-4xl animate-float-up pointer-events-none ${isMine ? "right-10 bottom-10" : "left-10 top-10"}`}>
-            {em.emoji}
-          </div>
-        );
-      })}
-
-      {/* VERTICAL GAME WORKSPACE */}
-      {playMode !== "menu" && playMode !== "searching" && playMode !== "confirmed" && (
-        <div ref={containerRef} className="w-full flex-1 flex justify-center items-center min-h-0 min-w-0 overflow-hidden py-0.5 relative touch-none">
-          <div
-            style={{ height: `${containerScale.height}px` }}
-            className="flex items-center justify-center gap-1.5 sm:gap-2 w-full max-w-full relative transition-all duration-100 touch-none px-1"
-          >
-            {/* 1. LEFT PULL POWER CONTROLLER */}
+          {/* VERTICAL GAME WORKSPACE */}
+          <div ref={containerRef} className="w-full flex-1 flex justify-center items-center min-h-0 min-w-0 overflow-hidden py-0.5 relative touch-none">
             <div
-              style={{ height: `${containerScale.height * 0.5}px` }}
-              className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none my-auto"
+              style={{ height: `${containerScale.height}px` }}
+              className="flex items-center justify-center gap-1.5 sm:gap-2 w-full max-w-full relative transition-all duration-100 touch-none px-1"
             >
-              <span className="text-[6px] md:text-[8px] font-bold text-neutral-400 uppercase tracking-widest pointer-events-none">PULL</span>
-
+              {/* 1. LEFT PULL POWER CONTROLLER */}
               <div
-                ref={powerTrackRef}
-                onPointerDown={handlePowerPointerDown}
-                onPointerMove={handlePowerPointerMove}
-                onPointerUp={handlePowerPointerUp}
-                onPointerCancel={handlePowerPointerUp}
-                className="flex-1 my-1 w-[10px] md:w-[12px] bg-[#09090b] rounded-full border border-white/5 relative shadow-inner flex items-start justify-center cursor-ns-resize touch-none"
+                style={{ height: `${containerScale.height * 0.5}px` }}
+                className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none my-auto"
               >
+                <span className="text-[6px] md:text-[8px] font-bold text-neutral-400 uppercase tracking-widest pointer-events-none">PULL</span>
+
                 <div
-                  className="w-full bg-gradient-to-b from-[#CCFF00] via-amber-500 to-rose-500 rounded-full absolute top-0 pointer-events-none transition-all duration-75"
-                  style={{ height: `${uiPower}%` }}
-                />
-                <div
-                  className="w-[20px] h-[20px] sm:w-[22px] sm:h-[22px] md:w-[24px] md:h-[24px] bg-[#CCFF00] hover:bg-[#b3e600] border-[2px] border-black rounded-full absolute shadow-md active:scale-95 transition-transform cursor-grab active:cursor-grabbing touch-none"
-                  style={{
-                    top: `calc(${uiPower}% - 10px)`,
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* 2. VERTICAL SNOOKER TABLE CANVAS */}
-            <div
-              style={{ width: `${containerScale.width}px`, height: `${containerScale.height}px` }}
-              className="relative flex justify-center items-center shrink-0 touch-none"
-            >
-              <canvas
-                ref={canvasRef}
-                width={tableWidth}
-                height={tableHeight}
-                onPointerDown={handleCanvasInteraction}
-                onPointerMove={handleCanvasInteraction}
-                onPointerUp={() => {
-                  if (isBallInHand) setIsBallInHand(false);
-                }}
-                className="w-full h-full shadow-2xl rounded-xl border-2 border-white/10 bg-[#09090b] cursor-crosshair touch-none"
-              />
-              {isBallInHand && (
-                <div className="absolute bottom-6 bg-[#CCFF00] text-black font-black text-[7px] md:text-[10px] uppercase px-3 py-1 rounded-full pointer-events-none tracking-widest animate-pulse shadow-lg z-20">
-                  🖐️ PLACE CUE BALL INSIDE D-ZONE
-                </div>
-              )}
-            </div>
-
-            {/* 3. RIGHT TUNE WHEEL & SPIN CONTROLLER */}
-            <div
-              style={{ height: `${containerScale.height * 0.5}px` }}
-              className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none my-auto"
-            >
-              <span className="text-[6px] md:text-[8px] font-bold text-neutral-400 uppercase tracking-widest pointer-events-none">TUNE</span>
-
-              <div
-                onPointerDown={handleWheelPointerDown}
-                onPointerMove={handleWheelPointerMove}
-                onPointerUp={handleWheelPointerUp}
-                onPointerCancel={handleWheelPointerUp}
-                className={`flex-1 my-1 w-[20px] sm:w-[24px] md:w-[28px] rounded-lg border-[2px] border-white/10 bg-[#09090b] overflow-hidden cursor-ns-resize shadow-inner relative touch-none transition-opacity ${
-                  isBallInHand || isMoving ? "opacity-40" : "opacity-100"
-                }`}
-              >
-                <div
-                  className="absolute inset-0 w-full h-[200%] pointer-events-none"
-                  style={{
-                    background: "repeating-linear-gradient(to bottom, #27272a, #27272a 4px, #09090b 4px, #09090b 8px)",
-                    transform: `translateY(${wheelPos % 8}px)`,
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/70 pointer-events-none" />
-              </div>
-
-              <button
-                onClick={() => setShowSpinModal(true)}
-                className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full bg-[#18181b] border-2 border-[#CCFF00] flex items-center justify-center active:scale-95 transition-all shadow-md relative group cursor-pointer shrink-0 touch-none"
-                title="Set Spin / English"
-              >
-                <div className="w-3 h-3 md:w-4 md:h-4 rounded-full bg-white relative flex items-center justify-center pointer-events-none">
+                  ref={powerTrackRef}
+                  onPointerDown={handlePowerPointerDown}
+                  onPointerMove={handlePowerPointerMove}
+                  onPointerUp={handlePowerPointerUp}
+                  onPointerCancel={handlePowerPointerUp}
+                  className="flex-1 my-1 w-[10px] md:w-[12px] bg-[#09090b] rounded-full border border-white/5 relative shadow-inner flex items-start justify-center cursor-ns-resize touch-none"
+                >
                   <div
-                    className="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full bg-rose-500 absolute"
+                    className="w-full bg-gradient-to-b from-[#CCFF00] via-amber-500 to-rose-500 rounded-full absolute top-0 pointer-events-none transition-all duration-75"
+                    style={{ height: `${uiPower}%` }}
+                  />
+                  <div
+                    className="w-[20px] h-[20px] sm:w-[22px] sm:h-[22px] md:w-[24px] md:h-[24px] bg-[#CCFF00] hover:bg-[#b3e600] border-[2px] border-black rounded-full absolute shadow-md active:scale-95 transition-transform cursor-grab active:cursor-grabbing touch-none"
                     style={{
-                      transform: `translate(${spinOffset.x * 2}px, ${-spinOffset.y * 2}px)`,
+                      top: `calc(${uiPower}% - 10px)`,
                     }}
                   />
                 </div>
-              </button>
+              </div>
+
+              {/* 2. VERTICAL SNOOKER TABLE CANVAS */}
+              <div
+                style={{ width: `${containerScale.width}px`, height: `${containerScale.height}px` }}
+                className="relative flex justify-center items-center shrink-0 touch-none"
+              >
+                <canvas
+                  ref={canvasRef}
+                  width={tableWidth}
+                  height={tableHeight}
+                  onPointerDown={handleCanvasInteraction}
+                  onPointerMove={handleCanvasInteraction}
+                  onPointerUp={() => {
+                    if (isBallInHand) setIsBallInHand(false);
+                  }}
+                  className="w-full h-full shadow-2xl rounded-xl border-2 border-white/10 bg-[#09090b] cursor-crosshair touch-none"
+                />
+                {isBallInHand && (
+                  <div className="absolute bottom-6 bg-[#CCFF00] text-black font-black text-[7px] md:text-[10px] uppercase px-3 py-1 rounded-full pointer-events-none tracking-widest animate-pulse shadow-lg z-20">
+                    🖐️ PLACE CUE BALL INSIDE D-ZONE
+                  </div>
+                )}
+              </div>
+
+              {/* 3. RIGHT TUNE WHEEL & SPIN CONTROLLER */}
+              <div
+                style={{ height: `${containerScale.height * 0.5}px` }}
+                className="flex flex-col items-center justify-between bg-[#18181b] border border-white/10 p-1 rounded-xl w-[32px] sm:w-[36px] md:w-[42px] shadow-lg relative shrink-0 touch-none select-none my-auto"
+              >
+                <span className="text-[6px] md:text-[8px] font-bold text-neutral-400 uppercase tracking-widest pointer-events-none">TUNE</span>
+
+                <div
+                  onPointerDown={handleWheelPointerDown}
+                  onPointerMove={handleWheelPointerMove}
+                  onPointerUp={handleWheelPointerUp}
+                  onPointerCancel={handleWheelPointerUp}
+                  className={`flex-1 my-1 w-[20px] sm:w-[24px] md:w-[28px] rounded-lg border-[2px] border-white/10 bg-[#09090b] overflow-hidden cursor-ns-resize shadow-inner relative touch-none transition-opacity ${
+                    isBallInHand || isMoving ? "opacity-40" : "opacity-100"
+                  }`}
+                >
+                  <div
+                    className="absolute inset-0 w-full h-[200%] pointer-events-none"
+                    style={{
+                      background: "repeating-linear-gradient(to bottom, #27272a, #27272a 4px, #09090b 4px, #09090b 8px)",
+                      transform: `translateY(${wheelPos % 8}px)`,
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/70 pointer-events-none" />
+                </div>
+
+                <button
+                  onClick={() => setShowSpinModal(true)}
+                  className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-full bg-[#18181b] border-2 border-[#CCFF00] flex items-center justify-center active:scale-95 transition-all shadow-md relative group cursor-pointer shrink-0 touch-none"
+                  title="Set Spin / English"
+                >
+                  <div className="w-3 h-3 md:w-4 md:h-4 rounded-full bg-white relative flex items-center justify-center pointer-events-none">
+                    <div
+                      className="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full bg-rose-500 absolute"
+                      style={{
+                        transform: `translate(${spinOffset.x * 2}px, ${-spinOffset.y * 2}px)`,
+                      }}
+                    />
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* FOOTER */}
-      {playMode !== "menu" && playMode !== "searching" && playMode !== "confirmed" && (
-        <div className="w-full max-w-[480px] flex justify-between items-center px-1 shrink-0">
-          <button
-            onClick={initBalls}
-            className="ml-auto px-3 py-1 bg-[#18181b] border border-white/10 hover:bg-[#white]/10 text-neutral-300 text-[8px] md:text-[9px] font-black uppercase tracking-widest rounded-lg active:scale-95 transition-transform cursor-pointer touch-manipulation"
-          >
-            Reset Match
-          </button>
+          <div className="w-full max-w-[420px] flex justify-end items-center mt-0.5 shrink-0 px-1">
+            <button
+              onClick={initBalls}
+              className="bg-[#1e293b] hover:bg-slate-700 text-slate-200 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-lg touch-manipulation"
+            >
+              Reset Match
+            </button>
+          </div>
         </div>
       )}
     </div>

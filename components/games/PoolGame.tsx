@@ -4,10 +4,12 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { soundEngine } from "../../lib/soundManager";
-import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 import MatchmakingModal from "../MatchmakingModal";
+
+// 🛍️ NEW: Live Database Cosmetic Hook
+import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
 
 // 🎱 Table Dimensions & Definitions
 const TABLE_WIDTH = 360;
@@ -132,9 +134,9 @@ function rotateVector(
 export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // 🛍️ STORE COSMETICS ENGINE SYNC
-  const equippedTheme = storeManager.getEquippedCosmetic("pool");
-  const isCyberTable = equippedTheme === "cyber_pool_table" || true;
+  // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
+  const { modifiers } = useEquippedCosmetic("pool");
+  const isCyberTable = !!modifiers;
 
   // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
   const [userPoints, setUserPoints] = useState<number | null>(null);
@@ -145,10 +147,8 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
   const [showMatchmaker, setShowMatchmaker] = useState(false);
   const [pendingMatch, setPendingMatch] = useState<{ matchId: string; role: 1 | 2; isBot: boolean } | null>(null);
 
-  // 1. Detect bot mode synchronously
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
-  // 2. Play Mode Initialization
   const [playMode, setPlayMode] = useState<"menu" | "local" | "host" | "join" | "online" | "bot" | "searching" | "confirmed">(
     isBotMode ? "bot" : preloadedMatchId ? "join" : "menu"
   );
@@ -164,12 +164,10 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "foul" | "info" | "success" } | null>(null);
 
-  // 🌐 MULTIPLAYER NETWORK STATES
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myPlayerRole, setMyPlayerRole] = useState<1 | 2>(1);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // 🎮 GAME STATES
   const [currentTurn, setCurrentTurn] = useState<"player1" | "player2">("player1");
   const [playerGroups, setPlayerGroups] = useState<{ player1: "Open" | "Solids" | "Stripes"; player2: "Open" | "Solids" | "Stripes" }>({
     player1: "Open",
@@ -190,7 +188,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
   const [uiPower, setUiPower] = useState(0);
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);
 
-  // 🎭 REACTIONS
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; role: number }[]>([]);
   const [showEmojiMenu, setShowEmojiMenu] = useState(false);
 
@@ -215,7 +212,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
   const wasMovingRef = useRef(false);
   const didIShootRef = useRef(false);
 
-  // 6 Pockets Coordinates
   const pockets = [
     { x: 22, y: 22 },
     { x: TABLE_WIDTH - 22, y: 22 },
@@ -225,7 +221,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     { x: TABLE_WIDTH - 22, y: TABLE_HEIGHT - 22 },
   ];
 
-  // 📥 FETCH USER PROFILE BALANCE & ENTRY FEE
   useEffect(() => {
     const fetchGameData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -252,7 +247,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     fetchGameData();
   }, []);
 
-  // 🔒 CHECK POINTS & DEDUCT
   const checkPointsAndDeduct = async (): Promise<boolean> => {
     const result = await processGameEntry({
       gameTitle: "8-Ball Pool",
@@ -273,7 +267,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     return true;
   };
 
-  // 🏆 RECORD MATCH RESULT
   useEffect(() => {
     if (!winner || !historyMatchId) return;
 
@@ -296,7 +289,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     });
   }, [winner, historyMatchId, myPlayerRole, entryFee, localOpponent]);
 
-  // ⏱️ 30-SECOND TURN TIMER SYSTEM
   const triggerFoulAlert = (msg: string) => {
     setFoulMessage(msg);
     setTimeout(() => setFoulMessage(null), 2500);
@@ -348,7 +340,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     return () => clearInterval(timerInterval);
   }, [currentTurn, winner, isMoving, playMode, handleTimeOut]);
 
-  // 📡 SUPABASE MULTIPLAYER SYNC
   const shouldConnect = matchId && myUserId && playMode !== "menu" && playMode !== "local" && playMode !== "bot" && playMode !== "searching" && playMode !== "confirmed";
 
   useEffect(() => {
@@ -540,7 +531,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     isDraggingPower.current = false;
     turnTrackingRef.current = { pottedNum: [], firstHitNum: -1, cueScratch: false };
 
-    // Broadcast Turn Sync
     if (playMode === "online" && channelRef.current && didIShootRef.current) {
       channelRef.current.send({
         type: "broadcast",
@@ -557,7 +547,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
   }, [currentTurn, playerGroups, playMode, winner]);
 
-  // 🤖 BOT ENGINE
   useEffect(() => {
     if (playMode === "bot" && currentTurn === "player2" && !isMoving && !winner) {
       const timer = setTimeout(() => {
@@ -598,7 +587,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     }
   }, [playMode, currentTurn, isMoving, winner, playerGroups, isBallInHand]);
 
-  // 1️⃣ Game Initialization Function
   const initBalls = useCallback(() => {
     const balls: Ball[] = [];
     let idCounter = 1;
@@ -661,7 +649,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     initBalls();
   }, [initBalls]);
 
-  // Spin Modal Render
   useEffect(() => {
     if (!showSpinModal || !spinCanvasRef.current) return;
     const canvas = spinCanvasRef.current;
@@ -735,7 +722,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
   const handleSpinPointerUp = () => setShowSpinModal(false);
 
-  // Main Canvas Physics & Renderer
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -905,7 +891,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
       }
       wasMovingRef.current = dynamicMotion;
 
-      // 🎨 DRAW TABLE (BLUE FELT)
       ctx.fillStyle = "#3b1e08";
       ctx.fillRect(0, 0, TABLE_WIDTH, TABLE_HEIGHT);
 
@@ -924,7 +909,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         ctx.restore();
       });
 
-      // Baulk Line & Semi-Circle "D"
       ctx.strokeStyle = "rgba(255,255,255,0.25)";
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -936,7 +920,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
       ctx.arc(TABLE_WIDTH / 2, HEAD_LINE_Y, 45, 0, Math.PI, false);
       ctx.stroke();
 
-      // SHADOWS
       ballsRef.current.forEach((ball) => {
         const r = BALL_RADIUS * (ball.scale ?? 1);
         ctx.save();
@@ -947,7 +930,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         ctx.restore();
       });
 
-      // HIGHLIGHTED TARGET BALLS & 3D SPHERE RENDER
       ballsRef.current.forEach((ball) => {
         const r = BALL_RADIUS * (ball.scale ?? 1);
         if (r <= 0.5) return;
@@ -958,7 +940,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         const info = BALL_TYPES[ball.num] || BALL_TYPES[0];
         const isStripe = ball.num >= 9 && ball.num <= 15;
 
-        // TARGET HIGHLIGHT LOGIC
         const currentActiveGroup = playerGroups[currentTurn];
         let isTarget = false;
 
@@ -1054,7 +1035,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           ctx.fill();
         }
 
-        // 3D Spots
         const spots = [
           { x: ball.wAx, y: ball.wAy, z: ball.wAz },
           { x: -ball.wAx, y: -ball.wAy, z: -ball.wAz }
@@ -1107,7 +1087,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         ctx.restore();
       });
 
-      // Raycast Guidelines
       const cueBall = balls.find((b) => b.num === 0);
       if (!cueBall) {
         animId = requestAnimationFrame(engineLoop);
@@ -1218,7 +1197,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         }
         ctx.restore();
 
-        // REALISTIC WOODEN CUE STICK
         ctx.save();
         const stickOffset = 14 + currentUiPower * 0.45;
         const cueLength = 180;
@@ -1403,7 +1381,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     setSpinOffset({ x: 0, y: 0 });
   };
 
-  // --- LOBBY ACTIONS ---
   const startOnlineMatchmaking = async () => {
     soundEngine.playSFX("click");
     const canPlay = await checkPointsAndDeduct();
@@ -1453,7 +1430,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         setPlayMode("bot");
         setToast({ msg: `Playing against ${localOpponent?.name || 'Bot'}`, type: 'success' });
       } else {
-        // Transition both real human players directly into live online play
         setPlayMode("online");
       }
     } else {
@@ -1476,30 +1452,24 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
   return (
     <div className="fixed inset-0 w-screen h-[100dvh] bg-[#030712] flex flex-col justify-between items-center overflow-hidden touch-none select-none z-[9999] p-2 md:p-3 text-white">
       
-      {/* 🚫 INSUFFICIENT POINTS MODAL */}
       {showNoPointsModal && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[99999] flex items-center justify-center p-6 animate-fade-in touch-none">
           <div className="bg-[#18181b] border border-rose-500/30 rounded-[28px] p-6 w-full max-w-[340px] shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
-            
             <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-4">
               <span className="material-symbols-outlined text-3xl text-rose-400">monetization_on</span>
             </div>
-
             <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
               Insufficient Points
             </h3>
-            
             <p className="text-xs text-neutral-400 font-medium leading-relaxed mb-4">
               You need <span className="text-[#CCFF00] font-bold">{entryFee} PTS</span> to play an online Pool match.
             </p>
-
             <div className="w-full bg-[#09090b] border border-white/10 rounded-2xl p-3 mb-6 flex justify-between items-center">
               <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Your Balance</span>
               <span className="text-sm font-black font-mono text-rose-400">
                 {userPoints ?? 0} PTS
               </span>
             </div>
-
             <div className="w-full space-y-2">
               <button
                 onClick={() => {
@@ -1511,7 +1481,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                 <span className="material-symbols-outlined text-base">shopping_cart</span>
                 Visit Store / Buy Points
               </button>
-
               <button
                 onClick={() => setShowNoPointsModal(false)}
                 className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5 touch-manipulation"
@@ -1523,7 +1492,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         </div>
       )}
 
-      {/* GLOBAL MATCHMAKING OVERLAY */}
       {showMatchmaker && (
         <MatchmakingModal
           gameKey="pool" 
@@ -1532,13 +1500,11 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           onMatchFound={(matchData) => {
             setShowMatchmaker(false);
             setLocalOpponent(matchData.opponent);
-            
             setPendingMatch({
               matchId: matchData.matchId || `bot_match_${Date.now()}`,
               role: (matchData.role as 1 | 2) || 1,
               isBot: matchData.opponent.isBot || false
             });
-            
             setPlayMode("confirmed"); 
           }}
           onCancel={() => {
@@ -1548,7 +1514,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         />
       )}
 
-      {/* LOBBY MENU */}
       {playMode === "menu" && (
         <div className="absolute inset-0 z-50 bg-[#09090b] flex items-center justify-center p-6">
           <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
@@ -1663,7 +1628,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         </div>
       )}
 
-      {/* MATCH CONFIRMED SCREEN */}
       {playMode === "confirmed" && (
         <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
           <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] px-4 py-1.5 rounded-full font-headline font-black text-xs tracking-widest mb-10 flex items-center gap-2">
@@ -1701,7 +1665,6 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         </div>
       )}
 
-      {/* WAITING SCREEN */}
       {(playMode === "host" || playMode === "join") && (
         <div className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center p-6 relative z-10">
           <div className="bg-[#18181b] border border-white/10 rounded-[2.5rem] p-8 w-full shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
@@ -1741,10 +1704,9 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         </div>
       )}
 
-      {/* ACTIVE GAMEPLAY OVERLAYS */}
       {(playMode === "local" || playMode === "online" || playMode === "bot") && (
-        <>
-          {/* FLOATING EMOJI LAYER */}
+        <div className="w-full flex-1 flex flex-col justify-between items-center min-h-0 pt-safe pb-safe">
+          
           {floatingEmojis.map((em) => {
             const isMine = em.role === myPlayerRole;
             return (
@@ -1797,36 +1759,34 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
             </div>
           )}
 
-          {/* 🟢 TOP HEADER HUD BAR */}
-          <div className="w-full max-w-[420px] flex justify-between items-center bg-[#0b1329]/90 border border-slate-800/80 p-2 px-3 rounded-2xl shadow-2xl relative mb-1">
+          <div className="w-full max-w-[420px] flex justify-between items-center bg-[#0b1329]/90 border border-slate-800/80 p-2 px-3 rounded-2xl shadow-2xl relative shrink-0 my-1">
             <div className="relative">
               {currentTurn === "player1" && (
                 <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-cyan-500 text-black font-black text-[8px] uppercase px-2.5 py-0.5 rounded-full tracking-widest shadow-lg animate-bounce z-10">
                   TURN
                 </div>
               )}
-              <div className={`flex flex-col items-start min-w-[80px] px-2.5 py-1 rounded-xl transition-all duration-300 ${currentTurn === "player1" ? "border-2 border-cyan-400/90 bg-cyan-950/40 shadow-[0_0_12px_rgba(34,211,238,0.3)] animate-pulse" : "bg-black/30 opacity-70"}`}>
-                <span className={`text-[10px] font-black ${currentTurn === "player1" ? "text-cyan-400" : "text-slate-400"} tracking-wider uppercase`}>PLAYER 1</span>
-                <span className="text-xs font-black text-amber-400 uppercase">{playerGroups.player1}</span>
+              <div className={`flex flex-col items-start min-w-[70px] px-2 py-1 rounded-xl transition-all duration-300 ${currentTurn === "player1" ? "border-2 border-cyan-400/90 bg-cyan-950/40 shadow-[0_0_12px_rgba(34,211,238,0.3)] animate-pulse" : "bg-black/30 opacity-70"}`}>
+                <span className={`text-[9px] font-black ${currentTurn === "player1" ? "text-cyan-400" : "text-slate-400"} tracking-wider uppercase`}>P1</span>
+                <span className="text-[10px] font-black text-amber-400 uppercase truncate max-w-[70px]">{playerGroups.player1}</span>
               </div>
             </div>
 
-            {/* 30-SECOND COUNTDOWN TIMER BADGE */}
-            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full border shadow-sm backdrop-blur-md transition-colors ${
+            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full border shadow-sm backdrop-blur-md transition-colors ${
               timeLeft <= 5 ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse" : "bg-[#18181b] border-white/10 text-[#CCFF00]"
             }`}>
-              <span className="material-symbols-outlined text-xs">timer</span>
-              <span className="font-mono font-black text-xs">{timeLeft}s</span>
+              <span className="material-symbols-outlined text-[10px]">timer</span>
+              <span className="font-mono font-black text-[10px]">{timeLeft}s</span>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-[#030712] px-3 py-1 rounded-full border border-slate-800">
-              <span className="text-[9px] font-black text-slate-400 tracking-widest uppercase">TARGET</span>
+            <div className="flex items-center gap-1 bg-[#030712] px-2.5 py-1 rounded-full border border-slate-800">
+              <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase">TARGET</span>
               {currentActiveGroup === "Open" || isCurrentGroupCleared ? (
-                <PoolBallBadge num={8} size={18} />
+                <PoolBallBadge num={8} size={16} />
               ) : currentActiveGroup === "Solids" ? (
-                <PoolBallBadge num={1} size={18} />
+                <PoolBallBadge num={1} size={16} />
               ) : (
-                <PoolBallBadge num={9} size={18} />
+                <PoolBallBadge num={9} size={16} />
               )}
             </div>
 
@@ -1836,28 +1796,27 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                   TURN
                 </div>
               )}
-              <div className={`flex flex-col items-end min-w-[80px] px-2.5 py-1 rounded-xl transition-all duration-300 ${currentTurn === "player2" ? "border-2 border-rose-500/90 bg-rose-950/40 shadow-[0_0_12px_rgba(244,63,94,0.3)] animate-pulse" : "bg-black/30 opacity-70"}`}>
-                <span className={`text-[10px] font-black ${currentTurn === "player2" ? "text-rose-400" : "text-slate-400"} tracking-wider uppercase`}>{playMode === "bot" ? (localOpponent?.name || "Bot") : "PLAYER 2"}</span>
-                <span className="text-xs font-black text-amber-400 uppercase">{playerGroups.player2}</span>
+              <div className={`flex flex-col items-end min-w-[70px] px-2 py-1 rounded-xl transition-all duration-300 ${currentTurn === "player2" ? "border-2 border-rose-500/90 bg-rose-950/40 shadow-[0_0_12px_rgba(244,63,94,0.3)] animate-pulse" : "bg-black/30 opacity-70"}`}>
+                <span className={`text-[9px] font-black ${currentTurn === "player2" ? "text-rose-400" : "text-slate-400"} tracking-wider uppercase`}>{playMode === "bot" ? "BOT" : "P2"}</span>
+                <span className="text-[10px] font-black text-amber-400 uppercase truncate max-w-[70px]">{playerGroups.player2}</span>
               </div>
             </div>
 
-            {/* REACTION MENU TOGGLE BUTTON */}
             <div className="relative">
               <button
                 onClick={() => { soundEngine.playSFX("click"); setShowEmojiMenu(!showEmojiMenu); }}
-                className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white shadow-sm active:scale-90 touch-manipulation ml-1"
+                className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white shadow-sm active:scale-90 touch-manipulation ml-0.5"
               >
-                <span className="material-symbols-outlined text-sm">add_reaction</span>
+                <span className="material-symbols-outlined text-xs">add_reaction</span>
               </button>
               
               {showEmojiMenu && (
-                <div className="absolute top-10 right-0 bg-[#18181b] border border-white/10 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
+                <div className="absolute top-9 right-0 bg-[#18181b] border border-white/10 p-2 rounded-2xl shadow-xl flex gap-1 z-50">
                   {EMOJIS.map(em => (
                     <button
                       key={em}
                       onClick={() => sendEmoji(em)}
-                      className="text-xl hover:scale-125 transition-transform p-1 touch-manipulation"
+                      className="text-lg hover:scale-125 transition-transform p-1 touch-manipulation"
                     >
                       {em}
                     </button>
@@ -1868,16 +1827,14 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
             <button
               onClick={handleExitToHome}
-              className="bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md ml-1"
+              className="bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-black px-2.5 py-1.5 rounded-full uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md ml-0.5 touch-manipulation"
             >
               EXIT
             </button>
           </div>
 
-          {/* 🟢 WORKSPACE VERTICAL GRID */}
-          <div className="w-full max-w-[420px] flex justify-center items-center flex-1 my-1 relative">
-            {/* LEFT CONTROLLER: PULL */}
-            <div className="flex flex-col items-center justify-between bg-[#091024]/80 py-3 px-1 rounded-2xl h-[60%] w-[42px] shadow-xl relative mr-1.5 self-center">
+          <div className="w-full max-w-[420px] flex justify-center items-center flex-1 my-0.5 relative min-h-0">
+            <div className="flex flex-col items-center justify-between bg-[#091024]/80 py-3 px-1 rounded-2xl h-[55%] w-[40px] shadow-xl relative mr-1.5 self-center shrink-0">
               <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1">PULL</span>
               <div className="w-1.5 h-[80%] bg-slate-900 rounded-full relative flex items-center justify-center cursor-ns-resize">
                 <div
@@ -1891,15 +1848,14 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               </div>
             </div>
 
-            {/* CANVAS VERTICAL TABLE */}
-            <div className="relative flex-1 flex flex-col justify-center items-center h-full max-h-[640px]">
+            <div className="relative flex-1 flex flex-col justify-center items-center h-full max-h-[580px]">
               <canvas
                 ref={canvasRef}
                 width={TABLE_WIDTH}
                 height={TABLE_HEIGHT}
                 onPointerDown={handleCanvasInteraction}
                 onPointerMove={handleCanvasInteraction}
-                className="w-full h-full max-h-[640px] rounded-2xl shadow-2xl bg-[#030712] object-contain cursor-crosshair touch-none"
+                className="w-full h-full max-h-[580px] rounded-2xl shadow-2xl bg-[#030712] object-contain cursor-crosshair touch-none"
               />
 
               {isBallInHand && showConfirmBtn && (
@@ -1915,8 +1871,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               )}
             </div>
 
-            {/* RIGHT CONTROLLER: TUNE & SPIN */}
-            <div className="flex flex-col items-center justify-between bg-[#091024]/80 py-3 px-1 rounded-2xl h-[60%] w-[42px] shadow-xl relative ml-1.5 self-center">
+            <div className="flex flex-col items-center justify-between bg-[#091024]/80 py-3 px-1 rounded-2xl h-[55%] w-[40px] shadow-xl relative ml-1.5 self-center shrink-0">
               <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1">TUNE</span>
               <div
                 onPointerDown={handleWheelPointerDown}
@@ -1938,7 +1893,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
               <button
                 onClick={() => setShowSpinModal(true)}
-                className="w-7 h-7 rounded-full bg-white border-2 border-sky-400 flex items-center justify-center shadow-lg active:scale-95 transition-all cursor-pointer"
+                className="w-6 h-6 rounded-full bg-white border-2 border-sky-400 flex items-center justify-center shadow-lg active:scale-95 transition-all cursor-pointer"
                 title="Set Spin"
               >
                 <div className="w-2 h-2 rounded-full bg-red-600" />
@@ -1946,16 +1901,15 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
             </div>
           </div>
 
-          {/* 🟢 FOOTER RESET BUTTON */}
-          <div className="w-full max-w-[420px] flex justify-end items-center mt-1">
+          <div className="w-full max-w-[420px] flex justify-end items-center mt-0.5 shrink-0 px-1">
             <button
               onClick={initBalls}
-              className="bg-[#1e293b] hover:bg-slate-700 text-slate-200 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-lg"
+              className="bg-[#1e293b] hover:bg-slate-700 text-slate-200 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-lg touch-manipulation"
             >
               RESET MATCH
             </button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

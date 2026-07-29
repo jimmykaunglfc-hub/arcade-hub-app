@@ -3,10 +3,12 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
-import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 import MatchmakingModal from "../MatchmakingModal";
+
+// 🛍️ NEW: Live Database Cosmetic Hook
+import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
 
 const EMPTY = 0, P1 = 1, P2 = 2, P1_KING = 3, P2_KING = 4;
 const TURN_TIME_LIMIT = 30; // 30-second turn limit
@@ -37,9 +39,10 @@ export default function Checkers({
   opponent
 }: CheckersProps) {
 
-  // 🛍️ STORE COSMETICS ENGINE SYNC
-  const equippedBoard = storeManager.getEquippedCosmetic("checkers");
-  const isCyberBoard = equippedBoard === "cyber_checkers_board";
+  // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
+  const { modifiers } = useEquippedCosmetic("checkers");
+  // If modifiers exist, the user has equipped a cosmetic board
+  const isCyberBoard = !!modifiers;
 
   // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
   const [userPoints, setUserPoints] = useState<number | null>(null);

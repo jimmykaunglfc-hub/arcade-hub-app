@@ -4,10 +4,12 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { soundEngine } from "../../lib/soundManager";
-import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 import MatchmakingModal from "../MatchmakingModal";
+
+// 🛍️ NEW: Live Database Cosmetic Hook
+import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
 
 // --- HYPER-REALISTIC ENGINE CONSTANTS ---
 const BOARD_SIZE = 1000;
@@ -111,9 +113,10 @@ interface CarromProps {
 
 export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromProps) {
   
-  // 🛍️ STORE COSMETICS ENGINE SYNC
-  const equippedCosmetic = storeManager.getEquippedCosmetic("carrom");
-  const isNeonStriker = equippedCosmetic === "neon_glow_striker";
+  // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
+  const { modifiers } = useEquippedCosmetic("carrom");
+  // If modifiers exist, the user has equipped a cosmetic (trigger visual changes)
+  const isNeonStriker = !!modifiers;
 
   // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
   const [userPoints, setUserPoints] = useState<number | null>(null);
@@ -453,6 +456,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       const dist = Math.hypot(dx, dy);
       
       const botPower = 180 + Math.random() * 80; 
+      // The Bot always uses standard power. (No cosmetic advantage)
       const powerMultiplier = 0.22;
       const vx = (dx / dist) * botPower * powerMultiplier;
       const vy = (dy / dist) * botPower * powerMultiplier;
@@ -986,9 +990,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     if (!isAiming) return;
     setIsAiming(false);
     
-    const powerMultiplier = 0.22;
-    const vx = aimVector.x * powerMultiplier;
-    const vy = aimVector.y * powerMultiplier;
+    // ⚙️ COSMETIC ENGINE PHYSICS INJECTION
+    const basePowerMultiplier = 0.22;
+    const cosmeticPowerMultiplier = modifiers?.power_multiplier || 1; 
+    const finalPowerMultiplier = basePowerMultiplier * cosmeticPowerMultiplier;
+
+    const vx = aimVector.x * finalPowerMultiplier;
+    const vy = aimVector.y * finalPowerMultiplier;
     
     if (Math.hypot(vx, vy) < 1.5) return;
 

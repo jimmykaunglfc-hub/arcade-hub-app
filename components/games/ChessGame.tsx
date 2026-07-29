@@ -4,10 +4,12 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Chess, Square } from "chess.js";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
-import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 import MatchmakingModal from "../MatchmakingModal";
+
+// 🛍️ NEW: Live Database Cosmetic Hook
+import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
 
 interface ChessGameProps {
   onClose: () => void;
@@ -207,9 +209,10 @@ const getBestMove = (chessGame: Chess) => {
 export default function ChessGame({ onClose, preloadedMatchId, opponent }: ChessGameProps) {
   const boardRef = useRef<HTMLDivElement>(null);
 
-  // 🛍️ STORE COSMETICS ENGINE SYNC
-  const equippedBoard = storeManager.getEquippedCosmetic("chess");
-  const isObsidianBoard = equippedBoard === "obsidian_board";
+  // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
+  const { modifiers } = useEquippedCosmetic("chess");
+  // If modifiers exist, the user has equipped a cosmetic board
+  const isObsidianBoard = !!modifiers;
 
   // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
   const [userPoints, setUserPoints] = useState<number | null>(null);

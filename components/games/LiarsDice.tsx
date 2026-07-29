@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { soundEngine } from "../../lib/soundManager";
-import { storeManager } from "../../lib/storeManager";
+
+// 🛍️ NEW: Live Database Cosmetic Hook
+import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
 
 // Helper to generate random dice
 const rollDice = (count: number) => {
@@ -101,17 +103,23 @@ const DiceFace = ({ value, index, theme }: { value: number; index: number; theme
 };
 
 export default function LiarsDice({ onClose }: { onClose?: () => void }) {
-  // 🛍️ STORE COSMETICS ENGINE SYNC
-  const equippedTheme = storeManager.getEquippedCosmetic("liars_dice");
-  const initialThemeIndex = equippedTheme === "crimson_leather" ? 1 : equippedTheme === "royal_jade" ? 2 : 0;
-
+  // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
+  const { modifiers } = useEquippedCosmetic("liars_dice");
+  
   const [diceCount, setDiceCount] = useState(5);
   const [diceValues, setDiceValues] = useState<number[]>(rollDice(5));
   const [isCupOpen, setIsCupOpen] = useState(false);
   const [isRolling, setIsRolling] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(!soundEngine.getMutedState());
   const [isRulesOpen, setIsRulesOpen] = useState(false);
-  const [themeIndex, setThemeIndex] = useState(initialThemeIndex);
+  const [themeIndex, setThemeIndex] = useState(0);
+
+  // Sync theme if a cosmetic is equipped from the database
+  useEffect(() => {
+    if (modifiers?.theme_index !== undefined) {
+      setThemeIndex(modifiers.theme_index);
+    }
+  }, [modifiers]);
   
   // Custom Drag Physics State
   const [cupY, setCupY] = useState(0);

@@ -3,10 +3,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
-import { storeManager } from "../../lib/storeManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 import MatchmakingModal from "../MatchmakingModal";
+
+// 🛍️ NEW: Live Database Cosmetic Hook
+import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
 
 interface TicTacToeProps {
   onClose?: () => void;
@@ -28,9 +30,9 @@ const TURN_TIME_LIMIT = 30; // 30-second turn limit
 const EMOJIS = ["👍", "😂", "🔥", "😡", "😭", "🤯"];
 
 export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: TicTacToeProps) {
-  // 🛍️ STORE COSMETICS ENGINE SYNC
-  const equippedCosmetic = storeManager.getEquippedCosmetic("tictactoe");
-  const isCyberMarks = equippedCosmetic === "cyber_neon_marks" || true;
+  // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
+  const { modifiers } = useEquippedCosmetic("tictactoe");
+  const isCyberMarks = !!modifiers;
 
   // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
   const [userPoints, setUserPoints] = useState<number | null>(null);
@@ -554,7 +556,6 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
       if (pendingMatch.isBot) {
         startNewGame("ai_unbeatable", localOpponent);
       } else {
-        // Direct transition into live online gameplay for both human players
         setGameMode("pvp");
         setView("play");
       }
@@ -563,6 +564,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     }
   };
 
+  // 🎭 SEND EMOJI HANDLER
   const sendEmoji = (emoji: string) => {
     soundEngine.playSFX("click");
     setShowEmojiMenu(false);

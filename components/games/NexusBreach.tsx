@@ -2,15 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import { soundEngine } from "../../lib/soundManager";
-import { storeManager } from "../../lib/storeManager";
+
+// 🛍️ NEW: Live Database Cosmetic Hook
+import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
 
 type PenaltyTheme = "Standard" | "Drink" | "Truth" | "Dare";
 const PENALTY_THEMES: PenaltyTheme[] = ["Standard", "Drink", "Truth", "Dare"];
 
 export default function NexusBreach({ onClose }: { onClose?: () => void }) {
-  // 🛍️ STORE COSMETICS ENGINE SYNC
-  const equippedTheme = storeManager.getEquippedCosmetic("nexus_breach");
-  const isNeonTheme = equippedTheme === "neon_matrix_breach" || true;
+  // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
+  const { modifiers } = useEquippedCosmetic("nexus_breach");
+  // If modifiers exist, the user has equipped a cosmetic matrix theme
+  const isNeonTheme = !!modifiers;
 
   const [trapIndex, setTrapIndex] = useState<number>(0);
   const [clearedIndexes, setClearedIndexes] = useState<number[]>([]);

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { soundEngine } from "../../lib/soundManager";
-import { storeManager } from "../../lib/storeManager";
+import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
 
 // High-tech color palette for different fingers
 const NODE_COLORS = [
@@ -35,9 +35,10 @@ export default function BiometricOverride({ onClose }: { onClose?: () => void })
   const [phase, setPhase] = useState<"idle" | "scanning" | "selected">("idle");
   const [winnerId, setWinnerId] = useState<number | null>(null);
 
-  // Store Manager Sync
-  const equippedCosmetic = storeManager.getEquippedCosmetic("global");
-  const isMatrixNeon = equippedCosmetic === "neon_glow_striker" || true;
+  // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
+  const { modifiers } = useEquippedCosmetic("biometric_override");
+  // If modifiers exist, the user has equipped a cosmetic for this game
+  const isMatrixNeon = !!modifiers; 
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const prevTouchLength = useRef<number>(0);

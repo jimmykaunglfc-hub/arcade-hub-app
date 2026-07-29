@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { soundEngine } from "../../lib/soundManager";
-import { storeManager } from "../../lib/storeManager";
+
+// 🛍️ NEW: Live Database Cosmetic Hook
+import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
 
 type PenaltyTheme = "Standard" | "Drink" | "Truth" | "Dare";
 const PENALTY_THEMES: PenaltyTheme[] = ["Standard", "Drink", "Truth", "Dare"];
@@ -14,9 +16,10 @@ type Card = {
 };
 
 export default function GlitchDeck({ onClose }: { onClose: () => void }) {
-  // 🛍️ STORE COSMETICS ENGINE SYNC
-  const equippedTheme = storeManager.getEquippedCosmetic("glitch_deck");
-  const isNeonTheme = equippedTheme === "neon_cyber_deck" || true;
+  // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
+  const { modifiers } = useEquippedCosmetic("glitch_deck");
+  // If modifiers exist, the user has equipped a cosmetic deck theme
+  const isNeonTheme = !!modifiers;
 
   const [playerCount, setPlayerCount] = useState<number>(4);
   const [cards, setCards] = useState<Card[]>([]);

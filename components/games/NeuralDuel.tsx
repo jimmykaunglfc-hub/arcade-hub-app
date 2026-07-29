@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { soundEngine } from "../../lib/soundManager";
-import { storeManager } from "../../lib/storeManager";
+
+// 🛍️ NEW: Live Database Cosmetic Hook
+import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
 
 type PenaltyTheme = "Standard" | "Drink" | "Truth" | "Dare";
 const PENALTY_THEMES: PenaltyTheme[] = ["Standard", "Drink", "Truth", "Dare"];
@@ -10,9 +12,10 @@ const PENALTY_THEMES: PenaltyTheme[] = ["Standard", "Drink", "Truth", "Dare"];
 type Player = "p1" | "p2";
 
 export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
-  // 🛍️ STORE COSMETICS ENGINE SYNC
-  const equippedTheme = storeManager.getEquippedCosmetic("neural_duel");
-  const isNeonTheme = equippedTheme === "neon_pulse" || true;
+  // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
+  const { modifiers } = useEquippedCosmetic("neural_duel");
+  // If modifiers exist, the user has equipped a cosmetic theme for Neural Duel
+  const isNeonTheme = !!modifiers;
 
   const [gameStatus, setGameStatus] = useState<"idle" | "standby" | "execute" | "gameover">("idle");
   const [winner, setWinner] = useState<Player | null>(null);
