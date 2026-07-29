@@ -163,10 +163,19 @@ export default function ShopTab({ userId }: ShopTabProps) {
       if (isEquipped) {
         await supabase.from("user_inventory").update({ is_equipped: false }).eq("id", inventoryItem.id);
       } else {
+        // --- THE FIX: SMART MATCHER ---
+        // Dynamically figure out the game slot based on the item name
+        let equipSlot = "general";
+        const itemName = (item.name || "").toLowerCase();
+        
+        if (itemName.includes("board") || itemName.includes("checkers")) equipSlot = "checkers";
+        if (itemName.includes("striker") || itemName.includes("carrom")) equipSlot = "carrom";
+        // Add more game keyword matchers here as you build them!
+
         await supabase.rpc("equip_cosmetic", {
           p_user_id: userId,
           p_cosmetic_id: item.id,
-          p_category: item.sku 
+          p_category: equipSlot 
         });
       }
       soundEngine.playSFX("move");
