@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Trophy,
@@ -355,162 +356,176 @@ export default function TournamentsPage() {
       </div>
 
       {/* CREATE MODAL */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="bg-[#18181b] border border-white/10 rounded-[28px] p-6 w-full max-w-lg shadow-2xl space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#CCFF00]" />
-                <h3 className="font-headline text-lg font-black text-white">
-                  New Tournament
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsCreateModalOpen(false)}
-                className="text-neutral-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateTournament} className="space-y-4">
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
-                  Tournament Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Summer Clash 2026"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
-                    Game
-                  </label>
-                  <select
-                    value={game}
-                    onChange={(e) => setGame(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+      {isCreateModalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/75 p-4 backdrop-blur-md sm:p-6">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="tournament-dialog-title"
+              className="flex w-full max-w-xl max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#18181b] shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-[#CCFF00]" />
+                  <h3
+                    id="tournament-dialog-title"
+                    className="font-headline text-lg font-black text-white"
                   >
-                    <option value="Chess" className="bg-[#18181b]">
-                      Chess
-                    </option>
-                    <option value="Carrom" className="bg-[#18181b]">
-                      Carrom
-                    </option>
-                    <option value="Snooker" className="bg-[#18181b]">
-                      Snooker
-                    </option>
-                    <option value="Uno" className="bg-[#18181b]">
-                      Uno
-                    </option>
-                  </select>
+                    New Tournament
+                  </h3>
                 </div>
-
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
-                    Max Bracket Slots
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={maxPlayers}
-                    onChange={(e) => setMaxPlayers(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
-                  />
-                </div>
+                <button
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="rounded-xl p-2 text-neutral-400 hover:bg-white/5 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
-                  Rules
-                </label>
-                <textarea
-                  value={rules}
-                  onChange={(e) => setRules(e.target.value)}
-                  placeholder="Format, fair-play requirements, match rules…"
-                  className="w-full min-h-20 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
-                  Terms & Conditions
-                </label>
-                <textarea
-                  value={terms}
-                  onChange={(e) => setTerms(e.target.value)}
-                  placeholder="Eligibility, conduct, prize and cancellation terms…"
-                  className="w-full min-h-20 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-                  Participation Points
-                  <input
-                    type="number"
-                    min="0"
-                    value={participationPoints}
-                    onChange={(e) => setParticipationPoints(e.target.value)}
-                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white"
-                  />
-                </label>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-                  Participation Gems
-                  <input
-                    type="number"
-                    min="0"
-                    value={participationGems}
-                    onChange={(e) => setParticipationGems(e.target.value)}
-                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white"
-                  />
-                </label>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
-                    Prize Pool (PTS)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={prizePool}
-                    onChange={(e) => setPrizePool(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
-                    Entry Fee (Gems)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={entryFee}
-                    onChange={(e) => setEntryFee(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full bg-[#CCFF00] text-black font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-[#b3e600] transition-all shadow-[0_0_15px_rgba(204,255,0,0.2)]"
+              <form
+                onSubmit={handleCreateTournament}
+                className="min-h-0 overflow-y-auto space-y-4 px-6 py-5"
               >
-                {saving ? "Publishing..." : "Publish Tournament"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                    Tournament Title
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. Summer Clash 2026"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                      Game
+                    </label>
+                    <select
+                      value={game}
+                      onChange={(e) => setGame(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                    >
+                      <option value="Chess" className="bg-[#18181b]">
+                        Chess
+                      </option>
+                      <option value="Carrom" className="bg-[#18181b]">
+                        Carrom
+                      </option>
+                      <option value="Snooker" className="bg-[#18181b]">
+                        Snooker
+                      </option>
+                      <option value="Uno" className="bg-[#18181b]">
+                        Uno
+                      </option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                      Max Bracket Slots
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={maxPlayers}
+                      onChange={(e) => setMaxPlayers(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                    Rules
+                  </label>
+                  <textarea
+                    value={rules}
+                    onChange={(e) => setRules(e.target.value)}
+                    placeholder="Format, fair-play requirements, match rules…"
+                    className="w-full min-h-20 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                    Terms & Conditions
+                  </label>
+                  <textarea
+                    value={terms}
+                    onChange={(e) => setTerms(e.target.value)}
+                    placeholder="Eligibility, conduct, prize and cancellation terms…"
+                    className="w-full min-h-20 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                    Participation Points
+                    <input
+                      type="number"
+                      min="0"
+                      value={participationPoints}
+                      onChange={(e) => setParticipationPoints(e.target.value)}
+                      className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white"
+                    />
+                  </label>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                    Participation Gems
+                    <input
+                      type="number"
+                      min="0"
+                      value={participationGems}
+                      onChange={(e) => setParticipationGems(e.target.value)}
+                      className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                      Prize Pool (PTS)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={prizePool}
+                      onChange={(e) => setPrizePool(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                      Entry Fee (Gems)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={entryFee}
+                      onChange={(e) => setEntryFee(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full bg-[#CCFF00] text-black font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-[#b3e600] transition-all shadow-[0_0_15px_rgba(204,255,0,0.2)]"
+                >
+                  {saving ? "Publishing..." : "Publish Tournament"}
+                </button>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
