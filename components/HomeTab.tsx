@@ -322,7 +322,7 @@ export default function HomeTab({
             <img
               src={activeTournament.card_image_url}
               alt=""
-              className="-mx-5 -mt-5 mb-4 aspect-[16/7] w-[calc(100%+2.5rem)] bg-surface-container object-cover object-center"
+              className="-mx-5 -mt-5 mb-4 aspect-[16/7] w-[calc(100%+2.5rem)] bg-surface-container object-contain object-center"
             />
           )}
           <div className="flex items-start justify-between gap-3">
