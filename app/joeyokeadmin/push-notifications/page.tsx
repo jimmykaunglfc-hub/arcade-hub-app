@@ -25,6 +25,7 @@ export default function PushNotificationsPage() {
   const [message, setMessage] = useState("");
   const [audience, setAudience] = useState("all");
   const [actionUrl, setActionUrl] = useState("");
+  const [category, setCategory] = useState("general");
 
   useEffect(() => {
     fetchBroadcasts();
@@ -56,7 +57,8 @@ export default function PushNotificationsPage() {
         {
           id: "2",
           title: "⚔️ Chess Grand Tournament Open!",
-          message: "Bracket registrations are now open. Register before slots fill up.",
+          message:
+            "Bracket registrations are now open. Register before slots fill up.",
           audience: "Ranked Players",
           recipients_count: 3200,
           created_at: new Date(Date.now() - 86400000).toISOString(),
@@ -77,6 +79,7 @@ export default function PushNotificationsPage() {
         title,
         message,
         audience,
+        category,
         action_url: actionUrl,
         recipients_count: audience === "all" ? 12450 : 3200,
         status: "delivered",
@@ -87,6 +90,7 @@ export default function PushNotificationsPage() {
       setTitle("");
       setMessage("");
       setActionUrl("");
+      setCategory("general");
       fetchBroadcasts();
     } catch (err: any) {
       alert("Error dispatching broadcast: " + err.message);
@@ -104,7 +108,8 @@ export default function PushNotificationsPage() {
             Push Notifications Manager
           </h2>
           <p className="font-body text-xs text-neutral-400 mt-1">
-            Dispatch real-time broadcast pushes, promotional alerts, and retention triggers.
+            Dispatch real-time broadcast pushes, promotional alerts, and
+            retention triggers.
           </p>
         </div>
         <div className="flex gap-3">
@@ -145,7 +150,9 @@ export default function PushNotificationsPage() {
               Delivered Messages
             </p>
             <p className="font-headline text-2xl font-black text-[#CCFF00] mt-1">
-              {broadcasts.reduce((acc, curr) => acc + (curr.recipients_count || 0), 0).toLocaleString()}
+              {broadcasts
+                .reduce((acc, curr) => acc + (curr.recipients_count || 0), 0)
+                .toLocaleString()}
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
@@ -187,14 +194,19 @@ export default function PushNotificationsPage() {
         ) : (
           <div className="divide-y divide-white/5">
             {broadcasts.map((b) => (
-              <div key={b.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-white/[0.02]">
+              <div
+                key={b.id}
+                className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-white/[0.02]"
+              >
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-[#CCFF00] shrink-0 mt-0.5">
                     <BellRing className="w-5 h-5" />
                   </div>
                   <div>
                     <h4 className="font-bold text-white text-sm">{b.title}</h4>
-                    <p className="text-xs text-neutral-400 mt-0.5">{b.message}</p>
+                    <p className="text-xs text-neutral-400 mt-0.5">
+                      {b.message}
+                    </p>
                     <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-neutral-500">
                       <span>Target: {b.audience}</span>
                       <span>•</span>
@@ -221,14 +233,39 @@ export default function PushNotificationsPage() {
             <div className="flex justify-between items-center pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-[#CCFF00]" />
-                <h3 className="font-headline text-lg font-black text-white">Dispatch Push Broadcast</h3>
+                <h3 className="font-headline text-lg font-black text-white">
+                  Dispatch Push Broadcast
+                </h3>
               </div>
-              <button onClick={() => setIsSendModalOpen(false)} className="text-neutral-400 hover:text-white">
+              <button
+                onClick={() => setIsSendModalOpen(false)}
+                className="text-neutral-400 hover:text-white"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSendBroadcast} className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                  Notification category
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                >
+                  <option value="general" className="bg-[#18181b]">
+                    General
+                  </option>
+                  <option value="system" className="bg-[#18181b]">
+                    System
+                  </option>
+                  <option value="promotion" className="bg-[#18181b]">
+                    Promotion
+                  </option>
+                </select>
+              </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
                   Target Audience
@@ -238,9 +275,15 @@ export default function PushNotificationsPage() {
                   onChange={(e) => setAudience(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
                 >
-                  <option value="all" className="bg-[#18181b]">All Active Arcade Players</option>
-                  <option value="ranked" className="bg-[#18181b]">Ranked / Competitive Players Only</option>
-                  <option value="vip" className="bg-[#18181b]">VIP / Gem Holders</option>
+                  <option value="all" className="bg-[#18181b]">
+                    All Active Arcade Players
+                  </option>
+                  <option value="ranked" className="bg-[#18181b]">
+                    Ranked / Competitive Players Only
+                  </option>
+                  <option value="vip" className="bg-[#18181b]">
+                    VIP / Gem Holders
+                  </option>
                 </select>
               </div>
 
