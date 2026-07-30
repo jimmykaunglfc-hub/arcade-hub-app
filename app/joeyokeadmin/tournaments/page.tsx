@@ -32,6 +32,10 @@ export default function TournamentsPage() {
   const [entryFee, setEntryFee] = useState("0");
   const [maxPlayers, setMaxPlayers] = useState("32");
   const [startDate, setStartDate] = useState("");
+  const [rules, setRules] = useState("");
+  const [terms, setTerms] = useState("");
+  const [participationPoints, setParticipationPoints] = useState("0");
+  const [participationGems, setParticipationGems] = useState("0");
 
   useEffect(() => {
     fetchTournaments();
@@ -90,9 +94,15 @@ export default function TournamentsPage() {
         prize_pool: parseInt(prizePool),
         entry_fee: parseInt(entryFee),
         max_players: parseInt(maxPlayers),
-        start_date: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
+        start_date: startDate
+          ? new Date(startDate).toISOString()
+          : new Date().toISOString(),
         status: "upcoming",
         registered_count: 0,
+        rules: rules.trim(),
+        terms: terms.trim(),
+        participation_points: parseInt(participationPoints) || 0,
+        participation_gems: parseInt(participationGems) || 0,
       });
 
       if (error) throw error;
@@ -105,8 +115,27 @@ export default function TournamentsPage() {
     }
   };
 
+  const setTournamentStatus = async (
+    id: string,
+    status: "active" | "completed"
+  ) => {
+    setSaving(true);
+    const result =
+      status === "completed"
+        ? await supabase.rpc("complete_tournament", { target_tournament: id })
+        : await supabase.from("tournaments").update({ status }).eq("id", id);
+    setSaving(false);
+    if (result.error) {
+      alert(result.error.message);
+      return;
+    }
+    fetchTournaments();
+  };
+
   const filteredTournaments = tournaments.filter((t) => {
-    const matchesSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase()) || t.game.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch =
+      t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.game.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filter === "all" || t.status === filter;
     return matchesSearch && matchesFilter;
   });
@@ -120,7 +149,8 @@ export default function TournamentsPage() {
             Tournaments Engine
           </h2>
           <p className="font-body text-xs text-neutral-400 mt-1">
-            Create, schedule, and oversee competitive bracket tournaments across all arcade games.
+            Create, schedule, and oversee competitive bracket tournaments across
+            all arcade games.
           </p>
         </div>
         <div className="flex gap-3">
@@ -161,7 +191,10 @@ export default function TournamentsPage() {
               Total Prize Pool
             </p>
             <p className="font-headline text-2xl font-black text-[#CCFF00] mt-1">
-              {tournaments.reduce((acc, curr) => acc + (curr.prize_pool || 0), 0).toLocaleString()} PTS
+              {tournaments
+                .reduce((acc, curr) => acc + (curr.prize_pool || 0), 0)
+                .toLocaleString()}{" "}
+              PTS
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-[#CCFF00]/10 border border-[#CCFF00]/20 flex items-center justify-center text-[#CCFF00]">
@@ -175,7 +208,11 @@ export default function TournamentsPage() {
               Total Registrations
             </p>
             <p className="font-headline text-2xl font-black text-white mt-1">
-              {tournaments.reduce((acc, curr) => acc + (curr.registered_count || 0), 0)} Players
+              {tournaments.reduce(
+                (acc, curr) => acc + (curr.registered_count || 0),
+                0
+              )}{" "}
+              Players
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
@@ -235,7 +272,9 @@ export default function TournamentsPage() {
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#CCFF00] bg-[#CCFF00]/10 border border-[#CCFF00]/20 px-2 py-0.5 rounded-md">
                     {t.game}
                   </span>
-                  <h3 className="font-headline font-black text-white text-base mt-2">{t.title}</h3>
+                  <h3 className="font-headline font-black text-white text-base mt-2">
+                    {t.title}
+                  </h3>
                 </div>
                 <span
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
@@ -248,25 +287,68 @@ export default function TournamentsPage() {
                 >
                   {t.status === "active" && <Play className="w-3 h-3" />}
                   {t.status === "upcoming" && <Clock className="w-3 h-3" />}
-                  {t.status === "completed" && <CheckCircle className="w-3 h-3" />}
+                  {t.status === "completed" && (
+                    <CheckCircle className="w-3 h-3" />
+                  )}
                   {t.status}
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2 bg-white/[0.02] p-3 rounded-xl border border-white/5 text-xs">
                 <div>
-                  <span className="text-[9px] text-neutral-500 uppercase font-bold block">Prize Pool</span>
-                  <span className="font-bold text-[#CCFF00]">{t.prize_pool?.toLocaleString()} PTS</span>
+                  <span className="text-[9px] text-neutral-500 uppercase font-bold block">
+                    Prize Pool
+                  </span>
+                  <span className="font-bold text-[#CCFF00]">
+                    {t.prize_pool?.toLocaleString()} PTS
+                  </span>
                 </div>
                 <div>
-                  <span className="text-[9px] text-neutral-500 uppercase font-bold block">Entry Fee</span>
-                  <span className="font-bold text-white">{t.entry_fee > 0 ? `${t.entry_fee} Gems` : "Free"}</span>
+                  <span className="text-[9px] text-neutral-500 uppercase font-bold block">
+                    Entry Fee
+                  </span>
+                  <span className="font-bold text-white">
+                    {t.entry_fee > 0 ? `${t.entry_fee} Gems` : "Free"}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-[9px] text-neutral-500 uppercase font-bold block">Slots</span>
-                  <span className="font-bold text-white">{t.registered_count || 0} / {t.max_players}</span>
+                  <span className="text-[9px] text-neutral-500 uppercase font-bold block">
+                    Slots
+                  </span>
+                  <span className="font-bold text-white">
+                    {t.registered_count || 0} / {t.max_players}
+                  </span>
                 </div>
               </div>
+              <div className="text-[11px] text-neutral-400 space-y-1">
+                <p>
+                  <span className="font-bold text-white">Rules:</span>{" "}
+                  {t.rules || "Not configured"}
+                </p>
+                <p>
+                  <span className="font-bold text-white">Participation:</span> +
+                  {t.participation_points || 0} PTS · +
+                  {t.participation_gems || 0} Gems
+                </p>
+              </div>
+              {t.status === "upcoming" && (
+                <button
+                  onClick={() => void setTournamentStatus(t.id, "active")}
+                  disabled={saving}
+                  className="w-full rounded-xl bg-emerald-500 py-2.5 text-xs font-black text-white"
+                >
+                  Start Tournament
+                </button>
+              )}
+              {t.status === "active" && (
+                <button
+                  onClick={() => void setTournamentStatus(t.id, "completed")}
+                  disabled={saving}
+                  className="w-full rounded-xl bg-[#CCFF00] py-2.5 text-xs font-black text-black"
+                >
+                  Complete & Award Participants
+                </button>
+              )}
             </div>
           ))
         )}
@@ -279,9 +361,14 @@ export default function TournamentsPage() {
             <div className="flex justify-between items-center pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-[#CCFF00]" />
-                <h3 className="font-headline text-lg font-black text-white">New Tournament</h3>
+                <h3 className="font-headline text-lg font-black text-white">
+                  New Tournament
+                </h3>
               </div>
-              <button onClick={() => setIsCreateModalOpen(false)} className="text-neutral-400 hover:text-white">
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="text-neutral-400 hover:text-white"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -311,10 +398,18 @@ export default function TournamentsPage() {
                     onChange={(e) => setGame(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
                   >
-                    <option value="Chess" className="bg-[#18181b]">Chess</option>
-                    <option value="Carrom" className="bg-[#18181b]">Carrom</option>
-                    <option value="Snooker" className="bg-[#18181b]">Snooker</option>
-                    <option value="Uno" className="bg-[#18181b]">Uno</option>
+                    <option value="Chess" className="bg-[#18181b]">
+                      Chess
+                    </option>
+                    <option value="Carrom" className="bg-[#18181b]">
+                      Carrom
+                    </option>
+                    <option value="Snooker" className="bg-[#18181b]">
+                      Snooker
+                    </option>
+                    <option value="Uno" className="bg-[#18181b]">
+                      Uno
+                    </option>
                   </select>
                 </div>
 
@@ -330,6 +425,51 @@ export default function TournamentsPage() {
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                  Rules
+                </label>
+                <textarea
+                  value={rules}
+                  onChange={(e) => setRules(e.target.value)}
+                  placeholder="Format, fair-play requirements, match rules…"
+                  className="w-full min-h-20 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                  Terms & Conditions
+                </label>
+                <textarea
+                  value={terms}
+                  onChange={(e) => setTerms(e.target.value)}
+                  placeholder="Eligibility, conduct, prize and cancellation terms…"
+                  className="w-full min-h-20 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                  Participation Points
+                  <input
+                    type="number"
+                    min="0"
+                    value={participationPoints}
+                    onChange={(e) => setParticipationPoints(e.target.value)}
+                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white"
+                  />
+                </label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                  Participation Gems
+                  <input
+                    type="number"
+                    min="0"
+                    value={participationGems}
+                    onChange={(e) => setParticipationGems(e.target.value)}
+                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white"
+                  />
+                </label>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
