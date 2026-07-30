@@ -21,38 +21,130 @@ import {
   ShieldCheck,
   Settings,
   CircleHelp,
+  CircleDollarSign,
   LogOut,
   Loader2,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", href: "/joeyokeadmin", icon: LayoutDashboard },
-  { id: "games", label: "Game Catalog", href: "/joeyokeadmin/games", icon: Gamepad2 },
-  { id: "tournaments", label: "Tournaments", href: "/joeyokeadmin/tournaments", icon: Trophy },
-  { id: "store", label: "Store Management", href: "/joeyokeadmin/store-management", icon: Store },
-  { id: "users", label: "User Management", href: "/joeyokeadmin/users", icon: Users },
-  { id: "community", label: "Community & Social", href: "/joeyokeadmin/community", icon: MessageSquare },
-  { id: "rewards", label: "Reward System", href: "/joeyokeadmin/rewards", icon: Award },
-  { id: "badges", label: "Rank Badges", href: "/joeyokeadmin/badges", icon: Medal },
-  { id: "economy", label: "Economy & Ledger", href: "/joeyokeadmin/economy", icon: Coins },
-  { id: "redeem", label: "Redeem Requests", href: "/joeyokeadmin/redeem-requests", icon: Gift },
-  { id: "ads", label: "Ads & Banners", href: "/joeyokeadmin/ads", icon: Megaphone },
-  { id: "notifications", label: "Push Notifications", href: "/joeyokeadmin/push-notifications", icon: BellRing },
-  { id: "analytics", label: "Reports & Analytics", href: "/joeyokeadmin/reports", icon: BarChart3 },
-  { id: "roles", label: "Roles & Access", href: "/joeyokeadmin/roles", icon: ShieldCheck },
-  { id: "configurations", label: "Configurations", href: "/joeyokeadmin/configurations", icon: Settings },
-  { id: "support", label: "Support & Requests", href: "/joeyokeadmin/support", icon: CircleHelp },
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    href: "/joeyokeadmin",
+    icon: LayoutDashboard,
+  },
+  {
+    id: "games",
+    label: "Game Catalog",
+    href: "/joeyokeadmin/games",
+    icon: Gamepad2,
+  },
+  {
+    id: "tournaments",
+    label: "Tournaments",
+    href: "/joeyokeadmin/tournaments",
+    icon: Trophy,
+  },
+  {
+    id: "store",
+    label: "Store Management",
+    href: "/joeyokeadmin/store-management",
+    icon: Store,
+  },
+  {
+    id: "users",
+    label: "User Management",
+    href: "/joeyokeadmin/users",
+    icon: Users,
+  },
+  {
+    id: "community",
+    label: "Community & Social",
+    href: "/joeyokeadmin/community",
+    icon: MessageSquare,
+  },
+  {
+    id: "rewards",
+    label: "Reward System",
+    href: "/joeyokeadmin/rewards",
+    icon: Award,
+  },
+  {
+    id: "wheel",
+    label: "Wheel Rewards",
+    href: "/joeyokeadmin/wheel",
+    icon: CircleDollarSign,
+  },
+  {
+    id: "badges",
+    label: "Rank Badges",
+    href: "/joeyokeadmin/badges",
+    icon: Medal,
+  },
+  {
+    id: "economy",
+    label: "Economy & Ledger",
+    href: "/joeyokeadmin/economy",
+    icon: Coins,
+  },
+  {
+    id: "redeem",
+    label: "Redeem Requests",
+    href: "/joeyokeadmin/redeem-requests",
+    icon: Gift,
+  },
+  {
+    id: "ads",
+    label: "Ads & Banners",
+    href: "/joeyokeadmin/ads",
+    icon: Megaphone,
+  },
+  {
+    id: "notifications",
+    label: "Push Notifications",
+    href: "/joeyokeadmin/push-notifications",
+    icon: BellRing,
+  },
+  {
+    id: "analytics",
+    label: "Reports & Analytics",
+    href: "/joeyokeadmin/reports",
+    icon: BarChart3,
+  },
+  {
+    id: "roles",
+    label: "Roles & Access",
+    href: "/joeyokeadmin/roles",
+    icon: ShieldCheck,
+  },
+  {
+    id: "configurations",
+    label: "Configurations",
+    href: "/joeyokeadmin/configurations",
+    icon: Settings,
+  },
+  {
+    id: "support",
+    label: "Support & Requests",
+    href: "/joeyokeadmin/support",
+    icon: CircleHelp,
+  },
 ];
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const [profile, setProfile] = useState<{ role: string; allowed_modules: string[] } | null>(null);
+  const [profile, setProfile] = useState<{
+    role: string;
+    allowed_modules: string[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchPermissions() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (!user) return;
 
         const { data, error } = await supabase
