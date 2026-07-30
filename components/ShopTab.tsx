@@ -29,6 +29,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
   const [dbStoreItems, setDbStoreItems] = useState<any[]>([]);
   const [userInventory, setUserInventory] = useState<any[]>([]);
   const [lastSpin, setLastSpin] = useState<number | null>(null);
+  const [wheelSlots, setWheelSlots] = useState(WHEEL_SLOTS);
 
   // Wheel State
   const [isSpinning, setIsSpinning] = useState(false);
@@ -56,16 +57,24 @@ export default function ShopTab({ userId }: ShopTabProps) {
       .eq("user_id", userId);
     if (inventory) setUserInventory(inventory);
 
-    // 3. Fetch Profile Last Spin
-    const { data: profile } = await supabase
+    // 3. Fetch Profile Last Spin and the admin-managed wheel display.
+    const [{ data: profile }, { data: rewards }] = await Promise.all([
+      supabase
       .from("profiles")
       .select("last_spin")
       .eq("id", userId)
-      .single();
+      .single(),
+      supabase
+        .from("wheel_rewards")
+        .select("id, label, reward_type, reward_value, display_order")
+        .eq("is_active", true)
+        .order("display_order"),
+    ]);
     
     if (profile?.last_spin) {
       setLastSpin(new Date(profile.last_spin).getTime());
     }
+    if (rewards?.length) setWheelSlots(rewards.map((reward: any) => ({ id: reward.id, label: reward.label, type: reward.reward_type, value: reward.reward_value })));
   };
 
   useEffect(() => {
@@ -103,10 +112,15 @@ export default function ShopTab({ userId }: ShopTabProps) {
 
     setIsSpinning(true);
 
-    const winningIndex = Math.floor(Math.random() * WHEEL_SLOTS.length);
-    const winningSlot = WHEEL_SLOTS[winningIndex];
+    const { data: winningSlot, error } = await supabase.rpc("spin_daily_wheel");
+    if (error || !winningSlot) {
+      setIsSpinning(false);
+      setRewardModal({ title: "WHEEL UNAVAILABLE", desc: error?.message || "The wheel is being configured by the team." });
+      return;
+    }
+    const winningIndex = Math.max(0, wheelSlots.findIndex(slot => String(slot.id) === String(winningSlot.id)));
 
-    const slotAngle = 360 / WHEEL_SLOTS.length;
+    const slotAngle = 360 / wheelSlots.length;
     const targetAngle = 360 * 5 + (360 - winningIndex * slotAngle);
 
     setWheelRotation(targetAngle);
@@ -116,19 +130,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
       setIsSpinning(false);
       soundEngine.playSFX("victory");
 
-      const now = new Date().toISOString();
-      const columnToUpdate = winningSlot.type === "points" ? "points" : "gems";
-      
-      const { data: profile } = await supabase.from("profiles").select(columnToUpdate).eq("id", userId).single();
-      const currentBalance = profile ? Number((profile as any)[columnToUpdate]) : 0;
-      const newBalance = currentBalance + winningSlot.value;
-
-      await supabase
-        .from("profiles")
-        .update({ [columnToUpdate]: newBalance, last_spin: now })
-        .eq("id", userId);
-
-      setLastSpin(new Date(now).getTime());
+      setLastSpin(new Date(winningSlot.spun_at).getTime());
 
       setRewardModal({
         title: "CORE EXTRACTION SUCCESS",
@@ -234,8 +236,8 @@ export default function ShopTab({ userId }: ShopTabProps) {
               className="w-full h-full rounded-full border-4 border-surface-container-highest dark:border-[#27272a] relative overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] transition-transform duration-[3500ms] cubic-bezier(0.15,0.95,0.3,1)"
               style={{ transform: `rotate(${wheelRotation}deg)` }}
             >
-              {WHEEL_SLOTS.map((slot, index) => {
-                const angle = (360 / WHEEL_SLOTS.length) * index;
+              {wheelSlots.map((slot, index) => {
+                const angle = (360 / wheelSlots.length) * index;
                 return (
                   <div
                     key={slot.id}

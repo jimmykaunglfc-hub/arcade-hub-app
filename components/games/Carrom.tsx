@@ -119,6 +119,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
   // 🛍️ DIRECT SUPABASE EQUIPPED COSMETIC FETCH ENGINE
   const [customStrikerImage, setCustomStrikerImage] = useState<string | null>(null);
+  const [customBoardImage, setCustomBoardImage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchEquippedStriker = async () => {
@@ -156,6 +157,12 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                 console.log("Equipped Striker Loaded:", strikerItem.image_url);
                 setCustomStrikerImage(strikerItem.image_url);
               }
+
+              const boardItem = storeData.find((item: any) => {
+                const name = (item.name || "").toLowerCase();
+                return name.includes("carrom") && (name.includes("board") || name.includes("table"));
+              });
+              setCustomBoardImage(boardItem?.image_url || null);
             }
           }
         }
@@ -1660,6 +1667,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               
               <div 
                 className="relative w-full h-full bg-[#ebd097] rounded-[1rem] overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] border-[4px] border-[#2d1606] touch-none select-none"
+                style={customBoardImage ? { backgroundImage: `url(${customBoardImage})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
                 onPointerMove={handlePointerMove} 
                 onPointerUp={handlePointerUp} 
                 onPointerLeave={handlePointerUp}

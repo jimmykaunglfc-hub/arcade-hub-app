@@ -58,6 +58,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   
   const [showGameSelector, setShowGameSelector] = useState(false);
   const [inviteStep, setInviteStep] = useState<"game" | "carrom_mode">("game");
+  const [chatLoading, setChatLoading] = useState(false);
 
   // Multiplayer lockout rule enforcement
   const isLockedOut = currentPoints <= 0;
@@ -68,19 +69,20 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       if (!user) return;
       setMyUserId(user.id);
 
-      const { data: myProfile } = await supabase
+      const [{ data: myProfile }, { data: friendships }] = await Promise.all([
+        supabase
         .from("profiles")
         .select("username")
         .eq("id", user.id)
-        .single();
+        .single(),
+        supabase
+          .from("friendships")
+          .select("requester_id, receiver_id")
+          .eq("status", "accepted")
+          .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`),
+      ]);
         
       if (myProfile) setMyUsername(myProfile.username);
-
-      const { data: friendships } = await supabase
-        .from("friendships")
-        .select("*")
-        .eq("status", "accepted")
-        .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`);
 
       if (friendships && friendships.length > 0) {
         const friendIds = friendships.map(f => 
@@ -101,6 +103,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
     if (!myUserId || !activeChat || activeView !== "chat") return;
 
     const fetchMessages = async () => {
+      setChatLoading(true);
       const { data } = await supabase
         .from("direct_messages")
         .select("*")
@@ -109,6 +112,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
         .limit(50);
         
       if (data) setMessages(data);
+      setChatLoading(false);
     };
 
     fetchMessages();
@@ -153,7 +157,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   };
 
   const handleSendGameInvite = async (
-    gameType: "checkers" | "carrom" | "chess" | "snooker" | "uno" | "tictactoe", 
+    gameType: "checkers" | "carrom" | "chess" | "snooker" | "pool" | "uno" | "tictactoe",
     mode?: "freestyle" | "classic"
   ) => {
     setShowGameSelector(false);
@@ -217,6 +221,18 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
         message_type: 'game_invite', 
         match_id: generatedUUID, 
         game_name: "Snooker 3D", 
+        invite_status: "pending"
+      }]);
+    }
+    else if (gameType === "pool") {
+      const generatedUUID = crypto.randomUUID();
+      await supabase.from("direct_messages").insert([{
+        sender_id: myUserId,
+        receiver_id: activeChat.id,
+        content: "Challenged you to 8-Ball Pool",
+        message_type: "game_invite",
+        match_id: generatedUUID,
+        game_name: "8-Ball Pool",
         invite_status: "pending"
       }]);
     }
@@ -499,6 +515,15 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
 
+                {/* 5. 8-Ball Pool */}
+                <button onClick={() => handleSendGameInvite("pool")} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
+                   <div className="flex items-center gap-4">
+                     <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center text-cyan-500"><span className="material-symbols-outlined text-[20px]">sports_bar</span></div>
+                     <h4 className="font-headline text-xs font-bold text-on-surface">8-Ball Pool</h4>
+                   </div>
+                   <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
+                </button>
+
                 {/* 5. Carrom Matrix */}
                 <button onClick={() => setInviteStep("carrom_mode")} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
                    <div className="flex items-center gap-4">
@@ -578,13 +603,15 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
 
       {/* 💬 MESSAGE CHANNEL CORE VIEWPORTS */}
       <div className="flex-1 w-full overflow-y-auto px-2 py-4 space-y-5 no-scrollbar relative">
-        {messages.map((msg) => {
+        {chatLoading && <div className="py-8 text-center text-xs font-bold text-on-surface-variant animate-pulse">Loading conversation…</div>}
+        {!chatLoading && messages.map((msg) => {
           const isMe = msg.sender_id === myUserId;
           const isUno = msg.game_name?.includes("Uno");
           const isTicTacToe = msg.game_name?.includes("Tic-Tac-Toe");
           const isCarrom = msg.game_name?.includes("Carrom");
           const isChess = msg.game_name?.includes("Chess");
           const isSnooker = msg.game_name?.includes("Snooker");
+          const isPool = msg.game_name?.includes("Pool");
 
           const gameIcon = isUno 
             ? "style" 
@@ -594,7 +621,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                 ? "radio_button_checked" 
                 : isChess 
                   ? "psychology" 
-                  : isSnooker 
+            : isSnooker || isPool
                     ? "sports_bar" 
                     : "grid_4x4";
           
@@ -608,6 +635,8 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                   ? "native://chess" 
                   : isSnooker
                     ? "native://snooker"
+                    : isPool
+                      ? "native://pool"
                     : "native://carrom";
 
           return (
@@ -636,7 +665,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                               ? "text-amber-500" 
                               : isChess 
                                 ? "text-secondary" 
-                                : isSnooker 
+                                : isSnooker || isPool
                                   ? "text-green-500" 
                                   : "text-blue-500"
                       }`} style={{fontVariationSettings:"'FILL' 1"}}>{gameIcon}</span>

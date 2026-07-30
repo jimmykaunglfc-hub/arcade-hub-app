@@ -16,8 +16,8 @@ interface HomeTabProps {
     tier: string;
     percentile: number;
     winRate: number;
-    kda: string; 
-    hoursPlayed: number;
+    gamesPlayed: number;
+    playtime: string;
   } | null;
 
   matchHistory?: Array<{
@@ -289,16 +289,16 @@ export default function HomeTab({
           </div>
           <div className="w-px h-8 bg-black/10"></div>
           <div className="flex flex-col items-center">
-            <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">KDA</span>
+            <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">Matches</span>
             <span className="font-headline text-lg font-black mt-0.5">
-              {rankData?.kda || "0.0"}
+              {rankData?.gamesPlayed ?? 0}
             </span>
           </div>
           <div className="w-px h-8 bg-black/10"></div>
           <div className="flex flex-col items-end">
-            <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">Hours</span>
+            <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">Play time</span>
             <span className="font-headline text-lg font-black mt-0.5">
-              {rankData?.hoursPlayed || "0"}
+              {rankData?.playtime || "0m"}
             </span>
           </div>
         </div>

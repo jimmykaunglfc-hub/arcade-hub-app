@@ -42,6 +42,8 @@ export function calculateKDA(kills: number, deaths: number, assists: number): st
 /**
  * Converts total seconds played into hours
  */
-export function getHoursPlayed(seconds: number): number {
-  return Math.floor(seconds / 3600);
+export function getHoursPlayed(seconds: number): string {
+  if (seconds < 60) return "0m";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  return `${(seconds / 3600).toFixed(1)}h`;
 }

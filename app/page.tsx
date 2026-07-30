@@ -5,7 +5,7 @@ import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
 
 // 👇 Ranking utilities
-import { getRankTier, calculateKDA, getHoursPlayed } from "../lib/rankingUtils";
+import { getRankTier, getHoursPlayed } from "../lib/rankingUtils";
 
 import HomeTab from "../components/HomeTab"; 
 import GamesTab from "../components/GamesTab";
@@ -131,8 +131,8 @@ export default function Home() {
         tier: isPlacing ? "Unranked" : getRankTier(data.mmr ?? 1000),
         percentile: null,
         winRate: Number(winRate),
-        kda: calculateKDA(data.total_kills ?? 0, data.total_deaths ?? 0, data.total_assists ?? 0),
-        hoursPlayed: getHoursPlayed(data.total_playtime_seconds ?? 0)
+        gamesPlayed: matches,
+        playtime: getHoursPlayed(data.total_playtime_seconds ?? 0)
       });
     }
   };
