@@ -30,9 +30,11 @@ export default function TournamentsPage() {
   const [title, setTitle] = useState("");
   const [games, setGames] = useState<string[]>(["Chess"]);
   const [prizePool, setPrizePool] = useState("10000");
+  const [prizeCurrency, setPrizeCurrency] = useState<"points" | "gems">(
+    "points"
+  );
   const [entryFee, setEntryFee] = useState("0");
   const [maxPlayers, setMaxPlayers] = useState("32");
-  const [startDate, setStartDate] = useState("");
   const [rules, setRules] = useState("");
   const [terms, setTerms] = useState("");
   const [participationCurrency, setParticipationCurrency] = useState<
@@ -110,9 +112,7 @@ export default function TournamentsPage() {
         prize_pool: parseInt(prizePool),
         entry_fee: parseInt(entryFee),
         max_slots: parseInt(maxPlayers),
-        start_date: startDate
-          ? new Date(startDate).toISOString()
-          : new Date().toISOString(),
+        prize_currency: prizeCurrency,
         status: "upcoming",
         current_slots: 0,
         rules: rules.trim(),
@@ -322,7 +322,8 @@ export default function TournamentsPage() {
                     Prize Pool
                   </span>
                   <span className="font-bold text-[#CCFF00]">
-                    {t.prize_pool?.toLocaleString()} PTS
+                    {t.prize_pool?.toLocaleString()}{" "}
+                    {t.prize_currency === "gems" ? "GEMS" : "PTS"}
                   </span>
                 </div>
                 <div>
@@ -525,14 +526,30 @@ export default function TournamentsPage() {
                   </label>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div>
                     <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
-                      Prize Pool (PTS)
+                      Prize pool currency
+                    </label>
+                    <select
+                      value={prizeCurrency}
+                      onChange={(e) =>
+                        setPrizeCurrency(e.target.value as "points" | "gems")
+                      }
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                    >
+                      <option value="points">Points</option>
+                      <option value="gems">Gems</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                      Prize pool amount
                     </label>
                     <input
                       type="number"
                       required
+                      min="0"
                       value={prizePool}
                       onChange={(e) => setPrizePool(e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"

@@ -98,7 +98,7 @@ export default function HomeTab({
         .from("tournaments")
         .select("*")
         .in("status", ["active", "upcoming"])
-        .order("start_date")
+        .order("created_at")
         .limit(1)
         .maybeSingle();
       if (!data) return;
@@ -334,7 +334,8 @@ export default function HomeTab({
                   0}
                 /{activeTournament.max_slots ?? activeTournament.max_players}{" "}
                 players · Prize pool{" "}
-                {activeTournament.prize_pool?.toLocaleString()} PTS
+                {activeTournament.prize_pool?.toLocaleString()}{" "}
+                {activeTournament.prize_currency === "gems" ? "GEMS" : "PTS"}
               </p>
             </div>
             <span className="material-symbols-outlined text-amber-500">
