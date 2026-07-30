@@ -73,6 +73,28 @@ function formatTimeAgo(isoString: string): string {
   return date.toLocaleDateString();
 }
 
+function TournamentMetric({
+  icon,
+  label,
+  value,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="material-symbols-outlined rounded-full bg-white/10 p-1.5 text-base text-primary">
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <b className="block truncate text-xs text-on-surface">{value}</b>
+        <small className="text-[10px] text-on-surface-variant">{label}</small>
+      </span>
+    </div>
+  );
+}
+
 export default function HomeTab({
   currentPoints,
   userId,
@@ -309,24 +331,6 @@ export default function HomeTab({
               <h2 className="mt-1 font-headline text-lg font-black text-on-surface">
                 {activeTournament.title}
               </h2>
-              <p className="mt-1 text-xs text-on-surface-variant">
-                {activeTournament.current_slots ??
-                  activeTournament.registered_count ??
-                  0}
-                /{activeTournament.max_slots ?? activeTournament.max_players}{" "}
-                players · Prize pool{" "}
-                {activeTournament.prize_pool?.toLocaleString()}{" "}
-                {activeTournament.prize_currency === "gems" ? "GEMS" : "PTS"}
-                {activeTournament.entry_fee > 0 && (
-                  <>
-                    {" "}
-                    · Entry {activeTournament.entry_fee.toLocaleString()}{" "}
-                    {activeTournament.entry_fee_currency === "points"
-                      ? "PTS"
-                      : "GEMS"}
-                  </>
-                )}
-              </p>
             </div>
             <span className="material-symbols-outlined text-amber-500">
               emoji_events
@@ -338,6 +342,37 @@ export default function HomeTab({
           >
             View tournament
           </button>
+          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-3 text-left">
+            <TournamentMetric
+              icon="group"
+              label="Players"
+              value={`${
+                activeTournament.current_slots ??
+                activeTournament.registered_count ??
+                0
+              }/${activeTournament.max_slots ?? activeTournament.max_players}`}
+            />
+            <TournamentMetric
+              icon="diamond"
+              label="Prize"
+              value={`${activeTournament.prize_pool?.toLocaleString()} ${
+                activeTournament.prize_currency === "gems" ? "GEMS" : "PTS"
+              }`}
+            />
+            <TournamentMetric
+              icon="toll"
+              label="Entry"
+              value={
+                activeTournament.entry_fee > 0
+                  ? `${activeTournament.entry_fee.toLocaleString()} ${
+                      activeTournament.entry_fee_currency === "points"
+                        ? "PTS"
+                        : "GEMS"
+                    }`
+                  : "Free"
+              }
+            />
+          </div>
         </section>
       )}
 

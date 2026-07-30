@@ -124,6 +124,12 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
   const myRow = currentUserId
     ? leaderboard.find((row) => row.user_id === currentUserId)
     : null;
+  const getGameImage = (game: string) =>
+    gameCards.find(
+      (item) =>
+        item.title.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+        game.toLowerCase().replace(/[^a-z0-9]/g, "")
+    )?.image_url;
 
   const startTournamentMatchmaking = (gameName: string) => {
     if (!currentUserId) return setMessage("Sign in to play tournament games.");
@@ -245,13 +251,9 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
                       onClick={() => startTournamentMatchmaking(game)}
                       className="rounded-2xl border border-slate-700 bg-[#1a2030] p-3 text-xs font-bold text-white hover:border-[#CCFF00]"
                     >
-                      {gameCards.find((item) => item.title === game)
-                        ?.image_url ? (
+                      {getGameImage(game) ? (
                         <img
-                          src={
-                            gameCards.find((item) => item.title === game)
-                              .image_url
-                          }
+                          src={getGameImage(game)}
                           alt=""
                           className="mb-2 h-12 w-full rounded-xl object-cover"
                         />
