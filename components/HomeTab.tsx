@@ -337,7 +337,9 @@ export default function HomeTab({
             </span>
           </div>
           <button
-            onClick={() => router.push(`/tournaments/${activeTournament.id}`)}
+            onClick={() =>
+              router.replace(`/tournaments/${activeTournament.id}`)
+            }
             className="mt-4 w-full rounded-xl bg-primary py-3 text-xs font-black text-on-primary"
           >
             View tournament

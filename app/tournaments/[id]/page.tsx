@@ -137,15 +137,15 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
   };
 
   return (
-    <main className="min-h-screen bg-[#080b14] px-4 py-5 text-white">
+    <main className="min-h-screen bg-background px-4 py-5 text-on-background">
       <div className="mx-auto max-w-2xl">
         <button
-          onClick={() => router.back()}
-          className="mb-5 text-sm font-bold text-[#CCFF00]"
+          onClick={() => router.replace("/")}
+          className="sticky top-0 z-50 -mx-4 mb-5 block w-[calc(100%+2rem)] border-b border-surface-container-highest bg-background/95 px-4 py-4 text-left text-sm font-bold text-primary backdrop-blur"
         >
           ← Back to home
         </button>
-        <section className="overflow-hidden rounded-[26px] border border-slate-700 bg-[#121827] shadow-2xl">
+        <section className="overflow-hidden rounded-[26px] border border-surface-container-highest bg-surface shadow-2xl">
           {tournament.card_image_url ? (
             <img
               src={tournament.card_image_url}
@@ -153,7 +153,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
               className="h-48 w-full object-cover"
             />
           ) : (
-            <div className="h-32 bg-[radial-gradient(circle_at_80%_5%,rgba(204,255,0,.28),transparent_35%),linear-gradient(135deg,#202c45,#111827)]" />
+            <div className="h-32 bg-[radial-gradient(circle_at_80%_5%,rgba(204,255,0,.28),transparent_35%),linear-gradient(135deg,var(--surface-container-high),var(--surface))]" />
           )}
           <div className="p-5">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-500">
@@ -162,9 +162,11 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
             <h1 className="mt-1 text-3xl font-black tracking-tight">
               {tournament.title}
             </h1>
-            <p className="mt-1 text-sm text-slate-400">{games.join(" · ")}</p>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              {games.join(" · ")}
+            </p>
 
-            <div className="mt-5 grid grid-cols-3 divide-x divide-slate-700 rounded-xl border border-slate-700 bg-[#1a2030] text-center text-sm">
+            <div className="mt-5 grid grid-cols-3 divide-x divide-surface-container-highest rounded-xl border border-surface-container-highest bg-surface-container text-center text-sm">
               <Info
                 label="Players"
                 value={`${tournament.current_slots ?? 0}/${
@@ -189,7 +191,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
               />
             </div>
 
-            <div className="mt-6 grid grid-cols-4 border-b border-slate-700 text-center text-xs font-bold">
+            <div className="mt-6 grid grid-cols-4 border-b border-surface-container-highest text-center text-xs font-bold">
               <TabButton
                 active={tab === "overview"}
                 onClick={() => setTab("overview")}
@@ -249,7 +251,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
                     <button
                       key={game}
                       onClick={() => startTournamentMatchmaking(game)}
-                      className="rounded-2xl border border-slate-700 bg-[#1a2030] p-3 text-xs font-bold text-white hover:border-[#CCFF00]"
+                      className="rounded-2xl border border-surface-container-highest bg-surface-container p-3 text-xs font-bold text-on-surface hover:border-primary"
                     >
                       {getGameImage(game) ? (
                         <img
@@ -385,7 +387,7 @@ function Info({ label, value }: { label: string; value: string }) {
       <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
         {label}
       </p>
-      <p className="mt-1 font-bold text-white">{value}</p>
+      <p className="mt-1 font-bold text-on-surface">{value}</p>
     </div>
   );
 }
