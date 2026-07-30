@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
+import { LANGUAGES, LanguageCode, useTranslation } from "../lib/i18n";
 
 type Profile = {
   id: string;
@@ -73,6 +74,7 @@ export default function ProfileTab({
   const [legal, setLegal] = useState<{ title: string; content: string } | null>(
     null
   );
+  const { language, setLanguage, t } = useTranslation();
 
   const fetchProfileData = async () => {
     const {
@@ -140,6 +142,13 @@ export default function ProfileTab({
       .limit(200);
     setActivityLedger((data || []) as LedgerEntry[]);
     setModal("activity");
+  };
+  const updateLanguage = async (code: LanguageCode) => {
+    setLanguage(code);
+    const { error } = await supabase.rpc("update_profile_language", {
+      new_language: code,
+    });
+    if (error) showMessage(error.message);
   };
   const terminateSession = async () => {
     await supabase.auth.signOut();
@@ -414,6 +423,27 @@ export default function ProfileTab({
           </div>
         </div>
       </div>
+      <section className="space-y-3">
+        <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
+          {t("language")}
+        </h3>
+        <div className="bg-surface border border-surface-container-highest rounded-[24px] p-3 grid grid-cols-3 gap-2">
+          {LANGUAGES.map((item) => (
+            <button
+              key={item.code}
+              onClick={() => void updateLanguage(item.code)}
+              className={`rounded-xl p-2 text-center text-xs font-bold ${
+                language === item.code
+                  ? "bg-primary text-on-primary"
+                  : "bg-surface-container-high text-on-surface"
+              }`}
+            >
+              <span className="block text-xl">{item.flag}</span>
+              <span className="mt-1 block truncate">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </section>
       <section className="space-y-3">
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
           Profile activity

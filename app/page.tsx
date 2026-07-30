@@ -30,8 +30,10 @@ import SnookerGame from "../components/games/SnookerGame";
 import TicTacToeGame from "../components/games/TicTacToeGame";
 import UnoGame from "../components/games/UnoGame";
 import AuthView from "../components/AuthView";
+import { useTranslation } from "../lib/i18n";
 
 export default function Home() {
+  const { t } = useTranslation();
   const [session, setSession] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
@@ -442,11 +444,11 @@ export default function Home() {
         {/* BOTTOM NAVIGATION */}
         <nav className="fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-surface-container-highest px-2 pb-safe pt-1 flex justify-around items-center h-[76px] transition-colors duration-300">
           {[
-            { id: "Home", icon: "home" },
-            { id: "Explore", icon: "explore" },
-            { id: "Store", icon: "local_mall" },
-            { id: "Chats", icon: "chat_bubble" },
-            { id: "Profile", icon: "person" },
+            { id: "Home", label: t("home"), icon: "home" },
+            { id: "Explore", label: t("explore"), icon: "explore" },
+            { id: "Store", label: t("store"), icon: "local_mall" },
+            { id: "Chats", label: t("chats"), icon: "chat_bubble" },
+            { id: "Profile", label: t("profile"), icon: "person" },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -470,7 +472,7 @@ export default function Home() {
                     isActive ? "text-primary" : "text-on-surface-variant"
                   }`}
                 >
-                  {tab.id}
+                  {tab.label}
                 </span>
               </button>
             );

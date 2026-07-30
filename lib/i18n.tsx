@@ -1,0 +1,245 @@
+"use client";
+
+import { createContext, useContext, useEffect, useState } from "react";
+
+export const LANGUAGES = [
+  { code: "en", label: "English", flag: "🇬🇧" },
+  { code: "my", label: "မြန်မာ", flag: "🇲🇲" },
+  { code: "th", label: "ไทย", flag: "🇹🇭" },
+  { code: "zh", label: "中文", flag: "🇨🇳" },
+  { code: "km", label: "ខ្មែរ", flag: "🇰🇭" },
+  { code: "lo", label: "ລາວ", flag: "🇱🇦" },
+  { code: "fr", label: "Français", flag: "🇫🇷" },
+  { code: "de", label: "Deutsch", flag: "🇩🇪" },
+  { code: "es", label: "Español", flag: "🇪🇸" },
+] as const;
+export type LanguageCode = (typeof LANGUAGES)[number]["code"];
+
+const en = {
+  home: "Home",
+  explore: "Explore",
+  store: "Store",
+  chats: "Chats",
+  profile: "Profile",
+  notifications: "Notifications",
+  back: "Back",
+  language: "Language",
+  appLanguage: "App language",
+  activityHistory: "Activity history",
+  general: "General",
+  system: "System",
+  promotion: "Promotion",
+  save: "Save",
+  cancel: "Cancel",
+  points: "Points",
+  gems: "Gems",
+  settings: "Settings",
+  darkAppearance: "Dark appearance",
+  soundEffects: "Sound Effects",
+  hapticFeedback: "Haptic Feedback",
+  pushNotifications: "Push Notifications",
+  logout: "Logout Session",
+  loading: "Loading…",
+};
+const translations: Record<LanguageCode, Record<string, string>> = {
+  en,
+  my: {
+    ...en,
+    home: "ပင်မ",
+    explore: "ရှာဖွေ",
+    store: "စတိုး",
+    chats: "စကားပြော",
+    profile: "ပရိုဖိုင်",
+    notifications: "အသိပေးချက်များ",
+    back: "နောက်သို့",
+    language: "ဘာသာစကား",
+    appLanguage: "အက်ပ်ဘာသာစကား",
+    activityHistory: "လှုပ်ရှားမှုမှတ်တမ်း",
+    general: "အထွေထွေ",
+    system: "စနစ်",
+    promotion: "ပရိုမိုးရှင်း",
+    points: "ပွိုင့်",
+    gems: "ကျောက်မျက်",
+    settings: "ဆက်တင်များ",
+    logout: "ထွက်ရန်",
+    loading: "ဖွင့်နေသည်…",
+  },
+  th: {
+    ...en,
+    home: "หน้าแรก",
+    explore: "สำรวจ",
+    store: "ร้านค้า",
+    chats: "แชต",
+    profile: "โปรไฟล์",
+    notifications: "การแจ้งเตือน",
+    back: "กลับ",
+    language: "ภาษา",
+    appLanguage: "ภาษาแอป",
+    activityHistory: "ประวัติกิจกรรม",
+    general: "ทั่วไป",
+    system: "ระบบ",
+    promotion: "โปรโมชั่น",
+    points: "คะแนน",
+    gems: "เพชร",
+    settings: "การตั้งค่า",
+    logout: "ออกจากระบบ",
+    loading: "กำลังโหลด…",
+  },
+  zh: {
+    ...en,
+    home: "首页",
+    explore: "探索",
+    store: "商店",
+    chats: "聊天",
+    profile: "个人资料",
+    notifications: "通知",
+    back: "返回",
+    language: "语言",
+    appLanguage: "应用语言",
+    activityHistory: "活动记录",
+    general: "通用",
+    system: "系统",
+    promotion: "推广",
+    points: "积分",
+    gems: "宝石",
+    settings: "设置",
+    logout: "退出登录",
+    loading: "加载中…",
+  },
+  km: {
+    ...en,
+    home: "ទំព័រដើម",
+    explore: "រុករក",
+    store: "ហាង",
+    chats: "ជជែក",
+    profile: "ប្រវត្តិរូប",
+    notifications: "ការជូនដំណឹង",
+    back: "ត្រឡប់",
+    language: "ភាសា",
+    appLanguage: "ភាសាកម្មវិធី",
+    activityHistory: "ប្រវត្តិសកម្មភាព",
+    general: "ទូទៅ",
+    system: "ប្រព័ន្ធ",
+    promotion: "ប្រូម៉ូសិន",
+    points: "ពិន្ទុ",
+    gems: "ត្បូង",
+    settings: "ការកំណត់",
+    logout: "ចាកចេញ",
+    loading: "កំពុងផ្ទុក…",
+  },
+  lo: {
+    ...en,
+    home: "ໜ້າຫຼັກ",
+    explore: "ສຳຫຼວດ",
+    store: "ຮ້ານ",
+    chats: "ສົນທະນາ",
+    profile: "ໂປຣໄຟລ໌",
+    notifications: "ການແຈ້ງເຕືອນ",
+    back: "ກັບຄືນ",
+    language: "ພາສາ",
+    appLanguage: "ພາສາແອັບ",
+    activityHistory: "ປະຫວັດກິດຈະກຳ",
+    general: "ທົ່ວໄປ",
+    system: "ລະບົບ",
+    promotion: "ໂປຣໂມຊັນ",
+    points: "ຄະແນນ",
+    gems: "ເພັດ",
+    settings: "ການຕັ້ງຄ່າ",
+    logout: "ອອກຈາກລະບົບ",
+    loading: "ກຳລັງໂຫຼດ…",
+  },
+  fr: {
+    ...en,
+    home: "Accueil",
+    explore: "Explorer",
+    store: "Boutique",
+    chats: "Discussions",
+    profile: "Profil",
+    notifications: "Notifications",
+    back: "Retour",
+    language: "Langue",
+    appLanguage: "Langue de l’application",
+    activityHistory: "Historique d’activité",
+    general: "Général",
+    system: "Système",
+    promotion: "Promotion",
+    points: "Points",
+    gems: "Gemmes",
+    settings: "Paramètres",
+    logout: "Déconnexion",
+    loading: "Chargement…",
+  },
+  de: {
+    ...en,
+    home: "Startseite",
+    explore: "Entdecken",
+    store: "Shop",
+    chats: "Chats",
+    profile: "Profil",
+    notifications: "Benachrichtigungen",
+    back: "Zurück",
+    language: "Sprache",
+    appLanguage: "App-Sprache",
+    activityHistory: "Aktivitätsverlauf",
+    general: "Allgemein",
+    system: "System",
+    promotion: "Aktion",
+    points: "Punkte",
+    gems: "Edelsteine",
+    settings: "Einstellungen",
+    logout: "Abmelden",
+    loading: "Laden…",
+  },
+  es: {
+    ...en,
+    home: "Inicio",
+    explore: "Explorar",
+    store: "Tienda",
+    chats: "Chats",
+    profile: "Perfil",
+    notifications: "Notificaciones",
+    back: "Volver",
+    language: "Idioma",
+    appLanguage: "Idioma de la aplicación",
+    activityHistory: "Historial de actividad",
+    general: "General",
+    system: "Sistema",
+    promotion: "Promoción",
+    points: "Puntos",
+    gems: "Gemas",
+    settings: "Configuración",
+    logout: "Cerrar sesión",
+    loading: "Cargando…",
+  },
+};
+const LanguageContext = createContext<{
+  language: LanguageCode;
+  setLanguage: (code: LanguageCode) => void;
+  t: (key: keyof typeof en) => string;
+}>({ language: "en", setLanguage: () => {}, t: (key) => en[key] });
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [language, setLanguageState] = useState<LanguageCode>("en");
+  const setLanguage = (code: LanguageCode) => {
+    setLanguageState(code);
+    localStorage.setItem("app_language", code);
+  };
+  useEffect(() => {
+    const saved = localStorage.getItem("app_language") as LanguageCode | null;
+    if (saved && translations[saved]) setLanguageState(saved);
+  }, []);
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
+  return (
+    <LanguageContext.Provider
+      value={{
+        language,
+        setLanguage,
+        t: (key) => translations[language][key] || en[key],
+      }}
+    >
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+export const useTranslation = () => useContext(LanguageContext);
