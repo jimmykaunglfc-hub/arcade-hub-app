@@ -319,14 +319,21 @@ export default function HomeTab({
           <div className="flex items-start justify-between gap-3">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500">
-                {activeTournament.status} tournament · {activeTournament.game}
+                {activeTournament.status} tournament ·{" "}
+                {(activeTournament.games?.length
+                  ? activeTournament.games
+                  : [activeTournament.game_title || activeTournament.game]
+                ).join(" · ")}
               </span>
               <h2 className="mt-1 font-headline text-lg font-black text-on-surface">
                 {activeTournament.title}
               </h2>
               <p className="mt-1 text-xs text-on-surface-variant">
-                {activeTournament.registered_count || 0}/
-                {activeTournament.max_players} players · Prize pool{" "}
+                {activeTournament.current_slots ??
+                  activeTournament.registered_count ??
+                  0}
+                /{activeTournament.max_slots ?? activeTournament.max_players}{" "}
+                players · Prize pool{" "}
                 {activeTournament.prize_pool?.toLocaleString()} PTS
               </p>
             </div>

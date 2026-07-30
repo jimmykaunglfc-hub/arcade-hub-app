@@ -28,15 +28,17 @@ export default function TournamentsPage() {
 
   // Form State
   const [title, setTitle] = useState("");
-  const [game, setGame] = useState("Chess");
+  const [games, setGames] = useState<string[]>(["Chess"]);
   const [prizePool, setPrizePool] = useState("10000");
   const [entryFee, setEntryFee] = useState("0");
   const [maxPlayers, setMaxPlayers] = useState("32");
   const [startDate, setStartDate] = useState("");
   const [rules, setRules] = useState("");
   const [terms, setTerms] = useState("");
-  const [participationPoints, setParticipationPoints] = useState("0");
-  const [participationGems, setParticipationGems] = useState("0");
+  const [participationCurrency, setParticipationCurrency] = useState<
+    "points" | "gems"
+  >("points");
+  const [participationReward, setParticipationReward] = useState("0");
 
   useEffect(() => {
     fetchTournaments();
@@ -51,7 +53,15 @@ export default function TournamentsPage() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setTournaments(data || []);
+      setTournaments(
+        (data || []).map((tournament) => ({
+          ...tournament,
+          game: tournament.game_title || tournament.game,
+          max_players: tournament.max_slots ?? tournament.max_players,
+          registered_count:
+            tournament.current_slots ?? tournament.registered_count,
+        }))
+      );
     } catch (err: any) {
       console.error("Error fetching tournaments:", err.message);
       // Fallback mock data if table doesn't exist yet
@@ -86,24 +96,35 @@ export default function TournamentsPage() {
 
   const handleCreateTournament = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!games.length) {
+      alert("Select at least one tournament game.");
+      return;
+    }
     setSaving(true);
 
     try {
       const { error } = await supabase.from("tournaments").insert({
         title,
-        game,
+        game_title: games[0],
+        games,
         prize_pool: parseInt(prizePool),
         entry_fee: parseInt(entryFee),
-        max_players: parseInt(maxPlayers),
+        max_slots: parseInt(maxPlayers),
         start_date: startDate
           ? new Date(startDate).toISOString()
           : new Date().toISOString(),
         status: "upcoming",
-        registered_count: 0,
+        current_slots: 0,
         rules: rules.trim(),
         terms: terms.trim(),
-        participation_points: parseInt(participationPoints) || 0,
-        participation_gems: parseInt(participationGems) || 0,
+        participation_points:
+          participationCurrency === "points"
+            ? parseInt(participationReward) || 0
+            : 0,
+        participation_gems:
+          participationCurrency === "gems"
+            ? parseInt(participationReward) || 0
+            : 0,
       });
 
       if (error) throw error;
@@ -405,26 +426,39 @@ export default function TournamentsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
-                      Game
+                      Tournament Games
                     </label>
-                    <select
-                      value={game}
-                      onChange={(e) => setGame(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
-                    >
-                      <option value="Chess" className="bg-[#18181b]">
-                        Chess
-                      </option>
-                      <option value="Carrom" className="bg-[#18181b]">
-                        Carrom
-                      </option>
-                      <option value="Snooker" className="bg-[#18181b]">
-                        Snooker
-                      </option>
-                      <option value="Uno" className="bg-[#18181b]">
-                        Uno
-                      </option>
-                    </select>
+                    <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/5 p-2">
+                      {[
+                        "Chess",
+                        "Carrom",
+                        "Checkers",
+                        "Snooker",
+                        "8-Ball Pool",
+                        "Uno",
+                        "Tic Tac Toe",
+                      ].map((availableGame) => (
+                        <label
+                          key={availableGame}
+                          className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-white"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={games.includes(availableGame)}
+                            onChange={() =>
+                              setGames((current) =>
+                                current.includes(availableGame)
+                                  ? current.filter(
+                                      (game) => game !== availableGame
+                                    )
+                                  : [...current, availableGame]
+                              )
+                            }
+                          />
+                          {availableGame}
+                        </label>
+                      ))}
+                    </div>
                   </div>
 
                   <div>
@@ -465,22 +499,27 @@ export default function TournamentsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-                    Participation Points
-                    <input
-                      type="number"
-                      min="0"
-                      value={participationPoints}
-                      onChange={(e) => setParticipationPoints(e.target.value)}
+                    Participation reward currency
+                    <select
+                      value={participationCurrency}
+                      onChange={(e) =>
+                        setParticipationCurrency(
+                          e.target.value as "points" | "gems"
+                        )
+                      }
                       className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white"
-                    />
+                    >
+                      <option value="points">Points</option>
+                      <option value="gems">Gems</option>
+                    </select>
                   </label>
                   <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-                    Participation Gems
+                    Participation reward amount
                     <input
                       type="number"
                       min="0"
-                      value={participationGems}
-                      onChange={(e) => setParticipationGems(e.target.value)}
+                      value={participationReward}
+                      onChange={(e) => setParticipationReward(e.target.value)}
                       className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white"
                     />
                   </label>
