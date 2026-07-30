@@ -397,7 +397,7 @@ export default function ProfileTab({
           onClick={() => setModal("identity")}
           className="mt-4 text-xs font-bold text-primary"
         >
-          Edit name or photo
+          {t("editNamePhoto")}
         </button>
         <div className="grid grid-cols-3 w-full mt-6 border-t border-surface-variant pt-4">
           <div>
@@ -405,7 +405,7 @@ export default function ProfileTab({
               {(profile.points || 0).toLocaleString()}
             </b>
             <span className="text-[10px] text-on-surface-variant uppercase">
-              Points
+              {t("points")}
             </span>
           </div>
           <div>
@@ -413,13 +413,13 @@ export default function ProfileTab({
               {(profile.gems || 0).toLocaleString()}
             </b>
             <span className="text-[10px] text-on-surface-variant uppercase">
-              Gems
+              {t("gems")}
             </span>
           </div>
           <div>
             <b className="block text-lg">{inventoryCount}</b>
             <span className="text-[10px] text-on-surface-variant uppercase">
-              Cosmetics
+              {t("cosmetics")}
             </span>
           </div>
         </div>
@@ -452,7 +452,7 @@ export default function ProfileTab({
       </section>
       <section className="space-y-3">
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
-          Profile activity
+          {t("profileActivity")}
         </h3>
         <div className="bg-surface border border-surface-container-highest rounded-[24px] divide-y divide-surface-variant">
           <button
@@ -468,7 +468,7 @@ export default function ProfileTab({
                   <b className="block text-sm">Activity history</b>
                   <small className="text-on-surface-variant">
                     {ledger.length
-                      ? `${ledger.length} recent wallet activities`
+                      ? `${ledger.length} ${t("recentWalletActivities")}`
                       : "Points, gems and reward activity"}
                   </small>
                 </span>
@@ -482,31 +482,31 @@ export default function ProfileTab({
       </section>
       <section className="space-y-3">
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
-          App preferences
+          {t("appPreferences")}
         </h3>
         <div className="bg-surface border border-surface-container-highest rounded-[24px] overflow-hidden divide-y divide-surface-variant">
           {setting(
             isDarkMode ? "dark_mode" : "light_mode",
-            "Dark appearance",
-            "Adjust interface appearance",
+            t("darkAppearance"),
+            t("adjustAppearance"),
             toggle(isDarkMode, onToggleTheme)
           )}
           {setting(
             "volume_up",
-            "Sound Effects",
-            "In-game audio cues",
+            t("soundEffects"),
+            t("inGameAudio"),
             toggle(soundEnabled, () => setSoundEnabled(!soundEnabled))
           )}
           {setting(
             "vibration",
-            "Haptic Feedback",
-            "Vibration on interactions",
+            t("hapticFeedback"),
+            t("vibrationInteractions"),
             toggle(hapticsEnabled, () => setHapticsEnabled(!hapticsEnabled))
           )}
           {setting(
             "notifications",
-            "Push Notifications",
-            "Admin alerts, game invites and messages",
+            t("pushNotifications"),
+            t("adminAlerts"),
             toggle(
               Boolean(profile.push_enabled),
               () => void setPushEnabled(!profile.push_enabled)
@@ -516,20 +516,20 @@ export default function ProfileTab({
       </section>
       <section className="space-y-3">
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
-          Account & legal
+          {t("accountLegal")}
         </h3>
         <div className="bg-surface border border-surface-container-highest rounded-[24px] overflow-hidden divide-y divide-surface-variant">
           {[
-            ["manage_accounts", "Manage Account", () => setModal("account")],
-            ["help", "Help & Support", openSupport],
+            ["manage_accounts", t("manageAccount"), () => setModal("account")],
+            ["help", t("helpSupport"), openSupport],
             [
               "policy",
-              "Privacy Policy",
+              t("privacyPolicy"),
               () => void openLegal("privacy-policy"),
             ],
             [
               "gavel",
-              "Terms of Service",
+              t("termsService"),
               () => void openLegal("terms-of-service"),
             ],
           ].map(([icon, title, action]) => (
@@ -560,7 +560,7 @@ export default function ProfileTab({
         className="w-full bg-surface border border-surface-container-highest rounded-[24px] p-4 flex items-center justify-center gap-2 text-red-500 font-bold text-[13px]"
       >
         <span className="material-symbols-outlined text-[18px]">logout</span>
-        Logout Session
+        {t("logout")}
       </button>
       {modal &&
         typeof document !== "undefined" &&
