@@ -12,7 +12,9 @@ import GamesTab from "../components/GamesTab";
 import ChatTab from "../components/ChatTab";
 import ShopTab from "../components/ShopTab";
 import ProfileTab from "../components/ProfileTab";
+import NotificationsCenter from "../components/NotificationsCenter";
 import GlobalInviteListener from "../components/GlobalInviteListener";
+import GlobalNotificationListener from "../components/GlobalNotificationListener";
 import JoeYokeLogo from "../components/JoeYokeLogo";
 
 import GamePlayer from "../components/GamePlayer";
@@ -44,6 +46,7 @@ export default function Home() {
   const [playingGame, setPlayingGame] = useState<string | null>(null);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     const cachedTheme = localStorage.getItem("app_theme");
@@ -159,12 +162,15 @@ export default function Home() {
   return (
     <>
       {session && (
-        <GlobalInviteListener 
-          onAccept={(gameUrl, matchId) => {
-            setActiveMatchId(matchId);
-            setPlayingGame(gameUrl);
-          }} 
-        />
+        <>
+          <GlobalInviteListener
+            onAccept={(gameUrl, matchId) => {
+              setActiveMatchId(matchId);
+              setPlayingGame(gameUrl);
+            }}
+          />
+          <GlobalNotificationListener userId={session.user.id} />
+        </>
       )}
 
       {/* 🎮 NATIVE ENGINE ROUTER */}
@@ -227,7 +233,7 @@ export default function Home() {
             >
               <span className="material-symbols-outlined text-[18px]">{isDarkMode ? "light_mode" : "dark_mode"}</span>
             </button>
-            <button className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface hover:opacity-80 transition-opacity border border-surface-container-highest shadow-sm">
+            <button onClick={() => setShowNotifications(true)} aria-label="Open notifications" className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface hover:opacity-80 transition-opacity border border-surface-container-highest shadow-sm">
               <span className="material-symbols-outlined text-[18px]">notifications</span>
             </button>
           </div>
@@ -238,7 +244,12 @@ export default function Home() {
           className="flex-1 overflow-y-auto no-scrollbar pb-[100px] px-5 w-full z-10"
           style={{ paddingTop: 'calc(env(safe-area-inset-top) + 100px)' }}
         >
-          {!session && (activeTab === "Chats" || activeTab === "Store" || activeTab === "Profile") ? (
+          {showNotifications ? (
+            <>
+              <button onClick={() => setShowNotifications(false)} className="mb-4 text-xs font-bold text-primary flex items-center gap-1"><span className="material-symbols-outlined text-base">arrow_back</span>Back</button>
+              <NotificationsCenter userId={myUserId} points={userPoints} gems={userGems} />
+            </>
+          ) : !session && (activeTab === "Chats" || activeTab === "Store" || activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
             <>

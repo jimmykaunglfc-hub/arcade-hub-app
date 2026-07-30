@@ -1124,7 +1124,10 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   const renderPlayerHUD = (role: 1 | 2, position: 'top' | 'bottom') => {
     const isMyTurn = turn === role;
     
-    const isBot = role === 2 && (localOpponent?.isBot || playMode === "bot");
+    // A bot profile is used as the default opponent metadata, including before a
+    // local Pass & Play game starts. Only bot matches should disable Player 2's
+    // controls; both local players need access to the striker position slider.
+    const isBot = playMode === "bot" && role === 2;
     const canUseSlider = isMyTurn && !winner && !isBot && (playMode === 'local' || myPlayerRole === role);
     const currentSlider = role === 1 ? p1Slider : p2Slider;
     const setCurrentSlider = role === 1 ? setP1Slider : setP2Slider;

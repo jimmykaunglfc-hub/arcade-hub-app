@@ -1,254 +1,157 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
 
-interface Profile {
-  id: string;
-  email: string;
-  username: string;
-  avatar_url: string;
-  created_at: string;
-}
+type Profile = {
+  id: string; email: string; username: string; avatar_url: string | null; created_at: string;
+  points?: number; gems?: number; name_change_count?: number; avatar_change_count?: number; push_enabled?: boolean;
+};
+type Modal = "identity" | "account" | "support" | "privacy-policy" | "terms-of-service" | null;
+type LedgerEntry = { id: string; amount: number; description: string; created_at: string; mutation_type: string };
 
-interface ProfileTabProps {
-  isDarkMode: boolean;
-  onToggleTheme: () => void;
-}
+const NAME_CHANGE_COST = 100;
+const AVATAR_CHANGE_COST = 150;
+
+interface ProfileTabProps { isDarkMode: boolean; onToggleTheme: () => void; }
 
 export default function ProfileTab({ isDarkMode, onToggleTheme }: ProfileTabProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [fetchStatus, setFetchStatus] = useState<"loading" | "found" | "missing">("loading");
-
-  // Local preferences states preserved
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-
-  useEffect(() => {
-    fetchProfileData();
-  }, []);
+  const [inventoryCount, setInventoryCount] = useState(0);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [supportEmail, setSupportEmail] = useState("support@joeyoke.com");
+  const [modal, setModal] = useState<Modal>(null);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [requestType, setRequestType] = useState<"email_change" | "account_deletion" | "other">("email_change");
+  const [requestDetails, setRequestDetails] = useState("");
+  const [faqs, setFaqs] = useState<{ id: string; question: string; answer: string }[]>([]);
+  const [ticketSubject, setTicketSubject] = useState("");
+  const [ticketMessage, setTicketMessage] = useState("");
+  const [legal, setLegal] = useState<{ title: string; content: string } | null>(null);
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [playerCard, setPlayerCard] = useState<{ username: string; points: number; gems: number; cosmetics_purchased: number; point_history: { amount: number; description: string; created_at: string }[] } | null>(null);
 
   const fetchProfileData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setFetchStatus("missing"); return; }
+    const [{ data: myProfile }, { count }, { data: ledgerData }, { data: config }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+      supabase.from("user_inventory").select("*", { count: "exact", head: true }).eq("user_id", user.id),
+      supabase.from("financial_audit_logs").select("id, amount, description, created_at, mutation_type").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+      supabase.from("platform_config").select("support_email").eq("id", 1).maybeSingle(),
+    ]);
+    if (!myProfile) { setFetchStatus("missing"); return; }
+    setProfile(myProfile);
+    setName(myProfile.username || "");
+    setAvatarUrl(myProfile.avatar_url || "");
+    setInventoryCount(count || 0);
+    setLedger((ledgerData || []) as LedgerEntry[]);
+    if (config?.support_email) setSupportEmail(config.support_email);
+    setFetchStatus("found");
+  };
 
-    const { data: myProfile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle(); 
-    
-    if (myProfile) {
-      setProfile(myProfile);
-      setFetchStatus("found");
-    } else {
-      setFetchStatus("missing");
+  useEffect(() => { void fetchProfileData(); }, []);
+
+  const showMessage = (text: string) => { setMessage(text); window.setTimeout(() => setMessage(null), 3500); };
+  const terminateSession = async () => { await supabase.auth.signOut(); window.location.reload(); };
+  const nameCost = profile && name.trim() !== profile.username ? (profile.name_change_count ? NAME_CHANGE_COST : 0) : 0;
+  const avatarCost = profile && avatarUrl.trim() !== (profile.avatar_url || "") ? (profile.avatar_change_count ? AVATAR_CHANGE_COST : 0) : 0;
+  const identityCost = nameCost + avatarCost;
+
+  const saveIdentity = async () => {
+    if (!profile || !name.trim()) return;
+    setSaving(true);
+    const { data, error } = await supabase.rpc("update_profile_identity", {
+      new_username: name.trim(), new_avatar_url: avatarUrl.trim() || null,
+      name_change_cost: NAME_CHANGE_COST, avatar_change_cost: AVATAR_CHANGE_COST,
+    });
+    setSaving(false);
+    if (error) { showMessage(error.message); return; }
+    setProfile(data as Profile); setModal(null); showMessage(identityCost ? `Profile updated for ${identityCost} points.` : "Profile updated — your first change was free.");
+  };
+
+  const uploadAvatar = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!profile || !file) return;
+    if (!file.type.startsWith("image/")) { showMessage("Please choose an image file."); return; }
+    setSaving(true);
+    const extension = file.name.split(".").pop() || "png";
+    const path = `${profile.id}/${crypto.randomUUID()}.${extension}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: false, contentType: file.type });
+    if (error) { setSaving(false); showMessage(error.message); return; }
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    setAvatarUrl(data.publicUrl); setSaving(false);
+  };
+
+  const setPushEnabled = async (enabled: boolean) => {
+    if (!profile) return;
+    if (enabled && "Notification" in window) {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") { showMessage("Notification permission was not granted."); return; }
     }
+    const { error } = await supabase.from("profiles").update({ push_enabled: enabled }).eq("id", profile.id);
+    if (error) { showMessage(error.message); return; }
+    setProfile({ ...profile, push_enabled: enabled });
   };
 
-  const terminateSession = async () => {
-    await supabase.auth.signOut();
-    window.location.reload();
+  const openSupport = async () => {
+    const { data } = await supabase.from("support_faqs").select("id, question, answer").eq("is_published", true).order("sort_order");
+    setFaqs(data || []); setModal("support");
+  };
+  const sendSupportTicket = async () => {
+    if (!profile || !ticketSubject.trim() || !ticketMessage.trim()) return;
+    setSaving(true);
+    const { error } = await supabase.from("support_tickets").insert({ user_id: profile.id, subject: ticketSubject.trim(), message: ticketMessage.trim() });
+    setSaving(false);
+    if (error) { showMessage(error.message); return; }
+    setTicketSubject(""); setTicketMessage(""); showMessage("Support request sent.");
+  };
+  const sendAccountRequest = async () => {
+    if (!profile || !requestDetails.trim()) return;
+    setSaving(true);
+    const { error } = await supabase.from("account_requests").insert({ user_id: profile.id, request_type: requestType, details: requestDetails.trim() });
+    setSaving(false);
+    if (error) { showMessage(error.message); return; }
+    setRequestDetails(""); setModal(null); showMessage("Account request sent for admin review.");
+  };
+  const openLegal = async (slug: "privacy-policy" | "terms-of-service") => {
+    const { data, error } = await supabase.from("legal_documents").select("title, content").eq("slug", slug).maybeSingle();
+    setLegal(data || { title: slug === "privacy-policy" ? "Privacy Policy" : "Terms of Service", content: error ? "This document is not published yet." : "No document has been published yet." });
+    setModal(slug);
+  };
+  const findPlayer = async () => {
+    if (!playerSearch.trim()) return;
+    const { data, error } = await supabase.rpc("get_public_profile_card", { target_username: playerSearch.trim() });
+    if (error || !data) { setPlayerCard(null); showMessage(error?.message || "Player not found."); return; }
+    setPlayerCard(data);
   };
 
-  if (fetchStatus === "loading") {
-    return (
-      <div className="text-center p-6 font-caps text-[10px] font-bold text-on-surface-variant uppercase tracking-widest animate-pulse">
-        Compiling User Node...
-      </div>
-    );
-  }
+  if (fetchStatus === "loading") return <div className="text-center p-6 font-caps text-[10px] font-bold text-on-surface-variant uppercase tracking-widest animate-pulse">Loading profile…</div>;
+  if (fetchStatus === "missing" || !profile) return <div className="bg-surface border border-surface-container-highest rounded-[24px] p-6 text-center shadow-sm mt-6"><span className="material-symbols-outlined text-[32px] text-red-500">error</span><h2 className="font-headline text-base font-black text-on-surface mt-3">Profile Not Synced</h2><p className="text-xs text-on-surface-variant my-4">Please sign in again to restore your profile.</p><button onClick={terminateSession} className="w-full py-3 bg-red-500/10 text-red-500 font-bold text-xs rounded-xl">Sign Out</button></div>;
 
-  if (fetchStatus === "missing" || !profile) {
-    return (
-      <div className="bg-surface border border-surface-container-highest rounded-[24px] p-6 text-center shadow-sm animate-fade-in w-full max-w-sm mx-auto mt-6">
-        <span className="material-symbols-outlined text-[32px] text-red-500 mb-3">error</span>
-        <h2 className="font-headline text-base font-black text-on-surface mb-1">Profile Not Synced</h2>
-        <p className="font-body text-xs text-on-surface-variant mb-6 leading-relaxed">
-          Your active session exists, but your public profile row was not found. Re-authenticate to trigger the profile setup pipeline.
-        </p>
-        <button 
-          onClick={terminateSession}
-          className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-headline font-bold text-xs uppercase tracking-wider rounded-xl transition-all active:scale-95"
-        >
-          Sign Out
-        </button>
-      </div>
-    );
-  }
+  const toggle = (on: boolean, handler: () => void) => <button onClick={handler} aria-pressed={on} className={`w-12 h-7 rounded-full p-1 transition-colors flex items-center ${on ? "bg-primary" : "bg-surface-container-highest"}`}><span className={`w-5 h-5 rounded-full shadow-md transition-transform ${on ? "bg-on-primary translate-x-5" : "bg-on-surface-variant"}`} /></button>;
+  const setting = (icon: string, title: string, hint: string, control: React.ReactNode) => <div className="flex items-center justify-between p-4"><div className="flex items-center gap-4"><div className="w-11 h-11 rounded-[14px] bg-surface-container-high flex items-center justify-center text-primary"><span className="material-symbols-outlined text-[20px]">{icon}</span></div><div><span className="font-headline text-[13px] font-bold block">{title}</span><span className="font-body text-[11px] text-on-surface-variant block mt-0.5">{hint}</span></div></div>{control}</div>;
 
-  return (
-    <div className="space-y-5 animate-fade-in pb-12 w-full text-on-surface">
-      
-      {/* 👤 SECTION 1: IDENTITY HEADER CARD */}
-      <div className="bg-surface border border-surface-container-highest rounded-[24px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm">
-        
-        <div className="w-24 h-24 rounded-full border-4 border-surface-container-high overflow-hidden relative bg-surface-variant z-10 shadow-inner">
-          <Image src={profile.avatar_url} alt="Profile Node" fill className="object-cover" unoptimized />
-        </div>
-        
-        <div className="mt-4 z-10">
-          <h2 className="font-headline text-xl font-black tracking-tight text-on-surface">{profile.username}</h2>
-          <p className="font-body text-[13px] text-on-surface-variant font-medium mt-0.5">{profile.email}</p>
-        </div>
-
-        <div className="mt-5 z-10">
-          {/* FIXED: Replaced border-primary/20 with solid border-primary for correct CSS Variable parsing */}
-          <span className="bg-primary-container text-primary text-[10px] font-caps font-bold uppercase tracking-widest px-4 py-2 rounded-xl flex items-center gap-1.5 border border-primary">
-            <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-            Verified Account
-          </span>
-        </div>
-      </div>
-
-      {/* ⚙️ SECTION 2: APP PREFERENCES CONTAINER */}
-      <div className="space-y-3">
-        <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">App Preferences</h3>
-        <div className="bg-surface border border-surface-container-highest rounded-[24px] overflow-hidden divide-y divide-surface-variant shadow-sm">
-          
-          {/* Theme Controller Row */}
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 rounded-[14px] bg-surface-container-high flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined text-[20px]">{isDarkMode ? "dark_mode" : "light_mode"}</span>
-              </div>
-              <div className="text-left">
-                <span className="font-headline text-[13px] font-bold block text-on-surface">Dark appearance</span>
-                <span className="font-body text-[11px] text-on-surface-variant block mt-0.5">Adjust interface appearance</span>
-              </div>
-            </div>
-            <button 
-              onClick={onToggleTheme}
-              className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 ease-in-out flex items-center ${isDarkMode ? "bg-primary" : "bg-surface-container-highest"}`}
-            >
-              <div className={`w-5 h-5 rounded-full shadow-md transition-transform duration-300 ${isDarkMode ? "bg-on-primary translate-x-5" : "bg-on-surface-variant translate-x-0"}`} />
-            </button>
-          </div>
-
-          {/* Audio Controller Row */}
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 rounded-[14px] bg-surface-container-high flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined text-[20px]">volume_up</span>
-              </div>
-              <div className="text-left">
-                <span className="font-headline text-[13px] font-bold block text-on-surface">Sound Effects</span>
-                <span className="font-body text-[11px] text-on-surface-variant block mt-0.5">In-game audio cues</span>
-              </div>
-            </div>
-            <button 
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 ease-in-out flex items-center ${soundEnabled ? "bg-primary" : "bg-surface-container-highest"}`}
-            >
-              <div className={`w-5 h-5 rounded-full shadow-md transition-transform duration-300 ${soundEnabled ? "bg-on-primary translate-x-5" : "bg-on-surface-variant translate-x-0"}`} />
-            </button>
-          </div>
-
-          {/* Haptics Controller Row */}
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 rounded-[14px] bg-surface-container-high flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined text-[20px]">vibration</span>
-              </div>
-              <div className="text-left">
-                <span className="font-headline text-[13px] font-bold block text-on-surface">Haptic Feedback</span>
-                <span className="font-body text-[11px] text-on-surface-variant block mt-0.5">Vibration on interactions</span>
-              </div>
-            </div>
-            <button 
-              onClick={() => setHapticsEnabled(!hapticsEnabled)}
-              className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 ease-in-out flex items-center ${hapticsEnabled ? "bg-primary" : "bg-surface-container-highest"}`}
-            >
-              <div className={`w-5 h-5 rounded-full shadow-md transition-transform duration-300 ${hapticsEnabled ? "bg-on-primary translate-x-5" : "bg-on-surface-variant translate-x-0"}`} />
-            </button>
-          </div>
-
-          {/* Push Broadcast Row */}
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 rounded-[14px] bg-surface-container-high flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined text-[20px]">notifications</span>
-              </div>
-              <div className="text-left">
-                <span className="font-headline text-[13px] font-bold block text-on-surface">Push Notifications</span>
-                <span className="font-body text-[11px] text-on-surface-variant block mt-0.5">Game invites & messages</span>
-              </div>
-            </div>
-            <button 
-              onClick={() => setNotificationsEnabled(!notificationsEnabled)}
-              className={`w-12 h-7 rounded-full p-1 transition-colors duration-300 ease-in-out flex items-center ${notificationsEnabled ? "bg-primary" : "bg-surface-container-highest"}`}
-            >
-              <div className={`w-5 h-5 rounded-full shadow-md transition-transform duration-300 ${notificationsEnabled ? "bg-on-primary translate-x-5" : "bg-on-surface-variant translate-x-0"}`} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 🔐 SECTION 3: ACCOUNT & UTILITIES LINKS */}
-      <div className="space-y-3">
-        <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">Account & Legal</h3>
-        <div className="bg-surface border border-surface-container-highest rounded-[24px] overflow-hidden divide-y divide-surface-variant shadow-sm">
-          
-          <button className="w-full flex items-center justify-between p-4 hover:bg-surface-variant transition-colors text-left group active:bg-surface-variant">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 rounded-[14px] bg-surface-container-high flex items-center justify-center text-on-surface group-hover:text-primary transition-colors">
-                <span className="material-symbols-outlined text-[20px]">manage_accounts</span>
-              </div>
-              <span className="font-headline text-sm font-bold text-on-surface">Manage Account</span>
-            </div>
-            <span className="material-symbols-outlined text-base text-on-surface-variant">chevron_right</span>
-          </button>
-
-          <button className="w-full flex items-center justify-between p-4 hover:bg-surface-variant transition-colors text-left group active:bg-surface-variant">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 rounded-[14px] bg-surface-container-high flex items-center justify-center text-on-surface group-hover:text-primary transition-colors">
-                <span className="material-symbols-outlined text-[20px]">help</span>
-              </div>
-              <span className="font-headline text-sm font-bold text-on-surface">Help & Support</span>
-            </div>
-            <span className="material-symbols-outlined text-base text-on-surface-variant">chevron_right</span>
-          </button>
-
-          <button className="w-full flex items-center justify-between p-4 hover:bg-surface-variant transition-colors text-left group active:bg-surface-variant">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 rounded-[14px] bg-surface-container-high flex items-center justify-center text-on-surface group-hover:text-primary transition-colors">
-                <span className="material-symbols-outlined text-[20px]">policy</span>
-              </div>
-              <span className="font-headline text-sm font-bold text-on-surface">Privacy Policy</span>
-            </div>
-            <span className="material-symbols-outlined text-base text-on-surface-variant">open_in_new</span>
-          </button>
-
-          <button className="w-full flex items-center justify-between p-4 hover:bg-surface-variant transition-colors text-left group active:bg-surface-variant">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 rounded-[14px] bg-surface-container-high flex items-center justify-center text-on-surface group-hover:text-primary transition-colors">
-                <span className="material-symbols-outlined text-[20px]">gavel</span>
-              </div>
-              <span className="font-headline text-sm font-bold text-on-surface">Terms of Service</span>
-            </div>
-            <span className="material-symbols-outlined text-base text-on-surface-variant">open_in_new</span>
-          </button>
-
-        </div>
-      </div>
-
-      {/* 🚪 SECTION 4: SYSTEM SHUTDOWN ACTION AREA */}
-      <div className="pt-2 flex flex-col items-center gap-4">
-        <button 
-          onClick={terminateSession}
-          className="w-full bg-surface border border-surface-container-highest rounded-[24px] p-4 flex items-center justify-center gap-2 hover:bg-surface-variant text-red-500 transition-all active:scale-[0.98] shadow-sm"
-        >
-          <span className="material-symbols-outlined text-[18px]">logout</span>
-          <span className="font-headline text-[13px] font-bold tracking-wide">Logout Session</span>
-        </button>
-        
-        <p className="font-caps text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">
-          Joe Yoke Client v1.2.0
-        </p>
-      </div>
-
+  return <div className="space-y-5 animate-fade-in pb-12 w-full text-on-surface">
+    {message && <div role="status" className="sticky top-1 z-20 bg-primary-container text-primary rounded-xl p-3 text-xs font-bold shadow-lg">{message}</div>}
+    <div className="bg-surface border border-surface-container-highest rounded-[24px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm">
+      <button onClick={() => setModal("identity")} className="w-24 h-24 rounded-full border-4 border-surface-container-high overflow-hidden relative bg-surface-variant shadow-inner" aria-label="Edit profile"><Image src={profile.avatar_url || "/logo-dark.jpeg"} alt="Profile avatar" fill className="object-cover" unoptimized /></button>
+      <div className="mt-4"><h2 className="font-headline text-xl font-black tracking-tight">{profile.username}</h2><p className="font-body text-[13px] text-on-surface-variant mt-0.5">{profile.email}</p></div>
+      <button onClick={() => setModal("identity")} className="mt-4 text-xs font-bold text-primary">Edit name or photo</button>
+      <div className="grid grid-cols-3 w-full mt-6 border-t border-surface-variant pt-4"><div><b className="block text-lg">{(profile.points || 0).toLocaleString()}</b><span className="text-[10px] text-on-surface-variant uppercase">Points</span></div><div><b className="block text-lg">{(profile.gems || 0).toLocaleString()}</b><span className="text-[10px] text-on-surface-variant uppercase">Gems</span></div><div><b className="block text-lg">{inventoryCount}</b><span className="text-[10px] text-on-surface-variant uppercase">Cosmetics</span></div></div>
     </div>
-  );
+    <section className="space-y-3"><h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">Profile activity</h3><div className="bg-surface border border-surface-container-highest rounded-[24px] divide-y divide-surface-variant">{ledger.length ? ledger.map(entry => <div key={entry.id} className="flex justify-between gap-3 p-4 text-xs"><div><p className="font-bold">{entry.description || entry.mutation_type}</p><p className="text-on-surface-variant mt-1">{new Date(entry.created_at).toLocaleDateString()}</p></div><b className={entry.amount >= 0 ? "text-emerald-500" : "text-red-500"}>{entry.amount >= 0 ? "+" : ""}{entry.amount} PTS</b></div>) : <p className="p-4 text-xs text-on-surface-variant">No point activity yet.</p>}</div></section>
+    <section className="space-y-3"><h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">Player profile card</h3><div className="bg-surface border border-surface-container-highest rounded-[24px] p-4"><div className="flex gap-2"><input value={playerSearch} onChange={e => setPlayerSearch(e.target.value)} onKeyDown={e => { if (e.key === "Enter") void findPlayer(); }} placeholder="Search by player name" className="min-w-0 flex-1 p-3 rounded-xl bg-surface-container-high border border-surface-container-highest text-sm" /><button onClick={() => void findPlayer()} className="px-4 rounded-xl bg-primary text-on-primary text-xs font-bold">View</button></div>{playerCard && <div className="mt-4 text-xs"><div className="flex justify-between"><b>{playerCard.username}</b><span>{playerCard.cosmetics_purchased} cosmetics</span></div><p className="text-on-surface-variant mt-1">{playerCard.points.toLocaleString()} points · {playerCard.gems.toLocaleString()} gems</p><div className="mt-3 pt-3 border-t border-surface-variant space-y-2">{playerCard.point_history.length ? playerCard.point_history.map((entry, index) => <div key={`${entry.created_at}-${index}`} className="flex justify-between gap-3"><span className="truncate">{entry.description}</span><b className={entry.amount >= 0 ? "text-emerald-500" : "text-red-500"}>{entry.amount >= 0 ? "+" : ""}{entry.amount}</b></div>) : <span className="text-on-surface-variant">No visible point history.</span>}</div></div>}</div></section>
+    <section className="space-y-3"><h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">App preferences</h3><div className="bg-surface border border-surface-container-highest rounded-[24px] overflow-hidden divide-y divide-surface-variant">{setting(isDarkMode ? "dark_mode" : "light_mode", "Dark appearance", "Adjust interface appearance", toggle(isDarkMode, onToggleTheme))}{setting("volume_up", "Sound Effects", "In-game audio cues", toggle(soundEnabled, () => setSoundEnabled(!soundEnabled)))}{setting("vibration", "Haptic Feedback", "Vibration on interactions", toggle(hapticsEnabled, () => setHapticsEnabled(!hapticsEnabled)))}{setting("notifications", "Push Notifications", "Admin alerts, game invites and messages", toggle(Boolean(profile.push_enabled), () => void setPushEnabled(!profile.push_enabled)))}</div></section>
+    <section className="space-y-3"><h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">Account & legal</h3><div className="bg-surface border border-surface-container-highest rounded-[24px] overflow-hidden divide-y divide-surface-variant">{[["manage_accounts", "Manage Account", () => setModal("account")], ["help", "Help & Support", openSupport], ["policy", "Privacy Policy", () => void openLegal("privacy-policy")], ["gavel", "Terms of Service", () => void openLegal("terms-of-service")]].map(([icon, title, action]) => <button key={title as string} onClick={action as () => void} className="w-full flex items-center justify-between p-4 hover:bg-surface-variant text-left"><span className="flex items-center gap-4"><span className="w-11 h-11 rounded-[14px] bg-surface-container-high flex items-center justify-center"><span className="material-symbols-outlined text-[20px]">{icon as string}</span></span><span className="font-headline text-sm font-bold">{title as string}</span></span><span className="material-symbols-outlined text-base text-on-surface-variant">chevron_right</span></button>)}</div></section>
+    <button onClick={terminateSession} className="w-full bg-surface border border-surface-container-highest rounded-[24px] p-4 flex items-center justify-center gap-2 text-red-500 font-bold text-[13px]"><span className="material-symbols-outlined text-[18px]">logout</span>Logout Session</button>
+    {modal && <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm p-5 flex items-center justify-center"><div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 w-full max-w-md max-h-[85vh] overflow-y-auto"><div className="flex justify-between items-center mb-4"><h2 className="font-headline font-black text-lg">{modal === "identity" ? "Edit Profile" : modal === "account" ? "Manage Account" : modal === "support" ? "Help & Support" : legal?.title}</h2><button onClick={() => setModal(null)} aria-label="Close"><span className="material-symbols-outlined">close</span></button></div>{modal === "identity" && <div className="space-y-4"><div className="flex items-center gap-3"><Image src={avatarUrl || "/logo-dark.jpeg"} alt="Avatar preview" width={56} height={56} className="rounded-full object-cover" unoptimized /><label className="text-xs font-bold text-primary cursor-pointer">Upload photo<input type="file" accept="image/*" className="hidden" onChange={uploadAvatar} /></label></div><label className="block text-xs font-bold">Display name<input value={name} maxLength={30} onChange={e => setName(e.target.value)} className="mt-1 w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest" /></label><label className="block text-xs font-bold">Photo URL (optional)<input value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} className="mt-1 w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest" /></label><p className="text-xs text-on-surface-variant">First name and photo change are free. Later changes cost {NAME_CHANGE_COST} and {AVATAR_CHANGE_COST} points.</p><button disabled={saving || (!name.trim())} onClick={() => void saveIdentity()} className="w-full bg-primary text-on-primary p-3 rounded-xl text-xs font-black disabled:opacity-50">{saving ? "Saving…" : `Save changes${identityCost ? ` (${identityCost} PTS)` : ""}`}</button></div>}{modal === "account" && <div className="space-y-4"><p className="text-xs text-on-surface-variant">Submit an account request for backend review. Admin approval or rejection will be shown in your account request record.</p><select value={requestType} onChange={e => setRequestType(e.target.value as typeof requestType)} className="w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest text-sm"><option value="email_change">Change email address</option><option value="account_deletion">Delete account</option><option value="other">Other account request</option></select><textarea value={requestDetails} onChange={e => setRequestDetails(e.target.value)} placeholder="Tell the team what you need" className="w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest text-sm min-h-24" /><button disabled={saving || !requestDetails.trim()} onClick={() => void sendAccountRequest()} className="w-full bg-primary text-on-primary p-3 rounded-xl text-xs font-black disabled:opacity-50">Send for review</button></div>}{modal === "support" && <div className="space-y-4"><a className="block text-xs font-bold text-primary" href={`mailto:${supportEmail}`}>Contact {supportEmail}</a>{faqs.map(faq => <details key={faq.id} className="bg-surface-container-high rounded-xl p-3"><summary className="text-xs font-bold cursor-pointer">{faq.question}</summary><p className="text-xs text-on-surface-variant mt-2 whitespace-pre-wrap">{faq.answer}</p></details>)}<input value={ticketSubject} onChange={e => setTicketSubject(e.target.value)} placeholder="Subject" className="w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest text-sm" /><textarea value={ticketMessage} onChange={e => setTicketMessage(e.target.value)} placeholder="How can we help?" className="w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest text-sm min-h-24" /><button disabled={saving || !ticketSubject.trim() || !ticketMessage.trim()} onClick={() => void sendSupportTicket()} className="w-full bg-primary text-on-primary p-3 rounded-xl text-xs font-black disabled:opacity-50">Send support request</button></div>}{(modal === "privacy-policy" || modal === "terms-of-service") && <p className="whitespace-pre-wrap text-sm leading-6 text-on-surface-variant">{legal?.content}</p>}</div></div>}
+  </div>;
 }

@@ -20,6 +20,7 @@ import {
   BarChart3,
   ShieldCheck,
   Settings,
+  CircleHelp,
   LogOut,
   Loader2,
 } from "lucide-react";
@@ -40,6 +41,7 @@ const NAV_ITEMS = [
   { id: "analytics", label: "Reports & Analytics", href: "/joeyokeadmin/reports", icon: BarChart3 },
   { id: "roles", label: "Roles & Access", href: "/joeyokeadmin/roles", icon: ShieldCheck },
   { id: "configurations", label: "Configurations", href: "/joeyokeadmin/configurations", icon: Settings },
+  { id: "support", label: "Support & Requests", href: "/joeyokeadmin/support", icon: CircleHelp },
 ];
 
 export function AdminSidebar() {
