@@ -75,16 +75,24 @@ function formatTimeAgo(isoString: string): string {
 
 function TournamentMetric({
   icon,
+  iconTone = "points",
   label,
   value,
 }: {
   icon: string;
+  iconTone?: "points" | "gem";
   label: string;
   value: string;
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="material-symbols-outlined rounded-full bg-white/10 p-1.5 text-base text-primary">
+      <span
+        className={`material-symbols-outlined rounded-full p-1.5 text-base ${
+          iconTone === "gem"
+            ? "bg-secondary-container text-secondary"
+            : "bg-primary-container text-primary"
+        }`}
+      >
         {icon}
       </span>
       <span className="min-w-0">
@@ -357,14 +365,28 @@ export default function HomeTab({
               }/${activeTournament.max_slots ?? activeTournament.max_players}`}
             />
             <TournamentMetric
-              icon="diamond"
+              icon={
+                activeTournament.prize_currency === "gems" ? "diamond" : "bolt"
+              }
+              iconTone={
+                activeTournament.prize_currency === "gems" ? "gem" : "points"
+              }
               label="Prize"
               value={`${activeTournament.prize_pool?.toLocaleString()} ${
                 activeTournament.prize_currency === "gems" ? "GEMS" : "PTS"
               }`}
             />
             <TournamentMetric
-              icon="toll"
+              icon={
+                activeTournament.entry_fee_currency === "gems"
+                  ? "diamond"
+                  : "bolt"
+              }
+              iconTone={
+                activeTournament.entry_fee_currency === "gems"
+                  ? "gem"
+                  : "points"
+              }
               label="Entry"
               value={
                 activeTournament.entry_fee > 0
