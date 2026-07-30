@@ -104,9 +104,9 @@ export default function ProfileTab({
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id),
       supabase
-        .from("financial_audit_logs")
+        .from("wallet_activity_logs")
         .select(
-          "id, amount, description, created_at, mutation_type, currency_type"
+          "id, amount, description, created_at, mutation_type:activity_type, currency_type"
         )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })

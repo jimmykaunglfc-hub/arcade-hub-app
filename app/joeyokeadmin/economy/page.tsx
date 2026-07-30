@@ -39,9 +39,9 @@ export default function EconomyLedger() {
         .select("id, username, avatar_url, email, points, gems")
         .order("username"),
       supabase
-        .from("financial_audit_logs")
+        .from("wallet_activity_logs")
         .select(
-          "id, user_id, amount, balance_snapshot, currency_type, mutation_type, description, created_at"
+          "id, user_id, amount, balance_snapshot, currency_type, mutation_type:activity_type, description, created_at"
         )
         .order("created_at", { ascending: false })
         .limit(1000),
