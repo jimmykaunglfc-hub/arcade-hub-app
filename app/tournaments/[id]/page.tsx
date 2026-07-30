@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import MatchmakingModal from "@/components/MatchmakingModal";
 
 type TournamentPageProps = { params: Promise<{ id: string }> };
 
@@ -19,6 +20,9 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
   >("overview");
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [fixtures, setFixtures] = useState<any[]>([]);
+  const [findingGame, setFindingGame] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [gameCards, setGameCards] = useState<any[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -32,33 +36,40 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
       return;
     }
     setTournament(event);
-    const [entryResult, leaderboardResult, fixturesResult] = await Promise.all([
-      authData.user
-        ? supabase
-            .from("tournament_entries")
-            .select("id")
-            .eq("tournament_id", id)
-            .eq("user_id", authData.user.id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      supabase
-        .from("tournament_leaderboard")
-        .select("*, profiles(username, avatar_url)")
-        .eq("tournament_id", id)
-        .order("rank")
-        .limit(50),
-      supabase
-        .from("tournament_matches")
-        .select(
-          "*, player_one:profiles!tournament_matches_player_one_id_fkey(username), player_two:profiles!tournament_matches_player_two_id_fkey(username)"
-        )
-        .eq("tournament_id", id)
-        .order("round_number", { ascending: false })
-        .order("created_at", { ascending: false }),
-    ]);
+    setCurrentUserId(authData.user?.id || null);
+    const [entryResult, leaderboardResult, fixturesResult, gameCardsResult] =
+      await Promise.all([
+        authData.user
+          ? supabase
+              .from("tournament_entries")
+              .select("id")
+              .eq("tournament_id", id)
+              .eq("user_id", authData.user.id)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        supabase
+          .from("tournament_leaderboard")
+          .select("*, profiles(username, avatar_url)")
+          .eq("tournament_id", id)
+          .order("rank")
+          .limit(50),
+        supabase
+          .from("tournament_matches")
+          .select(
+            "*, player_one:profiles!tournament_matches_player_one_id_fkey(username), player_two:profiles!tournament_matches_player_two_id_fkey(username)"
+          )
+          .eq("tournament_id", id)
+          .order("round_number", { ascending: false })
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("games")
+          .select("title, image_url")
+          .eq("status", "active"),
+      ]);
     setJoined(Boolean(entryResult.data));
     setLeaderboard(leaderboardResult.data || []);
     setFixtures(fixturesResult.data || []);
+    setGameCards(gameCardsResult.data || []);
     setLoading(false);
   };
 
@@ -108,6 +119,16 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
     tournament.prize_currency === "gems" ? "Gems" : "Points";
   const feeCurrency =
     tournament.entry_fee_currency === "points" ? "Points" : "Gems";
+  const topThree = leaderboard.slice(0, 3);
+  const topTen = leaderboard.slice(3, 10);
+  const myRow = currentUserId
+    ? leaderboard.find((row) => row.user_id === currentUserId)
+    : null;
+
+  const startTournamentMatchmaking = (gameName: string) => {
+    if (!currentUserId) return setMessage("Sign in to play tournament games.");
+    setFindingGame(gameName);
+  };
 
   return (
     <main className="min-h-screen bg-[#080b14] px-4 py-5 text-white">
@@ -221,40 +242,26 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
                   {games.map((game: string) => (
                     <button
                       key={game}
+                      onClick={() => startTournamentMatchmaking(game)}
                       className="rounded-2xl border border-slate-700 bg-[#1a2030] p-3 text-xs font-bold text-white hover:border-[#CCFF00]"
                     >
-                      <span className="mb-2 block text-2xl">🎮</span>
+                      {gameCards.find((item) => item.title === game)
+                        ?.image_url ? (
+                        <img
+                          src={
+                            gameCards.find((item) => item.title === game)
+                              .image_url
+                          }
+                          alt=""
+                          className="mb-2 h-12 w-full rounded-xl object-cover"
+                        />
+                      ) : (
+                        <span className="mb-2 block text-2xl">🎮</span>
+                      )}
                       {game}
                     </button>
                   ))}
                 </div>
-                <h2 className="pt-3 text-lg font-black">
-                  Your tournament matches
-                </h2>
-                {fixtures.length ? (
-                  fixtures.map((fixture) => (
-                    <div
-                      key={fixture.id}
-                      className="rounded-xl bg-surface-container p-3 text-sm"
-                    >
-                      <div className="flex justify-between gap-3">
-                        <b>
-                          Round {fixture.round_number} · {fixture.game_name}
-                        </b>
-                        <span className="capitalize text-on-surface-variant">
-                          {fixture.status.replace("_", " ")}
-                        </span>
-                      </div>
-                      <p className="mt-2">
-                        {fixture.player_one?.username || "Player 1"}{" "}
-                        <span className="text-on-surface-variant">vs</span>{" "}
-                        {fixture.player_two?.username || "Player 2"}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <Empty text="Fixtures will appear here when the organizer starts the first round." />
-                )}
               </section>
             )}
             {tab === "leaderboard" && (
@@ -266,23 +273,72 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
                   matches played, then registration time.
                 </p>
                 {leaderboard.length ? (
-                  <div className="space-y-2">
-                    {leaderboard.map((row) => (
-                      <div
-                        key={row.user_id}
-                        className="grid grid-cols-[2rem_1fr_auto] items-center rounded-xl bg-surface-container p-3 text-sm"
-                      >
-                        <b className="text-primary">#{row.rank}</b>
-                        <span>
-                          {row.profiles?.username || "Player"}
-                          <small className="ml-2 text-on-surface-variant">
-                            {row.wins}W · {row.draws}D · {row.losses}L
-                          </small>
-                        </span>
-                        <b>{row.score} pts</b>
-                      </div>
-                    ))}
-                  </div>
+                  <>
+                    <div className="mb-5 grid grid-cols-3 items-end gap-2">
+                      {topThree.map((row, index) => (
+                        <div
+                          key={row.user_id}
+                          className={`rounded-2xl border p-3 text-center ${
+                            index === 0
+                              ? "order-2 border-amber-300 bg-amber-300/10 py-5"
+                              : index === 1
+                              ? "order-1 border-slate-400 bg-slate-400/10"
+                              : "order-3 border-orange-300 bg-orange-300/10"
+                          }`}
+                        >
+                          <div className="text-2xl">
+                            {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
+                          </div>
+                          <b className="mt-1 block truncate text-xs">
+                            {row.profiles?.username || "Player"}
+                          </b>
+                          <span className="text-xs text-slate-400">
+                            {row.score} pts
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      {topTen.map((row) => (
+                        <div
+                          key={row.user_id}
+                          className={`grid grid-cols-[2rem_1fr_auto] items-center rounded-xl p-3 text-sm ${
+                            row.user_id === currentUserId
+                              ? "border border-[#CCFF00] bg-[#CCFF00]/10"
+                              : "bg-surface-container"
+                          }`}
+                        >
+                          <b className="text-primary">#{row.rank}</b>
+                          <span>
+                            {row.profiles?.username || "Player"}
+                            <small className="ml-2 text-on-surface-variant">
+                              {row.wins}W · {row.draws}D · {row.losses}L
+                            </small>
+                          </span>
+                          <b>{row.score} pts</b>
+                        </div>
+                      ))}
+                      {myRow && myRow.rank > 10 && (
+                        <>
+                          <div className="my-3 flex items-center gap-2 text-xs text-slate-500">
+                            <span className="h-px flex-1 bg-slate-700" />↕ Your
+                            rank
+                            <span className="h-px flex-1 bg-slate-700" />
+                          </div>
+                          <div className="grid grid-cols-[2rem_1fr_auto] items-center rounded-xl border border-[#CCFF00] bg-[#CCFF00]/10 p-3 text-sm">
+                            <b className="text-[#CCFF00]">#{myRow.rank}</b>
+                            <span className="font-bold">
+                              {myRow.profiles?.username || "You"}
+                              <small className="ml-2 text-slate-400">
+                                {myRow.wins}W · {myRow.losses}L
+                              </small>
+                            </span>
+                            <b>{myRow.score} pts</b>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </>
                 ) : (
                   <Empty text="The leaderboard starts after fixtures are completed." />
                 )}
@@ -302,6 +358,21 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
           </div>
         </section>
       </div>
+      {findingGame && currentUserId && (
+        <MatchmakingModal
+          gameKey={findingGame.toLowerCase()}
+          gameName={findingGame}
+          userId={currentUserId}
+          onCancel={() => setFindingGame(null)}
+          onMatchFound={(match) => {
+            sessionStorage.setItem(
+              "tournament_match_launch",
+              JSON.stringify({ game: findingGame, matchId: match.matchId })
+            );
+            router.push("/");
+          }}
+        />
+      )}
     </main>
   );
 }

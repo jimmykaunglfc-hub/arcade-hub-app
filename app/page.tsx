@@ -7,7 +7,7 @@ import { supabase } from "../lib/supabaseClient";
 // 👇 Ranking utilities
 import { getRankTier, getHoursPlayed } from "../lib/rankingUtils";
 
-import HomeTab from "../components/HomeTab"; 
+import HomeTab from "../components/HomeTab";
 import GamesTab from "../components/GamesTab";
 import ChatTab from "../components/ChatTab";
 import ShopTab from "../components/ShopTab";
@@ -21,11 +21,11 @@ import GamePlayer from "../components/GamePlayer";
 import GlitchDeck from "../components/games/GlitchDeck";
 import Checkers from "../components/games/Checkers";
 import Carrom from "../components/games/Carrom";
-import NexusBreach from "../components/games/NexusBreach"; 
-import LiarsDice from "../components/games/LiarsDice"; 
-import NeuralDuel from "../components/games/NeuralDuel"; 
+import NexusBreach from "../components/games/NexusBreach";
+import LiarsDice from "../components/games/LiarsDice";
+import NeuralDuel from "../components/games/NeuralDuel";
 import BiometricOverride from "../components/games/BiometricOverride";
-import ChessGame from "../components/games/ChessGame"; 
+import ChessGame from "../components/games/ChessGame";
 import SnookerGame from "../components/games/SnookerGame";
 import TicTacToeGame from "../components/games/TicTacToeGame";
 import UnoGame from "../components/games/UnoGame";
@@ -34,19 +34,36 @@ import AuthView from "../components/AuthView";
 export default function Home() {
   const [session, setSession] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  
-  const [activeTab, setActiveTab] = useState("Home"); 
-  
+
+  const [activeTab, setActiveTab] = useState("Home");
+
   const [userPoints, setUserPoints] = useState<number>(0);
   const [userGems, setUserGems] = useState<number>(0); // 💎 Initialized to 0 (dynamic)
   const [myUserId, setMyUserId] = useState<string | null>(null);
-  
+
   const [rankData, setRankData] = useState<any>(null);
 
   const [playingGame, setPlayingGame] = useState<string | null>(null);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  useEffect(() => {
+    const savedLaunch = sessionStorage.getItem("tournament_match_launch");
+    if (!savedLaunch) return;
+    sessionStorage.removeItem("tournament_match_launch");
+    try {
+      const { game, matchId } = JSON.parse(savedLaunch);
+      const slug = String(game)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      setActiveMatchId(matchId || null);
+      setPlayingGame(`native://${slug}`);
+    } catch {
+      // Ignore a malformed one-time tournament launch request.
+    }
+  }, []);
 
   useEffect(() => {
     const cachedTheme = localStorage.getItem("app_theme");
@@ -67,7 +84,9 @@ export default function Home() {
       setCheckingAuth(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(subscription ? session : null);
       if (session?.user) {
         setMyUserId(session.user.id);
@@ -86,23 +105,32 @@ export default function Home() {
   useEffect(() => {
     if (!myUserId) return;
 
-    const profileChannel = supabase.channel(`live_wallet_${myUserId}`)
+    const profileChannel = supabase
+      .channel(`live_wallet_${myUserId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${myUserId}` },
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${myUserId}`,
+        },
         () => {
           fetchLiveBalance(myUserId);
         }
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(profileChannel); };
+    return () => {
+      supabase.removeChannel(profileChannel);
+    };
   }, [myUserId]);
 
   const fetchLiveBalance = async (uid: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select(`
+      .select(
+        `
         points, 
         gems,
         mmr, 
@@ -112,7 +140,8 @@ export default function Home() {
         total_deaths, 
         total_assists, 
         total_playtime_seconds
-      `)
+      `
+      )
       .eq("id", uid)
       .maybeSingle();
 
@@ -132,7 +161,7 @@ export default function Home() {
         percentile: null,
         winRate: Number(winRate),
         gamesPlayed: matches,
-        playtime: getHoursPlayed(data.total_playtime_seconds ?? 0)
+        playtime: getHoursPlayed(data.total_playtime_seconds ?? 0),
       });
     }
   };
@@ -175,86 +204,198 @@ export default function Home() {
 
       {/* 🎮 NATIVE ENGINE ROUTER */}
       {playingGame === "native://glitch-deck" ? (
-        <GlitchDeck onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <GlitchDeck
+          onClose={() => {
+            setPlayingGame(null);
+            setActiveMatchId(null);
+          }}
+        />
       ) : playingGame === "native://chess" ? (
-        <ChessGame onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
-      ) : playingGame === "native://tictactoe" || playingGame === "native://tic-tac-toe" ? (
-        <TicTacToeGame onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
+        <ChessGame
+          onClose={() => {
+            setPlayingGame(null);
+            setActiveMatchId(null);
+          }}
+          preloadedMatchId={activeMatchId}
+        />
+      ) : playingGame === "native://tictactoe" ||
+        playingGame === "native://tic-tac-toe" ? (
+        <TicTacToeGame
+          onClose={() => {
+            setPlayingGame(null);
+            setActiveMatchId(null);
+          }}
+          preloadedMatchId={activeMatchId}
+        />
       ) : playingGame === "native://uno" ? (
-        <UnoGame onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
+        <UnoGame
+          onClose={() => {
+            setPlayingGame(null);
+            setActiveMatchId(null);
+          }}
+          preloadedMatchId={activeMatchId}
+        />
       ) : playingGame === "native://checkers" ? (
-        <Checkers onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
+        <Checkers
+          onClose={() => {
+            setPlayingGame(null);
+            setActiveMatchId(null);
+          }}
+          preloadedMatchId={activeMatchId}
+        />
       ) : playingGame === "native://carrom" ? (
-        <Carrom onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
+        <Carrom
+          onClose={() => {
+            setPlayingGame(null);
+            setActiveMatchId(null);
+          }}
+          preloadedMatchId={activeMatchId}
+        />
       ) : playingGame === "native://snooker" ? (
-        <SnookerGame onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} preloadedMatchId={activeMatchId} />
+        <SnookerGame
+          onClose={() => {
+            setPlayingGame(null);
+            setActiveMatchId(null);
+          }}
+          preloadedMatchId={activeMatchId}
+        />
       ) : playingGame === "native://nexus-breach" ? (
-        <NexusBreach onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <NexusBreach
+          onClose={() => {
+            setPlayingGame(null);
+            setActiveMatchId(null);
+          }}
+        />
       ) : playingGame === "native://liars-dice" ? (
-        <LiarsDice onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <LiarsDice
+          onClose={() => {
+            setPlayingGame(null);
+            setActiveMatchId(null);
+          }}
+        />
       ) : playingGame === "native://neural-duel" ? (
-        <NeuralDuel onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <NeuralDuel
+          onClose={() => {
+            setPlayingGame(null);
+            setActiveMatchId(null);
+          }}
+        />
       ) : playingGame === "native://biometric-override" ? (
-        <BiometricOverride onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <BiometricOverride
+          onClose={() => {
+            setPlayingGame(null);
+            setActiveMatchId(null);
+          }}
+        />
       ) : playingGame ? (
-        <GamePlayer gameUrl={playingGame} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <GamePlayer
+          gameUrl={playingGame}
+          onClose={() => {
+            setPlayingGame(null);
+            setActiveMatchId(null);
+          }}
+        />
       ) : null}
 
       {/* 📱 SOLID APP SHELL */}
-      <div className={playingGame ? "hidden" : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden transition-colors duration-300"}>
-        
+      <div
+        className={
+          playingGame
+            ? "hidden"
+            : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden transition-colors duration-300"
+        }
+      >
         {/* HEADER */}
-        <header 
+        <header
           className="fixed top-0 left-0 right-0 z-50 bg-background flex justify-between items-center px-5 h-[90px] transition-colors duration-300"
-          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
         >
           <div className="flex items-center gap-3">
             <JoeYokeLogo className="w-[42px] h-[42px]" />
-            
+
             <div className="flex flex-col">
-              <h1 className="font-headline text-lg font-bold text-on-background leading-tight">Joe Yoke</h1>
+              <h1 className="font-headline text-lg font-bold text-on-background leading-tight">
+                Joe Yoke
+              </h1>
               <div className="flex items-center gap-2 mt-0.5">
                 <div className="flex items-center gap-1 bg-primary-container px-2.5 py-0.5 rounded-full">
-                  <span className="material-symbols-outlined text-primary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
-                  <span className="text-on-background text-[11px] font-extrabold">{userPoints.toLocaleString()}</span>
+                  <span
+                    className="material-symbols-outlined text-primary text-[14px]"
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                  >
+                    bolt
+                  </span>
+                  <span className="text-on-background text-[11px] font-extrabold">
+                    {userPoints.toLocaleString()}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1 bg-secondary-container px-2.5 py-0.5 rounded-full">
-                  <span className="material-symbols-outlined text-secondary text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>diamond</span>
-                  <span className="text-on-background text-[11px] font-extrabold">{userGems.toLocaleString()}</span>
+                  <span
+                    className="material-symbols-outlined text-secondary text-[14px]"
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                  >
+                    diamond
+                  </span>
+                  <span className="text-on-background text-[11px] font-extrabold">
+                    {userGems.toLocaleString()}
+                  </span>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button 
+            <button
               onClick={toggleTheme}
               className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface hover:opacity-80 transition-opacity border border-surface-container-highest shadow-sm"
             >
-              <span className="material-symbols-outlined text-[18px]">{isDarkMode ? "light_mode" : "dark_mode"}</span>
+              <span className="material-symbols-outlined text-[18px]">
+                {isDarkMode ? "light_mode" : "dark_mode"}
+              </span>
             </button>
-            <button onClick={() => setShowNotifications(true)} aria-label="Open notifications" className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface hover:opacity-80 transition-opacity border border-surface-container-highest shadow-sm">
-              <span className="material-symbols-outlined text-[18px]">notifications</span>
+            <button
+              onClick={() => setShowNotifications(true)}
+              aria-label="Open notifications"
+              className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface hover:opacity-80 transition-opacity border border-surface-container-highest shadow-sm"
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                notifications
+              </span>
             </button>
           </div>
         </header>
 
         {/* MAIN CONTENT AREA */}
-        <main 
+        <main
           className="flex-1 overflow-y-auto no-scrollbar pb-[100px] px-5 w-full z-10"
-          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 100px)' }}
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 100px)" }}
         >
           {showNotifications ? (
             <>
-              <button onClick={() => setShowNotifications(false)} className="mb-4 text-xs font-bold text-primary flex items-center gap-1"><span className="material-symbols-outlined text-base">arrow_back</span>Back</button>
-              <NotificationsCenter userId={myUserId} points={userPoints} gems={userGems} />
+              <button
+                onClick={() => setShowNotifications(false)}
+                className="mb-4 text-xs font-bold text-primary flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-base">
+                  arrow_back
+                </span>
+                Back
+              </button>
+              <NotificationsCenter
+                userId={myUserId}
+                points={userPoints}
+                gems={userGems}
+              />
             </>
-          ) : !session && (activeTab === "Chats" || activeTab === "Store" || activeTab === "Profile") ? (
+          ) : !session &&
+            (activeTab === "Chats" ||
+              activeTab === "Store" ||
+              activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
             <>
               {activeTab === "Home" && (
-                <HomeTab 
+                <HomeTab
                   currentPoints={userPoints}
                   userId={myUserId}
                   onPlay={(url) => setPlayingGame(url)}
@@ -268,28 +409,31 @@ export default function Home() {
               )}
 
               {activeTab === "Explore" && (
-                <GamesTab 
+                <GamesTab
                   currentPoints={userPoints}
                   userId={myUserId}
-                  onPlay={(url) => setPlayingGame(url)} 
+                  onPlay={(url) => setPlayingGame(url)}
                 />
               )}
-              
+
               {activeTab === "Chats" && (
-                <ChatTab 
+                <ChatTab
                   currentPoints={userPoints}
                   userId={myUserId}
                   onPlay={(url, matchId) => {
                     setActiveMatchId(matchId);
                     setPlayingGame(url);
-                  }} 
+                  }}
                 />
               )}
-              
+
               {activeTab === "Store" && <ShopTab userId={myUserId} />}
-              
+
               {activeTab === "Profile" && (
-                <ProfileTab isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
+                <ProfileTab
+                  isDarkMode={isDarkMode}
+                  onToggleTheme={toggleTheme}
+                />
               )}
             </>
           )}
@@ -299,14 +443,14 @@ export default function Home() {
         <nav className="fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-surface-container-highest px-2 pb-safe pt-1 flex justify-around items-center h-[76px] transition-colors duration-300">
           {[
             { id: "Home", icon: "home" },
-            { id: "Explore", icon: "explore" }, 
+            { id: "Explore", icon: "explore" },
             { id: "Store", icon: "local_mall" },
             { id: "Chats", icon: "chat_bubble" },
-            { id: "Profile", icon: "person" }
+            { id: "Profile", icon: "person" },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             return (
-              <button 
+              <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className="relative flex flex-col items-center justify-center w-16 h-full transition-all"
@@ -314,10 +458,18 @@ export default function Home() {
                 {isActive && (
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[32px] h-[3px] bg-primary rounded-b-md"></div>
                 )}
-                <span className={`material-symbols-outlined mt-1 text-[24px] ${isActive ? "text-primary" : "text-on-surface-variant"}`}>
+                <span
+                  className={`material-symbols-outlined mt-1 text-[24px] ${
+                    isActive ? "text-primary" : "text-on-surface-variant"
+                  }`}
+                >
                   {tab.icon}
                 </span>
-                <span className={`text-[10px] font-bold mt-1 tracking-wide ${isActive ? "text-primary" : "text-on-surface-variant"}`}>
+                <span
+                  className={`text-[10px] font-bold mt-1 tracking-wide ${
+                    isActive ? "text-primary" : "text-on-surface-variant"
+                  }`}
+                >
                   {tab.id}
                 </span>
               </button>
