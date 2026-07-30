@@ -175,63 +175,78 @@ export default function WheelRewardsPage() {
           <h3 className="font-bold text-white">
             {editing ? "Edit reward" : "Add reward"}
           </h3>
-          <input
-            required
-            value={draft.label}
-            onChange={(e) => setDraft({ ...draft, label: e.target.value })}
-            placeholder="Reward label, e.g. 250 PTS"
-            className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <select
-              value={draft.reward_type}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  reward_type: e.target.value as Reward["reward_type"],
-                })
-              }
-              className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white"
-            >
-              <option value="points">Points</option>
-              <option value="gems">Gems</option>
-            </select>
+          <label className="block text-xs font-bold text-neutral-300">
+            Reward label
             <input
               required
-              min="1"
-              type="number"
-              value={draft.reward_value}
-              onChange={(e) =>
-                setDraft({ ...draft, reward_value: Number(e.target.value) })
-              }
-              placeholder="Amount"
-              className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white"
+              value={draft.label}
+              onChange={(e) => setDraft({ ...draft, label: e.target.value })}
+              placeholder="e.g. 250 PTS"
+              className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white"
             />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-xs font-bold text-neutral-300">
+              Reward currency
+              <select
+                value={draft.reward_type}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    reward_type: e.target.value as Reward["reward_type"],
+                  })
+                }
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white"
+              >
+                <option value="points">Points</option>
+                <option value="gems">Gems</option>
+              </select>
+            </label>
+            <label className="block text-xs font-bold text-neutral-300">
+              Reward amount
+              <input
+                required
+                min="1"
+                type="number"
+                value={draft.reward_value}
+                onChange={(e) =>
+                  setDraft({ ...draft, reward_value: Number(e.target.value) })
+                }
+                placeholder="e.g. 100"
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white"
+              />
+            </label>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <input
-              required
-              min="0.01"
-              step="0.01"
-              type="number"
-              value={draft.probability}
-              onChange={(e) =>
-                setDraft({ ...draft, probability: Number(e.target.value) })
-              }
-              placeholder="Weight / probability"
-              className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white"
-            />
-            <input
-              required
-              min="0"
-              type="number"
-              value={draft.display_order}
-              onChange={(e) =>
-                setDraft({ ...draft, display_order: Number(e.target.value) })
-              }
-              placeholder="Wheel position"
-              className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white"
-            />
+            <label className="block text-xs font-bold text-neutral-300">
+              Probability weight
+              <input
+                required
+                min="0.01"
+                step="0.01"
+                type="number"
+                value={draft.probability}
+                onChange={(e) =>
+                  setDraft({ ...draft, probability: Number(e.target.value) })
+                }
+                placeholder="e.g. 25"
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white"
+              />
+            </label>
+            <label className="block text-xs font-bold text-neutral-300">
+              Wheel position
+              <input
+                required
+                min="0"
+                type="number"
+                value={draft.display_order}
+                onChange={(e) =>
+                  setDraft({ ...draft, display_order: Number(e.target.value) })
+                }
+                placeholder="e.g. 1"
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white"
+              />
+            </label>
           </div>
           <label className="flex items-center gap-2 text-xs text-neutral-300">
             <input

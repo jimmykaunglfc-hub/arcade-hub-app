@@ -1,216 +1,242 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { 
-  RefreshCw, 
-  Coins, 
-  Users, 
-  TrendingUp, 
-  Gift, 
-  Gamepad2, 
-  ShoppingCart, 
-  ShieldAlert, 
-  ArrowRightLeft 
-} from "lucide-react";
+import { ChevronDown, Coins, RefreshCw, Users } from "lucide-react";
+
+type Ledger = {
+  id: string;
+  user_id: string;
+  amount: number;
+  balance_snapshot: number;
+  mutation_type: string;
+  description: string;
+  created_at: string;
+  profiles?: { username?: string; avatar_url?: string; email?: string };
+};
 
 export default function EconomyLedger() {
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [economyStats, setEconomyStats] = useState({
-    totalCirculation: 0,
-    totalUsers: 0,
-    recentVolume: 0
-  });
+  const [ledger, setLedger] = useState<Ledger[]>([]);
+  const [profiles, setProfiles] = useState<
+    {
+      id: string;
+      points?: number;
+      gems?: number;
+      username?: string;
+      avatar_url?: string;
+      email?: string;
+    }[]
+  >([]);
+  const [openUser, setOpenUser] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const fetchEconomyData = async () => {
+  const [error, setError] = useState("");
+  const load = async () => {
     setLoading(true);
-
-    try {
-      // 1. Fetch Economy Macro Stats
-      const { data: profiles } = await supabase.from("profiles").select("points");
-      let circulation = 0;
-      if (profiles) {
-        circulation = profiles.reduce((acc, user) => acc + (user.points || 0), 0);
-      }
-
-      // 2. Fetch Transaction Ledger
-      const { data: txData } = await supabase
-        .from("transactions")
-        .select(`
-          *,
-          profiles:user_id (username, avatar_url, email)
-        `)
+    const [profileResult, ledgerResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, username, avatar_url, email, points, gems")
+        .order("username"),
+      supabase
+        .from("financial_audit_logs")
+        .select(
+          "id, user_id, amount, balance_snapshot, mutation_type, description, created_at"
+        )
         .order("created_at", { ascending: false })
-        .limit(100); 
-
-      if (txData) {
-        setTransactions(txData);
-        const volume = txData.reduce((acc, tx) => acc + Math.abs(tx.amount), 0);
-        
-        setEconomyStats({
-          totalCirculation: circulation,
-          totalUsers: profiles?.length || 0,
-          recentVolume: volume
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching ledger data:", error);
-    } finally {
-      setLoading(false);
-    }
+        .limit(1000),
+    ]);
+    setProfiles(profileResult.data || []);
+    setLedger(ledgerResult.data || []);
+    setError(profileResult.error?.message || ledgerResult.error?.message || "");
+    setLoading(false);
   };
-
   useEffect(() => {
-    fetchEconomyData();
+    void load();
   }, []);
-
-  const getTransactionStyle = (type: string) => {
-    switch(type) {
-      case 'daily_reward': return { Icon: Gift, color: 'text-indigo-400', border: 'border-indigo-500/20', bg: 'bg-indigo-500/10' };
-      case 'match_fee': return { Icon: Gamepad2, color: 'text-amber-400', border: 'border-amber-500/20', bg: 'bg-amber-500/10' };
-      case 'shop_purchase': return { Icon: ShoppingCart, color: 'text-pink-400', border: 'border-pink-500/20', bg: 'bg-pink-500/10' };
-      case 'admin_adjustment': return { Icon: ShieldAlert, color: 'text-[#CCFF00]', border: 'border-[#CCFF00]/20', bg: 'bg-[#CCFF00]/10' };
-      default: return { Icon: ArrowRightLeft, color: 'text-neutral-400', border: 'border-white/10', bg: 'bg-white/5' };
-    }
-  };
-
+  const grouped = useMemo(
+    () =>
+      profiles
+        .map((profile) => ({
+          profile,
+          activity: ledger.filter((entry) => entry.user_id === profile.id),
+        }))
+        .filter(
+          (group) =>
+            group.activity.length ||
+            group.profile.points ||
+            0 ||
+            group.profile.gems ||
+            0
+        ),
+    [profiles, ledger]
+  );
+  const totalPoints = profiles.reduce(
+    (total, profile) => total + (profile.points || 0),
+    0
+  );
+  const totalGems = profiles.reduce(
+    (total, profile) => total + (profile.gems || 0),
+    0
+  );
   return (
-    <div className="space-y-8 animate-fade-in">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 pb-12">
+      <header className="flex items-end justify-between">
         <div>
-          <h2 className="font-headline text-2xl font-black text-white tracking-tight">Economy Ledger</h2>
-          <p className="font-body text-xs text-neutral-400 mt-1">Monitor real-time point circulation and network transaction history.</p>
+          <h2 className="font-headline text-3xl font-black text-white">
+            Economy & Player Ledger
+          </h2>
+          <p className="mt-1 text-xs text-neutral-400">
+            Open a player to view their complete tracked point, gem, match,
+            wheel, and purchase activity.
+          </p>
         </div>
-        <button 
-          onClick={fetchEconomyData} 
-          className="flex items-center gap-2 bg-[#18181b] px-5 py-2.5 rounded-xl border border-white/10 text-xs font-bold text-white hover:bg-white/5 hover:border-white/20 transition-all w-fit shadow-lg group"
+        <button
+          onClick={() => void load()}
+          className="flex gap-2 rounded-xl bg-white/5 px-4 py-2.5 text-xs font-bold text-white"
         >
-          <RefreshCw className="w-4 h-4 text-neutral-400 group-hover:text-white transition-colors" /> Sync Ledger
+          <RefreshCw className="w-4 h-4" />
+          Sync
         </button>
       </header>
-
-      {/* --- MACRO ECONOMY STATS --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-[#18181b] border border-white/10 rounded-[24px] p-6 shadow-2xl flex items-center gap-5 hover:border-white/20 transition-colors">
-          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
-            <Coins className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Total Circulation</p>
-            <h3 className="font-headline text-3xl font-black text-white mt-1 tracking-tight">
-              {economyStats.totalCirculation.toLocaleString()} <span className="text-sm text-amber-500 font-bold">PTS</span>
-            </h3>
-          </div>
+      {error && (
+        <p className="rounded-xl bg-rose-500/10 p-3 text-xs text-rose-300">
+          {error}
+        </p>
+      )}
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-3xl border border-white/10 bg-[#18181b] p-5">
+          <Coins className="h-5 w-5 text-amber-400" />
+          <p className="mt-3 text-[10px] font-bold uppercase text-neutral-500">
+            Points in circulation
+          </p>
+          <b className="text-2xl text-white">{totalPoints.toLocaleString()}</b>
         </div>
-
-        <div className="bg-[#18181b] border border-white/10 rounded-[24px] p-6 shadow-2xl flex items-center gap-5 hover:border-white/20 transition-colors">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
-            <Users className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Active Wallets</p>
-            <h3 className="font-headline text-3xl font-black text-white mt-1 tracking-tight">
-              {economyStats.totalUsers.toLocaleString()}
-            </h3>
-          </div>
+        <div className="rounded-3xl border border-white/10 bg-[#18181b] p-5">
+          <Coins className="h-5 w-5 text-violet-400" />
+          <p className="mt-3 text-[10px] font-bold uppercase text-neutral-500">
+            Gems in circulation
+          </p>
+          <b className="text-2xl text-white">{totalGems.toLocaleString()}</b>
         </div>
-
-        <div className="bg-[#18181b] border border-white/10 rounded-[24px] p-6 shadow-2xl flex items-center gap-5 hover:border-white/20 transition-colors">
-          <div className="w-14 h-14 rounded-2xl bg-[#CCFF00]/10 border border-[#CCFF00]/20 flex items-center justify-center text-[#CCFF00] shrink-0">
-            <TrendingUp className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Recent Tx Volume</p>
-            <h3 className="font-headline text-3xl font-black text-white mt-1 tracking-tight">
-              {economyStats.recentVolume.toLocaleString()} <span className="text-sm text-[#CCFF00] font-bold">PTS</span>
-            </h3>
-          </div>
+        <div className="rounded-3xl border border-white/10 bg-[#18181b] p-5">
+          <Users className="h-5 w-5 text-[#CCFF00]" />
+          <p className="mt-3 text-[10px] font-bold uppercase text-neutral-500">
+            Wallets with activity
+          </p>
+          <b className="text-2xl text-white">{grouped.length}</b>
         </div>
       </div>
-
-      {/* --- TRANSACTION HISTORY TABLE --- */}
-      <div className="bg-[#18181b] border border-white/10 rounded-[24px] overflow-hidden shadow-2xl mt-8">
-        <div className="p-5 border-b border-white/10 bg-white/[0.02]">
-          <h3 className="font-headline text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Network Transaction Log (Latest 100)</h3>
+      <section className="overflow-hidden rounded-3xl border border-white/10 bg-[#18181b]">
+        <div className="border-b border-white/10 p-5 text-xs font-bold uppercase tracking-widest text-neutral-400">
+          Player wallets
         </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-black/20 border-b border-white/10">
-              <tr>
-                <th className="px-6 py-4 font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Timestamp</th>
-                <th className="px-6 py-4 font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">User Node</th>
-                <th className="px-6 py-4 font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Transaction Type</th>
-                <th className="px-6 py-4 font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {loading ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-xs font-bold text-neutral-500 uppercase tracking-widest animate-pulse">
-                    Scanning Ledger Network...
-                  </td>
-                </tr>
-              ) : transactions.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-xs text-neutral-500">
-                    No transactions recorded on the network yet.
-                  </td>
-                </tr>
-              ) : (
-                transactions.map((tx) => {
-                  const style = getTransactionStyle(tx.transaction_type);
-                  const isPositive = tx.amount >= 0;
-                  const Icon = style.Icon;
-                  
-                  return (
-                    <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors group">
-                      <td className="px-6 py-4 whitespace-nowrap text-[10px] font-mono text-neutral-500">
-                        {new Date(tx.created_at).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <img 
-                            src={tx.profiles?.avatar_url || "https://img.icons8.com/illustrations/xlarge/robot.png"} 
-                            alt="avatar" 
-                            className="w-8 h-8 rounded-full bg-white/5 p-0.5 object-cover border border-white/10" 
-                          />
-                          <div>
-                            <p className="font-headline font-bold text-white text-xs tracking-wide">
-                              {tx.profiles?.username || "Unknown Node"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${style.bg} ${style.border} ${style.color}`}>
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="font-headline font-bold text-[10px] text-white uppercase tracking-wider">
-                              {tx.transaction_type.replace('_', ' ')}
-                            </p>
-                            {tx.description && (
-                              <p className="text-[10px] text-neutral-500 truncate max-w-[250px] mt-0.5">{tx.description}</p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className={`font-headline font-black text-sm tracking-wide ${isPositive ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.2)]' : 'text-rose-400 drop-shadow-[0_0_8px_rgba(244,63,94,0.2)]'}`}>
-                          {isPositive ? '+' : ''}{tx.amount.toLocaleString()} PTS
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
+        {loading ? (
+          <p className="p-10 text-center text-xs text-neutral-500">
+            Loading player ledger…
+          </p>
+        ) : (
+          grouped.map(({ profile, activity }) => (
+            <div
+              key={profile.id}
+              className="border-b border-white/5 last:border-0"
+            >
+              <button
+                onClick={() =>
+                  setOpenUser(openUser === profile.id ? null : profile.id)
+                }
+                className="flex w-full items-center justify-between gap-4 p-5 text-left hover:bg-white/[0.02]"
+              >
+                <span className="flex items-center gap-3">
+                  <img
+                    src={
+                      profile.avatar_url ||
+                      "https://img.icons8.com/illustrations/xlarge/robot.png"
+                    }
+                    alt=""
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                  <span>
+                    <b className="block text-sm text-white">
+                      {profile.username || "Unknown player"}
+                    </b>
+                    <span className="text-xs text-neutral-500">
+                      {profile.email} · {activity.length} activities
+                    </span>
+                  </span>
+                </span>
+                <span className="flex items-center gap-5">
+                  <span className="text-xs text-amber-400">
+                    {(profile.points || 0).toLocaleString()} PTS
+                  </span>
+                  <span className="text-xs text-violet-400">
+                    {(profile.gems || 0).toLocaleString()} gems
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 text-neutral-400 transition-transform ${
+                      openUser === profile.id ? "rotate-180" : ""
+                    }`}
+                  />
+                </span>
+              </button>
+              {openUser === profile.id && (
+                <div className="bg-black/20 px-5 pb-5">
+                  <div className="overflow-x-auto rounded-xl border border-white/10">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-white/5 text-neutral-400">
+                        <tr>
+                          <th className="p-3">When</th>
+                          <th className="p-3">Activity</th>
+                          <th className="p-3">Description</th>
+                          <th className="p-3 text-right">Point change</th>
+                          <th className="p-3 text-right">Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {activity.map((entry) => (
+                          <tr key={entry.id}>
+                            <td className="p-3 text-neutral-500">
+                              {new Date(entry.created_at).toLocaleString()}
+                            </td>
+                            <td className="p-3 font-bold capitalize text-white">
+                              {entry.mutation_type.replaceAll("_", " ")}
+                            </td>
+                            <td className="p-3 text-neutral-400">
+                              {entry.description}
+                            </td>
+                            <td
+                              className={`p-3 text-right font-bold ${
+                                entry.amount >= 0
+                                  ? "text-emerald-400"
+                                  : "text-rose-400"
+                              }`}
+                            >
+                              {entry.amount >= 0 ? "+" : ""}
+                              {entry.amount}
+                            </td>
+                            <td className="p-3 text-right text-neutral-300">
+                              {entry.balance_snapshot}
+                            </td>
+                          </tr>
+                        ))}
+                        {!activity.length && (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              className="p-4 text-center text-neutral-500"
+                            >
+                              No tracked point activity.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
+          ))
+        )}
+      </section>
     </div>
   );
 }
