@@ -34,6 +34,9 @@ export default function TournamentsPage() {
     "points"
   );
   const [entryFee, setEntryFee] = useState("0");
+  const [entryFeeCurrency, setEntryFeeCurrency] = useState<"points" | "gems">(
+    "gems"
+  );
   const [maxPlayers, setMaxPlayers] = useState("32");
   const [rules, setRules] = useState("");
   const [terms, setTerms] = useState("");
@@ -111,6 +114,7 @@ export default function TournamentsPage() {
         games,
         prize_pool: parseInt(prizePool),
         entry_fee: parseInt(entryFee),
+        entry_fee_currency: entryFeeCurrency,
         max_slots: parseInt(maxPlayers),
         prize_currency: prizeCurrency,
         status: "upcoming",
@@ -331,7 +335,11 @@ export default function TournamentsPage() {
                     Entry Fee
                   </span>
                   <span className="font-bold text-white">
-                    {t.entry_fee > 0 ? `${t.entry_fee} Gems` : "Free"}
+                    {t.entry_fee > 0
+                      ? `${t.entry_fee} ${
+                          t.entry_fee_currency === "points" ? "Points" : "Gems"
+                        }`
+                      : "Free"}
                   </span>
                 </div>
                 <div>
@@ -526,7 +534,7 @@ export default function TournamentsPage() {
                   </label>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   <div>
                     <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
                       Prize pool currency
@@ -558,11 +566,28 @@ export default function TournamentsPage() {
 
                   <div>
                     <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
-                      Entry Fee (Gems)
+                      Entry fee currency
+                    </label>
+                    <select
+                      value={entryFeeCurrency}
+                      onChange={(e) =>
+                        setEntryFeeCurrency(e.target.value as "points" | "gems")
+                      }
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+                    >
+                      <option value="points">Points</option>
+                      <option value="gems">Gems</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                      Entry fee amount
                     </label>
                     <input
                       type="number"
                       required
+                      min="0"
                       value={entryFee}
                       onChange={(e) => setEntryFee(e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"

@@ -336,6 +336,15 @@ export default function HomeTab({
                 players · Prize pool{" "}
                 {activeTournament.prize_pool?.toLocaleString()}{" "}
                 {activeTournament.prize_currency === "gems" ? "GEMS" : "PTS"}
+                {activeTournament.entry_fee > 0 && (
+                  <>
+                    {" "}
+                    · Entry {activeTournament.entry_fee.toLocaleString()}{" "}
+                    {activeTournament.entry_fee_currency === "points"
+                      ? "PTS"
+                      : "GEMS"}
+                  </>
+                )}
               </p>
             </div>
             <span className="material-symbols-outlined text-amber-500">
