@@ -23,6 +23,7 @@ type Modal =
   | "account"
   | "support"
   | "activity"
+  | "language"
   | "privacy-policy"
   | "terms-of-service"
   | null;
@@ -427,22 +428,27 @@ export default function ProfileTab({
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
           {t("language")}
         </h3>
-        <div className="bg-surface border border-surface-container-highest rounded-[24px] p-3 grid grid-cols-3 gap-2">
-          {LANGUAGES.map((item) => (
-            <button
-              key={item.code}
-              onClick={() => void updateLanguage(item.code)}
-              className={`rounded-xl p-2 text-center text-xs font-bold ${
-                language === item.code
-                  ? "bg-primary text-on-primary"
-                  : "bg-surface-container-high text-on-surface"
-              }`}
-            >
-              <span className="block text-xl">{item.flag}</span>
-              <span className="mt-1 block truncate">{item.label}</span>
-            </button>
-          ))}
-        </div>
+        <button
+          onClick={() => setModal("language")}
+          className="w-full rounded-[24px] border border-surface-container-highest bg-surface p-4 text-left hover:bg-surface-variant"
+        >
+          <span className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-4">
+              <span className="rounded-[14px] bg-surface-container-high p-3 text-2xl">
+                {LANGUAGES.find((item) => item.code === language)?.flag}
+              </span>
+              <span>
+                <b className="block text-sm">{t("appLanguage")}</b>
+                <small className="text-on-surface-variant">
+                  {LANGUAGES.find((item) => item.code === language)?.label}
+                </small>
+              </span>
+            </span>
+            <span className="material-symbols-outlined text-on-surface-variant">
+              chevron_right
+            </span>
+          </span>
+        </button>
       </section>
       <section className="space-y-3">
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
@@ -575,6 +581,8 @@ export default function ProfileTab({
                     ? "Edit Profile"
                     : modal === "activity"
                     ? "Activity history"
+                    : modal === "language"
+                    ? t("appLanguage")
                     : modal === "account"
                     ? "Manage Account"
                     : modal === "support"
@@ -592,6 +600,28 @@ export default function ProfileTab({
                 </button>
               </div>
               <div className="min-h-0 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6">
+                {modal === "language" && (
+                  <div className="grid grid-cols-3 gap-3">
+                    {LANGUAGES.map((item) => (
+                      <button
+                        key={item.code}
+                        onClick={() =>
+                          void updateLanguage(item.code).then(() =>
+                            setModal(null)
+                          )
+                        }
+                        className={`rounded-2xl p-3 text-center text-xs font-bold ${
+                          language === item.code
+                            ? "bg-primary text-on-primary"
+                            : "bg-surface-container-high text-on-surface"
+                        }`}
+                      >
+                        <span className="block text-2xl">{item.flag}</span>
+                        <span className="mt-2 block">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {modal === "activity" && (
                   <div className="space-y-2">
                     {activityLedger.length ? (
