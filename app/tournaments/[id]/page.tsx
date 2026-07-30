@@ -14,9 +14,9 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [message, setMessage] = useState("");
-  const [tab, setTab] = useState<"overview" | "games" | "leaderboard">(
-    "overview"
-  );
+  const [tab, setTab] = useState<
+    "overview" | "rules" | "games" | "leaderboard"
+  >("overview");
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [fixtures, setFixtures] = useState<any[]>([]);
 
@@ -110,15 +110,15 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
     tournament.entry_fee_currency === "points" ? "Points" : "Gems";
 
   return (
-    <main className="min-h-screen bg-background px-5 py-6 text-on-background">
+    <main className="min-h-screen bg-[#080b14] px-4 py-5 text-white">
       <div className="mx-auto max-w-2xl">
         <button
           onClick={() => router.back()}
-          className="mb-5 text-xs font-bold text-primary"
+          className="mb-5 text-sm font-bold text-[#CCFF00]"
         >
           ← Back to home
         </button>
-        <section className="overflow-hidden rounded-[28px] border border-surface-container-highest bg-surface shadow-xl">
+        <section className="overflow-hidden rounded-[26px] border border-slate-700 bg-[#121827] shadow-2xl">
           {tournament.card_image_url ? (
             <img
               src={tournament.card_image_url}
@@ -126,18 +126,18 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
               className="h-48 w-full object-cover"
             />
           ) : (
-            <div className="h-28 bg-gradient-to-br from-amber-500/35 to-primary/30" />
+            <div className="h-32 bg-[radial-gradient(circle_at_80%_5%,rgba(204,255,0,.28),transparent_35%),linear-gradient(135deg,#202c45,#111827)]" />
           )}
-          <div className="p-6">
+          <div className="p-5">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-500">
               {tournament.status} tournament
             </p>
-            <h1 className="mt-2 text-3xl font-black">{tournament.title}</h1>
-            <p className="mt-2 text-sm text-on-surface-variant">
-              {games.join(" · ")}
-            </p>
+            <h1 className="mt-1 text-3xl font-black tracking-tight">
+              {tournament.title}
+            </h1>
+            <p className="mt-1 text-sm text-slate-400">{games.join(" · ")}</p>
 
-            <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
+            <div className="mt-5 grid grid-cols-3 divide-x divide-slate-700 rounded-xl border border-slate-700 bg-[#1a2030] text-center text-sm">
               <Info
                 label="Players"
                 value={`${tournament.current_slots ?? 0}/${
@@ -160,20 +160,20 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
                     : "Free"
                 }
               />
-              <Info
-                label="Participation reward"
-                value={`+${tournament.participation_points || 0} Points · +${
-                  tournament.participation_gems || 0
-                } Gems`}
-              />
             </div>
 
-            <div className="mt-7 grid grid-cols-3 rounded-xl bg-surface-container p-1 text-xs font-bold">
+            <div className="mt-6 grid grid-cols-4 border-b border-slate-700 text-center text-xs font-bold">
               <TabButton
                 active={tab === "overview"}
                 onClick={() => setTab("overview")}
               >
-                Rules & prizes
+                Overview
+              </TabButton>
+              <TabButton
+                active={tab === "rules"}
+                onClick={() => setTab("rules")}
+              >
+                Rules
               </TabButton>
               <TabButton
                 active={tab === "games"}
@@ -191,12 +191,20 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
 
             {tab === "overview" && (
               <>
-                <Section title="Rules">
-                  {tournament.rules || "Standard game rules apply."}
+                <Section title="About tournament">
+                  {tournament.terms ||
+                    "A dedicated competitive event. Tournament results never affect the normal game lobby."}
                 </Section>
                 <Section title="Prize pool">{`${Number(
                   tournament.prize_pool || 0
                 ).toLocaleString()} ${prizeCurrency}. Final placements and prizes are published by the tournament organizer.`}</Section>
+              </>
+            )}
+            {tab === "rules" && (
+              <>
+                <Section title="General rules">
+                  {tournament.rules || "Standard game rules apply."}
+                </Section>
                 <Section title="Terms & conditions">
                   {tournament.terms ||
                     "By joining, you agree to follow the tournament rules and fair-play requirements."}
@@ -209,17 +217,20 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
                   Tournament games are separate from the normal game lobby. Play
                   only the game and opponent listed in your scheduled fixture.
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-3 gap-3">
                   {games.map((game: string) => (
-                    <span
+                    <button
                       key={game}
-                      className="rounded-full bg-primary-container px-3 py-1.5 text-xs font-bold text-on-primary-container"
+                      className="rounded-2xl border border-slate-700 bg-[#1a2030] p-3 text-xs font-bold text-white hover:border-[#CCFF00]"
                     >
+                      <span className="mb-2 block text-2xl">🎮</span>
                       {game}
-                    </span>
+                    </button>
                   ))}
                 </div>
-                <h2 className="pt-2 text-sm font-black">Fixtures</h2>
+                <h2 className="pt-3 text-lg font-black">
+                  Your tournament matches
+                </h2>
                 {fixtures.length ? (
                   fixtures.map((fixture) => (
                     <div
@@ -297,11 +308,11 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-surface-container p-3">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+    <div className="p-3">
+      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
         {label}
       </p>
-      <p className="mt-1 font-bold">{value}</p>
+      <p className="mt-1 font-bold text-white">{value}</p>
     </div>
   );
 }
@@ -309,8 +320,8 @@ function Info({ label, value }: { label: string; value: string }) {
 function Section({ title, children }: { title: string; children: string }) {
   return (
     <section className="mt-6">
-      <h2 className="text-sm font-black">{title}</h2>
-      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-on-surface-variant">
+      <h2 className="text-base font-black">{title}</h2>
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">
         {children}
       </p>
     </section>
@@ -329,8 +340,10 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`rounded-lg px-2 py-2 ${
-        active ? "bg-primary text-on-primary" : "text-on-surface-variant"
+      className={`border-b-2 px-1 py-3 ${
+        active
+          ? "border-[#CCFF00] text-[#CCFF00]"
+          : "border-transparent text-slate-400"
       }`}
     >
       {children}
@@ -340,7 +353,7 @@ function TabButton({
 
 function Empty({ text }: { text: string }) {
   return (
-    <p className="rounded-xl bg-surface-container p-4 text-sm text-on-surface-variant">
+    <p className="rounded-xl border border-slate-700 bg-[#1a2030] p-4 text-sm text-slate-400">
       {text}
     </p>
   );
