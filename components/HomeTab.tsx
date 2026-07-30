@@ -304,11 +304,7 @@ export default function HomeTab({
           <div className="flex items-start justify-between gap-3">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500">
-                {activeTournament.status} tournament ·{" "}
-                {(activeTournament.games?.length
-                  ? activeTournament.games
-                  : [activeTournament.game_title || activeTournament.game]
-                ).join(" · ")}
+                {activeTournament.status} tournament
               </span>
               <h2 className="mt-1 font-headline text-lg font-black text-on-surface">
                 {activeTournament.title}
@@ -336,25 +332,6 @@ export default function HomeTab({
               emoji_events
             </span>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-xl bg-surface/70 p-3">
-              <b className="block">Rules</b>
-              <span className="text-on-surface-variant">
-                {activeTournament.rules || "Standard game rules apply."}
-              </span>
-            </div>
-            <div className="rounded-xl bg-surface/70 p-3">
-              <b className="block">Participation</b>
-              <span className="text-on-surface-variant">
-                +{activeTournament.participation_points || 0} PTS · +
-                {activeTournament.participation_gems || 0} Gems
-              </span>
-            </div>
-          </div>
-          <p className="mt-3 text-[10px] text-on-surface-variant">
-            {activeTournament.terms ||
-              "By joining, you agree to the tournament rules and fair-play requirements."}
-          </p>
           <button
             onClick={() => router.push(`/tournaments/${activeTournament.id}`)}
             className="mt-4 w-full rounded-xl bg-primary py-3 text-xs font-black text-on-primary"

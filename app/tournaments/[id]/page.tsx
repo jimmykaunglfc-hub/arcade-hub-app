@@ -14,6 +14,11 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [message, setMessage] = useState("");
+  const [tab, setTab] = useState<"overview" | "games" | "leaderboard">(
+    "overview"
+  );
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [fixtures, setFixtures] = useState<any[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -27,15 +32,33 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
       return;
     }
     setTournament(event);
-    if (authData.user) {
-      const { data: entry } = await supabase
-        .from("tournament_entries")
-        .select("id")
+    const [entryResult, leaderboardResult, fixturesResult] = await Promise.all([
+      authData.user
+        ? supabase
+            .from("tournament_entries")
+            .select("id")
+            .eq("tournament_id", id)
+            .eq("user_id", authData.user.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase
+        .from("tournament_leaderboard")
+        .select("*, profiles(username, avatar_url)")
         .eq("tournament_id", id)
-        .eq("user_id", authData.user.id)
-        .maybeSingle();
-      setJoined(Boolean(entry));
-    }
+        .order("rank")
+        .limit(50),
+      supabase
+        .from("tournament_matches")
+        .select(
+          "*, player_one:profiles!tournament_matches_player_one_id_fkey(username), player_two:profiles!tournament_matches_player_two_id_fkey(username)"
+        )
+        .eq("tournament_id", id)
+        .order("round_number", { ascending: false })
+        .order("created_at", { ascending: false }),
+    ]);
+    setJoined(Boolean(entryResult.data));
+    setLeaderboard(leaderboardResult.data || []);
+    setFixtures(fixturesResult.data || []);
     setLoading(false);
   };
 
@@ -145,13 +168,115 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
               />
             </div>
 
-            <Section title="Rules">
-              {tournament.rules || "Standard game rules apply."}
-            </Section>
-            <Section title="Terms & conditions">
-              {tournament.terms ||
-                "By joining, you agree to follow the tournament rules and fair-play requirements."}
-            </Section>
+            <div className="mt-7 grid grid-cols-3 rounded-xl bg-surface-container p-1 text-xs font-bold">
+              <TabButton
+                active={tab === "overview"}
+                onClick={() => setTab("overview")}
+              >
+                Rules & prizes
+              </TabButton>
+              <TabButton
+                active={tab === "games"}
+                onClick={() => setTab("games")}
+              >
+                Games
+              </TabButton>
+              <TabButton
+                active={tab === "leaderboard"}
+                onClick={() => setTab("leaderboard")}
+              >
+                Leaderboard
+              </TabButton>
+            </div>
+
+            {tab === "overview" && (
+              <>
+                <Section title="Rules">
+                  {tournament.rules || "Standard game rules apply."}
+                </Section>
+                <Section title="Prize pool">{`${Number(
+                  tournament.prize_pool || 0
+                ).toLocaleString()} ${prizeCurrency}. Final placements and prizes are published by the tournament organizer.`}</Section>
+                <Section title="Terms & conditions">
+                  {tournament.terms ||
+                    "By joining, you agree to follow the tournament rules and fair-play requirements."}
+                </Section>
+              </>
+            )}
+            {tab === "games" && (
+              <section className="mt-6 space-y-3">
+                <p className="text-sm text-on-surface-variant">
+                  Tournament games are separate from the normal game lobby. Play
+                  only the game and opponent listed in your scheduled fixture.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {games.map((game: string) => (
+                    <span
+                      key={game}
+                      className="rounded-full bg-primary-container px-3 py-1.5 text-xs font-bold text-on-primary-container"
+                    >
+                      {game}
+                    </span>
+                  ))}
+                </div>
+                <h2 className="pt-2 text-sm font-black">Fixtures</h2>
+                {fixtures.length ? (
+                  fixtures.map((fixture) => (
+                    <div
+                      key={fixture.id}
+                      className="rounded-xl bg-surface-container p-3 text-sm"
+                    >
+                      <div className="flex justify-between gap-3">
+                        <b>
+                          Round {fixture.round_number} · {fixture.game_name}
+                        </b>
+                        <span className="capitalize text-on-surface-variant">
+                          {fixture.status.replace("_", " ")}
+                        </span>
+                      </div>
+                      <p className="mt-2">
+                        {fixture.player_one?.username || "Player 1"}{" "}
+                        <span className="text-on-surface-variant">vs</span>{" "}
+                        {fixture.player_two?.username || "Player 2"}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <Empty text="Fixtures will appear here when the organizer starts the first round." />
+                )}
+              </section>
+            )}
+            {tab === "leaderboard" && (
+              <section className="mt-6">
+                <p className="mb-3 text-xs text-on-surface-variant">
+                  Score: win {tournament.win_points ?? 3}, draw{" "}
+                  {tournament.draw_points ?? 1}, loss{" "}
+                  {tournament.loss_points ?? -1}. Ties use wins, fewer losses,
+                  matches played, then registration time.
+                </p>
+                {leaderboard.length ? (
+                  <div className="space-y-2">
+                    {leaderboard.map((row) => (
+                      <div
+                        key={row.user_id}
+                        className="grid grid-cols-[2rem_1fr_auto] items-center rounded-xl bg-surface-container p-3 text-sm"
+                      >
+                        <b className="text-primary">#{row.rank}</b>
+                        <span>
+                          {row.profiles?.username || "Player"}
+                          <small className="ml-2 text-on-surface-variant">
+                            {row.wins}W · {row.draws}D · {row.losses}L
+                          </small>
+                        </span>
+                        <b>{row.score} pts</b>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Empty text="The leaderboard starts after fixtures are completed." />
+                )}
+              </section>
+            )}
 
             {message && (
               <p className="mt-5 text-sm font-bold text-primary">{message}</p>
@@ -189,5 +314,34 @@ function Section({ title, children }: { title: string; children: string }) {
         {children}
       </p>
     </section>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-lg px-2 py-2 ${
+        active ? "bg-primary text-on-primary" : "text-on-surface-variant"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <p className="rounded-xl bg-surface-container p-4 text-sm text-on-surface-variant">
+      {text}
+    </p>
   );
 }

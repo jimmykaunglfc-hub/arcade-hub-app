@@ -25,6 +25,10 @@ export default function TournamentsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [fixtureTournamentId, setFixtureTournamentId] = useState<string | null>(
+    null
+  );
+  const [fixtures, setFixtures] = useState<any[]>([]);
 
   // Form State
   const [title, setTitle] = useState("");
@@ -45,6 +49,8 @@ export default function TournamentsPage() {
     "points" | "gems"
   >("points");
   const [participationReward, setParticipationReward] = useState("0");
+  const [prizeSplits, setPrizeSplits] = useState([50, 30, 20]);
+  const [scoring, setScoring] = useState({ win: 3, draw: 1, loss: -1 });
 
   useEffect(() => {
     fetchTournaments();
@@ -106,6 +112,10 @@ export default function TournamentsPage() {
       alert("Select at least one tournament game.");
       return;
     }
+    if (prizeSplits.reduce((total, share) => total + share, 0) !== 100) {
+      alert("Prize allocation must total exactly 100%.");
+      return;
+    }
     setSaving(true);
 
     try {
@@ -124,31 +134,60 @@ export default function TournamentsPage() {
           .from("tournament-cards")
           .getPublicUrl(path).data.publicUrl;
       }
-      const { error } = await supabase.from("tournaments").insert({
-        title,
-        game_title: games[0],
-        games,
-        prize_pool: parseInt(prizePool),
-        entry_fee: parseInt(entryFee),
-        entry_fee_currency: entryFeeCurrency,
-        card_image_url: cardImageUrl,
-        max_slots: parseInt(maxPlayers),
-        prize_currency: prizeCurrency,
-        status: "upcoming",
-        current_slots: 0,
-        rules: rules.trim(),
-        terms: terms.trim(),
-        participation_points:
-          participationCurrency === "points"
-            ? parseInt(participationReward) || 0
-            : 0,
-        participation_gems:
-          participationCurrency === "gems"
-            ? parseInt(participationReward) || 0
-            : 0,
-      });
+      const { data: createdTournament, error } = await supabase
+        .from("tournaments")
+        .insert({
+          title,
+          game_title: games[0],
+          games,
+          prize_pool: parseInt(prizePool),
+          entry_fee: parseInt(entryFee),
+          entry_fee_currency: entryFeeCurrency,
+          card_image_url: cardImageUrl,
+          max_slots: parseInt(maxPlayers),
+          prize_currency: prizeCurrency,
+          status: "upcoming",
+          current_slots: 0,
+          win_points: scoring.win,
+          draw_points: scoring.draw,
+          loss_points: scoring.loss,
+          rules: rules.trim(),
+          terms: terms.trim(),
+          participation_points:
+            participationCurrency === "points"
+              ? parseInt(participationReward) || 0
+              : 0,
+          participation_gems:
+            participationCurrency === "gems"
+              ? parseInt(participationReward) || 0
+              : 0,
+        })
+        .select("id")
+        .single();
 
       if (error) throw error;
+      if (!createdTournament) throw new Error("Tournament was not created.");
+      const prizeAmount = parseInt(prizePool) || 0;
+      const awards = prizeSplits
+        .map((share, index) => ({
+          tournament_id: createdTournament.id,
+          placement: index + 1,
+          points:
+            prizeCurrency === "points"
+              ? Math.floor((prizeAmount * share) / 100)
+              : 0,
+          gems:
+            prizeCurrency === "gems"
+              ? Math.floor((prizeAmount * share) / 100)
+              : 0,
+        }))
+        .filter((award) => award.points > 0 || award.gems > 0);
+      if (awards.length) {
+        const { error: awardsError } = await supabase
+          .from("tournament_awards")
+          .insert(awards);
+        if (awardsError) throw awardsError;
+      }
       setIsCreateModalOpen(false);
       fetchTournaments();
     } catch (err: any) {
@@ -173,6 +212,60 @@ export default function TournamentsPage() {
       return;
     }
     fetchTournaments();
+  };
+
+  const createNextRound = async (id: string) => {
+    setSaving(true);
+    const { data, error } = await supabase.rpc("create_tournament_round", {
+      target_tournament: id,
+    });
+    setSaving(false);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    alert(`Round created with ${data} fixtures.`);
+    fetchTournaments();
+  };
+
+  const loadFixtures = async (id: string) => {
+    if (fixtureTournamentId === id) {
+      setFixtureTournamentId(null);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("tournament_matches")
+      .select(
+        "*, player_one:profiles!tournament_matches_player_one_id_fkey(username), player_two:profiles!tournament_matches_player_two_id_fkey(username)"
+      )
+      .eq("tournament_id", id)
+      .order("round_number", { ascending: false });
+    if (error) return alert(error.message);
+    setFixtures(data || []);
+    setFixtureTournamentId(id);
+  };
+
+  const recordFixture = async (
+    fixtureId: string,
+    result: "player_one" | "player_two" | "draw"
+  ) => {
+    setSaving(true);
+    const { error } = await supabase.rpc("record_tournament_match_result", {
+      target_match: fixtureId,
+      result,
+    });
+    setSaving(false);
+    if (error) return alert(error.message);
+    if (fixtureTournamentId) {
+      const { data } = await supabase
+        .from("tournament_matches")
+        .select(
+          "*, player_one:profiles!tournament_matches_player_one_id_fkey(username), player_two:profiles!tournament_matches_player_two_id_fkey(username)"
+        )
+        .eq("tournament_id", fixtureTournamentId)
+        .order("round_number", { ascending: false });
+      setFixtures(data || []);
+    }
   };
 
   const filteredTournaments = tournaments.filter((t) => {
@@ -389,13 +482,87 @@ export default function TournamentsPage() {
                 </button>
               )}
               {t.status === "active" && (
-                <button
-                  onClick={() => void setTournamentStatus(t.id, "completed")}
-                  disabled={saving}
-                  className="w-full rounded-xl bg-[#CCFF00] py-2.5 text-xs font-black text-black"
-                >
-                  Complete & Award Participants
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => void createNextRound(t.id)}
+                    disabled={saving}
+                    className="rounded-xl bg-blue-500 py-2.5 text-xs font-black text-white"
+                  >
+                    Create next round
+                  </button>
+                  <button
+                    onClick={() => void setTournamentStatus(t.id, "completed")}
+                    disabled={saving}
+                    className="rounded-xl bg-[#CCFF00] py-2.5 text-xs font-black text-black"
+                  >
+                    Complete & award
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => void loadFixtures(t.id)}
+                className="w-full rounded-xl border border-white/10 py-2.5 text-xs font-bold text-white"
+              >
+                {fixtureTournamentId === t.id
+                  ? "Hide fixtures"
+                  : "Manage fixtures"}
+              </button>
+              {fixtureTournamentId === t.id && (
+                <div className="space-y-2 rounded-xl border border-white/10 bg-black/20 p-3 text-xs">
+                  {fixtures.length ? (
+                    fixtures.map((fixture) => (
+                      <div
+                        key={fixture.id}
+                        className="rounded-lg bg-white/5 p-2.5"
+                      >
+                        <p className="font-bold">
+                          Round {fixture.round_number} · {fixture.game_name}
+                        </p>
+                        <p className="mt-1 text-neutral-300">
+                          {fixture.player_one?.username || "Player 1"} vs{" "}
+                          {fixture.player_two?.username || "Player 2"}
+                        </p>
+                        {fixture.status === "completed" ? (
+                          <p className="mt-2 text-emerald-400">
+                            Result recorded
+                          </p>
+                        ) : (
+                          <div className="mt-2 grid grid-cols-3 gap-1">
+                            <button
+                              onClick={() =>
+                                void recordFixture(fixture.id, "player_one")
+                              }
+                              className="rounded bg-blue-500 px-1 py-1.5 font-bold"
+                            >
+                              P1 wins
+                            </button>
+                            <button
+                              onClick={() =>
+                                void recordFixture(fixture.id, "draw")
+                              }
+                              className="rounded bg-neutral-600 px-1 py-1.5 font-bold"
+                            >
+                              Draw
+                            </button>
+                            <button
+                              onClick={() =>
+                                void recordFixture(fixture.id, "player_two")
+                              }
+                              className="rounded bg-blue-500 px-1 py-1.5 font-bold"
+                            >
+                              P2 wins
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-neutral-500">
+                      No fixtures yet. Start the tournament and create a round
+                      once at least two players have registered.
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           ))
@@ -499,6 +666,73 @@ export default function TournamentsPage() {
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                    Prize allocation by placement (%)
+                  </label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {prizeSplits.map((share, index) => (
+                      <label
+                        key={index}
+                        className="text-[10px] font-bold uppercase tracking-widest text-neutral-400"
+                      >
+                        Rank {index + 1}
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={share}
+                          onChange={(e) =>
+                            setPrizeSplits((current) =>
+                              current.map((value, position) =>
+                                position === index
+                                  ? Number(e.target.value)
+                                  : value
+                              )
+                            )
+                          }
+                          className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[10px] text-neutral-500">
+                    Set a rank to 0 to exclude it. The entered shares must total
+                    100%.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                    Leaderboard scoring
+                  </label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {(["win", "draw", "loss"] as const).map((outcome) => (
+                      <label
+                        key={outcome}
+                        className="text-[10px] font-bold uppercase tracking-widest text-neutral-400"
+                      >
+                        {outcome} points
+                        <input
+                          type="number"
+                          value={scoring[outcome]}
+                          onChange={(e) =>
+                            setScoring((current) => ({
+                              ...current,
+                              [outcome]: Number(e.target.value),
+                            }))
+                          }
+                          className="mt-1 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[10px] text-neutral-500">
+                    Recommended: win 3, draw 1, loss -1. This applies equally to
+                    every tournament game.
+                  </p>
                 </div>
 
                 <div>
