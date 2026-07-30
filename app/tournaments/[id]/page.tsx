@@ -150,10 +150,10 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
             <img
               src={tournament.card_image_url}
               alt=""
-              className="h-48 w-full object-cover"
+              className="aspect-[16/7] w-full bg-surface-container object-cover object-center"
             />
           ) : (
-            <div className="h-32 bg-[radial-gradient(circle_at_80%_5%,rgba(204,255,0,.28),transparent_35%),linear-gradient(135deg,var(--surface-container-high),var(--surface))]" />
+            <div className="aspect-[16/7] bg-[radial-gradient(circle_at_80%_5%,rgba(204,255,0,.28),transparent_35%),linear-gradient(135deg,var(--surface-container-high),var(--surface))]" />
           )}
           <div className="p-5">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-500">

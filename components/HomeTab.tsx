@@ -88,7 +88,9 @@ function TournamentMetric({
         {icon}
       </span>
       <span className="min-w-0">
-        <b className="block truncate text-xs text-on-surface">{value}</b>
+        <b className="block whitespace-nowrap text-[11px] text-on-surface">
+          {value}
+        </b>
         <small className="text-[10px] text-on-surface-variant">{label}</small>
       </span>
     </div>
@@ -320,7 +322,7 @@ export default function HomeTab({
             <img
               src={activeTournament.card_image_url}
               alt=""
-              className="-mx-5 -mt-5 mb-4 h-32 w-[calc(100%+2.5rem)] object-cover"
+              className="-mx-5 -mt-5 mb-4 aspect-[16/7] w-[calc(100%+2.5rem)] bg-surface-container object-cover object-center"
             />
           )}
           <div className="flex items-start justify-between gap-3">
