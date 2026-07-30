@@ -10,6 +10,7 @@ type Ledger = {
   amount: number;
   balance_snapshot: number;
   mutation_type: string;
+  currency_type?: "points" | "gems";
   description: string;
   created_at: string;
   profiles?: { username?: string; avatar_url?: string; email?: string };
@@ -40,7 +41,7 @@ export default function EconomyLedger() {
       supabase
         .from("financial_audit_logs")
         .select(
-          "id, user_id, amount, balance_snapshot, mutation_type, description, created_at"
+          "id, user_id, amount, balance_snapshot, currency_type, mutation_type, description, created_at"
         )
         .order("created_at", { ascending: false })
         .limit(1000),
@@ -211,7 +212,8 @@ export default function EconomyLedger() {
                               }`}
                             >
                               {entry.amount >= 0 ? "+" : ""}
-                              {entry.amount}
+                              {entry.amount}{" "}
+                              {entry.currency_type === "gems" ? "GEMS" : "PTS"}
                             </td>
                             <td className="p-3 text-right text-neutral-300">
                               {entry.balance_snapshot}

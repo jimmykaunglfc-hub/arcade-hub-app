@@ -30,6 +30,7 @@ type LedgerEntry = {
   description: string;
   created_at: string;
   mutation_type: string;
+  currency_type?: "points" | "gems";
 };
 
 const NAME_CHANGE_COST = 100;
@@ -104,7 +105,9 @@ export default function ProfileTab({
         .eq("user_id", user.id),
       supabase
         .from("financial_audit_logs")
-        .select("id, amount, description, created_at, mutation_type")
+        .select(
+          "id, amount, description, created_at, mutation_type, currency_type"
+        )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(5),
@@ -446,7 +449,8 @@ export default function ProfileTab({
                   }
                 >
                   {entry.amount >= 0 ? "+" : ""}
-                  {entry.amount} PTS
+                  {entry.amount}{" "}
+                  {entry.currency_type === "gems" ? "GEMS" : "PTS"}
                 </b>
               </div>
             ))
