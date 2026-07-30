@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 import DailyLoginCard from "./DailyLoginCard";
 
@@ -89,8 +90,7 @@ export default function HomeTab({
   const [showStatsModal, setShowStatsModal] = useState<boolean>(false);
   const [dbMatches, setDbMatches] = useState<MatchRecord[]>([]);
   const [activeTournament, setActiveTournament] = useState<any | null>(null);
-  const [tournamentJoined, setTournamentJoined] = useState(false);
-  const [tournamentMessage, setTournamentMessage] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
     const loadTournament = async () => {
@@ -103,31 +103,9 @@ export default function HomeTab({
         .maybeSingle();
       if (!data) return;
       setActiveTournament(data);
-      if (userId) {
-        const { data: entry } = await supabase
-          .from("tournament_entries")
-          .select("id")
-          .eq("tournament_id", data.id)
-          .eq("user_id", userId)
-          .maybeSingle();
-        setTournamentJoined(Boolean(entry));
-      }
     };
     void loadTournament();
   }, [userId]);
-
-  const joinTournament = async () => {
-    if (!activeTournament) return;
-    const { error } = await supabase.rpc("register_for_tournament", {
-      target_tournament: activeTournament.id,
-    });
-    if (error) {
-      setTournamentMessage(error.message);
-      return;
-    }
-    setTournamentJoined(true);
-    setTournamentMessage("You are registered. Good luck!");
-  };
 
   // Category State
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
@@ -316,6 +294,13 @@ export default function HomeTab({
 
       {activeTournament && (
         <section className="mb-5 overflow-hidden rounded-[24px] border border-amber-500/30 bg-gradient-to-br from-amber-500/15 to-surface p-5 shadow-sm">
+          {activeTournament.card_image_url && (
+            <img
+              src={activeTournament.card_image_url}
+              alt=""
+              className="-mx-5 -mt-5 mb-4 h-32 w-[calc(100%+2.5rem)] object-cover"
+            />
+          )}
           <div className="flex items-start justify-between gap-3">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500">
@@ -370,17 +355,11 @@ export default function HomeTab({
             {activeTournament.terms ||
               "By joining, you agree to the tournament rules and fair-play requirements."}
           </p>
-          {tournamentMessage && (
-            <p className="mt-3 text-xs font-bold text-primary">
-              {tournamentMessage}
-            </p>
-          )}
           <button
-            onClick={() => void joinTournament()}
-            disabled={tournamentJoined}
-            className="mt-4 w-full rounded-xl bg-primary py-3 text-xs font-black text-on-primary disabled:opacity-60"
+            onClick={() => router.push(`/tournaments/${activeTournament.id}`)}
+            className="mt-4 w-full rounded-xl bg-primary py-3 text-xs font-black text-on-primary"
           >
-            {tournamentJoined ? "Registered" : "Join Tournament"}
+            View tournament
           </button>
         </section>
       )}

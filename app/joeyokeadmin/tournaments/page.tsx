@@ -37,6 +37,7 @@ export default function TournamentsPage() {
   const [entryFeeCurrency, setEntryFeeCurrency] = useState<"points" | "gems">(
     "gems"
   );
+  const [cardImage, setCardImage] = useState<File | null>(null);
   const [maxPlayers, setMaxPlayers] = useState("32");
   const [rules, setRules] = useState("");
   const [terms, setTerms] = useState("");
@@ -108,6 +109,21 @@ export default function TournamentsPage() {
     setSaving(true);
 
     try {
+      let cardImageUrl: string | null = null;
+      if (cardImage) {
+        if (!cardImage.type.startsWith("image/")) {
+          throw new Error("Tournament card must be an image file.");
+        }
+        const extension = cardImage.name.split(".").pop() || "png";
+        const path = `${crypto.randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from("tournament-cards")
+          .upload(path, cardImage, { contentType: cardImage.type });
+        if (uploadError) throw uploadError;
+        cardImageUrl = supabase.storage
+          .from("tournament-cards")
+          .getPublicUrl(path).data.publicUrl;
+      }
       const { error } = await supabase.from("tournaments").insert({
         title,
         game_title: games[0],
@@ -115,6 +131,7 @@ export default function TournamentsPage() {
         prize_pool: parseInt(prizePool),
         entry_fee: parseInt(entryFee),
         entry_fee_currency: entryFeeCurrency,
+        card_image_url: cardImageUrl,
         max_slots: parseInt(maxPlayers),
         prize_currency: prizeCurrency,
         status: "upcoming",
@@ -505,6 +522,20 @@ export default function TournamentsPage() {
                     placeholder="Eligibility, conduct, prize and cancellation terms…"
                     className="w-full min-h-20 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
                   />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                    Tournament card image (optional)
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setCardImage(e.target.files?.[0] || null)}
+                    className="block w-full rounded-xl border border-dashed border-white/15 bg-white/5 px-3 py-2 text-xs text-neutral-300 file:mr-3 file:rounded-lg file:border-0 file:bg-[#CCFF00] file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-black"
+                  />
+                  <p className="mt-1 text-[10px] text-neutral-500">
+                    Displayed on the home summary and tournament page.
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
