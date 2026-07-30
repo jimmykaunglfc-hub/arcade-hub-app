@@ -21,6 +21,7 @@ type Modal =
   | "identity"
   | "account"
   | "support"
+  | "activity"
   | "privacy-policy"
   | "terms-of-service"
   | null;
@@ -53,6 +54,7 @@ export default function ProfileTab({
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [inventoryCount, setInventoryCount] = useState(0);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [activityLedger, setActivityLedger] = useState<LedgerEntry[]>([]);
   const [supportEmail, setSupportEmail] = useState("support@joeyoke.com");
   const [modal, setModal] = useState<Modal>(null);
   const [saving, setSaving] = useState(false);
@@ -71,18 +73,6 @@ export default function ProfileTab({
   const [legal, setLegal] = useState<{ title: string; content: string } | null>(
     null
   );
-  const [playerSearch, setPlayerSearch] = useState("");
-  const [playerCard, setPlayerCard] = useState<{
-    username: string;
-    points: number;
-    gems: number;
-    cosmetics_purchased: number;
-    point_history: {
-      amount: number;
-      description: string;
-      created_at: string;
-    }[];
-  } | null>(null);
 
   const fetchProfileData = async () => {
     const {
@@ -137,6 +127,19 @@ export default function ProfileTab({
   const showMessage = (text: string) => {
     setMessage(text);
     window.setTimeout(() => setMessage(null), 3500);
+  };
+  const openActivity = async () => {
+    if (!profile) return;
+    const { data } = await supabase
+      .from("wallet_activity_logs")
+      .select(
+        "id, amount, description, created_at, mutation_type:activity_type, currency_type"
+      )
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    setActivityLedger((data || []) as LedgerEntry[]);
+    setModal("activity");
   };
   const terminateSession = async () => {
     await supabase.auth.signOut();
@@ -282,19 +285,6 @@ export default function ProfileTab({
     );
     setModal(slug);
   };
-  const findPlayer = async () => {
-    if (!playerSearch.trim()) return;
-    const { data, error } = await supabase.rpc("get_public_profile_card", {
-      target_username: playerSearch.trim(),
-    });
-    if (error || !data) {
-      setPlayerCard(null);
-      showMessage(error?.message || "Player not found.");
-      return;
-    }
-    setPlayerCard(data);
-  };
-
   if (fetchStatus === "loading")
     return (
       <div className="text-center p-6 font-caps text-[10px] font-bold text-on-surface-variant uppercase tracking-widest animate-pulse">
@@ -429,98 +419,29 @@ export default function ProfileTab({
           Profile activity
         </h3>
         <div className="bg-surface border border-surface-container-highest rounded-[24px] divide-y divide-surface-variant">
-          {ledger.length ? (
-            ledger.map((entry) => (
-              <div
-                key={entry.id}
-                className="flex justify-between gap-3 p-4 text-xs"
-              >
-                <div>
-                  <p className="font-bold">
-                    {entry.description || entry.mutation_type}
-                  </p>
-                  <p className="text-on-surface-variant mt-1">
-                    {new Date(entry.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <b
-                  className={
-                    entry.amount >= 0 ? "text-emerald-500" : "text-red-500"
-                  }
-                >
-                  {entry.amount >= 0 ? "+" : ""}
-                  {entry.amount}{" "}
-                  {entry.currency_type === "gems" ? "GEMS" : "PTS"}
-                </b>
-              </div>
-            ))
-          ) : (
-            <p className="p-4 text-xs text-on-surface-variant">
-              No point activity yet.
-            </p>
-          )}
-        </div>
-      </section>
-      <section className="space-y-3">
-        <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
-          Player profile card
-        </h3>
-        <div className="bg-surface border border-surface-container-highest rounded-[24px] p-4">
-          <div className="flex gap-2">
-            <input
-              value={playerSearch}
-              onChange={(e) => setPlayerSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void findPlayer();
-              }}
-              placeholder="Search by player name"
-              className="min-w-0 flex-1 p-3 rounded-xl bg-surface-container-high border border-surface-container-highest text-sm"
-            />
-            <button
-              onClick={() => void findPlayer()}
-              className="px-4 rounded-xl bg-primary text-on-primary text-xs font-bold"
-            >
-              View
-            </button>
-          </div>
-          {playerCard && (
-            <div className="mt-4 text-xs">
-              <div className="flex justify-between">
-                <b>{playerCard.username}</b>
-                <span>{playerCard.cosmetics_purchased} cosmetics</span>
-              </div>
-              <p className="text-on-surface-variant mt-1">
-                {playerCard.points.toLocaleString()} points ·{" "}
-                {playerCard.gems.toLocaleString()} gems
-              </p>
-              <div className="mt-3 pt-3 border-t border-surface-variant space-y-2">
-                {playerCard.point_history.length ? (
-                  playerCard.point_history.map((entry, index) => (
-                    <div
-                      key={`${entry.created_at}-${index}`}
-                      className="flex justify-between gap-3"
-                    >
-                      <span className="truncate">{entry.description}</span>
-                      <b
-                        className={
-                          entry.amount >= 0
-                            ? "text-emerald-500"
-                            : "text-red-500"
-                        }
-                      >
-                        {entry.amount >= 0 ? "+" : ""}
-                        {entry.amount}
-                      </b>
-                    </div>
-                  ))
-                ) : (
-                  <span className="text-on-surface-variant">
-                    No visible point history.
-                  </span>
-                )}
-              </div>
+          <button
+            onClick={() => void openActivity()}
+            className="w-full p-4 text-left hover:bg-surface-variant"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-3">
+                <span className="material-symbols-outlined rounded-xl bg-surface-container-high p-2 text-primary">
+                  receipt_long
+                </span>
+                <span>
+                  <b className="block text-sm">Activity history</b>
+                  <small className="text-on-surface-variant">
+                    {ledger.length
+                      ? `${ledger.length} recent wallet activities`
+                      : "Points, gems and reward activity"}
+                  </small>
+                </span>
+              </span>
+              <span className="material-symbols-outlined text-on-surface-variant">
+                chevron_right
+              </span>
             </div>
-          )}
+          </button>
         </div>
       </section>
       <section className="space-y-3">
@@ -622,6 +543,8 @@ export default function ProfileTab({
                 >
                   {modal === "identity"
                     ? "Edit Profile"
+                    : modal === "activity"
+                    ? "Activity history"
                     : modal === "account"
                     ? "Manage Account"
                     : modal === "support"
@@ -639,6 +562,53 @@ export default function ProfileTab({
                 </button>
               </div>
               <div className="min-h-0 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6 sm:py-6">
+                {modal === "activity" && (
+                  <div className="space-y-2">
+                    {activityLedger.length ? (
+                      activityLedger.map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="flex items-center justify-between gap-3 rounded-xl bg-surface-container-high p-3 text-xs"
+                        >
+                          <span
+                            className={`material-symbols-outlined rounded-full p-2 ${
+                              entry.currency_type === "gems"
+                                ? "bg-secondary-container text-secondary"
+                                : "bg-primary-container text-primary"
+                            }`}
+                          >
+                            {entry.currency_type === "gems"
+                              ? "diamond"
+                              : "bolt"}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <b className="block truncate">
+                              {entry.description || entry.mutation_type}
+                            </b>
+                            <small className="text-on-surface-variant">
+                              {new Date(entry.created_at).toLocaleString()}
+                            </small>
+                          </span>
+                          <b
+                            className={
+                              entry.amount >= 0
+                                ? "text-emerald-500"
+                                : "text-red-500"
+                            }
+                          >
+                            {entry.amount >= 0 ? "+" : ""}
+                            {entry.amount}{" "}
+                            {entry.currency_type === "gems" ? "GEMS" : "PTS"}
+                          </b>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="py-8 text-center text-sm text-on-surface-variant">
+                        No activity recorded yet.
+                      </p>
+                    )}
+                  </div>
+                )}
                 {modal === "identity" && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
