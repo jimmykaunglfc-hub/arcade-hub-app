@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -44,6 +44,7 @@ export default function RankBadgesPage() {
   const [formIconUrl, setFormIconUrl] = useState("");
   const [formRankKey, setFormRankKey] = useState("");
   const [formIsActive, setFormIsActive] = useState(true);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -92,6 +93,36 @@ export default function RankBadgesPage() {
     setFormRankKey(badge.rank_key || "");
     setFormIsActive(badge.is_active);
     setIsModalOpen(true);
+  };
+
+  const handleBadgeImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'].includes(file.type)) {
+      alert('Choose a PNG, JPG, WebP, or SVG badge image.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Badge images must be 2 MB or smaller.');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const filePath = `badges/${crypto.randomUUID()}.${extension}`;
+      const { error } = await supabase.storage
+        .from('rank-badges')
+        .upload(filePath, file, { cacheControl: '31536000', upsert: false, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from('rank-badges').getPublicUrl(filePath);
+      setFormIconUrl(data.publicUrl);
+    } catch (err: any) {
+      alert('Image upload failed: ' + err.message);
+    } finally {
+      setUploadingImage(false);
+      event.target.value = '';
+    }
   };
 
   const handleSaveBadge = async (e: React.FormEvent) => {
@@ -464,13 +495,35 @@ export default function RankBadgesPage() {
 
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
-                  Custom Icon URL (Optional)
+                  Badge Image
+                </label>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  onChange={handleBadgeImageUpload}
+                  disabled={uploadingImage}
+                  className="w-full text-xs text-neutral-300 file:mr-3 file:rounded-lg file:border-0 file:bg-[#CCFF00] file:px-3 file:py-2 file:text-xs file:font-bold file:text-black hover:file:bg-[#b3e600] disabled:opacity-50"
+                />
+                <p className="mt-1 text-[10px] text-neutral-500">PNG, JPG, WebP, or SVG · up to 2 MB.</p>
+                {formIconUrl && (
+                  <div className="mt-3 flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-2">
+                    <img src={formIconUrl} alt="Badge preview" className="h-12 w-12 object-contain" />
+                    <button type="button" onClick={() => setFormIconUrl('')} className="text-xs font-bold text-rose-400 hover:text-rose-300">
+                      Remove image
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                  Existing Image URL (optional)
                 </label>
                 <input
                   type="url"
                   value={formIconUrl}
                   onChange={(e) => setFormIconUrl(e.target.value)}
-                  placeholder="https://... (PNG / SVG)"
+                  placeholder="Paste a URL only when reusing an existing image"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors"
                 />
               </div>
@@ -494,10 +547,10 @@ export default function RankBadgesPage() {
               <button
                 type="submit"
                 form="rank-badge-form"
-                disabled={saving}
+                disabled={saving || uploadingImage}
                 className="w-full bg-[#CCFF00] text-black font-black text-xs uppercase tracking-widest py-3 rounded-xl hover:bg-[#b3e600] transition-all disabled:opacity-50 shadow-[0_0_15px_rgba(204,255,0,0.2)] active:scale-[0.98]"
               >
-                {saving ? "Saving Badge..." : editingId ? "Save Changes" : "Create Rank Badge"}
+                {uploadingImage ? "Uploading Image..." : saving ? "Saving Badge..." : editingId ? "Save Changes" : "Create Rank Badge"}
               </button>
             </div>
 
