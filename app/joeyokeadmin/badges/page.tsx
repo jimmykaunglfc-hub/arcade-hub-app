@@ -42,6 +42,7 @@ export default function RankBadgesPage() {
   const [formColorHex, setFormColorHex] = useState("#CCFF00");
   const [formDesc, setFormDesc] = useState("");
   const [formIconUrl, setFormIconUrl] = useState("");
+  const [formRankKey, setFormRankKey] = useState("");
   const [formIsActive, setFormIsActive] = useState(true);
 
   useEffect(() => {
@@ -75,6 +76,7 @@ export default function RankBadgesPage() {
     setFormColorHex("#CCFF00");
     setFormDesc("");
     setFormIconUrl("");
+    setFormRankKey("");
     setFormIsActive(true);
     setIsModalOpen(true);
   };
@@ -87,6 +89,7 @@ export default function RankBadgesPage() {
     setFormColorHex(badge.color_hex || "#CCFF00");
     setFormDesc(badge.description || "");
     setFormIconUrl(badge.icon_url || "");
+    setFormRankKey(badge.rank_key || "");
     setFormIsActive(badge.is_active);
     setIsModalOpen(true);
   };
@@ -104,6 +107,7 @@ export default function RankBadgesPage() {
         color_hex: formColorHex,
         description: formDesc.trim(),
         icon_url: formIconUrl.trim(),
+        rank_key: formRankKey || null,
         is_active: formIsActive,
       };
 
@@ -440,6 +444,22 @@ export default function RankBadgesPage() {
                     className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#CCFF00]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                  Season Rank (optional)
+                </label>
+                <select
+                  value={formRankKey}
+                  onChange={(e) => setFormRankKey(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors"
+                >
+                  <option value="">Not a season-rank badge</option>
+                  {['bronze', 'silver', 'gold', 'platinum', 'diamond', 'master'].map((rank) => (
+                    <option key={rank} value={rank}>{rank[0].toUpperCase() + rank.slice(1)}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

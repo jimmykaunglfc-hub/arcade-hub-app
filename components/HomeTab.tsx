@@ -16,9 +16,11 @@ interface HomeTabProps {
   rankData?: {
     tier: string;
     percentile: number;
+    globalRank?: number | null;
     winRate: number;
     gamesPlayed: number;
     playtime: string;
+    badgeIconUrl?: string | null;
   } | null;
 
   matchHistory?: Array<{
@@ -412,12 +414,20 @@ export default function HomeTab({
       >
         <div className="flex items-center gap-8">
           <div className="flex items-center justify-center shrink-0">
-            <span
-              className="material-symbols-outlined text-[88px] drop-shadow-md opacity-90"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              {currentRankIcon}
-            </span>
+            {rankData?.badgeIconUrl ? (
+              <img
+                src={rankData.badgeIconUrl}
+                alt={`${currentTier} rank badge`}
+                className="h-[76px] w-[76px] object-contain drop-shadow-md"
+              />
+            ) : (
+              <span
+                className="material-symbols-outlined text-[88px] drop-shadow-md opacity-90"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                {currentRankIcon}
+              </span>
+            )}
           </div>
           <div className="flex flex-col">
             <div className="opacity-80 mb-1">
@@ -430,8 +440,8 @@ export default function HomeTab({
             </h1>
             <p className="font-body text-xs font-medium text-on-primary opacity-80 mt-1">
               {rankData?.percentile
-                ? `Top ${rankData.percentile}% of players globally`
-                : "Play matches to get ranked"}
+                ? `Global rank #${rankData.globalRank ?? "—"} · Top ${rankData.percentile}%`
+                : "Complete 5 matches to enter the global ranking"}
             </p>
           </div>
         </div>

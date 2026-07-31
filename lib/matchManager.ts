@@ -13,6 +13,22 @@ interface MatchResultPayload {
   opponent_name: string;
   result: string;
   points_change: number;
+  duration_seconds?: number;
+}
+
+const matchTimerKey = (gameTitle: string) => `joeyoke_match_started_${gameTitle.toLowerCase()}`;
+
+function beginMatchTimer(gameTitle: string) {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(matchTimerKey(gameTitle), String(Date.now()));
+  }
+}
+
+function getMatchDuration(gameTitle: string) {
+  if (typeof window === "undefined") return 0;
+  const startedAt = Number(window.sessionStorage.getItem(matchTimerKey(gameTitle)) ?? 0);
+  window.sessionStorage.removeItem(matchTimerKey(gameTitle));
+  return startedAt > 0 ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : 0;
 }
 
 /**
@@ -39,6 +55,7 @@ export async function processGameEntry({
     });
 
     if (!error && data && data.success) {
+      beginMatchTimer(gameTitle);
       return {
         success: true,
         updatedPoints: data.updatedPoints ?? data.new_points,
@@ -95,6 +112,8 @@ export async function processGameEntry({
       console.error("Client fallback match insertion failed:", insertError.message);
     }
 
+    beginMatchTimer(gameTitle);
+
     return {
       success: true,
       updatedPoints: newPoints,
@@ -113,6 +132,7 @@ export async function recordMatchResult(payload: MatchResultPayload) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    const durationSeconds = payload.duration_seconds ?? getMatchDuration(payload.game_title);
 
     // 1. Award Points to the User's Profile if they won (points_change > 0)
     if (payload.points_change > 0) {
@@ -152,6 +172,7 @@ export async function recordMatchResult(payload: MatchResultPayload) {
         opponent_name: payload.opponent_name,
         result: payload.result,
         points_change: payload.points_change,
+        duration_seconds: durationSeconds,
       });
 
     if (insertError) {

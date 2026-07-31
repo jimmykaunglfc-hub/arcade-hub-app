@@ -5,7 +5,7 @@ import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
 
 // 👇 Ranking utilities
-import { getRankTier, getHoursPlayed } from "../lib/rankingUtils";
+import { getHoursPlayed } from "../lib/rankingUtils";
 
 import HomeTab from "../components/HomeTab";
 import GamesTab from "../components/GamesTab";
@@ -123,48 +123,58 @@ export default function Home() {
       )
       .subscribe();
 
+    const rankChannel = supabase
+      .channel(`live_rank_${myUserId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "match_history",
+          filter: `user_id=eq.${myUserId}`,
+        },
+        () => {
+          fetchLiveBalance(myUserId);
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(profileChannel);
+      supabase.removeChannel(rankChannel);
     };
   }, [myUserId]);
 
   const fetchLiveBalance = async (uid: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select(
-        `
-        points, 
-        gems,
-        mmr, 
-        total_wins, 
-        total_matches, 
-        total_kills, 
-        total_deaths, 
-        total_assists, 
-        total_playtime_seconds
-      `
-      )
-      .eq("id", uid)
-      .maybeSingle();
+    const [{ data }, { data: ranking, error: rankingError }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("points, gems")
+        .eq("id", uid)
+        .maybeSingle(),
+      supabase.rpc("get_player_rank_summary"),
+    ]);
 
     if (data) {
       setUserPoints(data.points ?? 0);
       setUserGems(data.gems ?? 0); // 💎 Fetch live gems from DB
 
-      const matches = data.total_matches ?? 0;
-      const wins = data.total_wins ?? 0;
-      const winRate = matches > 0 ? ((wins / matches) * 100).toFixed(1) : 0;
-
-      const PLACEMENTS_NEEDED = 5;
-      const isPlacing = matches < PLACEMENTS_NEEDED;
-
-      setRankData({
-        tier: isPlacing ? "Unranked" : getRankTier(data.mmr ?? 1000),
-        percentile: null,
-        winRate: Number(winRate),
-        gamesPlayed: matches,
-        playtime: getHoursPlayed(data.total_playtime_seconds ?? 0),
-      });
+      if (rankingError) {
+        console.error("Failed to load player ranking:", rankingError.message);
+      } else {
+        const summary = Array.isArray(ranking) ? ranking[0] : ranking;
+        if (summary) {
+          setRankData({
+            tier: summary.tier,
+            percentile: summary.percentile,
+            globalRank: summary.global_rank,
+            winRate: Number(summary.win_rate ?? 0),
+            gamesPlayed: Number(summary.matches ?? 0),
+            playtime: getHoursPlayed(Number(summary.playtime_seconds ?? 0)),
+            badgeIconUrl: summary.badge_icon_url ?? null,
+          });
+        }
+      }
     }
   };
 
