@@ -49,6 +49,7 @@ export default function Home() {
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   useEffect(() => {
     const savedLaunch = sessionStorage.getItem("tournament_match_launch");
@@ -144,6 +145,19 @@ export default function Home() {
       supabase.removeChannel(rankChannel);
     };
   }, [myUserId]);
+
+  useEffect(() => {
+    if (!myUserId) { setUnreadNotificationCount(0); return; }
+    const refreshUnreadNotifications = async () => {
+      const { count } = await supabase.from("user_notifications").select("id", { count: "exact", head: true }).eq("user_id", myUserId).eq("is_read", false);
+      setUnreadNotificationCount(count || 0);
+    };
+    refreshUnreadNotifications();
+    const channel = supabase.channel(`notification-badge-${myUserId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_notifications", filter: `user_id=eq.${myUserId}` }, refreshUnreadNotifications)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [myUserId, showNotifications]);
 
   const fetchLiveBalance = async (uid: string) => {
     const [{ data }, { data: ranking, error: rankingError }] = await Promise.all([
@@ -368,11 +382,12 @@ export default function Home() {
             <button
               onClick={() => setShowNotifications(true)}
               aria-label="Open notifications"
-              className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface hover:opacity-80 transition-opacity border border-surface-container-highest shadow-sm"
+              className="relative w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface hover:opacity-80 transition-opacity border border-surface-container-highest shadow-sm"
             >
               <span className="material-symbols-outlined text-[18px]">
                 notifications
               </span>
+              {unreadNotificationCount > 0 && <span className="absolute -right-1 -top-1 min-w-4 h-4 px-1 rounded-full bg-primary text-on-primary text-[9px] font-black flex items-center justify-center">{unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}</span>}
             </button>
           </div>
         </header>
@@ -452,7 +467,7 @@ export default function Home() {
         </main>
 
         {/* BOTTOM NAVIGATION */}
-        <nav className="fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-surface-container-highest px-2 pb-safe pt-1 flex justify-around items-center h-[76px] transition-colors duration-300">
+        <nav data-bottom-nav className="fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-surface-container-highest px-2 pb-safe pt-1 flex justify-around items-center h-[76px] transition-colors duration-300">
           {[
             { id: "Home", label: t("home"), icon: "home" },
             { id: "Explore", label: t("explore"), icon: "explore" },

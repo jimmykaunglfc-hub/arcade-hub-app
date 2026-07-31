@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { ChangeEvent, useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
 
@@ -8,7 +8,12 @@ interface Friend {
   id: string;
   username: string;
   avatar_url: string;
+  last_seen_at?: string;
+  is_online?: boolean;
 }
+
+interface FriendRequest extends Friend { requestId: string; }
+interface ChatGroup { id: string; name: string; description: string; created_by: string; }
 
 interface DirectMessage {
   id: string;
@@ -46,6 +51,14 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myUsername, setMyUsername] = useState<string>("");
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
+  const [groups, setGroups] = useState<ChatGroup[]>([]);
+  const [joinedGroupIds, setJoinedGroupIds] = useState<string[]>([]);
+  const [unreadByFriend, setUnreadByFriend] = useState<Record<string, number>>({});
+  const [networkLoading, setNetworkLoading] = useState(true);
+  const [groupName, setGroupName] = useState("");
+  const [groupDescription, setGroupDescription] = useState("");
+  const [groupStatus, setGroupStatus] = useState("");
   const [activeChat, setActiveChat] = useState<Friend | null>(null);
   
   const [messages, setMessages] = useState<DirectMessage[]>([]);
@@ -59,45 +72,60 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   const [showGameSelector, setShowGameSelector] = useState(false);
   const [inviteStep, setInviteStep] = useState<"game" | "carrom_mode">("game");
   const [chatLoading, setChatLoading] = useState(false);
+  const [showComposerMenu, setShowComposerMenu] = useState(false);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   // Multiplayer lockout rule enforcement
   const isLockedOut = currentPoints <= 0;
+
+  const loadNetwork = useCallback(async (id: string) => {
+    setNetworkLoading(true);
+    const [{ data: myProfile }, { data: links }, { data: allGroups }, { data: memberships }, { data: unread }] = await Promise.all([
+      supabase.from("profiles").select("username").eq("id", id).single(),
+      supabase.from("friendships").select("id, requester_id, receiver_id, status").or(`requester_id.eq.${id},receiver_id.eq.${id}`),
+      supabase.from("chat_groups").select("id, name, description, created_by").order("created_at", { ascending: false }).limit(30),
+      supabase.from("chat_group_members").select("group_id").eq("user_id", id),
+      supabase.from("direct_messages").select("sender_id").eq("receiver_id", id).is("read_at", null),
+    ]);
+    if (myProfile) setMyUsername(myProfile.username);
+    const accepted = (links || []).filter((link) => link.status === "accepted");
+    const requested = (links || []).filter((link) => link.status === "pending" && link.receiver_id === id);
+    const profileIds = [...new Set([...accepted.map((link) => link.requester_id === id ? link.receiver_id : link.requester_id), ...requested.map((link) => link.requester_id)])];
+    const { data: profiles } = profileIds.length ? await supabase.from("profiles").select("id, username, avatar_url, last_seen_at").in("id", profileIds) : { data: [] as Friend[] };
+    const profileById = new Map((profiles || []).map((profile) => [profile.id, { ...profile, is_online: Boolean(profile.last_seen_at && Date.now() - new Date(profile.last_seen_at).getTime() < 2 * 60 * 1000) }]));
+    setFriends(accepted.map((link) => profileById.get(link.requester_id === id ? link.receiver_id : link.requester_id)).filter(Boolean) as Friend[]);
+    setPendingRequests(requested.map((link) => ({ ...(profileById.get(link.requester_id) as Friend), requestId: link.id })).filter((request) => request.id));
+    setGroups((allGroups || []) as ChatGroup[]);
+    setJoinedGroupIds((memberships || []).map((membership) => membership.group_id));
+    const counts: Record<string, number> = {};
+    (unread || []).forEach((message) => { counts[message.sender_id] = (counts[message.sender_id] || 0) + 1; });
+    setUnreadByFriend(counts);
+    setNetworkLoading(false);
+  }, []);
 
   useEffect(() => {
     const initData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      if (userId && userId !== user.id) return;
       setMyUserId(user.id);
-
-      const [{ data: myProfile }, { data: friendships }] = await Promise.all([
-        supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", user.id)
-        .single(),
-        supabase
-          .from("friendships")
-          .select("requester_id, receiver_id")
-          .eq("status", "accepted")
-          .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`),
-      ]);
-        
-      if (myProfile) setMyUsername(myProfile.username);
-
-      if (friendships && friendships.length > 0) {
-        const friendIds = friendships.map(f => 
-          f.requester_id === user.id ? f.receiver_id : f.requester_id
-        );
-        const { data: friendProfiles } = await supabase
-          .from("profiles")
-          .select("id, username, avatar_url")
-          .in("id", friendIds);
-        
-        if (friendProfiles) setFriends(friendProfiles);
-      }
+      await loadNetwork(user.id);
+      await supabase.rpc("touch_chat_presence");
     };
     initData();
-  }, []);
+  }, [loadNetwork, userId]);
+
+  useEffect(() => {
+    if (!myUserId) return;
+    const refresh = () => loadNetwork(myUserId);
+    const channel = supabase.channel(`chat-hub-${myUserId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "direct_messages", filter: `receiver_id=eq.${myUserId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "chat_groups" }, refresh)
+      .subscribe();
+    const heartbeat = window.setInterval(() => { supabase.rpc("touch_chat_presence"); }, 60000);
+    return () => { window.clearInterval(heartbeat); supabase.removeChannel(channel); };
+  }, [myUserId, loadNetwork]);
 
   useEffect(() => {
     if (!myUserId || !activeChat || activeView !== "chat") return;
@@ -112,6 +140,8 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
         .limit(50);
         
       if (data) setMessages(data);
+      await supabase.from("direct_messages").update({ read_at: new Date().toISOString() }).eq("receiver_id", myUserId).eq("sender_id", activeChat.id).is("read_at", null);
+      setUnreadByFriend((previous) => ({ ...previous, [activeChat.id]: 0 }));
       setChatLoading(false);
     };
 
@@ -154,6 +184,26 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
     };
     setNewMessage("");
     await supabase.from("direct_messages").insert([payload]);
+  };
+
+  const sendEmote = async (emote: string) => {
+    if (!myUserId || !activeChat) return;
+    setShowComposerMenu(false);
+    await supabase.from("direct_messages").insert({ sender_id: myUserId, receiver_id: activeChat.id, content: emote, message_type: "text" });
+  };
+
+  const handleAttachment = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !myUserId || !activeChat) return;
+    if (file.size > 5 * 1024 * 1024) return alert("Attachments must be 5 MB or smaller.");
+    const extension = file.name.split('.').pop() || 'file';
+    const path = `${myUserId}/${crypto.randomUUID()}.${extension}`;
+    const { error } = await supabase.storage.from("chat-attachments").upload(path, file, { upsert: false });
+    if (error) return alert(`Upload failed: ${error.message}`);
+    const { data } = supabase.storage.from("chat-attachments").getPublicUrl(path);
+    await supabase.from("direct_messages").insert({ sender_id: myUserId, receiver_id: activeChat.id, content: data.publicUrl, message_type: "attachment" });
+    event.target.value = "";
+    setShowComposerMenu(false);
   };
 
   const handleSendGameInvite = async (
@@ -321,8 +371,35 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
     } else {
       setInviteStatus(`Invitation sent to ${targetProfile.username}.`);
       setSearchTarget("");
+      loadNetwork(myUserId);
     }
   };
+
+  const respondToFriendRequest = async (requestId: string, accepted: boolean) => {
+    if (!myUserId) return;
+    const { error } = await supabase.rpc("respond_to_friend_request", { request_id: requestId, accepted });
+    if (error) setInviteStatus(error.message);
+    await loadNetwork(myUserId);
+  };
+
+  const joinGroup = async (groupId: string) => {
+    if (!myUserId) return;
+    const { error } = await supabase.from("chat_group_members").insert({ group_id: groupId, user_id: myUserId });
+    setGroupStatus(error ? error.message : "Joined group.");
+    if (!error) await loadNetwork(myUserId);
+  };
+
+  const createGroup = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!myUserId || groupName.trim().length < 3) return setGroupStatus("Enter a group name of at least 3 characters.");
+    const { data, error } = await supabase.from("chat_groups").insert({ name: groupName.trim(), description: groupDescription.trim(), created_by: myUserId }).select("id").single();
+    if (error || !data) return setGroupStatus(error?.message || "Could not create group.");
+    const { error: memberError } = await supabase.from("chat_group_members").insert({ group_id: data.id, user_id: myUserId, role: "owner" });
+    setGroupStatus(memberError ? memberError.message : "Group created.");
+    if (!memberError) { setGroupName(""); setGroupDescription(""); await loadNetwork(myUserId); }
+  };
+
+  const isOnline = (friend: Friend) => Boolean(friend.is_online);
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(myUsername);
@@ -356,7 +433,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setHubTab(tab.id as any)}
+              onClick={() => setHubTab(tab.id as "dms" | "groups" | "network")}
               className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
                 hubTab === tab.id 
                   ? "bg-primary text-on-primary" 
@@ -370,6 +447,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
 
         {hubTab === "dms" && (
           <div className="flex flex-col gap-3">
+            {networkLoading && <p className="px-2 py-4 text-center text-xs font-bold text-on-surface-variant animate-pulse">Syncing conversations…</p>}
             {friends.length === 0 ? (
               <div className="p-8 text-center bg-surface border border-surface-container-highest rounded-[24px] shadow-sm">
                 <span className="material-symbols-outlined text-3xl text-on-surface-variant mb-2">chat_bubble</span>
@@ -386,14 +464,14 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-full overflow-hidden relative bg-surface-container-high shrink-0 border border-surface-container-highest">
                         <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover" unoptimized />
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-primary border-2 border-surface rounded-full"></div>
+                        <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-surface rounded-full ${isOnline(friend) ? "bg-primary" : "bg-on-surface-variant"}`}></div>
                       </div>
                       <div>
                         <h4 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">{friend.username}</h4>
-                        <p className="font-body text-[11px] text-on-surface-variant font-medium truncate mt-0.5">Tap to open secure comms...</p>
+                        <p className="font-body text-[11px] text-on-surface-variant font-medium truncate mt-0.5">{isOnline(friend) ? "Online now" : "Offline"}</p>
                       </div>
                     </div>
-                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
+                    <div className="flex items-center gap-2">{unreadByFriend[friend.id] > 0 && <span className="min-w-5 h-5 px-1 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center">{unreadByFriend[friend.id]}</span>}<span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span></div>
                   </button>
                 ))}
               </div>
@@ -403,16 +481,21 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
 
         {hubTab === "groups" && (
           <div className="flex flex-col gap-3">
-            <div className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex items-center gap-4 shadow-sm hover:bg-surface-variant cursor-pointer">
-              <div className="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-primary text-[24px]">grid_4x4</span>
+            <form onSubmit={createGroup} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 space-y-2 shadow-sm">
+              <h3 className="font-headline text-sm font-extrabold text-on-surface">Create a group</h3>
+              <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Group name" className="w-full rounded-xl border border-surface-container-highest bg-background px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" />
+              <input value={groupDescription} onChange={(event) => setGroupDescription(event.target.value)} placeholder="Description (optional)" className="w-full rounded-xl border border-surface-container-highest bg-background px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" />
+              <button className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-on-primary">Create group</button>
+              {groupStatus && <p className="text-[11px] font-medium text-on-surface-variant">{groupStatus}</p>}
+            </form>
+            {groups.map((group) => (
+              <div key={group.id} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex items-center gap-4 shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-primary text-[24px]">grid_4x4</span></div>
+                <div className="flex-1 min-w-0"><h4 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">{group.name}</h4><p className="font-body text-[11px] text-on-surface-variant truncate mt-0.5">{group.description || "Community group"}</p></div>
+                {joinedGroupIds.includes(group.id) ? <span className="px-3 py-2 text-[10px] font-bold text-primary">Joined</span> : <button onClick={() => joinGroup(group.id)} className="px-4 py-2 bg-surface-container-high text-primary font-caps text-[10px] font-bold uppercase rounded-xl">Join</button>}
               </div>
-              <div className="flex-1">
-                <h4 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">Global Checkers Hub</h4>
-                <p className="font-body text-[11px] text-on-surface-variant font-medium mt-0.5">2,140 Members • 14 Online</p>
-              </div>
-              <button className="px-4 py-2 bg-surface-container-high text-primary font-caps text-[10px] font-bold uppercase rounded-xl hover:bg-surface-container-highest transition-colors">Join</button>
-            </div>
+            ))}
+            {!networkLoading && groups.length === 0 && <p className="p-5 text-center text-xs text-on-surface-variant">No groups yet. Start the first one.</p>}
           </div>
         )}
 
@@ -442,6 +525,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
               </form>
               {inviteStatus && <p className="font-body text-[11px] text-primary font-bold mt-3">{inviteStatus}</p>}
             </div>
+            {pendingRequests.length > 0 && <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm"><h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3">Connection requests</h3><div className="space-y-3">{pendingRequests.map((request) => <div key={request.requestId} className="flex items-center gap-3"><div className="w-9 h-9 rounded-full overflow-hidden relative bg-surface-container-high"><Image src={request.avatar_url} alt="" fill className="object-cover" unoptimized /></div><span className="flex-1 text-sm font-bold text-on-surface">{request.username}</span><button onClick={() => respondToFriendRequest(request.requestId, false)} className="text-xs font-bold text-on-surface-variant">Decline</button><button onClick={() => respondToFriendRequest(request.requestId, true)} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary">Accept</button></div>)}</div></div>}
           </div>
         )}
       </div>
@@ -582,8 +666,8 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
             </div>
             <div>
               <h3 className="font-headline text-sm font-bold text-on-surface leading-tight">{activeChat?.username}</h3>
-              <span className="font-caps text-[9px] text-primary font-bold uppercase tracking-widest flex items-center gap-1 mt-0.5">
-                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span> Comms Online
+              <span className={`font-caps text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 mt-0.5 ${activeChat && isOnline(activeChat) ? "text-primary" : "text-on-surface-variant"}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${activeChat && isOnline(activeChat) ? "bg-primary animate-pulse" : "bg-on-surface-variant"}`}></span> {activeChat && isOnline(activeChat) ? "Comms online" : "Offline"}
               </span>
             </div>
           </div>
@@ -647,6 +731,9 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                   }`}>
                     <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                   </div>
+                )}
+                {msg.message_type === 'attachment' && (
+                  <a href={msg.content} target="_blank" rel="noreferrer" className="rounded-2xl bg-surface border border-surface-container-highest px-4 py-3 text-xs font-bold text-primary">Open attachment</a>
                 )}
 
                 {msg.message_type === 'game_invite' && (
@@ -728,6 +815,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
 
       {/* 📥 INLINE DOCK DECK INPUT TRAILER */}
       <div className="shrink-0 w-full bg-surface border border-surface-container-highest rounded-[24px] p-2 flex items-center gap-2 shadow-xl mb-1">
+        <input ref={attachmentInputRef} type="file" accept="image/*,.pdf,.txt" className="hidden" onChange={handleAttachment} />
         
         <button
           type="button"
@@ -739,11 +827,17 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
 
         <button
           type="button"
-          onClick={() => alert("Media Vault and interactive emoji reaction assets initializing...")}
+          onClick={() => setShowComposerMenu((open) => !open)}
           className="w-11 h-11 bg-background hover:bg-surface-variant border border-surface-container-highest text-on-surface-variant rounded-xl flex items-center justify-center active:scale-95 transition-all shrink-0"
         >
           <span className="material-symbols-outlined text-[20px]">add</span>
         </button>
+        {showComposerMenu && (
+          <div className="absolute bottom-16 left-12 z-50 rounded-2xl border border-surface-container-highest bg-surface p-3 shadow-2xl">
+            <button type="button" onClick={() => attachmentInputRef.current?.click()} className="mb-2 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs font-bold text-on-surface hover:bg-surface-variant"><span className="material-symbols-outlined text-base">attach_file</span>Attach file</button>
+            <div className="flex gap-2">{['👍','🔥','😂','🎮','👏'].map((emote) => <button key={emote} type="button" onClick={() => sendEmote(emote)} className="text-xl">{emote}</button>)}</div>
+          </div>
+        )}
         
         <form onSubmit={handleSendText} className="flex-1 flex items-center bg-background border border-surface-container-highest rounded-xl pr-1.5 transition-all overflow-hidden h-11 focus-within:border focus-within:border-primary">
           <input
