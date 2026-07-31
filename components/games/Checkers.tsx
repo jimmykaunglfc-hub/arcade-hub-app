@@ -1100,7 +1100,7 @@ export default function Checkers({
               className={`w-full max-h-full aspect-square rounded-[1.5rem] shadow-2xl transition-all duration-300 relative overflow-hidden flex items-center justify-center ${
                 customBoardImage 
                   ? "border-2 border-amber-500/40 shadow-[0_0_30px_rgba(0,0,0,0.8)]"
-                  : "bg-[#e6c48f] border-[#cfaa75] p-3"
+                  : "bg-[#e6c48f] border-[#cfaa75]"
               }`}
               style={customBoardImage ? { 
                 backgroundImage: `url(${customBoardImage})`, 
@@ -1110,8 +1110,8 @@ export default function Checkers({
               } : {}}
             >
               <div 
-                className={`w-full h-full grid grid-cols-8 grid-rows-8 transition-transform duration-500 ${
-                  customBoardImage ? "p-[7.5%]" : "border-4 border-[#333] shadow-inner"
+                className={`absolute grid grid-cols-8 grid-rows-8 transition-transform duration-500 ${
+                  customBoardImage ? "inset-0 p-[7.5%]" : "inset-3 border-4 border-[#333] shadow-inner"
                 } ${shouldFlipBoard ? "rotate-180" : "rotate-0"}`}
               >
                 {viewIndices.map((r) => 
