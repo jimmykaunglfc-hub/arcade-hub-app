@@ -145,3 +145,15 @@ body:has(input:focus) [data-bottom-nav],
 body:has(textarea:focus) [data-bottom-nav] {
   transform: translateY(100%);
 }
+
+/* iOS Safari automatically zooms the page when a focused form control has a
+   computed font size below 16px. That turns a fixed-size Capacitor screen into
+   an enlarged, misaligned viewport. Keep native input text at 16px on phones;
+   labels and surrounding UI retain their compact visual scale. */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
