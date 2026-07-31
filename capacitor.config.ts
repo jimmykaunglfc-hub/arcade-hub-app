@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.kghtetoo.games',
+  appId: 'com.joeyoke.app',
   appName: 'Joe Yoke',
   webDir: 'out'
 };
