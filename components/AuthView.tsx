@@ -1,282 +1,214 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 interface AuthViewProps {
   onAuthSuccess: () => void;
 }
 
-export default function AuthView({ onAuthSuccess }: AuthViewProps) {
-  // We added a "verify" mode for the OTP screen
-  const [mode, setMode] = useState<"signin" | "register" | "verify">("signin");
-  
-  const [email, setEmail] = useState("");
-  const [username, setUsername] = useState("");
-  const [otp, setOtp] = useState("");
-  
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+type AuthStage = "email" | "verify";
+type SocialProvider = "google" | "apple" | "telegram";
 
-  // STEP 1: Request OTP
-  const handleRequestOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
+const providerDetails: Record<SocialProvider, { label: string; icon: string }> = {
+  google: { label: "Continue with Google", icon: "G" },
+  apple: { label: "Continue with Apple", icon: "\uf8ff" },
+  telegram: { label: "Continue with Telegram", icon: "➤" },
+};
+
+export default function AuthView({ onAuthSuccess }: AuthViewProps) {
+  const [stage, setStage] = useState<AuthStage>("email");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [loadingProvider, setLoadingProvider] = useState<SocialProvider | "email" | "verify" | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const clearFeedback = () => setErrorMsg(null);
+
+  const handleRequestOtp = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoadingProvider("email");
+    clearFeedback();
 
     try {
-      if (mode === "register" && !username.trim()) {
-        throw new Error("Network Handle is required for new accounts.");
-      }
-
-      // This sends the OTP to the user (works for both new and existing users)
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: {
-          shouldCreateUser: true, // Allows new users to be created on the fly
-        }
+        options: { shouldCreateUser: true },
       });
 
       if (error) throw error;
-
-      // Switch UI to OTP entry mode
-      setSuccessMsg("Signal sent! Check your email for the 6-digit access code.");
-      setMode("verify");
-    } catch (err: any) {
-      setErrorMsg(err.message || "Failed to request access code.");
+      setStage("verify");
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "We couldn't send a code. Please try again.");
     } finally {
-      setLoading(false);
+      setLoadingProvider(null);
     }
   };
 
-  // STEP 2: Verify OTP
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMsg(null);
+  const handleVerifyOtp = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoadingProvider("verify");
+    clearFeedback();
 
     try {
-      const { data: { session }, error } = await supabase.auth.verifyOtp({
+      const { error } = await supabase.auth.verifyOtp({
         email: email.trim(),
         token: otp.trim(),
-        type: 'email'
+        type: "email",
       });
 
       if (error) throw error;
-
-      // If they were registering, save their chosen username to their profile
-      if (mode === "verify" && username && session?.user) {
-        await supabase.from("profiles")
-          .update({ username: username.trim() })
-          .eq("id", session.user.id);
-      }
-
       onAuthSuccess();
-    } catch (err: any) {
-      setErrorMsg("Invalid or expired code. Please try again.");
+    } catch {
+      setErrorMsg("That code is invalid or has expired. Request a new one and try again.");
     } finally {
-      setLoading(false);
+      setLoadingProvider(null);
     }
   };
 
-  const handleGuestLogin = async () => {
-    setLoading(true);
+  const handleSocialLogin = async (provider: SocialProvider) => {
+    setLoadingProvider(provider);
+    clearFeedback();
+
     try {
-      const { error } = await supabase.auth.signInAnonymously();
+      const { error } = await supabase.auth.signInWithOAuth({
+        // Telegram must be configured in Supabase as a custom OIDC provider named "telegram".
+        provider: provider === "telegram" ? "custom:telegram" : provider,
+        options: { redirectTo: window.location.origin },
+      });
+
       if (error) throw error;
-      onAuthSuccess();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Guest login failed.");
-      setLoading(false);
+    } catch (error) {
+      setErrorMsg(
+        error instanceof Error
+          ? error.message
+          : `We couldn't start ${providerDetails[provider].label.toLowerCase()}. Please try again.`
+      );
+      setLoadingProvider(null);
     }
   };
+
+  const returnToEmail = () => {
+    setStage("email");
+    setOtp("");
+    clearFeedback();
+  };
+
+  const isBusy = loadingProvider !== null;
 
   return (
-    <div className="flex-1 flex items-center justify-center py-8">
-      <div className="w-full max-w-sm bg-[#111c33]/80 backdrop-blur-xl border border-white/5 rounded-[32px] p-6 shadow-2xl relative overflow-hidden">
-        
-        {/* Top Gradient Glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-32 bg-indigo-500/20 blur-[50px] rounded-full pointer-events-none"></div>
+    <section className="flex-1 flex items-center justify-center py-6">
+      <div className="relative w-full max-w-sm overflow-hidden rounded-[30px] border border-white/10 bg-[#101a31]/95 p-5 shadow-[0_28px_80px_rgba(0,0,0,0.42)] sm:p-7">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(ellipse_at_top,rgba(86,112,255,0.24),transparent_70%)]" />
 
-        {/* --- HEADER --- */}
-        <div className="flex flex-col items-center mb-8 relative z-10">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 shadow-sm">
-            <span className="material-symbols-outlined text-white text-xl">
-              {mode === "verify" ? "dialpad" : "admin_panel_settings"}
+        <div className="relative z-10 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-primary shadow-[0_0_30px_rgba(204,255,0,0.10)]">
+            <span className="material-symbols-outlined text-[27px]" aria-hidden="true">
+              {stage === "verify" ? "dialpad" : "shield_lock"}
             </span>
           </div>
-          <h2 className="font-headline text-xl font-black text-white tracking-wide uppercase">
-            {mode === "verify" ? "Enter Security Code" : "Access Matrix"}
+          <p className="font-caps text-[10px] font-bold uppercase tracking-[0.22em] text-primary">Joe Yoke account</p>
+          <h2 className="mt-2 font-headline text-2xl font-black tracking-tight text-white">
+            {stage === "verify" ? "Check your inbox" : "Play with your account"}
           </h2>
-          <p className="font-body text-[10px] text-white/50 mt-1 tracking-wide text-center">
-            {mode === "verify" 
-              ? `Code sent to ${email}` 
-              : "Initialize identity synchronization pipeline"}
+          <p className="mx-auto mt-2 max-w-[270px] text-xs leading-5 text-white/55">
+            {stage === "verify"
+              ? `Enter the 6-digit code sent to ${email}.`
+              : "Sign in once to keep your progress, rewards, and game history in sync."}
           </p>
         </div>
 
-        {/* --- TAB SWITCHER (Hide during OTP phase) --- */}
-        {mode !== "verify" && (
-          <div className="flex bg-black/40 rounded-xl p-1 mb-6 border border-white/5 relative z-10">
-            <button
-              onClick={() => { setMode("signin"); setErrorMsg(null); }}
-              className={`flex-1 py-2 rounded-lg font-caps text-[10px] font-bold tracking-widest uppercase transition-all ${
-                mode === "signin" 
-                  ? "bg-white/10 text-white shadow-sm" 
-                  : "text-white/40 hover:text-white/70"
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => { setMode("register"); setErrorMsg(null); }}
-              className={`flex-1 py-2 rounded-lg font-caps text-[10px] font-bold tracking-widest uppercase transition-all ${
-                mode === "register" 
-                  ? "bg-white/10 text-white shadow-sm" 
-                  : "text-white/40 hover:text-white/70"
-              }`}
-            >
-              Register
-            </button>
-          </div>
-        )}
-
-        {/* --- MESSAGES --- */}
         {errorMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold text-center tracking-wide relative z-10">
+          <div role="alert" className="relative z-10 mt-5 rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-2.5 text-center text-xs font-semibold text-red-300">
             {errorMsg}
           </div>
         )}
-        {successMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold text-center tracking-wide relative z-10">
-            {successMsg}
-          </div>
-        )}
 
-        {/* --- AUTH FORMS --- */}
-        {mode === "verify" ? (
-          /* OTP VERIFICATION FORM */
-          <form onSubmit={handleVerifyOtp} className="space-y-4 relative z-10">
-            <div>
-              <label className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 block mb-1.5 ml-1">
-                6-Digit Access Code
-              </label>
-              <input 
-                type="text" 
-                required 
+        {stage === "verify" ? (
+          <form onSubmit={handleVerifyOtp} className="relative z-10 mt-7 space-y-4">
+            <label className="block text-left">
+              <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Access code</span>
+              <input
+                autoComplete="one-time-code"
+                autoFocus
+                inputMode="numeric"
                 maxLength={6}
+                onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
+                placeholder="000000"
+                required
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000" 
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-center tracking-[0.5em] font-mono text-xl text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-white/20"
+                className="w-full rounded-2xl border border-white/10 bg-[#080d1b] px-4 py-3.5 text-center font-mono text-2xl font-bold tracking-[0.42em] text-white outline-none transition focus:border-primary/70 focus:ring-2 focus:ring-primary/15 placeholder:text-white/20"
               />
-            </div>
-            
-            <button 
-              type="submit" 
-              disabled={loading || otp.length < 6}
-              className="w-full mt-2 gradient-pill-primary font-caps text-[11px] font-black uppercase tracking-widest py-3.5 rounded-xl hover:opacity-90 transition-opacity shadow-lg disabled:opacity-50"
+            </label>
+            <button
+              type="submit"
+              disabled={loadingProvider === "verify" || otp.length !== 6}
+              className="w-full rounded-2xl bg-primary py-3.5 font-headline text-sm font-black text-on-primary transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
             >
-              {loading ? "Verifying..." : "Enter Matrix"}
+              {loadingProvider === "verify" ? "Verifying…" : "Verify & continue"}
             </button>
-
-            <button 
-              type="button" 
-              onClick={() => { setMode("signin"); setOtp(""); setErrorMsg(null); setSuccessMsg(null); }}
-              className="w-full mt-2 py-2 text-[10px] font-bold text-white/40 hover:text-white uppercase tracking-widest transition-colors"
-            >
-              Back to Sign In
+            <button type="button" onClick={returnToEmail} disabled={isBusy} className="w-full py-1 text-xs font-semibold text-white/50 transition hover:text-white disabled:opacity-50">
+              Use a different email
             </button>
           </form>
         ) : (
-          /* EMAIL REQUEST FORM */
-          <form onSubmit={handleRequestOtp} className="space-y-4 relative z-10">
-            
-            {mode === "register" && (
-              <div>
-                <label className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 block mb-1.5 ml-1">
-                  Network Handle
-                </label>
-                <input 
-                  type="text" 
-                  required 
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g., PlayerOne" 
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-white/20"
+          <div className="relative z-10 mt-7">
+            <form onSubmit={handleRequestOtp} className="space-y-3">
+              <label className="block text-left">
+                <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Email address</span>
+                <input
+                  autoComplete="email"
+                  inputMode="email"
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  type="email"
+                  value={email}
+                  className="w-full rounded-2xl border border-white/10 bg-[#080d1b] px-4 py-3.5 text-sm text-white outline-none transition focus:border-primary/70 focus:ring-2 focus:ring-primary/15 placeholder:text-white/25"
                 />
-              </div>
-            )}
-
-            <div>
-              <label className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 block mb-1.5 ml-1">
-                Email Address
               </label>
-              <input 
-                type="email" 
-                required 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@domain.com" 
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-white/20"
-              />
+              <button
+                type="submit"
+                disabled={isBusy}
+                className="w-full rounded-2xl bg-primary py-3.5 font-headline text-sm font-black text-on-primary transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {loadingProvider === "email" ? "Sending code…" : "Continue with email"}
+              </button>
+            </form>
+
+            <div className="my-6 flex items-center gap-3" aria-hidden="true">
+              <div className="h-px flex-1 bg-white/10" />
+              <span className="font-caps text-[9px] font-bold uppercase tracking-[0.16em] text-white/35">or</span>
+              <div className="h-px flex-1 bg-white/10" />
             </div>
 
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full mt-2 gradient-pill-primary font-caps text-[11px] font-black uppercase tracking-widest py-3.5 rounded-xl hover:opacity-90 transition-opacity shadow-lg disabled:opacity-50"
-            >
-              {loading ? "Connecting..." : "Request Access Code"}
-            </button>
-          </form>
+            <div className="space-y-2.5">
+              {(Object.keys(providerDetails) as SocialProvider[]).map((provider) => {
+                const { icon, label } = providerDetails[provider];
+                const isLoading = loadingProvider === provider;
+                return (
+                  <button
+                    key={provider}
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => handleSocialLogin(provider)}
+                    className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3.5 font-headline text-sm font-bold text-white transition hover:border-white/25 hover:bg-white/10 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    <span className={provider === "apple" ? "text-xl leading-none" : provider === "telegram" ? "text-base leading-none text-[#2AABEE]" : "text-base leading-none font-black text-[#4285F4]"} aria-hidden="true">
+                      {icon}
+                    </span>
+                    {isLoading ? "Connecting…" : label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="mt-5 text-center text-[11px] leading-4 text-white/35">
+              New here? Your account is created automatically the first time you continue.
+            </p>
+          </div>
         )}
-
-        {/* --- DIVIDER --- */}
-        {mode !== "verify" && (
-          <>
-            <div className="flex items-center gap-3 my-6 opacity-60">
-              <div className="flex-1 h-px bg-white/10"></div>
-              <span className="font-caps text-[8px] font-bold tracking-widest text-white/50 uppercase">Or Connect Via</span>
-              <div className="flex-1 h-px bg-white/10"></div>
-            </div>
-
-            {/* --- SOCIAL BUTTONS --- */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <button type="button" className="h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-              </button>
-              <button type="button" className="h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
-                <svg className="w-5 h-5" fill="white" viewBox="0 0 24 24">
-                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.19 2.31-.88 3.5-.84 1.5.05 2.76.62 3.54 1.69-3.23 1.98-2.65 6.31.5 7.62-.75 1.58-1.57 2.86-2.62 3.7zm-4.73-14.4c-.16-1.57.99-2.99 2.5-3.32.29 1.7-1.12 3.19-2.5 3.32z"/>
-                </svg>
-              </button>
-              <button type="button" className="h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors">
-                <svg className="w-4 h-4" fill="#1877F2" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-              </button>
-            </div>
-
-            {/* --- GUEST LOGIN --- */}
-            <button 
-              type="button" 
-              onClick={handleGuestLogin}
-              className="w-full py-3.5 rounded-xl bg-white/5 border border-white/10 font-caps text-[10px] font-bold text-white uppercase tracking-widest hover:bg-white/10 transition-colors"
-            >
-              Instant Guest Pass
-            </button>
-          </>
-        )}
-
       </div>
-    </div>
+    </section>
   );
 }
