@@ -314,16 +314,12 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       return;
     }
 
-    const { error } = await supabase.from("friendships").insert({
-      requester_id: myUserId, 
-      receiver_id: targetProfile.id, 
-      status: "accepted" 
-    });
+    const { error } = await supabase.rpc("request_friend", { target_user_id: targetProfile.id });
 
     if (error) {
       setInviteStatus("Already in your network.");
     } else {
-      setInviteStatus(`Successfully connected with ${targetProfile.username}!`);
+      setInviteStatus(`Invitation sent to ${targetProfile.username}.`);
       setSearchTarget("");
     }
   };
