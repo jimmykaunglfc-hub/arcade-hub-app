@@ -35,6 +35,13 @@ type LedgerEntry = {
   mutation_type: string;
   currency_type?: "points" | "gems";
 };
+type EquippedCosmetic = {
+  cosmetics?: {
+    game_category?: string;
+    image_url?: string | null;
+    modifiers?: { background_color?: string; accent_color?: string } | null;
+  } | null;
+};
 
 const NAME_CHANGE_COST = 100;
 const AVATAR_CHANGE_COST = 150;
@@ -55,6 +62,8 @@ export default function ProfileTab({
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [inventoryCount, setInventoryCount] = useState(0);
+  const [profileCardCosmetic, setProfileCardCosmetic] = useState<EquippedCosmetic["cosmetics"]>(null);
+  const [avatarFrameCosmetic, setAvatarFrameCosmetic] = useState<EquippedCosmetic["cosmetics"]>(null);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [activityLedger, setActivityLedger] = useState<LedgerEntry[]>([]);
   const [supportEmail, setSupportEmail] = useState("support@joeyoke.com");
@@ -90,6 +99,7 @@ export default function ProfileTab({
       { count },
       { data: ledgerData },
       { data: config },
+      { data: equippedItems },
     ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase
@@ -109,6 +119,11 @@ export default function ProfileTab({
         .select("support_email")
         .eq("id", 1)
         .maybeSingle(),
+      supabase
+        .from("user_inventory")
+        .select("cosmetics(game_category, image_url, modifiers)")
+        .eq("user_id", user.id)
+        .eq("is_equipped", true),
     ]);
     if (!myProfile) {
       setFetchStatus("missing");
@@ -118,6 +133,9 @@ export default function ProfileTab({
     setName(myProfile.username || "");
     setAvatarUrl(myProfile.avatar_url || "");
     setInventoryCount(count || 0);
+    const equipped = (equippedItems || []) as EquippedCosmetic[];
+    setProfileCardCosmetic(equipped.find((item) => ["profile_card", "profile_card_theme"].includes(item.cosmetics?.game_category || ""))?.cosmetics || null);
+    setAvatarFrameCosmetic(equipped.find((item) => ["avatar_frame", "profile_avatar_frame"].includes(item.cosmetics?.game_category || ""))?.cosmetics || null);
     setLedger((ledgerData || []) as LedgerEntry[]);
     if (config?.support_email) setSupportEmail(config.support_email);
     setFetchStatus("found");
@@ -371,12 +389,24 @@ export default function ProfileTab({
           {message}
         </div>
       )}
-      <div className="bg-surface border border-surface-container-highest rounded-[24px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm">
+      <div
+        className="bg-surface border border-surface-container-highest rounded-[24px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm"
+        style={{
+          backgroundColor: profileCardCosmetic?.modifiers?.background_color,
+          backgroundImage: profileCardCosmetic?.image_url ? `linear-gradient(rgb(15 23 42 / 0.78), rgb(15 23 42 / 0.88)), url(${profileCardCosmetic.image_url})` : undefined,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
         <button
           onClick={() => setModal("identity")}
-          className="w-24 h-24 rounded-full border-4 border-surface-container-high overflow-hidden relative bg-surface-variant shadow-inner"
-          aria-label="Edit profile"
+          className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-xl border border-surface-container-highest bg-background/85 px-3 py-2 text-[11px] font-bold text-primary backdrop-blur-sm transition-transform active:scale-95"
+          aria-label="Edit Profile"
         >
+          <span className="material-symbols-outlined text-[16px]">edit</span>
+          {t("editNamePhoto")}
+        </button>
+        <div className="w-24 h-24 rounded-full border-4 border-surface-container-high overflow-hidden relative bg-surface-variant shadow-inner">
           <Image
             src={profile.avatar_url || "/logo-dark.jpeg"}
             alt="Profile avatar"
@@ -384,7 +414,8 @@ export default function ProfileTab({
             className="object-cover"
             unoptimized
           />
-        </button>
+          {avatarFrameCosmetic?.image_url && <Image src={avatarFrameCosmetic.image_url} alt="Equipped avatar frame" fill className="pointer-events-none z-10 scale-110 object-contain" unoptimized />}
+        </div>
         <div className="mt-4">
           <h2 className="font-headline text-xl font-black tracking-tight">
             {profile.username}
@@ -393,12 +424,6 @@ export default function ProfileTab({
             {profile.email}
           </p>
         </div>
-        <button
-          onClick={() => setModal("identity")}
-          className="mt-4 text-xs font-bold text-primary"
-        >
-          {t("editNamePhoto")}
-        </button>
         <div className="grid grid-cols-3 w-full mt-6 border-t border-surface-variant pt-4">
           <div>
             <b className="block text-lg">

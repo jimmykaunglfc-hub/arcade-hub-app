@@ -53,7 +53,7 @@ const en = {
   helpSupport: "Help & Support",
   privacyPolicy: "Privacy Policy",
   termsService: "Terms of Service",
-  editNamePhoto: "Edit name or photo",
+  editNamePhoto: "Edit Profile",
 };
 const translations: Record<LanguageCode, Record<string, string>> = {
   en,
@@ -237,7 +237,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     helpSupport: "Ayuda y soporte",
     privacyPolicy: "Política de privacidad",
     termsService: "Términos del servicio",
-    editNamePhoto: "Editar nombre o foto",
+    editNamePhoto: "Editar perfil",
   },
 };
 const LanguageContext = createContext<{

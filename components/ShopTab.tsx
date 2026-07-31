@@ -167,6 +167,31 @@ export default function ShopTab({ userId }: ShopTabProps) {
           .update({ is_equipped: false })
           .eq("id", inventoryItem.id);
       } else {
+        // Profile cards and avatar frames are visual slots: only one item in a
+        // slot can be active at once. Other game cosmetics remain independent.
+        const { data: cosmetic } = await supabase
+          .from("cosmetics")
+          .select("game_category")
+          .eq("id", item.id)
+          .maybeSingle();
+        const cosmeticCategory = cosmetic?.game_category || item.game_category;
+        if (["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame"].includes(cosmeticCategory)) {
+          const matchingCategories = cosmeticCategory.startsWith("profile_card")
+            ? ["profile_card", "profile_card_theme"]
+            : ["avatar_frame", "profile_avatar_frame"];
+          const { data: slotCosmetics } = await supabase
+            .from("cosmetics")
+            .select("id")
+            .in("game_category", matchingCategories);
+          const slotIds = (slotCosmetics || []).map((entry) => entry.id);
+          if (slotIds.length) {
+            await supabase
+              .from("user_inventory")
+              .update({ is_equipped: false })
+              .eq("user_id", userId)
+              .in("cosmetic_id", slotIds);
+          }
+        }
         // Equip this item directly in user_inventory
         await supabase
           .from("user_inventory")
