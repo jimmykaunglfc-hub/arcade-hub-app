@@ -333,8 +333,11 @@ export default function Home() {
       >
         {/* HEADER */}
         <header
-          className="fixed top-0 left-0 right-0 z-50 bg-background flex justify-between items-center px-5 h-[90px] transition-colors duration-300"
-          style={{ paddingTop: "env(safe-area-inset-top)" }}
+          className="fixed top-0 left-0 right-0 z-50 bg-background flex justify-between items-center px-5 transition-colors duration-300"
+          style={{
+            height: "calc(90px + env(safe-area-inset-top))",
+            paddingTop: "env(safe-area-inset-top)",
+          }}
         >
           <div className="flex items-center gap-3">
             <JoeYokeLogo className="w-[42px] h-[42px]" />
@@ -394,8 +397,11 @@ export default function Home() {
 
         {/* MAIN CONTENT AREA */}
         <main
-          className="flex-1 overflow-y-auto no-scrollbar pb-[100px] px-5 w-full z-10"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 100px)" }}
+          className="flex-1 overflow-y-auto no-scrollbar px-5 w-full z-10"
+          style={{
+            paddingTop: "calc(100px + env(safe-area-inset-top))",
+            paddingBottom: "calc(100px + env(safe-area-inset-bottom))",
+          }}
         >
           {showNotifications ? (
             <>
@@ -467,7 +473,14 @@ export default function Home() {
         </main>
 
         {/* BOTTOM NAVIGATION */}
-        <nav data-bottom-nav className="fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-surface-container-highest px-2 pb-safe pt-1 flex justify-around items-center h-[76px] transition-colors duration-300">
+        <nav
+          data-bottom-nav
+          className="fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-surface-container-highest px-2 pt-1 flex justify-around items-center transition-colors duration-300"
+          style={{
+            height: "calc(76px + env(safe-area-inset-bottom))",
+            paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
+          }}
+        >
           {[
             { id: "Home", label: t("home"), icon: "home" },
             { id: "Explore", label: t("explore"), icon: "explore" },

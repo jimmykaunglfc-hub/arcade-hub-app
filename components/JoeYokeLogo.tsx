@@ -1,8 +1,3 @@
-import Image from "next/image";
-
-// 💡 Point directly to public/ since there is no assets folder
-import logoLight from "../public/logo-light.jpeg";
-import logoDark from "../public/logo-dark.jpeg";
 
 interface JoeYokeLogoProps {
   className?: string; 
@@ -11,19 +6,15 @@ interface JoeYokeLogoProps {
 export default function JoeYokeLogo({ className = "w-[42px] h-[42px]" }: JoeYokeLogoProps) {
   return (
     <div className={`relative flex-shrink-0 ${className}`}>
-      {/* Light Mode Logo */}
-      <Image
-        src={logoLight} 
+      {/* Direct public URLs also work in Capacitor's static WebView bundle. */}
+      <img
+        src="/logo-light.jpeg"
         alt="Joe Yoke Logo"
-        priority
         className="block dark:hidden w-full h-full object-cover rounded-xl shadow-sm"
       />
-      
-      {/* Dark Mode Logo */}
-      <Image
-        src={logoDark} 
+      <img
+        src="/logo-dark.jpeg"
         alt="Joe Yoke Logo"
-        priority
         className="hidden dark:block w-full h-full object-cover rounded-xl shadow-sm"
       />
     </div>
