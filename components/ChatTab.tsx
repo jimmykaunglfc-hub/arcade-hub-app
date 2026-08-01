@@ -92,8 +92,8 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
     const requested = (links || []).filter((link) => link.status === "pending" && link.receiver_id === id);
     const profileIds = [...new Set([...accepted.map((link) => link.requester_id === id ? link.receiver_id : link.requester_id), ...requested.map((link) => link.requester_id)])];
     const { data: profiles } = profileIds.length ? await supabase.from("profiles").select("id, username, avatar_url, last_seen_at").in("id", profileIds) : { data: [] as Friend[] };
-    const profileById = new Map((profiles || []).map((profile) => [profile.id, { ...profile, is_online: Boolean(profile.last_seen_at && Date.now() - new Date(profile.last_seen_at).getTime() < 2 * 60 * 1000) }]));
-    setFriends(accepted.map((link) => profileById.get(link.requester_id === id ? link.receiver_id : link.requester_id)).filter(Boolean) as Friend[]);
+    const profileById = new Map((profiles || []).map((profile) => [profile.id, { ...profile, is_online: Boolean(profile.last_seen_at && Date.now() - new Date(profile.last_seen_at).getTime() < 3 * 60 * 1000) }]));
+    setFriends((accepted.map((link) => profileById.get(link.requester_id === id ? link.receiver_id : link.requester_id)).filter(Boolean) as Friend[]).sort((a, b) => Number(Boolean(b.is_online)) - Number(Boolean(a.is_online)) || a.username.localeCompare(b.username)));
     setPendingRequests(requested.map((link) => ({ ...(profileById.get(link.requester_id) as Friend), requestId: link.id })).filter((request) => request.id));
     setGroups((allGroups || []) as ChatGroup[]);
     setJoinedGroupIds((memberships || []).map((membership) => membership.group_id));
@@ -122,6 +122,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "direct_messages", filter: `receiver_id=eq.${myUserId}` }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "chat_groups" }, refresh)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, refresh)
       .subscribe();
     const heartbeat = window.setInterval(() => { supabase.rpc("touch_chat_presence"); }, 60000);
     return () => { window.clearInterval(heartbeat); supabase.removeChannel(channel); };
@@ -464,11 +465,11 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-full overflow-hidden relative bg-surface-container-high shrink-0 border border-surface-container-highest">
                         <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover" unoptimized />
-                        <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-surface rounded-full ${isOnline(friend) ? "bg-primary" : "bg-on-surface-variant"}`}></div>
+                        <div className={`absolute bottom-0 right-0 w-5 h-5 border-[3px] border-surface rounded-full shadow-[0_0_14px_rgba(204,255,0,0.8)] ${isOnline(friend) ? "bg-primary" : "bg-on-surface-variant"}`}></div>
                       </div>
                       <div>
                         <h4 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">{friend.username}</h4>
-                        <p className="font-body text-[11px] text-on-surface-variant font-medium truncate mt-0.5">{isOnline(friend) ? "Online now" : "Offline"}</p>
+                        <p className="font-caps text-[11px] font-black uppercase tracking-[0.12em] text-on-surface-variant truncate mt-1">{isOnline(friend) ? "Online now" : "Offline"}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">{unreadByFriend[friend.id] > 0 && <span className="min-w-5 h-5 px-1 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center">{unreadByFriend[friend.id]}</span>}<span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span></div>
@@ -666,7 +667,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
             </div>
             <div>
               <h3 className="font-headline text-sm font-bold text-on-surface leading-tight">{activeChat?.username}</h3>
-              <span className={`font-caps text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 mt-0.5 ${activeChat && isOnline(activeChat) ? "text-primary" : "text-on-surface-variant"}`}>
+              <span className={`font-caps text-[11px] font-black uppercase tracking-[0.12em] flex items-center gap-2 mt-1 ${activeChat && isOnline(activeChat) ? "text-primary" : "text-on-surface-variant"}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${activeChat && isOnline(activeChat) ? "bg-primary animate-pulse" : "bg-on-surface-variant"}`}></span> {activeChat && isOnline(activeChat) ? "Comms online" : "Offline"}
               </span>
             </div>

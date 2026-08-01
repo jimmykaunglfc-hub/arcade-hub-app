@@ -161,6 +161,14 @@ export default function Home() {
     return () => { supabase.removeChannel(channel); };
   }, [myUserId, showNotifications]);
 
+  useEffect(() => {
+    if (!myUserId) return;
+    const touchPresence = () => { void supabase.rpc("touch_chat_presence"); };
+    touchPresence();
+    const heartbeat = window.setInterval(touchPresence, 60000);
+    return () => window.clearInterval(heartbeat);
+  }, [myUserId]);
+
   const fetchLiveBalance = async (uid: string) => {
     const [{ data }, { data: ranking, error: rankingError }] = await Promise.all([
       supabase

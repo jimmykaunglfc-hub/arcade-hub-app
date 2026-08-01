@@ -7,7 +7,7 @@ export default function SplashCampaignsPage() {
   const [items, setItems] = useState<any[]>([]);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [actionLabel, setActionLabel] = useState("");
   const [actionUrl, setActionUrl] = useState("");
   const [seconds, setSeconds] = useState(5);
@@ -24,14 +24,23 @@ export default function SplashCampaignsPage() {
   const save = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
+    let uploadedImageUrl: string | null = null;
+    if (imageFile) {
+      const extension = imageFile.name.split(".").pop() || "jpg";
+      const path = "campaigns/" + crypto.randomUUID() + "." + extension;
+      const { error: uploadError } = await supabase.storage.from("splash-campaigns").upload(path, imageFile, { upsert: false, contentType: imageFile.type });
+      if (uploadError) { setSaving(false); alert(uploadError.message); return; }
+      const { data: publicUrl } = supabase.storage.from("splash-campaigns").getPublicUrl(path);
+      uploadedImageUrl = publicUrl.publicUrl;
+    }
     const { error } = await supabase.from("splash_campaigns").insert({
-      title: title.trim(), message: message.trim(), image_url: imageUrl.trim() || null,
+      title: title.trim(), message: message.trim(), image_url: uploadedImageUrl,
       action_label: actionLabel.trim() || null, action_url: actionUrl.trim() || null,
       display_seconds: seconds, show_every_launch: everyLaunch, is_active: active,
     });
     setSaving(false);
     if (error) return alert(error.message);
-    setTitle(""); setMessage(""); setImageUrl(""); setActionLabel(""); setActionUrl(""); void load();
+    setTitle(""); setMessage(""); setImageFile(null); setActionLabel(""); setActionUrl(""); void load();
   };
 
   const toggle = async (item: any) => {
@@ -45,8 +54,8 @@ export default function SplashCampaignsPage() {
       <form onSubmit={save} className="grid gap-4 rounded-[24px] border border-white/10 bg-[#18181b] p-6">
         <input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Campaign title" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white" />
         <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white" />
-        <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="Optional image URL" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white" />
-        <div className="grid gap-4 sm:grid-cols-2"><input value={actionLabel} onChange={(e) => setActionLabel(e.target.value)} placeholder="Action label, e.g. View store" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white" /><input value={actionUrl} onChange={(e) => setActionUrl(e.target.value)} placeholder="Deep link, e.g. tab:Store" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white" /></div>
+        <label className="rounded-xl border border-dashed border-white/15 bg-white/5 px-4 py-3 text-sm text-neutral-300">Campaign image <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="ml-3 text-xs" /> {imageFile?.name || "No file selected"}</label>
+        <div className="grid gap-4 sm:grid-cols-2"><input value={actionLabel} onChange={(e) => setActionLabel(e.target.value)} placeholder="Action label, e.g. View store" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white" /><select value={actionUrl} onChange={(e) => setActionUrl(e.target.value)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"><option value="">No action</option><optgroup label="App tabs"><option value="tab:Home">Home</option><option value="tab:Explore">Explore</option><option value="tab:Store">Store</option><option value="tab:Chats">Chats</option><option value="tab:Profile">Profile</option></optgroup><optgroup label="Games"><option value="native://checkers">Checkers</option><option value="native://carrom">Carrom</option><option value="native://chess">Chess</option><option value="native://snooker">Snooker</option><option value="native://pool">Pool</option><option value="native://uno">UNO</option><option value="native://tictactoe">Tic-Tac-Toe</option><option value="native://glitch-deck">Glitch Deck</option></optgroup><optgroup label="Dedicated pages & features"><option value="/tournaments">Tournaments</option><option value="tab:Home">Daily rewards</option><option value="tab:Store">Cosmetics shop</option><option value="tab:Explore">Game catalogue</option></optgroup></select></div>
         <div className="flex flex-wrap items-center gap-5 text-xs text-neutral-300"><label>Skip timer <input type="number" min="0" max="30" value={seconds} onChange={(e) => setSeconds(Number(e.target.value))} className="ml-2 w-16 rounded-lg bg-white/10 p-2 text-white" /> sec</label><label><input type="checkbox" checked={everyLaunch} onChange={(e) => setEveryLaunch(e.target.checked)} /> Show every launch</label><label><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active now</label></div>
         <button disabled={saving} className="rounded-xl bg-[#CCFF00] px-5 py-3 text-xs font-black text-black disabled:opacity-50">{saving ? "Saving..." : "Create splash campaign"}</button>
       </form>
