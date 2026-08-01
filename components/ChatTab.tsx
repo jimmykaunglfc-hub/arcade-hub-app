@@ -463,9 +463,9 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                     className="w-full p-4 flex items-center justify-between transition-all hover:bg-surface-variant text-left active:bg-surface-variant"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full overflow-hidden relative bg-surface-container-high shrink-0 border border-surface-container-highest">
-                        <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover" unoptimized />
-                        <div className={`absolute bottom-0 right-0 w-5 h-5 border-[3px] border-surface rounded-full shadow-[0_0_14px_rgba(204,255,0,0.8)] ${isOnline(friend) ? "bg-primary" : "bg-on-surface-variant"}`}></div>
+                      <div className="w-12 h-12 rounded-full overflow-visible relative bg-surface-container-high shrink-0 border border-surface-container-highest">
+                        <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover rounded-full" unoptimized />
+                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 border-[3px] border-surface rounded-full shadow-[0_0_14px_rgba(204,255,0,0.8)] ${isOnline(friend) ? "bg-primary" : "bg-on-surface-variant"}`}></div>
                       </div>
                       <div>
                         <h4 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">{friend.username}</h4>
