@@ -50,20 +50,45 @@ export default function CampaignSplash({ onAction }: { onAction: (actionUrl: str
   if (!campaign) return null;
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-end bg-black/75 p-4 backdrop-blur-md sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-label={campaign.title}>
-      <section className="w-full max-w-sm overflow-hidden rounded-[32px] border border-surface-container-highest bg-surface shadow-[0_24px_90px_rgba(0,0,0,0.50)]">
-        {campaign.image_url ? <img src={campaign.image_url} alt="" className="h-40 w-full object-cover" /> : <div className="flex h-28 items-center justify-center bg-[radial-gradient(circle_at_50%_0%,rgba(204,255,0,0.22),transparent_65%)]"><span className="material-symbols-outlined text-4xl text-primary">auto_awesome</span></div>}
-        <div className="p-6">
-          <div className="mb-3 flex items-center justify-between gap-3"><span className="rounded-full bg-primary-container px-3 py-1 font-caps text-[10px] font-black uppercase tracking-[0.16em] text-primary-fg">Live update</span><span className="font-mono text-xs font-bold text-on-surface-variant">{canSkip ? "Ready" : `\${remaining}s`}</span></div>
-          <h2 className="font-headline text-2xl font-black tracking-tight text-on-surface">{campaign.title}</h2>
-          {campaign.message && <p className="mt-2 text-sm leading-6 text-on-surface-variant">{campaign.message}</p>}
-          <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-surface-container-highest"><div className="h-full rounded-full bg-primary transition-all duration-1000" style={{ width: `\${progress}%` }} /></div>
-          <div className="mt-5 grid gap-2">
-            {campaign.action_url && campaign.action_label && <button type="button" onClick={() => { const actionUrl = campaign.action_url || ""; dismiss(); onAction(actionUrl); }} className="rounded-2xl bg-primary px-4 py-3.5 font-headline text-sm font-black text-on-primary transition active:scale-[0.98]">{campaign.action_label}</button>}
-            <button type="button" disabled={!canSkip} onClick={dismiss} className="rounded-2xl border border-surface-container-highest px-4 py-3 text-xs font-bold text-on-surface-variant transition hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-45">{canSkip ? "Skip" : `Skip in \${remaining}s`}</button>
-          </div>
+    <div className="fixed inset-0 z-[500] min-h-[100dvh] overflow-hidden bg-[#070b13]" role="dialog" aria-modal="true" aria-label={campaign.title}>
+      {campaign.image_url && <img src={campaign.image_url} alt="" className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-20 blur-2xl" />}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_42%,rgba(35,52,83,0.62),rgba(7,11,19,0.90)_54%,#070b13_100%)]" />
+      <div
+        className="relative flex h-[100dvh] min-h-[100dvh] w-full flex-col px-6"
+        style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
+      >
+        <div className="flex h-12 shrink-0 justify-end">
+          <button type="button" disabled={!canSkip} onClick={dismiss} className="rounded-full border border-white/15 bg-black/25 px-4 py-2 text-xs font-bold text-white/80 backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-75">
+            {canSkip ? "Skip" : `Skip ${remaining}s`}
+          </button>
         </div>
-      </section>
+
+        <main className="flex flex-1 flex-col items-center justify-center pb-4 text-center">
+          {campaign.image_url ? (
+            <div className="mb-8 flex h-44 w-full max-w-[18rem] items-center justify-center">
+              <img src={campaign.image_url} alt="" className="h-full w-full object-contain drop-shadow-[0_18px_32px_rgba(0,0,0,0.45)]" />
+            </div>
+          ) : (
+            <div className="mb-8 flex h-28 w-28 items-center justify-center rounded-[28px] border border-white/10 bg-surface/80 shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
+              <span className="material-symbols-outlined text-5xl text-primary">auto_awesome</span>
+            </div>
+          )}
+          <span className="rounded-full bg-primary-container px-3 py-1 font-caps text-[10px] font-black uppercase tracking-[0.18em] text-primary-fg">Live update</span>
+          <h2 className="mt-5 font-headline text-3xl font-black tracking-tight text-on-surface">{campaign.title}</h2>
+          {campaign.message && <p className="mt-3 max-w-sm text-base leading-7 text-on-surface-variant">{campaign.message}</p>}
+        </main>
+
+        <footer className="w-full shrink-0">
+          <div className="mb-5 h-1.5 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-primary transition-all duration-1000" style={{ width: progress + "%" }} /></div>
+          {campaign.action_url && campaign.action_label ? (
+            <button type="button" onClick={() => { const actionUrl = campaign.action_url || ""; dismiss(); onAction(actionUrl); }} className="w-full rounded-2xl bg-primary px-5 py-4 font-headline text-base font-black text-on-primary shadow-[0_10px_32px_rgba(204,255,0,0.20)] transition active:scale-[0.98]">
+              {campaign.action_label}
+            </button>
+          ) : (
+            <button type="button" disabled={!canSkip} onClick={dismiss} className="w-full rounded-2xl border border-surface-container-highest bg-surface/70 px-5 py-4 font-headline text-base font-black text-on-surface transition disabled:opacity-50">Continue</button>
+          )}
+        </footer>
+      </div>
     </div>
   );
 }

@@ -11,8 +11,10 @@ type Broadcast = {
   action_label: string | null;
   category: "general" | "system" | "promotion";
   audience: "all" | "ranked" | "vip";
-  show_in_app_dialog: boolean;
+  show_in_app_dialog?: boolean;
 };
+
+const SEEN_BROADCAST_KEY = "joeyoke_seen_in_app_broadcast";
 
 export default function InAppBroadcastDialog({
   points,
@@ -26,19 +28,38 @@ export default function InAppBroadcastDialog({
   const [broadcast, setBroadcast] = useState<Broadcast | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+    const isEligible = (item: Broadcast) => item.audience === "all" || (item.audience === "ranked" && points > 0) || (item.audience === "vip" && gems > 0);
+    const display = (item: Broadcast) => {
+      if (isMounted && item.show_in_app_dialog !== false && isEligible(item)) setBroadcast(item);
+    };
+
+    const loadLatestUnseenBroadcast = async () => {
+      const { data } = await supabase
+        .from("push_broadcasts")
+        .select("id,title,message,action_url,action_label,category,audience,show_in_app_dialog")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      const latestEligible = (data as Broadcast[] | null)?.find((item) => item.show_in_app_dialog !== false && isEligible(item));
+      if (latestEligible && window.localStorage.getItem(SEEN_BROADCAST_KEY) !== latestEligible.id) display(latestEligible);
+    };
+
+    void loadLatestUnseenBroadcast();
     const channel = supabase
       .channel("in_app_broadcast_dialog")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "push_broadcasts" }, (event) => {
-        const item = event.new as Broadcast;
-        const eligible = item.audience === "all" || (item.audience === "ranked" && points > 0) || (item.audience === "vip" && gems > 0);
-        if (item.show_in_app_dialog !== false && eligible) setBroadcast(item);
+        display(event.new as Broadcast);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { isMounted = false; supabase.removeChannel(channel); };
   }, [points, gems]);
 
   if (!broadcast) return null;
   const icon = broadcast.category === "promotion" ? "redeem" : broadcast.category === "system" ? "settings_suggest" : "campaign";
+  const dismiss = () => {
+    window.localStorage.setItem(SEEN_BROADCAST_KEY, broadcast.id);
+    setBroadcast(null);
+  };
 
   return (
     <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/60 p-5 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="broadcast-title">
@@ -54,8 +75,8 @@ export default function InAppBroadcastDialog({
           </div>
           <p className="mt-4 text-sm leading-6 text-on-surface-variant">{broadcast.message}</p>
           <div className="mt-6 grid gap-2">
-            {broadcast.action_url && <button type="button" onClick={() => { const action = broadcast.action_url || ""; setBroadcast(null); onAction(action); }} className="rounded-2xl bg-primary px-4 py-3.5 font-headline text-sm font-black text-on-primary active:scale-[0.98]">{broadcast.action_label || "Open"}</button>}
-            <button type="button" onClick={() => setBroadcast(null)} className="rounded-2xl border border-surface-container-highest px-4 py-3 text-xs font-bold text-on-surface-variant hover:bg-surface-container-high">Dismiss</button>
+            {broadcast.action_url && <button type="button" onClick={() => { const action = broadcast.action_url || ""; dismiss(); onAction(action); }} className="rounded-2xl bg-primary px-4 py-3.5 font-headline text-sm font-black text-on-primary active:scale-[0.98]">{broadcast.action_label || "Open"}</button>}
+            <button type="button" onClick={dismiss} className="rounded-2xl border border-surface-container-highest px-4 py-3 text-xs font-bold text-on-surface-variant hover:bg-surface-container-high">Dismiss</button>
           </div>
         </div>
       </section>
