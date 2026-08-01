@@ -328,7 +328,7 @@ export default function Home() {
         className={
           playingGame
             ? "hidden"
-            : "fixed inset-0 flex flex-col bg-background text-on-background font-body overflow-hidden transition-colors duration-300"
+            : "fixed inset-0 flex flex-col w-full max-w-full bg-background text-on-background font-body overflow-hidden transition-colors duration-300"
         }
       >
         {/* HEADER */}
@@ -397,7 +397,7 @@ export default function Home() {
 
         {/* MAIN CONTENT AREA */}
         <main
-          className="flex-1 overflow-y-auto no-scrollbar px-5 w-full z-10"
+          className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar px-5 w-full z-10"
           style={{
             paddingTop: "calc(100px + env(safe-area-inset-top))",
             paddingBottom: "calc(100px + env(safe-area-inset-bottom))",

@@ -130,19 +130,19 @@ export default function NotificationsCenter({
       </div>
     );
   return (
-    <div className="space-y-4 pb-8 animate-fade-in">
+    <div className="space-y-4 pb-8 animate-fade-in min-w-0 max-w-full overflow-x-hidden">
       <div>
         <h2 className="font-headline text-xl font-black">Notifications</h2>
         <p className="text-xs text-on-surface-variant mt-1">
           Game activity, automated updates, and announcements from the team.
         </p>
       </div>
-      <div className="flex gap-2 overflow-x-auto no-scrollbar">
+      <div className="flex max-w-full min-w-0 gap-2 overflow-x-auto no-scrollbar touch-pan-x">
         {(["all", "general", "system", "promotion"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setCategory(tab)}
-            className={`rounded-full px-4 py-2 text-xs font-bold capitalize ${
+            className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold capitalize ${
               category === tab
                 ? "bg-primary text-on-primary"
                 : "bg-surface border border-surface-container-highest text-on-surface-variant"
