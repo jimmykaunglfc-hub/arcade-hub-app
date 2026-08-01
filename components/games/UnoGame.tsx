@@ -699,7 +699,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
       ))}
 
       {/* HEADER */}
-      <div className="w-full h-12 bg-[#18181b] border-b border-white/10 flex items-center justify-between px-4 shrink-0 shadow-md relative z-30 pt-safe">
+      <div className="w-full min-h-12 h-auto pb-2 bg-[#18181b] border-b border-white/10 flex items-center justify-between px-4 shrink-0 shadow-md relative z-30 pt-safe">
         <button onClick={handleExit} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition touch-manipulation">
            <span className="material-symbols-outlined text-sm">arrow_back</span>
         </button>

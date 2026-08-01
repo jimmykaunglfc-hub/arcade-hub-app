@@ -16,6 +16,7 @@ import {
   Coins,
   Gift,
   Megaphone,
+  Sparkles,
   BellRing,
   BarChart3,
   ShieldCheck,
@@ -98,6 +99,12 @@ const NAV_ITEMS = [
     label: "Ads & Banners",
     href: "/joeyokeadmin/ads",
     icon: Megaphone,
+  },
+  {
+    id: "splash-campaigns",
+    label: "Splash Campaigns",
+    href: "/joeyokeadmin/splash-campaigns",
+    icon: Sparkles,
   },
   {
     id: "notifications",

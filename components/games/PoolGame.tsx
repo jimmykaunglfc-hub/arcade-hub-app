@@ -1450,7 +1450,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     (currentActiveGroup === "Stripes" && remainingStripes === 0);
 
   return (
-    <div className="fixed inset-0 w-screen h-[100dvh] bg-[#030712] flex flex-col justify-between items-center overflow-hidden touch-none select-none z-[9999] p-2 md:p-3 text-white">
+    <div className="fixed inset-0 w-screen h-[100dvh] bg-[#030712] flex flex-col justify-between items-center overflow-hidden touch-none select-none z-[9999] p-2 md:p-3 pt-safe pb-safe text-white">
       
       {showNoPointsModal && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[99999] flex items-center justify-center p-6 animate-fade-in touch-none">

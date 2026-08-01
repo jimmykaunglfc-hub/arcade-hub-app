@@ -15,6 +15,8 @@ import ProfileTab from "../components/ProfileTab";
 import NotificationsCenter from "../components/NotificationsCenter";
 import GlobalInviteListener from "../components/GlobalInviteListener";
 import GlobalNotificationListener from "../components/GlobalNotificationListener";
+import CampaignSplash from "../components/CampaignSplash";
+import InAppBroadcastDialog from "../components/InAppBroadcastDialog";
 import JoeYokeLogo from "../components/JoeYokeLogo";
 
 import GamePlayer from "../components/GamePlayer";
@@ -82,7 +84,7 @@ export default function Home() {
       setSession(session);
       if (session?.user) {
         setMyUserId(session.user.id);
-        fetchLiveBalance(session.user.id);
+        void supabase.rpc("ensure_my_profile").then(() => fetchLiveBalance(session.user.id));
       }
       setCheckingAuth(false);
     });
@@ -93,7 +95,7 @@ export default function Home() {
       setSession(subscription ? session : null);
       if (session?.user) {
         setMyUserId(session.user.id);
-        fetchLiveBalance(session.user.id);
+        void supabase.rpc("ensure_my_profile").then(() => fetchLiveBalance(session.user.id));
       } else {
         setMyUserId(null);
         setUserPoints(0);
@@ -192,6 +194,17 @@ export default function Home() {
     }
   };
 
+  const handleDeepLink = (actionUrl: string) => {
+    const route = actionUrl.trim();
+    if (!route) return;
+    if (route.startsWith("native://")) { setPlayingGame(route); return; }
+    const tab = route.replace(/^tab:/i, "").toLowerCase();
+    const tabs: Record<string, string> = { home: "Home", explore: "Explore", store: "Store", chats: "Chats", chat: "Chats", profile: "Profile" };
+    if (tabs[tab]) { setActiveTab(tabs[tab]); setShowNotifications(false); return; }
+    if (route.startsWith("/")) window.location.assign(route);
+    else if (/^https?:\/\//i.test(route)) window.open(route, "_blank", "noopener,noreferrer");
+  };
+
   const toggleTheme = () => {
     if (isDarkMode) {
       document.documentElement.classList.remove("dark");
@@ -216,6 +229,8 @@ export default function Home() {
 
   return (
     <>
+      <CampaignSplash onAction={handleDeepLink} />
+      {session && <InAppBroadcastDialog points={userPoints} gems={userGems} onAction={handleDeepLink} />}
       {session && (
         <>
           <GlobalInviteListener

@@ -94,7 +94,7 @@ export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col w-full bg-[#09090b] font-sans text-white overscroll-none selection:bg-transparent touch-none animate-fade-in select-none">
+    <div className="fixed inset-0 z-[100] flex flex-col w-full bg-[#09090b] font-sans text-white overscroll-none selection:bg-transparent touch-none animate-fade-in select-none pt-safe pb-safe">
       
       {/* 1. PLAYER 2 ZONE (TOP HALF - ROTATED 180 DEG) */}
       <div

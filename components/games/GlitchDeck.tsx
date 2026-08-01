@@ -82,7 +82,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center w-full overscroll-none text-white selection:bg-transparent select-none font-sans">
       
       {/* 🎮 TOP HEADER CONTROL BAR */}
-      <header className="w-full h-14 bg-[#18181b]/90 backdrop-blur-md flex items-center justify-between px-4 border-b border-white/10 pt-safe z-30">
+      <header className="w-full min-h-14 h-auto pb-2 bg-[#18181b]/90 backdrop-blur-md flex items-center justify-between px-4 border-b border-white/10 pt-safe z-30">
         <button
           onClick={handleExit}
           className="flex items-center gap-1.5 text-xs font-bold text-neutral-400 hover:text-white transition-colors uppercase tracking-widest active:scale-95"

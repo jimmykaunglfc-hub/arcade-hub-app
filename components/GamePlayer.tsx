@@ -114,7 +114,7 @@ export default function GamePlayer({
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col animate-fade-in">
       {/* 🎮 Game Header Bar */}
-      <div className="h-12 bg-surface/90 backdrop-blur-md flex items-center justify-between px-4 border-b border-white/10 pt-safe">
+      <div className="h-auto min-h-12 pb-2 bg-surface/90 backdrop-blur-md flex items-center justify-between px-4 border-b border-white/10 pt-safe">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
           <span className="text-xs font-bold text-white tracking-widest uppercase">Playing</span>

@@ -51,16 +51,20 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
     clearFeedback();
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      const { data, error } = await supabase.auth.verifyOtp({
         email: email.trim(),
         token: otp.trim(),
         type: "email",
       });
 
       if (error) throw error;
+      if (data.session) {
+        const { error: profileError } = await supabase.rpc("ensure_my_profile");
+        if (profileError) throw profileError;
+      }
       onAuthSuccess();
-    } catch {
-      setErrorMsg("That code is invalid or has expired. Request a new one and try again.");
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "That code is invalid or has expired. Request a new one and try again.");
     } finally {
       setLoadingProvider(null);
     }
