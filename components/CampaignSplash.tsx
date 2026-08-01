@@ -41,6 +41,13 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
     return () => window.clearInterval(timer);
   }, [campaign, remaining]);
 
+  useEffect(() => {
+    if (!campaign || remaining > 0 || dismissed.current) return;
+    dismissed.current = true;
+    setCampaign(null);
+    onVisibilityChange(false);
+  }, [campaign, remaining, onVisibilityChange]);
+
   const dismiss = () => {
     if (!campaign || dismissed.current) return;
     dismissed.current = true;
@@ -60,7 +67,7 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
         style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
       >
         <div className="flex h-12 shrink-0 justify-end">
-          <button type="button" disabled={!canSkip} onClick={dismiss} className="rounded-full border border-white/15 bg-black/25 px-4 py-2 text-xs font-bold text-white/80 backdrop-blur-md disabled:cursor-not-allowed disabled:opacity-75">
+          <button type="button" onClick={dismiss} className="rounded-full border border-white/15 bg-black/25 px-4 py-2 text-xs font-bold text-white/80 backdrop-blur-md">
             {canSkip ? "Skip" : `Skip ${remaining}s`}
           </button>
         </div>
@@ -83,7 +90,7 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
               {campaign.action_label}
             </button>
           ) : (
-            <button type="button" disabled={!canSkip} onClick={dismiss} className="w-full rounded-2xl border border-surface-container-highest bg-surface/70 px-5 py-4 font-headline text-base font-black text-on-surface transition disabled:opacity-50">Continue</button>
+            <button type="button" onClick={dismiss} className="w-full rounded-2xl border border-surface-container-highest bg-surface/70 px-5 py-4 font-headline text-base font-black text-on-surface transition active:scale-[0.98]">Continue</button>
           )}
         </footer>
       </div>
