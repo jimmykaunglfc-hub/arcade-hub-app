@@ -38,6 +38,7 @@ export default function Home() {
   const { t } = useTranslation();
   const [session, setSession] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [splashVisible, setSplashVisible] = useState(true);
 
   const [activeTab, setActiveTab] = useState("Home");
 
@@ -226,20 +227,14 @@ export default function Home() {
   };
 
   if (checkingAuth) {
-    return (
-      <div className="fixed inset-0 bg-background flex items-center justify-center transition-colors duration-300">
-        <span className="text-xs font-bold text-on-surface-variant uppercase tracking-widest animate-pulse">
-          Syncing Session Matrix...
-        </span>
-      </div>
-    );
+    return <CampaignSplash onAction={handleDeepLink} onVisibilityChange={setSplashVisible} />;
   }
 
   return (
     <>
-      <CampaignSplash onAction={handleDeepLink} />
-      {session && <InAppBroadcastDialog points={userPoints} gems={userGems} onAction={handleDeepLink} />}
-      {session && (
+      <CampaignSplash onAction={handleDeepLink} onVisibilityChange={setSplashVisible} />
+      {session && !splashVisible && <InAppBroadcastDialog points={userPoints} gems={userGems} onAction={handleDeepLink} />}
+      {session && !splashVisible && (
         <>
           <GlobalInviteListener
             onAccept={(gameUrl, matchId) => {

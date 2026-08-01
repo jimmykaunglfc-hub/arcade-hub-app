@@ -14,8 +14,9 @@ type SplashCampaign = {
   show_every_launch: boolean;
 };
 
-export default function CampaignSplash({ onAction }: { onAction: (actionUrl: string) => void }) {
+export default function CampaignSplash({ onAction, onVisibilityChange }: { onAction: (actionUrl: string) => void; onVisibilityChange: (visible: boolean) => void }) {
   const [campaign, setCampaign] = useState<SplashCampaign | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [remaining, setRemaining] = useState(0);
   const dismissed = useRef(false);
 
@@ -23,15 +24,16 @@ export default function CampaignSplash({ onAction }: { onAction: (actionUrl: str
     let active = true;
     const loadCampaign = async () => {
       const { data } = await supabase.from("splash_campaigns").select("id, title, message, image_url, action_label, action_url, display_seconds, show_every_launch").order("created_at", { ascending: false }).limit(1).maybeSingle();
-      if (!active || !data) return;
-      const stored = localStorage.getItem("joeyoke_splash_campaign");
-      if (!data.show_every_launch && stored === data.id) return;
+      if (!active) return;
+      setIsLoading(false);
+      if (!data) { onVisibilityChange(false); return; }
       setCampaign(data as SplashCampaign);
       setRemaining(Math.max(0, Number(data.display_seconds) || 0));
+      onVisibilityChange(true);
     };
     void loadCampaign();
     return () => { active = false; };
-  }, []);
+  }, [onVisibilityChange]);
 
   useEffect(() => {
     if (!campaign || remaining <= 0) return;
@@ -42,17 +44,17 @@ export default function CampaignSplash({ onAction }: { onAction: (actionUrl: str
   const dismiss = () => {
     if (!campaign || dismissed.current) return;
     dismissed.current = true;
-    localStorage.setItem("joeyoke_splash_campaign", campaign.id);
     setCampaign(null);
+    onVisibilityChange(false);
   };
   const canSkip = remaining === 0;
   const progress = useMemo(() => !campaign || campaign.display_seconds <= 0 ? 100 : Math.min(100, ((campaign.display_seconds - remaining) / campaign.display_seconds) * 100), [campaign, remaining]);
-  if (!campaign) return null;
+  if (!campaign) return isLoading ? <div className="fixed inset-0 z-[500] min-h-[100dvh] bg-[#070b13]" aria-hidden="true" /> : null;
 
   return (
     <div className="fixed inset-0 z-[500] min-h-[100dvh] overflow-hidden bg-[#070b13]" role="dialog" aria-modal="true" aria-label={campaign.title}>
-      {campaign.image_url && <img src={campaign.image_url} alt="" className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-20 blur-2xl" />}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_42%,rgba(35,52,83,0.62),rgba(7,11,19,0.90)_54%,#070b13_100%)]" />
+      {campaign.image_url && <img src={campaign.image_url} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover" />}
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,8,14,0.26)_0%,rgba(4,8,14,0.34)_38%,rgba(4,8,14,0.94)_100%)]" />
       <div
         className="relative flex h-[100dvh] min-h-[100dvh] w-full flex-col px-6"
         style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
@@ -64,11 +66,7 @@ export default function CampaignSplash({ onAction }: { onAction: (actionUrl: str
         </div>
 
         <main className="flex flex-1 flex-col items-center justify-center pb-4 text-center">
-          {campaign.image_url ? (
-            <div className="mb-8 flex h-44 w-full max-w-[18rem] items-center justify-center">
-              <img src={campaign.image_url} alt="" className="h-full w-full object-contain drop-shadow-[0_18px_32px_rgba(0,0,0,0.45)]" />
-            </div>
-          ) : (
+          {!campaign.image_url && (
             <div className="mb-8 flex h-28 w-28 items-center justify-center rounded-[28px] border border-white/10 bg-surface/80 shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
               <span className="material-symbols-outlined text-5xl text-primary">auto_awesome</span>
             </div>
