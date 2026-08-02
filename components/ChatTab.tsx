@@ -15,6 +15,18 @@ interface Friend {
 interface FriendRequest extends Friend { requestId: string; }
 interface ChatGroup { id: string; name: string; description: string; created_by: string; }
 
+type ChatNetworkSnapshot = {
+  userId: string;
+  username: string;
+  friends: Friend[];
+  pendingRequests: FriendRequest[];
+  groups: ChatGroup[];
+  joinedGroupIds: string[];
+  unreadByFriend: Record<string, number>;
+};
+
+let chatNetworkSnapshot: ChatNetworkSnapshot | null = null;
+
 interface DirectMessage {
   id: string;
   sender_id: string;
@@ -32,6 +44,17 @@ interface ChatTabProps {
   userId: string | null;
   onPlay?: (url: string, matchId: string) => void;
 }
+
+type ChallengeGame =
+  | "checkers" | "carrom" | "chess" | "snooker" | "pool" | "uno" | "tictactoe"
+  | "cup_pong" | "four_in_a_row" | "bingo" | "ping_pong";
+
+const NEW_CHALLENGE_GAMES: Array<{ type: Extract<ChallengeGame, "cup_pong" | "four_in_a_row" | "bingo" | "ping_pong">; name: string; icon: string; accent: string }> = [
+  { type: "cup_pong", name: "Cup Pong", icon: "sports_baseball", accent: "text-orange-400" },
+  { type: "four_in_a_row", name: "Four in a Row", icon: "view_column", accent: "text-sky-400" },
+  { type: "bingo", name: "Bingo", icon: "casino", accent: "text-fuchsia-400" },
+  { type: "ping_pong", name: "Ping Pong", icon: "table_restaurant", accent: "text-emerald-400" },
+];
 
 const INITIAL_BOARD = [
   [0, 2, 0, 2, 0, 2, 0, 2], 
@@ -93,13 +116,18 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
     const profileIds = [...new Set([...accepted.map((link) => link.requester_id === id ? link.receiver_id : link.requester_id), ...requested.map((link) => link.requester_id)])];
     const { data: profiles } = profileIds.length ? await supabase.from("profiles").select("id, username, avatar_url, last_seen_at").in("id", profileIds) : { data: [] as Friend[] };
     const profileById = new Map((profiles || []).map((profile) => [profile.id, { ...profile, is_online: Boolean(profile.last_seen_at && Date.now() - new Date(profile.last_seen_at).getTime() < 3 * 60 * 1000) }]));
-    setFriends((accepted.map((link) => profileById.get(link.requester_id === id ? link.receiver_id : link.requester_id)).filter(Boolean) as Friend[]).sort((a, b) => Number(Boolean(b.is_online)) - Number(Boolean(a.is_online)) || a.username.localeCompare(b.username)));
-    setPendingRequests(requested.map((link) => ({ ...(profileById.get(link.requester_id) as Friend), requestId: link.id })).filter((request) => request.id));
-    setGroups((allGroups || []) as ChatGroup[]);
-    setJoinedGroupIds((memberships || []).map((membership) => membership.group_id));
+    const resolvedFriends = (accepted.map((link) => profileById.get(link.requester_id === id ? link.receiver_id : link.requester_id)).filter(Boolean) as Friend[]).sort((a, b) => Number(Boolean(b.is_online)) - Number(Boolean(a.is_online)) || a.username.localeCompare(b.username));
+    const resolvedRequests = requested.map((link) => ({ ...(profileById.get(link.requester_id) as Friend), requestId: link.id })).filter((request) => request.id);
+    const resolvedGroups = (allGroups || []) as ChatGroup[];
+    const resolvedGroupIds = (memberships || []).map((membership) => membership.group_id);
+    setFriends(resolvedFriends);
+    setPendingRequests(resolvedRequests);
+    setGroups(resolvedGroups);
+    setJoinedGroupIds(resolvedGroupIds);
     const counts: Record<string, number> = {};
     (unread || []).forEach((message) => { counts[message.sender_id] = (counts[message.sender_id] || 0) + 1; });
     setUnreadByFriend(counts);
+    chatNetworkSnapshot = { userId: id, username: myProfile?.username || "", friends: resolvedFriends, pendingRequests: resolvedRequests, groups: resolvedGroups, joinedGroupIds: resolvedGroupIds, unreadByFriend: counts };
     setNetworkLoading(false);
   }, []);
 
@@ -109,7 +137,18 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       if (!user) return;
       if (userId && userId !== user.id) return;
       setMyUserId(user.id);
-      await loadNetwork(user.id);
+      if (chatNetworkSnapshot?.userId === user.id) {
+        setMyUsername(chatNetworkSnapshot.username);
+        setFriends(chatNetworkSnapshot.friends);
+        setPendingRequests(chatNetworkSnapshot.pendingRequests);
+        setGroups(chatNetworkSnapshot.groups);
+        setJoinedGroupIds(chatNetworkSnapshot.joinedGroupIds);
+        setUnreadByFriend(chatNetworkSnapshot.unreadByFriend);
+        setNetworkLoading(false);
+        void loadNetwork(user.id);
+      } else {
+        await loadNetwork(user.id);
+      }
       await supabase.rpc("touch_chat_presence");
     };
     initData();
@@ -208,7 +247,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   };
 
   const handleSendGameInvite = async (
-    gameType: "checkers" | "carrom" | "chess" | "snooker" | "pool" | "uno" | "tictactoe",
+    gameType: ChallengeGame,
     mode?: "freestyle" | "classic"
   ) => {
     setShowGameSelector(false);
@@ -321,7 +360,20 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
         invite_status: "pending"
       }]);
     }
-    else if (gameType === "carrom" && mode) {
+    else if (gameType !== "carrom") {
+      const game = NEW_CHALLENGE_GAMES.find((candidate) => candidate.type === gameType);
+      if (!game) return;
+      await supabase.from("direct_messages").insert([{
+        sender_id: myUserId,
+        receiver_id: activeChat.id,
+        content: `Challenged you to ${game.name}`,
+        message_type: "game_invite",
+        match_id: crypto.randomUUID(),
+        game_name: game.name,
+        invite_status: "pending",
+      }]);
+    }
+    if (gameType === "carrom" && mode) {
       const generatedUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
         const r = (Math.random() * 16) | 0;
         const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -537,7 +589,13 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   // VIEW 2: FULL COMPACT CONSOLE ACTIVE THREAD
   // ============================================================================
   return (
-    <div className="w-full flex flex-col h-[calc(100vh-216px)] animate-fade-in text-on-background relative">
+    <div
+      className="fixed inset-x-0 z-20 flex min-h-0 flex-col gap-2 overflow-hidden px-5 animate-fade-in text-on-background"
+      style={{
+        top: "calc(100px + env(safe-area-inset-top))",
+        bottom: "calc(76px + env(safe-area-inset-bottom))",
+      }}
+    >
       
       {/* 🎮 CHALLENGE CHOOSE FLOATING INTERFACE */}
       {showGameSelector && (
@@ -626,6 +684,17 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                    </div>
                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
+                {NEW_CHALLENGE_GAMES.map((game) => (
+                  <button key={game.type} onClick={() => handleSendGameInvite(game.type)} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center ${game.accent}`}>
+                        <span className="material-symbols-outlined text-[20px]">{game.icon}</span>
+                      </div>
+                      <h4 className="font-headline text-xs font-bold text-on-surface">{game.name}</h4>
+                    </div>
+                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
+                  </button>
+                ))}
               </>
             )}
 
@@ -683,7 +752,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       </div>
 
       {/* 💬 MESSAGE CHANNEL CORE VIEWPORTS */}
-      <div className="flex-1 w-full overflow-y-auto px-2 py-4 space-y-5 no-scrollbar relative">
+      <div className="relative min-h-0 flex-1 w-full overflow-y-auto overscroll-contain px-2 py-4 space-y-5 no-scrollbar">
         {chatLoading && <div className="py-8 text-center text-xs font-bold text-on-surface-variant animate-pulse">Loading conversation…</div>}
         {!chatLoading && messages.map((msg) => {
           const isMe = msg.sender_id === myUserId;
@@ -693,8 +762,9 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
           const isChess = msg.game_name?.includes("Chess");
           const isSnooker = msg.game_name?.includes("Snooker");
           const isPool = msg.game_name?.includes("Pool");
+          const newChallenge = NEW_CHALLENGE_GAMES.find((game) => game.name === msg.game_name);
 
-          const gameIcon = isUno 
+          const gameIcon = newChallenge?.icon || (isUno 
             ? "style" 
             : isTicTacToe 
               ? "grid_3x3" 
@@ -704,10 +774,12 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                   ? "psychology" 
             : isSnooker || isPool
                     ? "sports_bar" 
-                    : "grid_4x4";
+                    : "grid_4x4");
           
-          const targetUrl = isUno 
-            ? "native://uno"
+          const targetUrl = newChallenge
+            ? `native://${newChallenge.type}`
+            : isUno 
+              ? "native://uno"
             : isTicTacToe
               ? "native://tictactoe"
               : msg.game_name?.includes("Checkers") 
@@ -741,8 +813,10 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                   <div className="w-56 rounded-[20px] shadow-sm border border-surface-container-highest p-4 flex flex-col items-center gap-2 text-center bg-surface">
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-background border border-surface-container-highest">
                       <span className={`material-symbols-outlined text-[24px] ${
-                        isUno 
-                          ? "text-rose-500" 
+                        newChallenge
+                          ? newChallenge.accent
+                          : isUno 
+                            ? "text-rose-500" 
                           : isTicTacToe 
                             ? "text-amber-400" 
                             : isCarrom 

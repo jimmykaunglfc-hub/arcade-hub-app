@@ -8,12 +8,6 @@ import { supabase } from "../lib/supabaseClient";
 // 👇 Ranking utilities
 import { getHoursPlayed } from "../lib/rankingUtils";
 
-import HomeTab from "../components/HomeTab";
-import GamesTab from "../components/GamesTab";
-import ChatTab from "../components/ChatTab";
-import ShopTab from "../components/ShopTab";
-import ProfileTab from "../components/ProfileTab";
-import NotificationsCenter from "../components/NotificationsCenter";
 import GlobalInviteListener from "../components/GlobalInviteListener";
 import GlobalNotificationListener from "../components/GlobalNotificationListener";
 import CampaignSplash from "../components/CampaignSplash";
@@ -41,6 +35,16 @@ const Bingo = dynamic(() => import("../components/games/Bingo").then((mod) => mo
 const PingPong = dynamic(() => import("../components/games/PingPong"), { ssr: false });
 import AuthView from "../components/AuthView";
 import { useTranslation } from "../lib/i18n";
+
+const TabLoading = () => <div className="min-h-[260px] animate-pulse rounded-[24px] bg-surface-container/60" aria-label="Loading" />;
+// Tabs mount only when visited, keeping game, shop, chat, and profile code out
+// of the launch bundle. Once visited, Next keeps their downloaded chunks cached.
+const HomeTab = dynamic(() => import("../components/HomeTab"), { ssr: false, loading: TabLoading });
+const GamesTab = dynamic(() => import("../components/GamesTab"), { ssr: false, loading: TabLoading });
+const ChatTab = dynamic(() => import("../components/ChatTab"), { ssr: false, loading: TabLoading });
+const ShopTab = dynamic(() => import("../components/ShopTab"), { ssr: false, loading: TabLoading });
+const ProfileTab = dynamic(() => import("../components/ProfileTab"), { ssr: false, loading: TabLoading });
+const NotificationsCenter = dynamic(() => import("../components/NotificationsCenter"), { ssr: false, loading: TabLoading });
 
 export default function Home() {
   const { t } = useTranslation();
