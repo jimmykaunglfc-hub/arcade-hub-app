@@ -54,8 +54,38 @@ export default function ShopTab({ userId }: ShopTabProps) {
     const { data: inventory } = await supabase
       .from("user_inventory")
       .select("*")
-      .eq("user_id", userId);
-    if (inventory) setUserInventory(inventory);
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (inventory) {
+      // Repair legacy records that were allowed to equip duplicates. Keep the
+      // newest item in each cosmetic type and persist the correction.
+      const itemsById = new Map((storeItems || []).map((item) => [item.id, item]));
+      const seenTypes = new Set<string>();
+      const duplicateIds = inventory
+        .filter((entry) => entry.is_equipped)
+        .filter((entry) => {
+          const type = itemsById.get(entry.cosmetic_id)?.cosmetic_type || "game_cosmetic";
+          if (seenTypes.has(type)) return true;
+          seenTypes.add(type);
+          return false;
+        })
+        .map((entry) => entry.id);
+      if (duplicateIds.length) {
+        const { error } = await supabase
+          .from("user_inventory")
+          .update({ is_equipped: false })
+          .eq("user_id", userId)
+          .in("id", duplicateIds);
+        if (!error) {
+          const duplicates = new Set(duplicateIds);
+          setUserInventory(inventory.map((entry) => duplicates.has(entry.id) ? { ...entry, is_equipped: false } : entry));
+        } else {
+          setUserInventory(inventory);
+        }
+      } else {
+        setUserInventory(inventory);
+      }
+    }
 
     // 3. Fetch Profile Last Spin and the admin-managed wheel display.
     const [{ data: profile }, { data: rewards }] = await Promise.all([
@@ -169,26 +199,10 @@ export default function ShopTab({ userId }: ShopTabProps) {
       } else {
         // Cosmetics occupy a type slot. A card background and an avatar border
         // may coexist, but a second item of the same type replaces the first.
-        const { data: cosmetic } = await supabase
-          .from("cosmetics")
-          .select("game_category")
-          .eq("id", item.id)
-          .maybeSingle();
-        const category = cosmetic?.game_category || item.game_category;
-        const matchingCategories = ["profile_card", "profile_card_theme"].includes(category)
-          ? ["profile_card", "profile_card_theme"]
-          : ["avatar_frame", "profile_avatar_frame", "avatar_border"].includes(category)
-            ? ["avatar_frame", "profile_avatar_frame", "avatar_border"]
-            : [category];
-        const { data: sameTypeCosmetics, error: typeError } = await supabase
-          .from("cosmetics")
-          .select("id")
-          .in("game_category", matchingCategories);
-        if (typeError) {
-          console.error("Unable to locate matching cosmetic type", typeError);
-          return;
-        }
-        const sameTypeIds = (sameTypeCosmetics || []).map((entry) => entry.id);
+        const cosmeticType = item.cosmetic_type || "game_cosmetic";
+        const sameTypeIds = dbStoreItems
+          .filter((storeItem) => (storeItem.cosmetic_type || "game_cosmetic") === cosmeticType)
+          .map((storeItem) => storeItem.id);
         const { error: unequipError } = await supabase
           .from("user_inventory")
           .update({ is_equipped: false })

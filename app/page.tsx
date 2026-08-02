@@ -443,19 +443,23 @@ export default function Home() {
 
         {/* MAIN CONTENT AREA */}
         <main
-          className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar px-5 w-full z-10"
+          className={`flex-1 min-w-0 overflow-x-hidden px-5 w-full z-10 ${showNotifications ? "overflow-hidden" : "overflow-y-auto no-scrollbar"}`}
           style={{
             paddingTop: "calc(100px + env(safe-area-inset-top))",
-            paddingBottom: "calc(100px + env(safe-area-inset-bottom))",
+            paddingBottom: showNotifications
+              ? "env(safe-area-inset-bottom)"
+              : "calc(100px + env(safe-area-inset-bottom))",
           }}
         >
           {showNotifications ? (
-            <NotificationsCenter
-              userId={myUserId}
-              points={userPoints}
-              gems={userGems}
-              onBack={() => setShowNotifications(false)}
-            />
+            <div className="h-full min-h-0">
+              <NotificationsCenter
+                userId={myUserId}
+                points={userPoints}
+                gems={userGems}
+                onBack={() => setShowNotifications(false)}
+              />
+            </div>
           ) : !session &&
             (activeTab === "Chats" ||
               activeTab === "Store" ||
