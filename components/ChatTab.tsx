@@ -117,16 +117,11 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
     const accepted = (links || []).filter((link) => link.status === "accepted");
     const requested = (links || []).filter((link) => link.status === "pending" && link.receiver_id === id);
     const profileIds = [...new Set([...accepted.map((link) => link.requester_id === id ? link.receiver_id : link.requester_id), ...requested.map((link) => link.requester_id)])];
-    const [{ data: profiles }, { data: inventory }, { data: storeItems }] = await Promise.all([
+    const [{ data: profiles }, publicCards] = await Promise.all([
       profileIds.length ? supabase.from("profiles").select("id, username, avatar_url, last_seen_at").in("id", profileIds) : Promise.resolve({ data: [] as Friend[] }),
-      profileIds.length ? supabase.from("user_inventory").select("user_id, cosmetic_id, is_equipped").in("user_id", profileIds).eq("is_equipped", true) : Promise.resolve({ data: [] as any[] }),
-      supabase.from("store_items").select("id, image_url, cosmetic_type"),
+      Promise.all(profileIds.map((userId) => supabase.rpc("get_public_profile_card", { target_user_id: userId }).single())),
     ]);
-    const itemById = new Map((storeItems || []).map((item) => [item.id, item]));
-    const frameByUser = new Map((inventory || []).flatMap((entry) => {
-      const item = itemById.get(entry.cosmetic_id);
-      return item?.cosmetic_type === "avatar_frame" ? [[entry.user_id, item.image_url] as [string, string]] : [];
-    }));
+    const frameByUser = new Map(publicCards.flatMap(({ data }) => data ? [[(data as { user_id: string; avatar_frame_url: string | null }).user_id, (data as { avatar_frame_url: string | null }).avatar_frame_url] as [string, string | null]] : []));
     const profileById = new Map((profiles || []).map((profile) => [profile.id, { ...profile, avatar_frame_url: frameByUser.get(profile.id) || null, is_online: Boolean(profile.last_seen_at && Date.now() - new Date(profile.last_seen_at).getTime() < 3 * 60 * 1000) }]));
     const resolvedFriends = (accepted.map((link) => profileById.get(link.requester_id === id ? link.receiver_id : link.requester_id)).filter(Boolean) as Friend[]).sort((a, b) => Number(Boolean(b.is_online)) - Number(Boolean(a.is_online)) || a.username.localeCompare(b.username));
     const resolvedRequests = requested.map((link) => ({ ...(profileById.get(link.requester_id) as Friend), requestId: link.id })).filter((request) => request.id);
@@ -734,8 +729,8 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       )}
 
       {/* 📞 HEADER CONSOLE BAR ROW */}
-      <div className="shrink-0 w-full bg-surface border border-surface-container-highest rounded-[24px] p-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
+      <div className="shrink-0 w-full bg-surface border border-surface-container-highest rounded-[24px] p-3 flex items-center gap-2 shadow-sm">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <button 
             onClick={() => setActiveView("hub")} 
             className="w-10 h-10 rounded-[14px] bg-background border border-surface-container-highest hover:bg-surface-variant text-on-surface flex items-center justify-center transition-transform active:scale-95"
@@ -743,27 +738,24 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
           </button>
           
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden relative bg-surface-container-high border border-surface-container-highest">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="relative h-10 w-10 shrink-0 rounded-full bg-surface-container-high">
               <Image src={activeChat?.avatar_url || ""} alt="User" fill className="object-cover" unoptimized />
               {activeChat?.avatar_frame_url && <Image src={activeChat.avatar_frame_url} alt="" fill className="pointer-events-none scale-[1.2] object-contain" unoptimized />}
             </div>
-            <div>
-              <h3 className="font-headline text-sm font-bold text-on-surface leading-tight">{activeChat?.username}</h3>
-              <span className={`font-caps text-[11px] font-black uppercase tracking-[0.12em] flex items-center gap-2 mt-1 ${activeChat && isOnline(activeChat) ? "text-primary" : "text-on-surface-variant"}`}>
+            <div className="min-w-0">
+              <h3 className="truncate font-headline text-sm font-bold text-on-surface leading-tight">{activeChat?.username}</h3>
+              <span className={`font-caps text-[9px] font-black uppercase tracking-[0.12em] flex items-center gap-1 mt-1 ${activeChat && isOnline(activeChat) ? "text-primary" : "text-on-surface-variant"}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${activeChat && isOnline(activeChat) ? "bg-primary animate-pulse" : "bg-on-surface-variant"}`}></span> {activeChat && isOnline(activeChat) ? "Comms online" : "Offline"}
               </span>
             </div>
           </div>
         </div>
 
-        <button 
-          onClick={() => setActiveView("hub")}
-          className="font-headline text-[10px] font-bold text-red-500 bg-red-500/10 px-4 py-2 rounded-xl hover:bg-red-500/20 active:scale-95 transition-all"
-        >
-          Quit Chat
-        </button>
-        <button onClick={() => activeChat && setViewingProfileId(activeChat.id)} className="ml-2 rounded-xl bg-surface-container-high px-3 py-2 text-[10px] font-bold text-primary">View Profile</button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button onClick={() => activeChat && setViewingProfileId(activeChat.id)} aria-label="View profile" className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container-high text-primary"><span className="material-symbols-outlined text-[20px]">person</span></button>
+          <button onClick={() => setActiveView("hub")} aria-label="Quit chat" className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 text-red-500"><span className="material-symbols-outlined text-[20px]">close</span></button>
+        </div>
       </div>
 
       {/* 💬 MESSAGE CHANNEL CORE VIEWPORTS */}

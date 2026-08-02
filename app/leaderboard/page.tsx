@@ -18,12 +18,15 @@ export default function LeaderboardPage() {
       .then(({ data }) => setPlayers((data || []) as Player[]));
   }, []);
 
-  return <main className="min-h-[100dvh] bg-background px-4 pb-8 text-on-background" style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}>
-    <div className="mx-auto max-w-xl">
-      <button onClick={() => router.back()} className="mb-5 text-sm font-bold text-primary">← Back</button>
-      <h1 className="font-headline text-3xl font-black">Global Leaderboard</h1>
-      <p className="mt-1 text-sm text-on-surface-variant">Top 50 players by points</p>
-      <div className="mt-5 overflow-hidden rounded-[24px] border border-surface-container-highest bg-surface divide-y divide-surface-variant">
+  return <main className="h-[100dvh] overflow-hidden bg-background px-4 text-on-background" style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+    <div className="mx-auto flex h-full max-w-xl min-h-0 flex-col">
+      <header className="shrink-0 border-b border-surface-container-highest bg-background pb-4">
+        <button onClick={() => router.back()} className="mb-4 text-sm font-bold text-primary">← Back</button>
+        <h1 className="font-headline text-3xl font-black">Global Leaderboard</h1>
+        <p className="mt-1 text-sm text-on-surface-variant">Top 50 players by points</p>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4 no-scrollbar">
+      <div className="overflow-hidden rounded-[24px] border border-surface-container-highest bg-surface divide-y divide-surface-variant">
         {players.map((player, index) => <div key={player.id} className="flex items-center gap-3 p-3">
           <b className="w-8 text-center text-primary">#{index + 1}</b>
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-surface-container-highest bg-surface-container">
@@ -33,6 +36,7 @@ export default function LeaderboardPage() {
           <div className="text-right"><b className="block text-sm">{Number(player.points || 0).toLocaleString()} PTS</b><button onClick={() => setViewingProfileId(player.id)} className="mt-1 text-[10px] font-bold text-primary">View profile</button></div>
         </div>)}
         {!players.length && <p className="p-8 text-center text-sm text-on-surface-variant">Loading leaderboard…</p>}
+      </div>
       </div>
       {viewingProfileId && <PublicProfileCardModal userId={viewingProfileId} onClose={() => setViewingProfileId(null)} />}
     </div>
