@@ -447,7 +447,7 @@ export default function HomeTab({
         </div>
 
         <button
-          onClick={() => { window.location.href = "/leaderboard"; }}
+          onClick={() => { router.push("/leaderboard"); }}
           className="mt-4 w-full rounded-xl border border-black/15 bg-black/10 py-2.5 text-xs font-black uppercase tracking-wider transition hover:bg-black/15 active:scale-[0.98]"
         >
           View Leaderboard

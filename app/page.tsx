@@ -121,6 +121,14 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const restoreFreshApp = (event: PageTransitionEvent) => {
+      if (event.persisted) window.location.reload();
+    };
+    window.addEventListener("pageshow", restoreFreshApp);
+    return () => window.removeEventListener("pageshow", restoreFreshApp);
+  }, []);
+
+  useEffect(() => {
     if (!myUserId) return;
 
     const profileChannel = supabase
