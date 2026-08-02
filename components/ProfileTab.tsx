@@ -459,7 +459,7 @@ export default function ProfileTab({
               unoptimized
             />
           </div>
-          {avatarFrameCosmetic?.image_url && <Image src={avatarFrameCosmetic.image_url} alt="Equipped avatar frame" fill className="pointer-events-none absolute -inset-1 z-10 object-contain" unoptimized />}
+          {avatarFrameCosmetic?.image_url && <Image src={avatarFrameCosmetic.image_url} alt="Equipped avatar frame" fill className="pointer-events-none absolute inset-2 z-10 object-contain" unoptimized />}
         </div>
         <div className="mt-4">
           <h2 className="font-headline text-xl font-black tracking-tight">
