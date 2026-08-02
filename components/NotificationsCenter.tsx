@@ -139,7 +139,7 @@ export default function NotificationsCenter({
       </div>
     );
   return (
-    <div className="flex h-full min-h-0 max-w-full flex-col animate-fade-in overflow-hidden">
+    <div className="flex h-full min-h-0 w-full max-w-full flex-col animate-fade-in overflow-hidden">
       <div className="shrink-0 border-b border-surface-container-highest bg-background pb-4 pt-1">
         <button
           onClick={onBack}
@@ -179,7 +179,7 @@ export default function NotificationsCenter({
           ))}
         </div>
       </div>
-      <div className="relative z-0 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pb-6 pt-3 no-scrollbar">
+      <div className="relative z-0 min-h-0 w-full flex-1 space-y-3 overflow-y-auto overscroll-contain pb-6 pt-3 no-scrollbar">
       {loading ? (
         <p className="py-10 text-center text-xs text-on-surface-variant animate-pulse">
           Loading notifications…

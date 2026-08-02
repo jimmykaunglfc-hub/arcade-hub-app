@@ -452,7 +452,13 @@ export default function Home() {
           }}
         >
           {showNotifications ? (
-            <div className="h-full min-h-0">
+            <div
+              className="fixed inset-x-0 z-40 flex min-h-0 flex-col bg-background px-5"
+              style={{
+                top: "calc(90px + env(safe-area-inset-top))",
+                bottom: "env(safe-area-inset-bottom)",
+              }}
+            >
               <NotificationsCenter
                 userId={myUserId}
                 points={userPoints}

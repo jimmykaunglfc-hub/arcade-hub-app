@@ -40,6 +40,7 @@ export default function StoreManagement() {
   const [formDesc, setFormDesc] = useState("");
   const [formCategory, setFormCategory] = useState("digital");
   const [formCosmeticType, setFormCosmeticType] = useState("game_cosmetic");
+  const [formGameTarget, setFormGameTarget] = useState("");
   const [originalCosmeticType, setOriginalCosmeticType] = useState("game_cosmetic");
   const [formProfileCardLayout, setFormProfileCardLayout] = useState("centered");
   const [formPricePoints, setFormPricePoints] = useState<number | "">(100);
@@ -81,6 +82,7 @@ export default function StoreManagement() {
     setFormDesc("");
     setFormCategory("digital");
     setFormCosmeticType("game_cosmetic");
+    setFormGameTarget("");
     setOriginalCosmeticType("game_cosmetic");
     setFormProfileCardLayout("centered");
     setFormPricePoints(100);
@@ -102,6 +104,7 @@ export default function StoreManagement() {
     setFormCategory(item.category || "digital");
     const cosmeticType = item.cosmetic_type || "game_cosmetic";
     setFormCosmeticType(cosmeticType);
+    setFormGameTarget(item.game_target || "");
     setOriginalCosmeticType(cosmeticType);
     setFormProfileCardLayout(item.profile_card_layout || "centered");
     setFormPricePoints(item.price_points ?? 0);
@@ -194,6 +197,7 @@ export default function StoreManagement() {
         description: formDesc.trim(),
         category: formCategory,
         cosmetic_type: formCategory === "digital" ? formCosmeticType : "game_cosmetic",
+        game_target: formCategory === "digital" && formCosmeticType === "game_cosmetic" ? formGameTarget || null : null,
         profile_card_layout: formCategory === "digital" && formCosmeticType === "profile_card" ? formProfileCardLayout : "centered",
         price_points: formCategory === "currency" ? 0 : (formPricePoints === "" ? 0 : Number(formPricePoints)),
         price_fiat: formCategory === "currency" ? (formPriceFiat === "" ? null : Number(formPriceFiat)) : null,
@@ -509,6 +513,19 @@ export default function StoreManagement() {
                           : "Profile Card Background: upload a 5:4 image (recommended 1500 × 1200). Keep the centre clear for the avatar and player name."
                         : "Game Cosmetic: upload a square 1:1 image (recommended 1024 × 1024) for consistent store cards."}
                   </p>
+                  {formCosmeticType === "game_cosmetic" && (
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Target Game</label>
+                      <input
+                        value={formGameTarget}
+                        onChange={(e) => setFormGameTarget(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+                        maxLength={64}
+                        placeholder="e.g., carrom or checkers"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:border-[#CCFF00] transition-colors"
+                      />
+                      <p className="mt-1 text-[10px] leading-relaxed text-neutral-500">Items with the same target game replace one another. Different games can be equipped together.</p>
+                    </div>
+                  )}
                 </div>
               )}
 

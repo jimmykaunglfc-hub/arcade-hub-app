@@ -22,6 +22,14 @@ const WHEEL_SLOTS = [
 
 const COOLDOWN_24H_MS = 24 * 60 * 60 * 1000;
 
+const getCosmeticSlot = (item: any) => {
+  const type = item?.cosmetic_type || "game_cosmetic";
+  if (type !== "game_cosmetic") return type;
+  // Game cosmetics are exclusive only within their own target game. Legacy
+  // items without a target remain independent until an admin assigns one.
+  return `game:${item?.game_target || item?.id || "unknown"}`;
+};
+
 export default function ShopTab({ userId }: ShopTabProps) {
   const [activeTab, setActiveTab] = useState<"currency" | "cosmetics">("currency");
   
@@ -64,9 +72,9 @@ export default function ShopTab({ userId }: ShopTabProps) {
       const duplicateIds = inventory
         .filter((entry) => entry.is_equipped)
         .filter((entry) => {
-          const type = itemsById.get(entry.cosmetic_id)?.cosmetic_type || "game_cosmetic";
-          if (seenTypes.has(type)) return true;
-          seenTypes.add(type);
+          const slot = getCosmeticSlot(itemsById.get(entry.cosmetic_id));
+          if (seenTypes.has(slot)) return true;
+          seenTypes.add(slot);
           return false;
         })
         .map((entry) => entry.id);
@@ -199,9 +207,9 @@ export default function ShopTab({ userId }: ShopTabProps) {
       } else {
         // Cosmetics occupy a type slot. A card background and an avatar border
         // may coexist, but a second item of the same type replaces the first.
-        const cosmeticType = item.cosmetic_type || "game_cosmetic";
+        const cosmeticSlot = getCosmeticSlot(item);
         const sameTypeIds = dbStoreItems
-          .filter((storeItem) => (storeItem.cosmetic_type || "game_cosmetic") === cosmeticType)
+          .filter((storeItem) => getCosmeticSlot(storeItem) === cosmeticSlot)
           .map((storeItem) => storeItem.id);
         const { error: unequipError } = await supabase
           .from("user_inventory")
