@@ -14,8 +14,7 @@ type Profile = {
   created_at: string;
   points?: number;
   gems?: number;
-  name_change_count?: number;
-  avatar_change_count?: number;
+  profile_edit_count?: number;
   push_enabled?: boolean;
 };
 type Modal =
@@ -43,17 +42,21 @@ type EquippedCosmetic = {
   } | null;
 };
 
-const NAME_CHANGE_COST = 100;
-const AVATAR_CHANGE_COST = 150;
+type ProfileEditConfig = {
+  profile_edit_cost: number;
+  profile_edit_currency: "points" | "gems";
+};
 
 interface ProfileTabProps {
   isDarkMode: boolean;
   onToggleTheme: () => void;
+  onOpenShop: () => void;
 }
 
 export default function ProfileTab({
   isDarkMode,
   onToggleTheme,
+  onOpenShop,
 }: ProfileTabProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [fetchStatus, setFetchStatus] = useState<
@@ -72,6 +75,10 @@ export default function ProfileTab({
   const [message, setMessage] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [profileEditConfig, setProfileEditConfig] = useState<ProfileEditConfig>({
+    profile_edit_cost: 100,
+    profile_edit_currency: "points",
+  });
   const [requestType, setRequestType] = useState<
     "email_change" | "account_deletion" | "other"
   >("email_change");
@@ -100,6 +107,7 @@ export default function ProfileTab({
       { data: ledgerData },
       { data: config },
       { data: equippedItems },
+      { data: editConfig },
     ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase
@@ -124,6 +132,7 @@ export default function ProfileTab({
         .select("cosmetics(game_category, image_url, modifiers)")
         .eq("user_id", user.id)
         .eq("is_equipped", true),
+      supabase.from("platform_config").select("profile_edit_cost, profile_edit_currency").eq("id", 1).maybeSingle(),
     ]);
     if (!myProfile) {
       setFetchStatus("missing");
@@ -138,6 +147,10 @@ export default function ProfileTab({
     setAvatarFrameCosmetic(equipped.find((item) => ["avatar_frame", "profile_avatar_frame"].includes(item.cosmetics?.game_category || ""))?.cosmetics || null);
     setLedger((ledgerData || []) as LedgerEntry[]);
     if (config?.support_email) setSupportEmail(config.support_email);
+    if (editConfig) setProfileEditConfig({
+      profile_edit_cost: Number(editConfig.profile_edit_cost ?? 100),
+      profile_edit_currency: editConfig.profile_edit_currency === "gems" ? "gems" : "points",
+    });
     setFetchStatus("found");
   };
 
@@ -173,19 +186,8 @@ export default function ProfileTab({
     await supabase.auth.signOut();
     window.location.reload();
   };
-  const nameCost =
-    profile && name.trim() !== profile.username
-      ? profile.name_change_count
-        ? NAME_CHANGE_COST
-        : 0
-      : 0;
-  const avatarCost =
-    profile && avatarUrl.trim() !== (profile.avatar_url || "")
-      ? profile.avatar_change_count
-        ? AVATAR_CHANGE_COST
-        : 0
-      : 0;
-  const identityCost = nameCost + avatarCost;
+  const identityChanged = Boolean(profile && (name.trim() !== profile.username || avatarUrl.trim() !== (profile.avatar_url || "")));
+  const identityCost = identityChanged && profile?.profile_edit_count ? profileEditConfig.profile_edit_cost : 0;
 
   const saveIdentity = async () => {
     if (!profile || !name.trim()) return;
@@ -193,8 +195,6 @@ export default function ProfileTab({
     const { data, error } = await supabase.rpc("update_profile_identity", {
       new_username: name.trim(),
       new_avatar_url: avatarUrl.trim() || null,
-      name_change_cost: NAME_CHANGE_COST,
-      avatar_change_cost: AVATAR_CHANGE_COST,
     });
     setSaving(false);
     if (error) {
@@ -205,7 +205,7 @@ export default function ProfileTab({
     setModal(null);
     showMessage(
       identityCost
-        ? `Profile updated for ${identityCost} points.`
+        ? `Profile updated for ${identityCost} ${profileEditConfig.profile_edit_currency.toUpperCase()}.`
         : "Profile updated — your first change was free."
     );
   };
@@ -449,6 +449,10 @@ export default function ProfileTab({
           </div>
         </div>
       </div>
+      <button onClick={onOpenShop} className="flex w-full items-center justify-between rounded-[20px] border border-surface-container-highest bg-surface p-4 text-left transition hover:bg-surface-variant">
+        <span className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-primary-container p-2 text-primary">palette</span><span><b className="block text-sm">Profile cosmetics</b><small className="text-on-surface-variant">Change your card background and avatar border</small></span></span>
+        <span className="text-xs font-bold text-primary">Open Shop</span>
+      </button>
       <section className="space-y-3">
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
           {t("language")}
@@ -590,12 +594,12 @@ export default function ProfileTab({
       {modal &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 px-4 py-4 backdrop-blur-md sm:p-6">
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 px-4 backdrop-blur-md sm:px-6" style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
             <div
               role="dialog"
               aria-modal="true"
               aria-labelledby="profile-modal-title"
-              className="flex w-full max-w-md max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-[28px] border border-surface-container-highest bg-surface shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
+              className="flex w-full max-w-md max-h-full flex-col overflow-hidden rounded-[28px] border border-surface-container-highest bg-surface shadow-2xl"
             >
               <div className="flex shrink-0 items-center justify-between border-b border-surface-container-highest px-5 py-4 sm:px-6">
                 <h2
@@ -724,17 +728,8 @@ export default function ProfileTab({
                         className="mt-1 w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest"
                       />
                     </label>
-                    <label className="block text-xs font-bold">
-                      Photo URL (optional)
-                      <input
-                        value={avatarUrl}
-                        onChange={(e) => setAvatarUrl(e.target.value)}
-                        className="mt-1 w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest"
-                      />
-                    </label>
                     <p className="text-xs text-on-surface-variant">
-                      First name and photo change are free. Later changes cost{" "}
-                      {NAME_CHANGE_COST} and {AVATAR_CHANGE_COST} points.
+                      Your first profile edit is free. Later edits cost {profileEditConfig.profile_edit_cost} {profileEditConfig.profile_edit_currency.toUpperCase()}, as set by the game team.
                     </p>
                     <button
                       disabled={saving || !name.trim()}

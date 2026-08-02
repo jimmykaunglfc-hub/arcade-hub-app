@@ -32,6 +32,8 @@ export default function SiteSettingsPage() {
   const [redemptionsEnabled, setRedemptionsEnabled] = useState(true);
   const [leaderboardsEnabled, setLeaderboardsEnabled] = useState(true);
   const [supportEmail, setSupportEmail] = useState("");
+  const [profileEditCost, setProfileEditCost] = useState<number | "">(100);
+  const [profileEditCurrency, setProfileEditCurrency] = useState<"points" | "gems">("points");
 
   useEffect(() => {
     fetchConfig();
@@ -56,6 +58,8 @@ export default function SiteSettingsPage() {
         setRedemptionsEnabled(data.redemptions_enabled ?? true);
         setLeaderboardsEnabled(data.leaderboards_enabled ?? true);
         setSupportEmail(data.support_email || "");
+        setProfileEditCost(data.profile_edit_cost ?? 100);
+        setProfileEditCurrency(data.profile_edit_currency === "gems" ? "gems" : "points");
       }
     } catch (err: any) {
       console.error("Error fetching platform config:", err.message);
@@ -79,6 +83,8 @@ export default function SiteSettingsPage() {
         redemptions_enabled: redemptionsEnabled,
         leaderboards_enabled: leaderboardsEnabled,
         support_email: supportEmail.trim(),
+        profile_edit_cost: Math.max(0, Number(profileEditCost || 0)),
+        profile_edit_currency: profileEditCurrency,
         updated_at: new Date().toISOString(),
       };
 
@@ -351,6 +357,25 @@ export default function SiteSettingsPage() {
               placeholder="support@joeyoke.com"
               className="w-full md:w-96 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors font-mono"
             />
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Profile edit cost after first free edit
+              <input
+                type="number"
+                min="0"
+                value={profileEditCost}
+                onChange={(e) => setProfileEditCost(e.target.value === "" ? "" : Number(e.target.value))}
+                className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+              />
+            </label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Profile edit currency
+              <select value={profileEditCurrency} onChange={(e) => setProfileEditCurrency(e.target.value as "points" | "gems")} className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]">
+                <option value="points">Points</option>
+                <option value="gems">Gems</option>
+              </select>
+            </label>
           </div>
         </div>
 

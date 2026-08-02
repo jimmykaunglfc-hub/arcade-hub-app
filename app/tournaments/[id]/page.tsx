@@ -137,7 +137,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
   };
 
   return (
-    <main className="min-h-screen bg-background px-4 py-5 text-on-background">
+    <main className="min-h-[100dvh] bg-background px-4 text-on-background" style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}>
       <div className="mx-auto max-w-2xl">
         <button
           onClick={() => router.replace("/")}

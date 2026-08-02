@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
 
@@ -19,18 +20,20 @@ import CampaignSplash from "../components/CampaignSplash";
 import InAppBroadcastDialog from "../components/InAppBroadcastDialog";
 import JoeYokeLogo from "../components/JoeYokeLogo";
 
-import GamePlayer from "../components/GamePlayer";
-import GlitchDeck from "../components/games/GlitchDeck";
-import Checkers from "../components/games/Checkers";
-import Carrom from "../components/games/Carrom";
-import NexusBreach from "../components/games/NexusBreach";
-import LiarsDice from "../components/games/LiarsDice";
-import NeuralDuel from "../components/games/NeuralDuel";
-import BiometricOverride from "../components/games/BiometricOverride";
-import ChessGame from "../components/games/ChessGame";
-import SnookerGame from "../components/games/SnookerGame";
-import TicTacToeGame from "../components/games/TicTacToeGame";
-import UnoGame from "../components/games/UnoGame";
+// Game engines are intentionally loaded only after a player selects a game.
+// This keeps Phaser, Matter, chess and their game UIs out of the launch bundle.
+const GamePlayer = dynamic(() => import("../components/GamePlayer"), { ssr: false });
+const GlitchDeck = dynamic(() => import("../components/games/GlitchDeck"), { ssr: false });
+const Checkers = dynamic(() => import("../components/games/Checkers"), { ssr: false });
+const Carrom = dynamic(() => import("../components/games/Carrom"), { ssr: false });
+const NexusBreach = dynamic(() => import("../components/games/NexusBreach"), { ssr: false });
+const LiarsDice = dynamic(() => import("../components/games/LiarsDice"), { ssr: false });
+const NeuralDuel = dynamic(() => import("../components/games/NeuralDuel"), { ssr: false });
+const BiometricOverride = dynamic(() => import("../components/games/BiometricOverride"), { ssr: false });
+const ChessGame = dynamic(() => import("../components/games/ChessGame"), { ssr: false });
+const SnookerGame = dynamic(() => import("../components/games/SnookerGame"), { ssr: false });
+const TicTacToeGame = dynamic(() => import("../components/games/TicTacToeGame"), { ssr: false });
+const UnoGame = dynamic(() => import("../components/games/UnoGame"), { ssr: false });
 import AuthView from "../components/AuthView";
 import { useTranslation } from "../lib/i18n";
 
@@ -484,6 +487,7 @@ export default function Home() {
                 <ProfileTab
                   isDarkMode={isDarkMode}
                   onToggleTheme={toggleTheme}
+                  onOpenShop={() => setActiveTab("Store")}
                 />
               )}
             </>

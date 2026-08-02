@@ -441,7 +441,7 @@ export default function HomeTab({
             <p className="font-body text-xs font-medium text-on-primary opacity-80 mt-1">
               {rankData?.percentile
                 ? `Global rank #${rankData.globalRank ?? "—"} · Top ${rankData.percentile}%`
-                : "Complete 5 matches to enter the global ranking"}
+                : "Complete a match to enter the global ranking"}
             </p>
           </div>
         </div>

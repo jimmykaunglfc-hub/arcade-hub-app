@@ -90,12 +90,15 @@ export default function MatchmakingModal({
       // Loop every 1.5 seconds after the first immediate check
       pollInterval = setInterval(checkMatch, 1500);
 
+      // Keep tickets visible long enough for players on distant networks to
+      // rendezvous; falling back to a bot after 20 seconds made real global
+      // matches unnecessarily unlikely.
       setTimeout(() => {
         if (!isCancelledRef.current && isMounted) {
           clearInterval(pollInterval);
           triggerBotFallback();
         }
-      }, 20000);
+      }, 60000);
     };
 
     startHeartbeat();
@@ -134,7 +137,7 @@ export default function MatchmakingModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-fade-in touch-none select-none font-sans text-white">
+    <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex flex-col items-center justify-center px-6 animate-fade-in touch-none select-none font-sans text-white" style={{ paddingTop: "max(1.5rem, env(safe-area-inset-top))", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
       <div className="bg-[#18181b] border border-white/10 rounded-[32px] p-8 max-w-[340px] w-full flex flex-col items-center text-center shadow-2xl relative overflow-hidden">
         <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full border-2 border-[#CCFF00]/20 animate-ping"></div>

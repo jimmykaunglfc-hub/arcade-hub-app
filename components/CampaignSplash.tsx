@@ -23,6 +23,14 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
   useEffect(() => {
     let active = true;
     const loadCampaign = async () => {
+      // A splash is a launch-only experience. Navigation back to this route must
+      // never make it appear again, including for anonymous players.
+      if (sessionStorage.getItem("joeyoke_campaign_splash_seen")) {
+        onVisibilityChange(false);
+        setIsLoading(false);
+        return;
+      }
+      sessionStorage.setItem("joeyoke_campaign_splash_seen", "1");
       const { data } = await supabase.from("splash_campaigns").select("id, title, message, image_url, action_label, action_url, display_seconds, show_every_launch").order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (!active) return;
       setIsLoading(false);
@@ -56,7 +64,8 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
   };
   const canSkip = remaining === 0;
   const progress = useMemo(() => !campaign || campaign.display_seconds <= 0 ? 100 : Math.min(100, ((campaign.display_seconds - remaining) / campaign.display_seconds) * 100), [campaign, remaining]);
-  if (!campaign) return isLoading ? <div className="fixed inset-0 z-[500] min-h-[100dvh] bg-[#070b13]" aria-hidden="true" /> : null;
+  // Do not hold the app behind a network request when there is no campaign.
+  if (!campaign) return null;
 
   return (
     <div className="fixed inset-0 z-[500] min-h-[100dvh] overflow-hidden bg-[#070b13]" role="dialog" aria-modal="true" aria-label={campaign.title}>
@@ -97,4 +106,3 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
     </div>
   );
 }
-
