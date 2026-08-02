@@ -12,8 +12,10 @@ export default function LeaderboardPage() {
   const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
+  const [viewerId, setViewerId] = useState<string | null>(null);
 
   useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => setViewerId(data.user?.id || null));
     void supabase.from("profiles").select("id, username, avatar_url, points, gems").order("points", { ascending: false }).limit(50)
       .then(({ data }) => setPlayers((data || []) as Player[]));
   }, []);
@@ -27,12 +29,12 @@ export default function LeaderboardPage() {
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4 no-scrollbar">
       <div className="overflow-hidden rounded-[24px] border border-surface-container-highest bg-surface divide-y divide-surface-variant">
-        {players.map((player, index) => <div key={player.id} className="flex items-center gap-3 p-3">
+        {players.map((player, index) => <div key={player.id} className={`flex items-center gap-3 p-3 ${player.id === viewerId ? "bg-primary-container ring-1 ring-inset ring-primary" : ""}`}>
           <b className="w-8 text-center text-primary">#{index + 1}</b>
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-surface-container-highest bg-surface-container">
             <Image src={player.avatar_url || "/logo-dark.jpeg"} alt="" fill className="object-cover" unoptimized />
           </div>
-          <div className="min-w-0 flex-1"><b className="block truncate text-sm">{player.username}</b><span className="text-xs text-on-surface-variant">Profile ranking</span></div>
+          <div className="min-w-0 flex-1"><b className="block truncate text-sm">{player.username} {player.id === viewerId && <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[9px] text-on-primary">YOU</span>}</b><span className="text-xs text-on-surface-variant">Profile ranking</span></div>
           <div className="text-right"><b className="block text-sm">{Number(player.points || 0).toLocaleString()} PTS</b><button onClick={() => setViewingProfileId(player.id)} className="mt-1 text-[10px] font-bold text-primary">View profile</button></div>
         </div>)}
         {!players.length && <p className="p-8 text-center text-sm text-on-surface-variant">Loading leaderboard…</p>}
