@@ -426,6 +426,7 @@ export default function ProfileTab({
   );
   const profileDesignItems = inventory.filter((item) => ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame", "avatar_border"].includes(item.cosmetics?.game_category || ""));
   const usesLeftAvatarCardLayout = profileCardCosmetic?.profile_card_layout === "avatar_left";
+  const hasProfileCardArtwork = Boolean(profileCardCosmetic?.image_url);
 
   return (
     <div className="space-y-5 animate-fade-in pb-12 w-full text-on-surface">
@@ -438,7 +439,7 @@ export default function ProfileTab({
         </div>
       )}
       <div
-        className="bg-surface border border-surface-container-highest rounded-[24px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm"
+        className={`bg-surface border border-surface-container-highest rounded-[24px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm ${hasProfileCardArtwork ? "text-white border-white/15 shadow-lg" : ""}`}
         style={{
           backgroundColor: profileCardCosmetic?.modifiers?.background_color,
           backgroundImage: profileCardCosmetic?.image_url ? `linear-gradient(rgb(15 23 42 / 0.78), rgb(15 23 42 / 0.88)), url(${profileCardCosmetic.image_url})` : undefined,
@@ -448,7 +449,7 @@ export default function ProfileTab({
       >
         <button
           onClick={() => setModal("identity")}
-          className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-xl border border-surface-container-highest bg-background/85 px-3 py-2 text-[11px] font-bold text-primary backdrop-blur-sm transition-transform active:scale-95"
+          className={`absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-bold text-primary backdrop-blur-sm transition-transform active:scale-95 ${hasProfileCardArtwork ? "border border-white/35 bg-slate-950/65 shadow-md" : "border border-surface-container-highest bg-background/85"}`}
           aria-label="Edit Profile"
         >
           <span className="material-symbols-outlined text-[16px]">edit</span>
@@ -483,19 +484,19 @@ export default function ProfileTab({
           </div>
         )}
         <div className="mt-4">
-          <h2 className="font-headline text-xl font-black tracking-tight">
+          <h2 className="font-headline text-xl font-black tracking-tight text-inherit">
             {profile.username}
           </h2>
-          <p className="font-body text-[13px] text-on-surface-variant mt-0.5">
+          <p className={`font-body text-[13px] mt-0.5 ${hasProfileCardArtwork ? "text-white/80" : "text-on-surface-variant"}`}>
             {profile.email}
           </p>
         </div>
-        <div className="grid grid-cols-3 w-full mt-6 border-t border-surface-variant pt-4">
+        <div className={`grid grid-cols-3 w-full mt-6 border-t pt-4 ${hasProfileCardArtwork ? "border-white/45" : "border-surface-variant"}`}>
           <div>
             <b className="block text-lg">
               {(profile.points || 0).toLocaleString()}
             </b>
-            <span className="text-[10px] text-on-surface-variant uppercase">
+            <span className={`text-[10px] uppercase ${hasProfileCardArtwork ? "text-white/80" : "text-on-surface-variant"}`}>
               {t("points")}
             </span>
           </div>
@@ -503,13 +504,13 @@ export default function ProfileTab({
             <b className="block text-lg">
               {(profile.gems || 0).toLocaleString()}
             </b>
-            <span className="text-[10px] text-on-surface-variant uppercase">
+            <span className={`text-[10px] uppercase ${hasProfileCardArtwork ? "text-white/80" : "text-on-surface-variant"}`}>
               {t("gems")}
             </span>
           </div>
           <div>
             <b className="block text-lg">{inventoryCount}</b>
-            <span className="text-[10px] text-on-surface-variant uppercase">
+            <span className={`text-[10px] uppercase ${hasProfileCardArtwork ? "text-white/80" : "text-on-surface-variant"}`}>
               {t("cosmetics")}
             </span>
           </div>
