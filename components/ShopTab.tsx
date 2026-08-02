@@ -167,14 +167,35 @@ export default function ShopTab({ userId }: ShopTabProps) {
           .update({ is_equipped: false })
           .eq("id", inventoryItem.id);
       } else {
-        // A player can have one active cosmetic globally. Clear every owned
-        // item before activating the selected one, regardless of its category.
+        // Cosmetics occupy a type slot. A card background and an avatar border
+        // may coexist, but a second item of the same type replaces the first.
+        const { data: cosmetic } = await supabase
+          .from("cosmetics")
+          .select("game_category")
+          .eq("id", item.id)
+          .maybeSingle();
+        const category = cosmetic?.game_category || item.game_category;
+        const matchingCategories = ["profile_card", "profile_card_theme"].includes(category)
+          ? ["profile_card", "profile_card_theme"]
+          : ["avatar_frame", "profile_avatar_frame", "avatar_border"].includes(category)
+            ? ["avatar_frame", "profile_avatar_frame", "avatar_border"]
+            : [category];
+        const { data: sameTypeCosmetics, error: typeError } = await supabase
+          .from("cosmetics")
+          .select("id")
+          .in("game_category", matchingCategories);
+        if (typeError) {
+          console.error("Unable to locate matching cosmetic type", typeError);
+          return;
+        }
+        const sameTypeIds = (sameTypeCosmetics || []).map((entry) => entry.id);
         const { error: unequipError } = await supabase
           .from("user_inventory")
           .update({ is_equipped: false })
-          .eq("user_id", userId);
+          .eq("user_id", userId)
+          .in("cosmetic_id", sameTypeIds);
         if (unequipError) {
-          console.error("Unable to unequip cosmetics", unequipError);
+          console.error("Unable to unequip matching cosmetic", unequipError);
           return;
         }
         await supabase

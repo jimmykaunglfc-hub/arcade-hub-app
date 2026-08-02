@@ -140,7 +140,7 @@ export default function NotificationsCenter({
     );
   return (
     <div className="min-w-0 max-w-full animate-fade-in overflow-x-hidden pb-8">
-      <div className="sticky top-[calc(90px+env(safe-area-inset-top))] z-20 -mx-5 bg-background px-5 pb-4 pt-1">
+      <div className="sticky top-[calc(90px+env(safe-area-inset-top))] z-30 -mx-5 border-b border-surface-container-highest bg-background px-5 pb-4 pt-1 shadow-lg">
         <button
           onClick={onBack}
           className="mb-4 flex items-center gap-1 text-xs font-bold text-primary"
@@ -179,7 +179,7 @@ export default function NotificationsCenter({
           ))}
         </div>
       </div>
-      <div className="space-y-3">
+      <div className="relative z-0 space-y-3 pt-3">
       {loading ? (
         <p className="py-10 text-center text-xs text-on-surface-variant animate-pulse">
           Loading notifications…
