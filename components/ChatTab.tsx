@@ -104,13 +104,13 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   const loadNetwork = useCallback(async (id: string) => {
     setNetworkLoading(true);
     const [{ data: myProfile }, { data: links }, { data: allGroups }, { data: memberships }, { data: unread }] = await Promise.all([
-      supabase.from("profiles").select("username").eq("id", id).single(),
+      supabase.from("profiles").select("username, network_id").eq("id", id).single(),
       supabase.from("friendships").select("id, requester_id, receiver_id, status").or(`requester_id.eq.${id},receiver_id.eq.${id}`),
       supabase.from("chat_groups").select("id, name, description, created_by").order("created_at", { ascending: false }).limit(30),
       supabase.from("chat_group_members").select("group_id").eq("user_id", id),
       supabase.from("direct_messages").select("sender_id").eq("receiver_id", id).is("read_at", null),
     ]);
-    if (myProfile) setMyUsername(myProfile.username);
+    if (myProfile) setMyUsername(myProfile.network_id || myProfile.username);
     const accepted = (links || []).filter((link) => link.status === "accepted");
     const requested = (links || []).filter((link) => link.status === "pending" && link.receiver_id === id);
     const profileIds = [...new Set([...accepted.map((link) => link.requester_id === id ? link.receiver_id : link.requester_id), ...requested.map((link) => link.requester_id)])];
@@ -127,7 +127,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
     const counts: Record<string, number> = {};
     (unread || []).forEach((message) => { counts[message.sender_id] = (counts[message.sender_id] || 0) + 1; });
     setUnreadByFriend(counts);
-    chatNetworkSnapshot = { userId: id, username: myProfile?.username || "", friends: resolvedFriends, pendingRequests: resolvedRequests, groups: resolvedGroups, joinedGroupIds: resolvedGroupIds, unreadByFriend: counts };
+    chatNetworkSnapshot = { userId: id, username: myProfile?.network_id || myProfile?.username || "", friends: resolvedFriends, pendingRequests: resolvedRequests, groups: resolvedGroups, joinedGroupIds: resolvedGroupIds, unreadByFriend: counts };
     setNetworkLoading(false);
   }, []);
 
@@ -405,7 +405,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
     const { data: targetProfile } = await supabase
       .from("profiles")
       .select("id, username")
-      .eq("username", searchTarget.trim())
+      .ilike("network_id", searchTarget.trim())
       .maybeSingle();
 
     if (!targetProfile) {
@@ -566,15 +566,15 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
 
             <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm">
               <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3">Add Connection</h3>
-              <form onSubmit={handleAddFriend} className="flex gap-2">
+              <form onSubmit={handleAddFriend} className="flex flex-col gap-2 sm:flex-row">
                 <input 
                   type="text" 
                   placeholder="Enter Network ID..."
                   value={searchTarget}
                   onChange={(e) => setSearchTarget(e.target.value)}
-                  className="flex-1 bg-background border border-surface-container-highest rounded-xl px-4 py-3 font-body text-xs focus:outline-none focus:border focus:border-primary text-on-surface placeholder-on-surface-variant transition-colors"
+                  className="min-w-0 flex-1 bg-background border border-surface-container-highest rounded-xl px-4 py-3 font-body text-xs focus:outline-none focus:border focus:border-primary text-on-surface placeholder-on-surface-variant transition-colors"
                 />
-                <button type="submit" className="px-5 bg-primary text-on-primary hover:opacity-90 font-headline font-bold text-xs rounded-xl shadow-sm active:scale-95 transition-all">Invite</button>
+                <button type="submit" className="h-11 shrink-0 whitespace-nowrap px-5 bg-primary text-on-primary hover:opacity-90 font-headline font-bold text-xs rounded-xl shadow-sm active:scale-95 transition-all">Invite</button>
               </form>
               {inviteStatus && <p className="font-body text-[11px] text-primary font-bold mt-3">{inviteStatus}</p>}
             </div>

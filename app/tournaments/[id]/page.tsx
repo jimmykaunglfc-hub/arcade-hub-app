@@ -137,15 +137,15 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
   };
 
   return (
-    <main className="min-h-[100dvh] bg-background px-4 text-on-background" style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}>
-      <div className="mx-auto max-w-2xl">
+    <main className="min-h-[100dvh] overflow-x-hidden bg-background px-4 text-on-background" style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}>
+      <div className="mx-auto min-w-0 max-w-2xl">
         <button
           onClick={() => router.replace("/")}
           className="sticky top-0 z-50 -mx-4 mb-5 block w-[calc(100%+2rem)] border-b border-surface-container-highest bg-background/95 px-4 py-4 text-left text-sm font-bold text-primary backdrop-blur"
         >
           ← Back to home
         </button>
-        <section className="overflow-hidden rounded-[26px] border border-surface-container-highest bg-surface shadow-2xl">
+        <section className="min-w-0 overflow-hidden rounded-[26px] border border-surface-container-highest bg-surface shadow-2xl">
           {tournament.card_image_url ? (
             <img
               src={tournament.card_image_url}
@@ -162,7 +162,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
             <h1 className="mt-1 text-3xl font-black tracking-tight">
               {tournament.title}
             </h1>
-            <p className="mt-1 text-sm text-on-surface-variant">
+            <p className="mt-1 text-sm font-medium text-[#52627a] dark:text-[#b7c1d1]">
               {games.join(" · ")}
             </p>
 
@@ -191,7 +191,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
               />
             </div>
 
-            <div className="mt-6 grid grid-cols-4 border-b border-surface-container-highest text-center text-xs font-bold">
+            <div className="mt-6 grid min-w-0 grid-cols-4 border-b border-surface-container-highest text-center text-[11px] font-bold sm:text-xs">
               <TabButton
                 active={tab === "overview"}
                 onClick={() => setTab("overview")}
@@ -384,7 +384,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="p-3">
-      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+      <p className="text-[9px] font-bold uppercase tracking-wider text-[#64748b] dark:text-slate-400">
         {label}
       </p>
       <p className="mt-1 font-bold text-on-surface">{value}</p>
@@ -396,7 +396,7 @@ function Section({ title, children }: { title: string; children: string }) {
   return (
     <section className="mt-6">
       <h2 className="text-base font-black">{title}</h2>
-      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#52627a] dark:text-slate-300">
         {children}
       </p>
     </section>
@@ -418,7 +418,7 @@ function TabButton({
       className={`border-b-2 px-1 py-3 ${
         active
           ? "border-[#CCFF00] text-[#CCFF00]"
-          : "border-transparent text-slate-400"
+          : "border-transparent text-[#64748b] dark:text-slate-400"
       }`}
     >
       {children}

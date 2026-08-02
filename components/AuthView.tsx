@@ -99,10 +99,12 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
   };
 
   const isBusy = loadingProvider !== null;
+  const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const availableProviders = (Object.keys(providerDetails) as SocialProvider[]).filter((provider) => provider !== "apple" || isIOS);
 
   return (
     <section className="flex-1 flex items-center justify-center py-6">
-      <div className="relative w-full max-w-sm overflow-hidden rounded-[30px] border border-white/10 bg-[#101a31]/95 p-5 shadow-[0_28px_80px_rgba(0,0,0,0.42)] sm:p-7">
+      <div className="relative w-full max-w-sm overflow-hidden rounded-[30px] border border-surface-container-highest bg-surface p-5 text-on-surface shadow-[0_28px_80px_rgba(0,0,0,0.22)] sm:p-7">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(ellipse_at_top,rgba(86,112,255,0.24),transparent_70%)]" />
 
         <div className="relative z-10 text-center">
@@ -112,10 +114,10 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
             </span>
           </div>
           <p className="font-caps text-[10px] font-bold uppercase tracking-[0.22em] text-primary">Joe Yoke account</p>
-          <h2 className="mt-2 font-headline text-2xl font-black tracking-tight text-white">
+          <h2 className="mt-2 font-headline text-2xl font-black tracking-tight text-on-surface">
             {stage === "verify" ? "Check your inbox" : "Play with your account"}
           </h2>
-          <p className="mx-auto mt-2 max-w-[270px] text-xs leading-5 text-white/55">
+          <p className="mx-auto mt-2 max-w-[270px] text-xs leading-5 text-on-surface-variant">
             {stage === "verify"
               ? `Enter the 6-digit code sent to ${email}.`
               : "Sign in once to keep your progress, rewards, and game history in sync."}
@@ -131,7 +133,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
         {stage === "verify" ? (
           <form onSubmit={handleVerifyOtp} className="relative z-10 mt-7 space-y-4">
             <label className="block text-left">
-              <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Access code</span>
+              <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">Access code</span>
               <input
                 autoComplete="one-time-code"
                 autoFocus
@@ -141,7 +143,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
                 placeholder="000000"
                 required
                 value={otp}
-                className="w-full rounded-2xl border border-white/10 bg-[#080d1b] px-4 py-3.5 text-center font-mono text-2xl font-bold tracking-[0.42em] text-white outline-none transition focus:border-primary/70 focus:ring-2 focus:ring-primary/15 placeholder:text-white/20"
+                className="w-full rounded-2xl border border-surface-container-highest bg-background px-4 py-3.5 text-center font-mono text-2xl font-bold tracking-[0.42em] text-on-surface outline-none transition focus:border-primary/70 focus:ring-2 focus:ring-primary/15 placeholder:text-on-surface-variant"
               />
             </label>
             <button
@@ -151,7 +153,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
             >
               {loadingProvider === "verify" ? "Verifying…" : "Verify & continue"}
             </button>
-            <button type="button" onClick={returnToEmail} disabled={isBusy} className="w-full py-1 text-xs font-semibold text-white/50 transition hover:text-white disabled:opacity-50">
+            <button type="button" onClick={returnToEmail} disabled={isBusy} className="w-full py-1 text-xs font-semibold text-on-surface-variant transition hover:text-on-surface disabled:opacity-50">
               Use a different email
             </button>
           </form>
@@ -159,7 +161,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
           <div className="relative z-10 mt-7">
             <form onSubmit={handleRequestOtp} className="space-y-3">
               <label className="block text-left">
-                <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Email address</span>
+                <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">Email address</span>
                 <input
                   autoComplete="email"
                   inputMode="email"
@@ -168,7 +170,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
                   required
                   type="email"
                   value={email}
-                  className="w-full rounded-2xl border border-white/10 bg-[#080d1b] px-4 py-3.5 text-sm text-white outline-none transition focus:border-primary/70 focus:ring-2 focus:ring-primary/15 placeholder:text-white/25"
+                  className="w-full rounded-2xl border border-surface-container-highest bg-background px-4 py-3.5 text-sm text-on-surface outline-none transition focus:border-primary/70 focus:ring-2 focus:ring-primary/15 placeholder:text-on-surface-variant"
                 />
               </label>
               <button
@@ -187,7 +189,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
             </div>
 
             <div className="space-y-2.5">
-              {(Object.keys(providerDetails) as SocialProvider[]).map((provider) => {
+              {availableProviders.map((provider) => {
                 const { icon, label } = providerDetails[provider];
                 const isLoading = loadingProvider === provider;
                 return (
@@ -196,7 +198,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
                     type="button"
                     disabled={isBusy}
                     onClick={() => handleSocialLogin(provider)}
-                    className="flex w-full items-center justify-center gap-3 rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-3.5 font-headline text-sm font-bold text-white transition hover:border-white/25 hover:bg-white/10 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+                    className="flex w-full items-center justify-center gap-3 rounded-2xl border border-surface-container-highest bg-surface-container px-4 py-3.5 font-headline text-sm font-bold text-on-surface transition hover:bg-surface-variant active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     <span className={provider === "apple" ? "text-xl leading-none" : provider === "telegram" ? "text-base leading-none text-[#2AABEE]" : "text-base leading-none font-black text-[#4285F4]"} aria-hidden="true">
                       {icon}

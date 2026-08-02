@@ -385,7 +385,7 @@ export default function Home() {
                 Joe Yoke
               </h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <div className="flex items-center gap-1 bg-primary-container px-2.5 py-0.5 rounded-full">
+                <button onClick={() => setActiveTab("Store")} aria-label="Buy points" className="flex items-center gap-1 bg-primary-container px-2.5 py-0.5 rounded-full transition-transform active:scale-95">
                   <span
                     className="material-symbols-outlined text-primary text-[14px]"
                     style={{ fontVariationSettings: "'FILL' 1" }}
@@ -395,8 +395,8 @@ export default function Home() {
                   <span className="text-on-background text-[11px] font-extrabold">
                     {userPoints.toLocaleString()}
                   </span>
-                </div>
-                <div className="flex items-center gap-1 bg-secondary-container px-2.5 py-0.5 rounded-full">
+                </button>
+                <button onClick={() => setActiveTab("Store")} aria-label="Buy gems" className="flex items-center gap-1 bg-secondary-container px-2.5 py-0.5 rounded-full transition-transform active:scale-95">
                   <span
                     className="material-symbols-outlined text-secondary text-[14px]"
                     style={{ fontVariationSettings: "'FILL' 1" }}
@@ -406,7 +406,7 @@ export default function Home() {
                   <span className="text-on-background text-[11px] font-extrabold">
                     {userGems.toLocaleString()}
                   </span>
-                </div>
+                </button>
               </div>
             </div>
           </div>

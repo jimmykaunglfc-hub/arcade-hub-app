@@ -711,11 +711,11 @@ export default function HomeTab({
               height: "100dvh",
             }}
           >
-            <div className="bg-[#18181b] border border-white/10 rounded-[32px] p-6 w-full max-w-[340px] shadow-2xl relative">
+            <div className="bg-surface border border-surface-container-highest rounded-[32px] p-6 w-full max-w-[340px] shadow-2xl relative text-on-surface">
               {/* Close Button */}
               <button
                 onClick={() => setShowStatsModal(false)}
-                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-neutral-400 hover:text-white transition-colors"
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
               >
                 <span className="material-symbols-outlined text-sm">close</span>
               </button>
@@ -727,45 +727,45 @@ export default function HomeTab({
                     query_stats
                   </span>
                 </div>
-                <h2 className="font-headline font-black text-xl text-white uppercase tracking-tight">
+                <h2 className="font-headline font-black text-xl text-on-surface uppercase tracking-tight">
                   Player Statistics
                 </h2>
-                <p className="text-xs text-neutral-400 font-medium mt-1">
+                <p className="text-xs text-on-surface-variant font-medium mt-1">
                   Lifetime gameplay record
                 </p>
               </div>
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="bg-[#09090b] border border-white/5 rounded-2xl p-4 flex flex-col items-center text-center shadow-inner">
-                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-1">
+                <div className="bg-surface-container border border-surface-container-highest rounded-2xl p-4 flex flex-col items-center text-center shadow-inner">
+                  <span className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-1">
                     Win Rate
                   </span>
                   <span className="text-2xl font-black text-[#CCFF00]">
                     {stats.winRate}%
                   </span>
                 </div>
-                <div className="bg-[#09090b] border border-white/5 rounded-2xl p-4 flex flex-col items-center text-center shadow-inner">
-                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-1">
+                <div className="bg-surface-container border border-surface-container-highest rounded-2xl p-4 flex flex-col items-center text-center shadow-inner">
+                  <span className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-1">
                     Matches
                   </span>
-                  <span className="text-2xl font-black text-white">
+                  <span className="text-2xl font-black text-on-surface">
                     {stats.total}
                   </span>
                 </div>
-                <div className="bg-[#09090b] border border-white/5 rounded-2xl p-4 flex flex-col items-center text-center shadow-inner">
-                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-1">
+                <div className="bg-surface-container border border-surface-container-highest rounded-2xl p-4 flex flex-col items-center text-center shadow-inner">
+                  <span className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-1">
                     Victories
                   </span>
                   <span className="text-xl font-black text-blue-400">
                     {stats.wins}
                   </span>
                 </div>
-                <div className="bg-[#09090b] border border-white/5 rounded-2xl p-4 flex flex-col items-center text-center justify-center shadow-inner">
-                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mb-1">
+                <div className="bg-surface-container border border-surface-container-highest rounded-2xl p-4 flex flex-col items-center text-center justify-center shadow-inner">
+                  <span className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-1">
                     Top Game
                   </span>
-                  <span className="text-sm font-bold text-white truncate w-full">
+                  <span className="text-sm font-bold text-on-surface truncate w-full">
                     {stats.favorite}
                   </span>
                 </div>
@@ -773,7 +773,7 @@ export default function HomeTab({
 
               <button
                 onClick={() => setShowStatsModal(false)}
-                className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-white font-headline font-bold text-xs uppercase tracking-wider rounded-xl transition-all border border-white/5 active:scale-95 touch-manipulation"
+                className="w-full py-3.5 bg-surface-container-high hover:bg-surface-variant text-on-surface font-headline font-bold text-xs uppercase tracking-wider rounded-xl transition-all border border-surface-container-highest active:scale-95 touch-manipulation"
               >
                 Close Dashboard
               </button>

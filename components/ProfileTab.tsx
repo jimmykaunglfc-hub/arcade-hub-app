@@ -427,6 +427,7 @@ export default function ProfileTab({
   const profileDesignItems = inventory.filter((item) => ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame", "avatar_border"].includes(item.cosmetics?.game_category || ""));
   const usesLeftAvatarCardLayout = profileCardCosmetic?.profile_card_layout === "avatar_left";
   const hasProfileCardArtwork = Boolean(profileCardCosmetic?.image_url);
+  const maskedEmail = profile?.email ? profile.email.replace(/^(.{2})[^@]*(?=@)/, "$1••••") : "";
 
   return (
     <div className="space-y-5 animate-fade-in pb-12 w-full text-on-surface">
@@ -449,11 +450,10 @@ export default function ProfileTab({
       >
         <button
           onClick={() => setModal("identity")}
-          className={`absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-bold text-primary backdrop-blur-sm transition-transform active:scale-95 ${hasProfileCardArtwork ? "border border-white/35 bg-slate-950/65 shadow-md" : "border border-surface-container-highest bg-background/85"}`}
+          className={`absolute right-4 top-4 inline-flex h-11 w-11 items-center justify-center rounded-xl text-primary backdrop-blur-sm transition-transform active:scale-95 ${hasProfileCardArtwork ? "border border-white/35 bg-slate-950/65 shadow-md" : "border border-surface-container-highest bg-background/85"}`}
           aria-label="Edit Profile"
         >
           <span className="material-symbols-outlined text-[16px]">edit</span>
-          {t("editNamePhoto")}
         </button>
         <div className={`relative h-24 w-24 ${usesLeftAvatarCardLayout ? "invisible" : ""}`}>
           <div className={`absolute z-10 overflow-hidden rounded-full bg-surface-variant shadow-inner ${avatarFrameCosmetic?.image_url ? "inset-1" : "inset-0 border-4 border-surface-container-high"}`}>
@@ -488,11 +488,11 @@ export default function ProfileTab({
             {profile.username}
           </h2>
           <p className={`font-body text-[13px] mt-0.5 ${hasProfileCardArtwork ? "text-white/80" : "text-on-surface-variant"}`}>
-            {profile.email}
+            {maskedEmail}
           </p>
         </div>
-        <div className={`grid grid-cols-3 w-full mt-6 border-t pt-4 ${hasProfileCardArtwork ? "border-white/45" : "border-surface-variant"}`}>
-          <div>
+        <div className={`grid grid-cols-3 gap-2 w-full mt-6 pt-4 ${hasProfileCardArtwork ? "border-t border-white/45" : "border-t border-surface-variant"}`}>
+          <div className="rounded-xl bg-black/25 px-2 py-2 backdrop-blur-sm">
             <b className="block text-lg">
               {(profile.points || 0).toLocaleString()}
             </b>
@@ -500,7 +500,7 @@ export default function ProfileTab({
               {t("points")}
             </span>
           </div>
-          <div>
+          <div className="rounded-xl bg-black/25 px-2 py-2 backdrop-blur-sm">
             <b className="block text-lg">
               {(profile.gems || 0).toLocaleString()}
             </b>
@@ -508,7 +508,7 @@ export default function ProfileTab({
               {t("gems")}
             </span>
           </div>
-          <div>
+          <div className="rounded-xl bg-black/25 px-2 py-2 backdrop-blur-sm">
             <b className="block text-lg">{inventoryCount}</b>
             <span className={`text-[10px] uppercase ${hasProfileCardArtwork ? "text-white/80" : "text-on-surface-variant"}`}>
               {t("cosmetics")}
@@ -808,6 +808,15 @@ export default function ProfileTab({
                         maxLength={30}
                         onChange={(e) => setName(e.target.value)}
                         className="mt-1 w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest"
+                      />
+                    </label>
+                    <label className="block text-xs font-bold">
+                      Email address
+                      <input
+                        value={profile?.email || ""}
+                        readOnly
+                        aria-readonly="true"
+                        className="mt-1 w-full cursor-not-allowed p-3 rounded-xl bg-surface-container border border-surface-container-highest text-on-surface-variant"
                       />
                     </label>
                     <div className="border-t border-surface-container-highest pt-4">
