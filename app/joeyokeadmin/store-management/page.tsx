@@ -41,6 +41,7 @@ export default function StoreManagement() {
   const [formCategory, setFormCategory] = useState("digital");
   const [formCosmeticType, setFormCosmeticType] = useState("game_cosmetic");
   const [originalCosmeticType, setOriginalCosmeticType] = useState("game_cosmetic");
+  const [formProfileCardLayout, setFormProfileCardLayout] = useState("centered");
   const [formPricePoints, setFormPricePoints] = useState<number | "">(100);
   const [formPriceFiat, setFormPriceFiat] = useState<number | "">("");
   const [formPriceCurrency, setFormPriceCurrency] = useState("points");
@@ -81,6 +82,7 @@ export default function StoreManagement() {
     setFormCategory("digital");
     setFormCosmeticType("game_cosmetic");
     setOriginalCosmeticType("game_cosmetic");
+    setFormProfileCardLayout("centered");
     setFormPricePoints(100);
     setFormPriceFiat("");
     setFormPriceCurrency("points");
@@ -101,6 +103,7 @@ export default function StoreManagement() {
     const cosmeticType = item.cosmetic_type || "game_cosmetic";
     setFormCosmeticType(cosmeticType);
     setOriginalCosmeticType(cosmeticType);
+    setFormProfileCardLayout(item.profile_card_layout || "centered");
     setFormPricePoints(item.price_points ?? 0);
     setFormPriceFiat(item.price_fiat ?? "");
     setFormPriceCurrency(item.price_currency || "points");
@@ -128,8 +131,8 @@ export default function StoreManagement() {
         if (formCosmeticType === "avatar_frame" && Math.abs(ratio - 1) > 0.02) {
           return alert("Avatar borders must be 1:1 square images (for example 1024 × 1024).");
         }
-        if (formCosmeticType === "profile_card" && Math.abs(ratio - 16 / 9) > 0.04) {
-          return alert("Profile card backgrounds must use a 16:9 image (for example 1600 × 900).");
+        if (formCosmeticType === "profile_card" && Math.abs(ratio - 5 / 4) > 0.04) {
+          return alert("Profile card backgrounds must use a 5:4 image (for example 1500 × 1200).");
         }
         setFormImageFile(file);
       };
@@ -191,6 +194,7 @@ export default function StoreManagement() {
         description: formDesc.trim(),
         category: formCategory,
         cosmetic_type: formCategory === "digital" ? formCosmeticType : "game_cosmetic",
+        profile_card_layout: formCategory === "digital" && formCosmeticType === "profile_card" ? formProfileCardLayout : "centered",
         price_points: formCategory === "currency" ? 0 : (formPricePoints === "" ? 0 : Number(formPricePoints)),
         price_fiat: formCategory === "currency" ? (formPriceFiat === "" ? null : Number(formPriceFiat)) : null,
         price_currency: formPriceCurrency,
@@ -483,11 +487,26 @@ export default function StoreManagement() {
                       <option value="avatar_frame" className="bg-[#18181b]">Avatar Border</option>
                     </select>
                   </div>
+                  {formCosmeticType === "profile_card" && (
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Card Layout</label>
+                      <select
+                        value={formProfileCardLayout}
+                        onChange={(e) => setFormProfileCardLayout(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors appearance-none cursor-pointer"
+                      >
+                        <option value="centered" className="bg-[#18181b]">Centered Avatar</option>
+                        <option value="avatar_left" className="bg-[#18181b]">Avatar Socket on Left</option>
+                      </select>
+                    </div>
+                  )}
                   <p className="text-[10px] leading-relaxed text-neutral-400">
                     {formCosmeticType === "avatar_frame"
                       ? "Avatar Border: upload a 1:1 transparent PNG or WebP (recommended 1024 × 1024). The decorative ring must sit at the outside edge; leave the centre transparent so the player photo remains visible."
                       : formCosmeticType === "profile_card"
-                        ? "Profile Card Background: upload a 16:9 image (recommended 1600 × 900). It is cropped to cover the profile card."
+                        ? formProfileCardLayout === "avatar_left"
+                          ? "Profile Card Background: upload a 5:4 image (recommended 1500 × 1200). Place the avatar socket at 27% from the left and 50% from the top; keep the centre/right area clear for the player name."
+                          : "Profile Card Background: upload a 5:4 image (recommended 1500 × 1200). Keep the centre clear for the avatar and player name."
                         : "Game Cosmetic: upload a square 1:1 image (recommended 1024 × 1024) for consistent store cards."}
                   </p>
                 </div>
@@ -596,7 +615,7 @@ export default function StoreManagement() {
 
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
-                  Item Image{formCategory === "digital" ? ` · ${formCosmeticType === "avatar_frame" ? "1:1 transparent PNG/WebP" : formCosmeticType === "profile_card" ? "16:9" : "1:1 recommended"}` : ""}
+                  Item Image{formCategory === "digital" ? ` · ${formCosmeticType === "avatar_frame" ? "1:1 transparent PNG/WebP" : formCosmeticType === "profile_card" ? "5:4" : "1:1 recommended"}` : ""}
                 </label>
                 <div 
                   onClick={() => imageInputRef.current?.click()} 

@@ -39,6 +39,7 @@ type EquippedCosmetic = {
   cosmetics?: {
     game_category?: string;
     image_url?: string | null;
+    profile_card_layout?: "centered" | "avatar_left" | null;
     modifiers?: { background_color?: string; accent_color?: string } | null;
   } | null;
 };
@@ -46,7 +47,7 @@ type InventoryItem = {
   id: string;
   cosmetic_id: string;
   is_equipped: boolean;
-  cosmetics?: { name?: string; game_category?: string; image_url?: string | null; modifiers?: { background_color?: string } | null } | null;
+  cosmetics?: { name?: string; game_category?: string; image_url?: string | null; profile_card_layout?: "centered" | "avatar_left" | null; modifiers?: { background_color?: string } | null } | null;
 };
 
 type ProfileEditConfig = {
@@ -424,6 +425,7 @@ export default function ProfileTab({
     </div>
   );
   const profileDesignItems = inventory.filter((item) => ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame", "avatar_border"].includes(item.cosmetics?.game_category || ""));
+  const usesLeftAvatarCardLayout = profileCardCosmetic?.profile_card_layout === "avatar_left";
 
   return (
     <div className="space-y-5 animate-fade-in pb-12 w-full text-on-surface">
@@ -452,7 +454,7 @@ export default function ProfileTab({
           <span className="material-symbols-outlined text-[16px]">edit</span>
           {t("editNamePhoto")}
         </button>
-        <div className="relative h-24 w-24">
+        <div className={`relative h-24 w-24 ${usesLeftAvatarCardLayout ? "invisible" : ""}`}>
           <div className={`absolute z-10 overflow-hidden rounded-full bg-surface-variant shadow-inner ${avatarFrameCosmetic?.image_url ? "inset-1" : "inset-0 border-4 border-surface-container-high"}`}>
             <Image
               src={profile.avatar_url || "/logo-dark.jpeg"}
@@ -472,6 +474,14 @@ export default function ProfileTab({
             />
           )}
         </div>
+        {usesLeftAvatarCardLayout && (
+          <div className="pointer-events-none absolute left-[27%] top-1/2 z-20 h-24 w-24 -translate-x-1/2 -translate-y-1/2">
+            <div className={`absolute z-10 overflow-hidden rounded-full bg-surface-variant shadow-inner ${avatarFrameCosmetic?.image_url ? "inset-1" : "inset-0 border-4 border-surface-container-high"}`}>
+              <Image src={profile.avatar_url || "/logo-dark.jpeg"} alt="" fill className="object-cover" unoptimized />
+            </div>
+            {avatarFrameCosmetic?.image_url && <Image src={avatarFrameCosmetic.image_url} alt="Equipped avatar border" fill className="absolute inset-0 z-20 scale-[1.2] object-contain" unoptimized />}
+          </div>
+        )}
         <div className="mt-4">
           <h2 className="font-headline text-xl font-black tracking-tight">
             {profile.username}
