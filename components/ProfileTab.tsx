@@ -359,6 +359,15 @@ export default function ProfileTab({
     );
     setModal(slug);
   };
+  const closeModal = () => {
+    // Removing a photo is only committed by Save changes. Restore the persisted
+    // image when the editor is dismissed so a cancelled removal is not left in UI state.
+    if (modal === "identity" && profile) {
+      setName(profile.username || "");
+      setAvatarUrl(profile.avatar_url || "");
+    }
+    setModal(null);
+  };
   if (fetchStatus === "loading")
     return (
       <div className="text-center p-6 font-caps text-[10px] font-bold text-on-surface-variant uppercase tracking-widest animate-pulse">
@@ -687,7 +696,7 @@ export default function ProfileTab({
                     : legal?.title}
                 </h2>
                 <button
-                  onClick={() => setModal(null)}
+                  onClick={closeModal}
                   aria-label="Close"
                   className="-mr-2 rounded-xl p-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
                 >
@@ -768,14 +777,16 @@ export default function ProfileTab({
                 )}
                 {modal === "inventory" && (
                   <div className="space-y-4">
-                    <p className="text-xs text-on-surface-variant">All cosmetics you have purchased. To change your avatar border or profile card background, use Edit Profile.</p>
+                    <p className="text-xs text-on-surface-variant">All cosmetics you have purchased. Equip profile card backgrounds and avatar borders here; equipping one automatically replaces the currently equipped cosmetic of that same type.</p>
                     {inventory.length ? <div className="grid grid-cols-2 gap-3">{inventory.map((item) => {
                       const category = item.cosmetics?.game_category || "other";
+                      const isProfileEquippable = ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame", "avatar_border"].includes(category);
                       return <div key={item.id} className={`relative overflow-hidden rounded-2xl border p-3 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"}`}>
                         <div className="mb-3 flex h-20 items-center justify-center overflow-hidden rounded-xl bg-surface">{item.cosmetics?.image_url ? <img src={item.cosmetics.image_url} alt="" className="h-full w-full object-cover" /> : <span className="material-symbols-outlined text-3xl text-primary">palette</span>}</div>
                         <b className="block truncate text-xs">{item.cosmetics?.name || "Purchased cosmetic"}</b>
                         <small className="mt-1 block capitalize text-on-surface-variant">{category.replaceAll("_", " ")}</small>
                         {item.is_equipped && <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-1 text-[9px] font-black text-on-primary">EQUIPPED</span>}
+                        {isProfileEquippable && <button type="button" disabled={saving || item.is_equipped} onClick={() => void equipProfileCosmetic(item)} className="mt-3 w-full rounded-lg bg-primary px-2 py-2 text-[10px] font-black text-on-primary disabled:cursor-default disabled:opacity-70">{item.is_equipped ? "EQUIPPED" : "EQUIP"}</button>}
                       </div>;
                     })}</div> : <p className="py-8 text-center text-sm text-on-surface-variant">No cosmetics purchased yet. Visit the Shop to unlock some.</p>}
                   </div>

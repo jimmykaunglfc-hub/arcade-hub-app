@@ -518,7 +518,8 @@ export default function Home() {
           )}
         </main>
 
-        {/* BOTTOM NAVIGATION */}
+        {/* Notifications are a full-screen destination, so navigation cannot cover actions. */}
+        {!showNotifications && (
         <nav
           data-bottom-nav
           className="fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-surface-container-highest px-2 pt-1 flex justify-around items-center transition-colors duration-300"
@@ -562,6 +563,7 @@ export default function Home() {
             );
           })}
         </nav>
+        )}
       </div>
     </>
   );

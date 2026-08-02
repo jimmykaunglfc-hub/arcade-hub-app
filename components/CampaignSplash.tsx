@@ -87,9 +87,8 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
               <span className="material-symbols-outlined text-5xl text-primary">auto_awesome</span>
             </div>
           )}
-          <span className="rounded-full bg-primary-container px-3 py-1 font-caps text-[10px] font-black uppercase tracking-[0.18em] text-primary-fg">Live update</span>
-          <h2 className="mt-5 font-headline text-3xl font-black tracking-tight text-on-surface">{campaign.title}</h2>
-          {campaign.message && <p className="mt-3 max-w-sm text-base leading-7 text-on-surface-variant">{campaign.message}</p>}
+          <h2 className="font-headline text-3xl font-black tracking-tight text-white drop-shadow-lg">{campaign.title}</h2>
+          {campaign.message && <p className="mt-3 max-w-sm text-base leading-7 text-white/90 drop-shadow">{campaign.message}</p>}
         </main>
 
         <footer className="w-full shrink-0">

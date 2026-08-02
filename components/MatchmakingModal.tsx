@@ -23,7 +23,7 @@ export default function MatchmakingModal({
   userId,
   onMatchFound,
   onCancel,
-  fallbackAfterMs = 60000,
+  fallbackAfterMs = 45000,
 }: MatchmakingModalProps) {
   const [searchTime, setSearchTime] = useState(0);
   const isCancelledRef = useRef(false);

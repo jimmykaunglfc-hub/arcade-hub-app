@@ -118,6 +118,13 @@ export default function NotificationsCenter({
       )
     );
   };
+  const markAllRead = async () => {
+    if (!userId) return;
+    const unreadIds = items.filter((item) => item.kind !== "broadcast" && !item.is_read).map((item) => item.id);
+    if (!unreadIds.length) return;
+    await supabase.from("user_notifications").update({ is_read: true }).in("id", unreadIds).eq("user_id", userId);
+    setItems((current) => current.map((item) => ({ ...item, is_read: true })));
+  };
 
   const filteredItems =
     category === "all"
@@ -131,11 +138,14 @@ export default function NotificationsCenter({
     );
   return (
     <div className="space-y-4 pb-8 animate-fade-in min-w-0 max-w-full overflow-x-hidden">
-      <div>
+      <div className="flex items-start justify-between gap-3">
+        <div>
         <h2 className="font-headline text-xl font-black">Notifications</h2>
         <p className="text-xs text-on-surface-variant mt-1">
           Game activity, automated updates, and announcements from the team.
         </p>
+        </div>
+        <button onClick={() => void markAllRead()} className="shrink-0 rounded-lg bg-primary-container px-3 py-2 text-[10px] font-black text-primary">Mark all read</button>
       </div>
       <div className="flex max-w-full min-w-0 gap-2 overflow-x-auto no-scrollbar touch-pan-x">
         {(["all", "general", "system", "promotion"] as const).map((tab) => (
