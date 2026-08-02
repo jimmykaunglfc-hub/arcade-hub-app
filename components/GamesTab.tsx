@@ -42,6 +42,8 @@ export default function GamesTab({
   const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [dbGames, setDbGames] = useState<any[]>([]);
   const [, setLoading] = useState(true);
+  const [ratingGame, setRatingGame] = useState<any | null>(null);
+  const [ratingSaving, setRatingSaving] = useState(false);
 
   // Helper for clean native routing slugs (e.g. "Tic Tac Toe" -> "native://tic-tac-toe")
   const formatGameSlug = (title: string) => {
@@ -66,17 +68,12 @@ export default function GamesTab({
       if (catData && catData.length > 0) setDbCategories(catData);
 
       // 2. Fetch Active Games
-      const { data: gameData } = await supabase
-        .from("games")
-        .select("*")
-        .eq("status", "active")
-        .order("created_at", { ascending: false });
+      const { data: gameData } = await supabase.rpc("get_game_catalog");
       
-      if (gameData && gameData.length > 0) {
-        // Keep native releases discoverable before an admin has created their
-        // optional artwork/fee record. Database entries take precedence.
-        const knownTitles = new Set(gameData.map((game) => String(game.title).toLowerCase()));
-        setDbGames([...gameData, ...DEFAULT_GAMES.filter((game) => !knownTitles.has(game.title.toLowerCase()))]);
+      const activeGames = (gameData || []).filter((game: any) => game.status === "active");
+      if (activeGames.length > 0) {
+        const knownTitles = new Set(activeGames.map((game: any) => String(game.title).toLowerCase()));
+        setDbGames([...activeGames, ...DEFAULT_GAMES.filter((game) => !knownTitles.has(game.title.toLowerCase()))]);
       } else {
         setDbGames(DEFAULT_GAMES);
       }
@@ -96,6 +93,16 @@ export default function GamesTab({
   const handleGameClick = (game: any) => {
     const url = formatGameSlug(game.title);
     onPlay(url);
+  };
+
+  const saveRating = async (rating: number) => {
+    if (!ratingGame?.id || !userId) return;
+    setRatingSaving(true);
+    const { error } = await supabase.from("game_ratings").upsert({ game_id: ratingGame.id, user_id: userId, rating, updated_at: new Date().toISOString() });
+    setRatingSaving(false);
+    if (error) return console.error("Unable to save rating:", error.message);
+    setRatingGame(null);
+    void fetchLiveArcadeData();
   };
 
   // Use DB games if fetched, otherwise use local fallback games
@@ -180,17 +187,19 @@ export default function GamesTab({
                     <span className="font-body text-[11px] text-on-surface-variant truncate pr-2">
                       {game.category || "Arcade"}
                     </span>
-                    <div className="flex items-center gap-0.5 shrink-0">
+                    <button onClick={(event) => { event.stopPropagation(); setRatingGame(game); }} className="flex items-center gap-0.5 shrink-0" aria-label={`Rate ${game.title}`}>
                       <span className="material-symbols-outlined text-amber-500 text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                      <span className="text-on-surface font-bold text-[11px]">{game.rating || "4.8"}</span>
-                    </div>
+                      <span className="text-on-surface font-bold text-[11px]">{game.average_rating ? Number(game.average_rating).toFixed(1) : "New"}</span>
+                    </button>
                   </div>
+                  {game.catalog_label && <span className="mt-2 inline-flex rounded-full bg-primary-container px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary">{game.catalog_label}</span>}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+      {ratingGame && <div className="fixed inset-0 z-[200] grid place-items-center bg-black/70 p-5 backdrop-blur-sm"><div className="w-full max-w-xs rounded-3xl bg-surface p-6 text-center shadow-2xl"><h2 className="font-headline text-lg font-black">Rate {ratingGame.title}</h2><p className="mt-2 text-xs text-on-surface-variant">Your rating helps players discover great games.</p><div className="mt-6 flex justify-center gap-2">{[1, 2, 3, 4, 5].map((rating) => <button key={rating} disabled={ratingSaving} onClick={() => void saveRating(rating)} className="material-symbols-outlined text-3xl text-amber-500">star</button>)}</div><button onClick={() => setRatingGame(null)} className="mt-6 text-xs font-bold text-primary">Cancel</button></div></div>}
 
     </div>
   );

@@ -47,6 +47,8 @@ export default function GameCatalogManager() {
   const [formDesc, setFormDesc] = useState("");
   const [formFee, setFormFee] = useState<number>(0);
   const [formCategory, setFormCategory] = useState("");
+  const [formDisplayWeight, setFormDisplayWeight] = useState(0);
+  const [formCatalogLabel, setFormCatalogLabel] = useState("");
   const [formImage, setFormImage] = useState<File | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState("");
 
@@ -72,6 +74,11 @@ export default function GameCatalogManager() {
         const refreshed = await supabase.from("games").select("*").order("category").order("created_at");
         gameData = refreshed.data;
       }
+    }
+    const { data: ratingData } = await supabase.rpc("get_game_catalog");
+    if (gameData && ratingData) {
+      const ratingsById = new Map(ratingData.map((game: any) => [game.id, game]));
+      gameData = gameData.map((game: any) => ({ ...game, ...(ratingsById.get(game.id) as Record<string, unknown> | undefined) }));
     }
     if (gameData) setGames(gameData);
     setLoading(false);
@@ -163,6 +170,8 @@ export default function GameCatalogManager() {
     setFormDesc("");
     setFormFee(0);
     setFormCategory(categories.length > 0 ? categories[0].name : "Uncategorized");
+    setFormDisplayWeight(0);
+    setFormCatalogLabel("");
     setFormImage(null);
     setCurrentImageUrl("");
     setIsGameModalOpen(true);
@@ -174,6 +183,8 @@ export default function GameCatalogManager() {
     setFormDesc(game.description || "");
     setFormFee(game.entry_fee);
     setFormCategory(game.category || "Uncategorized");
+    setFormDisplayWeight(Number(game.display_weight || 0));
+    setFormCatalogLabel(game.catalog_label || "");
     setFormImage(null);
     setCurrentImageUrl(game.image_url || "");
     setIsGameModalOpen(true);
@@ -240,6 +251,8 @@ export default function GameCatalogManager() {
         description: formDesc.trim(),
         entry_fee: formFee,
         category: formCategory,
+        display_weight: formDisplayWeight,
+        catalog_label: formCatalogLabel || null,
         image_url: finalImageUrl || 'https://img.icons8.com/color/96/controller.png'
       };
 
@@ -411,6 +424,10 @@ export default function GameCatalogManager() {
                   />
                 </div>
               </div>
+              <div className="flex gap-4">
+                <div className="flex-1"><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">Display Weight</label><input type="number" value={formDisplayWeight} onChange={(e) => setFormDisplayWeight(Number(e.target.value) || 0)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00]" /><p className="mt-1 text-[9px] text-neutral-500">Higher appears first.</p></div>
+                <div className="flex-1"><label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">Card Label</label><select value={formCatalogLabel} onChange={(e) => setFormCatalogLabel(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00]"><option value="">No label</option><option value="hot">Hot</option><option value="new">New</option><option value="popular">Popular</option><option value="featured">Featured</option></select></div>
+              </div>
 
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">Cover Image</label>
@@ -518,6 +535,8 @@ export default function GameCatalogManager() {
                       </div>
 
                       <div className="p-6 flex-1 flex flex-col justify-end space-y-4 bg-white/[0.02]">
+                        <div className="flex items-center justify-between"><span className="font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Display</span><span className="text-xs font-bold text-white">Weight {game.display_weight || 0}{game.catalog_label ? ` · ${game.catalog_label.toUpperCase()}` : ""}</span></div>
+                        <div className="flex items-center justify-between"><span className="font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Player Rating</span><span className="text-xs font-bold text-amber-400">★ {game.average_rating ? Number(game.average_rating).toFixed(1) : "—"} ({game.rating_count || 0})</span></div>
                         <div className="flex items-center justify-between">
                           <span className="font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Entry Cost</span>
                           <span className="font-headline text-sm font-black text-[#CCFF00] drop-shadow-[0_0_10px_rgba(204,255,0,0.1)]">

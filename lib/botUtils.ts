@@ -12,6 +12,16 @@ const HUMAN_BOT_PROFILES = [
   { name: "BlazeRunner", elo: 1180 },
   { name: "NovaStrike", elo: 1360 },
   { name: "PhantomEcho", elo: 1220 }
+  ,{ name: "Thiri Aung", elo: 1680 }, { name: "Ko Min Khant", elo: 1740 },
+  { name: "May Zin Oo", elo: 1810 }, { name: "Nay Lin Htet", elo: 1880 },
+  { name: "Su Myat Noe", elo: 1930 }, { name: "Aye Chan Moe", elo: 2010 },
+  { name: "Htet Wai Yan", elo: 2090 }, { name: "Nandar Win", elo: 2160 },
+  { name: "Kyaw Zin Oo", elo: 2220 }, { name: "Yoon Thiri", elo: 2280 },
+  { name: "Thiha Min", elo: 2350 }, { name: "Moe Pwint Phyu", elo: 2410 },
+  { name: "Zaw Ye Htet", elo: 2470 }, { name: "Khin Lay Win", elo: 2530 },
+  { name: "Pyae Sone Aung", elo: 2600 }, { name: "Ei Ei Mon", elo: 2660 },
+  { name: "Sai Hkun Htet", elo: 2720 }, { name: "Mya Thinzar", elo: 2780 },
+  { name: "Ye Yint Naing", elo: 2840 }, { name: "Shwe Sin Wint", elo: 2900 }
 ];
 
 export function getRandomBotOpponent() {

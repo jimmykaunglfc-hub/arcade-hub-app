@@ -14,6 +14,7 @@ interface MatchmakingModalProps {
     opponent: { name: string; isBot: boolean; avatarIcon?: string; elo?: number };
   }) => void;
   onCancel: () => void;
+  fallbackAfterMs?: number;
 }
 
 export default function MatchmakingModal({
@@ -22,6 +23,7 @@ export default function MatchmakingModal({
   userId,
   onMatchFound,
   onCancel,
+  fallbackAfterMs = 60000,
 }: MatchmakingModalProps) {
   const [searchTime, setSearchTime] = useState(0);
   const isCancelledRef = useRef(false);
@@ -98,7 +100,7 @@ export default function MatchmakingModal({
           clearInterval(pollInterval);
           triggerBotFallback();
         }
-      }, 60000);
+      }, fallbackAfterMs);
     };
 
     startHeartbeat();
@@ -108,7 +110,7 @@ export default function MatchmakingModal({
       clearInterval(timer);
       if (pollInterval) clearInterval(pollInterval);
     };
-  }, [gameKey, userId]);
+  }, [fallbackAfterMs, gameKey, userId]);
 
   // Use the new SQL function to cleanly wipe everything if they cancel
   const cleanUpQueueTicket = async () => {
