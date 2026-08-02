@@ -800,6 +800,16 @@ export default function ProfileTab({
                           onChange={uploadAvatar}
                         />
                       </label>
+                      {avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setAvatarUrl("")}
+                          disabled={saving}
+                          className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
+                        >
+                          Remove photo
+                        </button>
+                      )}
                     </div>
                     <label className="block text-xs font-bold">
                       Display name
