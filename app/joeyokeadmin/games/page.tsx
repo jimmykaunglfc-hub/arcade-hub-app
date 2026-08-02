@@ -16,6 +16,16 @@ import {
   Activity 
 } from "lucide-react";
 
+// Native games are seeded into the backend catalog on every catalog load. This
+// lets admins control their category, imagery, fee, status and featured state
+// without relying on a client-side fallback list.
+const NATIVE_GAME_CATALOG = [
+  { title: "Cup Pong", description: "Arcade cup-toss challenge.", category: "Uncategorized", entry_fee: 0, status: "active" },
+  { title: "Four in a Row", description: "Classic four-in-a-row strategy match.", category: "Uncategorized", entry_fee: 0, status: "active" },
+  { title: "Bingo", description: "Fast-paced bingo card challenge.", category: "Uncategorized", entry_fee: 0, status: "active" },
+  { title: "Ping Pong", description: "Table tennis arena match.", category: "Uncategorized", entry_fee: 0, status: "active" },
+];
+
 export default function GameCatalogManager() {
   const [games, setGames] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -51,7 +61,18 @@ export default function GameCatalogManager() {
     const { data: catData } = await supabase.from("game_categories").select("*").order("name");
     if (catData) setCategories(catData);
 
-    const { data: gameData } = await supabase.from("games").select("*").order("category").order("created_at");
+    let { data: gameData } = await supabase.from("games").select("*").order("category").order("created_at");
+    const existingTitles = new Set((gameData || []).map((game) => String(game.title).trim().toLowerCase()));
+    const missingNativeGames = NATIVE_GAME_CATALOG.filter((game) => !existingTitles.has(game.title.toLowerCase()));
+    if (missingNativeGames.length) {
+      const { error } = await supabase.from("games").insert(missingNativeGames);
+      if (error) {
+        console.error("Unable to seed native game catalog:", error.message);
+      } else {
+        const refreshed = await supabase.from("games").select("*").order("category").order("created_at");
+        gameData = refreshed.data;
+      }
+    }
     if (gameData) setGames(gameData);
     setLoading(false);
   };
