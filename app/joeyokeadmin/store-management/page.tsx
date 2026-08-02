@@ -39,6 +39,8 @@ export default function StoreManagement() {
   const [formSku, setFormSku] = useState("");
   const [formDesc, setFormDesc] = useState("");
   const [formCategory, setFormCategory] = useState("digital");
+  const [formCosmeticType, setFormCosmeticType] = useState("game_cosmetic");
+  const [originalCosmeticType, setOriginalCosmeticType] = useState("game_cosmetic");
   const [formPricePoints, setFormPricePoints] = useState<number | "">(100);
   const [formPriceFiat, setFormPriceFiat] = useState<number | "">("");
   const [formPriceCurrency, setFormPriceCurrency] = useState("points");
@@ -77,6 +79,8 @@ export default function StoreManagement() {
     setFormSku(`SKU-${Math.floor(1000 + Math.random() * 9000)}`);
     setFormDesc("");
     setFormCategory("digital");
+    setFormCosmeticType("game_cosmetic");
+    setOriginalCosmeticType("game_cosmetic");
     setFormPricePoints(100);
     setFormPriceFiat("");
     setFormPriceCurrency("points");
@@ -94,6 +98,9 @@ export default function StoreManagement() {
     setFormSku(item.sku);
     setFormDesc(item.description || "");
     setFormCategory(item.category || "digital");
+    const cosmeticType = item.cosmetic_type || "game_cosmetic";
+    setFormCosmeticType(cosmeticType);
+    setOriginalCosmeticType(cosmeticType);
     setFormPricePoints(item.price_points ?? 0);
     setFormPriceFiat(item.price_fiat ?? "");
     setFormPriceCurrency(item.price_currency || "points");
@@ -111,7 +118,23 @@ export default function StoreManagement() {
       const file = e.target.files[0];
       if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
       if (file.size > 2 * 1024 * 1024) return alert("File size too large. Max 2MB.");
-      setFormImageFile(file);
+      if (formCosmeticType === "avatar_frame" && !["image/png", "image/webp"].includes(file.type)) {
+        return alert("Avatar borders must be uploaded as a transparent PNG or WebP.");
+      }
+      const preview = new Image();
+      preview.onload = () => {
+        URL.revokeObjectURL(preview.src);
+        const ratio = preview.width / preview.height;
+        if (formCosmeticType === "avatar_frame" && Math.abs(ratio - 1) > 0.02) {
+          return alert("Avatar borders must be 1:1 square images (for example 1024 × 1024).");
+        }
+        if (formCosmeticType === "profile_card" && Math.abs(ratio - 16 / 9) > 0.04) {
+          return alert("Profile card backgrounds must use a 16:9 image (for example 1600 × 900).");
+        }
+        setFormImageFile(file);
+      };
+      preview.onerror = () => alert("This image could not be read. Please choose another file.");
+      preview.src = URL.createObjectURL(file);
     }
   };
 
@@ -130,6 +153,14 @@ export default function StoreManagement() {
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formSku.trim()) return alert("Name and SKU are required.");
+    if (
+      formCategory === "digital" &&
+      formCosmeticType === "avatar_frame" &&
+      formCosmeticType !== originalCosmeticType &&
+      !formImageFile
+    ) {
+      return alert("Upload a new transparent 1:1 PNG or WebP when converting an item into an Avatar Border.");
+    }
     setUploading(true);
 
     try {
@@ -159,6 +190,7 @@ export default function StoreManagement() {
         sku: formSku.trim().toUpperCase(),
         description: formDesc.trim(),
         category: formCategory,
+        cosmetic_type: formCategory === "digital" ? formCosmeticType : "game_cosmetic",
         price_points: formCategory === "currency" ? 0 : (formPricePoints === "" ? 0 : Number(formPricePoints)),
         price_fiat: formCategory === "currency" ? (formPriceFiat === "" ? null : Number(formPriceFiat)) : null,
         price_currency: formPriceCurrency,
@@ -336,6 +368,11 @@ export default function StoreManagement() {
                     }`}>
                       {item.category === "currency" ? "Gem Pack" : item.category}
                     </span>
+                    {item.category === "digital" && (
+                      <span className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/20">
+                        {(item.cosmetic_type || "game_cosmetic").replaceAll("_", " ")}
+                      </span>
+                    )}
                   </div>
                   <h3 className="font-headline text-base font-black text-white tracking-wide truncate mt-1">{item.name}</h3>
                   <p className="font-body text-xs text-neutral-400 mt-1 line-clamp-2 leading-relaxed">{item.description || "No description provided."}</p>
@@ -428,6 +465,33 @@ export default function StoreManagement() {
                   </select>
                 </div>
               </div>
+
+              {formCategory === "digital" && (
+                <div className="space-y-2 rounded-xl border border-[#CCFF00]/20 bg-[#CCFF00]/[0.03] p-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Cosmetic Type</label>
+                    <select
+                      value={formCosmeticType}
+                      onChange={(e) => {
+                        setFormCosmeticType(e.target.value);
+                        setFormImageFile(null);
+                      }}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors appearance-none cursor-pointer"
+                    >
+                      <option value="game_cosmetic" className="bg-[#18181b]">Game Cosmetic</option>
+                      <option value="profile_card" className="bg-[#18181b]">Profile Card Background</option>
+                      <option value="avatar_frame" className="bg-[#18181b]">Avatar Border</option>
+                    </select>
+                  </div>
+                  <p className="text-[10px] leading-relaxed text-neutral-400">
+                    {formCosmeticType === "avatar_frame"
+                      ? "Avatar Border: upload a 1:1 transparent PNG or WebP (recommended 1024 × 1024). The decorative ring must sit at the outside edge; leave the centre transparent so the player photo remains visible."
+                      : formCosmeticType === "profile_card"
+                        ? "Profile Card Background: upload a 16:9 image (recommended 1600 × 900). It is cropped to cover the profile card."
+                        : "Game Cosmetic: upload a square 1:1 image (recommended 1024 × 1024) for consistent store cards."}
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Description</label>
@@ -531,7 +595,9 @@ export default function StoreManagement() {
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Item Image</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">
+                  Item Image{formCategory === "digital" ? ` · ${formCosmeticType === "avatar_frame" ? "1:1 transparent PNG/WebP" : formCosmeticType === "profile_card" ? "16:9" : "1:1 recommended"}` : ""}
+                </label>
                 <div 
                   onClick={() => imageInputRef.current?.click()} 
                   className="w-full h-20 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 hover:border-white/20 transition-all relative overflow-hidden group"

@@ -152,13 +152,13 @@ export default function ProfileTab({
     const cosmeticById = new Map((cosmetics || []).map((item) => [item.id, item]));
     const resolvedInventory = (rawInventory || []).map((item) => {
       const source = cosmeticById.get(item.cosmetic_id) || storeById.get(item.cosmetic_id);
-      const sourceCategory = source?.game_category || source?.category || "other";
+      const sourceCategory = source?.cosmetic_type || source?.game_category || source?.category || "other";
       const cosmeticName = String(source?.name || "").toLowerCase();
-      const category = ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame"].includes(sourceCategory)
+      const category = ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame", "avatar_border"].includes(sourceCategory)
         ? sourceCategory
-        : /avatar|border|frame/.test(cosmeticName)
+        : !source?.cosmetic_type && /avatar|border|frame/.test(cosmeticName)
         ? "avatar_frame"
-        : /profile.*card|card.*background|background/.test(cosmeticName)
+        : !source?.cosmetic_type && /profile.*card|card.*background|background/.test(cosmeticName)
         ? "profile_card"
         : sourceCategory;
       return { ...item, cosmetics: source ? { ...source, game_category: category } : null } as InventoryItem;
@@ -166,7 +166,7 @@ export default function ProfileTab({
     setInventory(resolvedInventory);
     const equipped = resolvedInventory.filter((item) => item.is_equipped) as EquippedCosmetic[];
     setProfileCardCosmetic(equipped.find((item) => ["profile_card", "profile_card_theme"].includes(item.cosmetics?.game_category || ""))?.cosmetics || null);
-    setAvatarFrameCosmetic(equipped.find((item) => ["avatar_frame", "profile_avatar_frame"].includes(item.cosmetics?.game_category || ""))?.cosmetics || null);
+    setAvatarFrameCosmetic(equipped.find((item) => ["avatar_frame", "profile_avatar_frame", "avatar_border"].includes(item.cosmetics?.game_category || ""))?.cosmetics || null);
     setLedger((ledgerData || []) as LedgerEntry[]);
     if (config?.support_email) setSupportEmail(config.support_email);
     if (editConfig) setProfileEditConfig({
@@ -201,18 +201,21 @@ export default function ProfileTab({
     if (!profile || !item.cosmetics?.game_category) return;
     const category = item.cosmetics.game_category;
     const isCard = ["profile_card", "profile_card_theme"].includes(category);
-    const isFrame = ["avatar_frame", "profile_avatar_frame"].includes(category);
+    const isFrame = ["avatar_frame", "profile_avatar_frame", "avatar_border"].includes(category);
     if (!isCard && !isFrame) return showMessage("This cosmetic is used inside its game.");
     setSaving(true);
-    const categories = isCard ? ["profile_card", "profile_card_theme"] : ["avatar_frame", "profile_avatar_frame"];
-    const { data: slotCosmetics, error: slotError } = await supabase.from("cosmetics").select("id").in("game_category", categories);
-    if (slotError) { setSaving(false); return showMessage(slotError.message); }
-    const slotIds = (slotCosmetics || []).map((cosmetic) => cosmetic.id);
-    if (slotIds.length) await supabase.from("user_inventory").update({ is_equipped: false }).eq("user_id", profile.id).in("cosmetic_id", slotIds);
+    const categories = isCard ? ["profile_card", "profile_card_theme"] : ["avatar_frame", "profile_avatar_frame", "avatar_border"];
+    const slotInventoryIds = inventory
+      .filter((entry) => categories.includes(entry.cosmetics?.game_category || ""))
+      .map((entry) => entry.id);
+    if (slotInventoryIds.length) {
+      const { error: slotError } = await supabase.from("user_inventory").update({ is_equipped: false }).eq("user_id", profile.id).in("id", slotInventoryIds);
+      if (slotError) { setSaving(false); return showMessage(slotError.message); }
+    }
     const { error } = await supabase.from("user_inventory").update({ is_equipped: true }).eq("id", item.id).eq("user_id", profile.id);
     setSaving(false);
     if (error) return showMessage(error.message);
-    setInventory((current) => current.map((entry) => ({ ...entry, is_equipped: entry.id === item.id ? true : slotIds.includes(entry.cosmetic_id) ? false : entry.is_equipped })));
+    setInventory((current) => current.map((entry) => ({ ...entry, is_equipped: entry.id === item.id ? true : slotInventoryIds.includes(entry.id) ? false : entry.is_equipped })));
     if (isCard) setProfileCardCosmetic(item.cosmetics);
     if (isFrame) setAvatarFrameCosmetic(item.cosmetics);
     showMessage(`${item.cosmetics.name || "Cosmetic"} equipped.`);
@@ -420,7 +423,7 @@ export default function ProfileTab({
       {control}
     </div>
   );
-  const profileDesignItems = inventory.filter((item) => ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame"].includes(item.cosmetics?.game_category || ""));
+  const profileDesignItems = inventory.filter((item) => ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame", "avatar_border"].includes(item.cosmetics?.game_category || ""));
 
   return (
     <div className="space-y-5 animate-fade-in pb-12 w-full text-on-surface">
@@ -450,8 +453,7 @@ export default function ProfileTab({
           {t("editNamePhoto")}
         </button>
         <div className="relative h-24 w-24">
-          {avatarFrameCosmetic?.image_url && <Image src={avatarFrameCosmetic.image_url} alt="Equipped avatar frame" fill className="pointer-events-none absolute inset-0 z-0 object-contain" unoptimized />}
-          <div className={`absolute z-10 overflow-hidden rounded-full border-4 border-surface-container-high bg-surface-variant shadow-inner ${avatarFrameCosmetic?.image_url ? "inset-2" : "inset-0"}`}>
+          <div className="absolute inset-0 z-10 overflow-hidden rounded-full border-4 border-surface-container-high bg-surface-variant shadow-inner">
             <Image
               src={profile.avatar_url || "/logo-dark.jpeg"}
               alt="Profile avatar"
@@ -460,6 +462,7 @@ export default function ProfileTab({
               unoptimized
             />
           </div>
+          {avatarFrameCosmetic?.image_url && <Image src={avatarFrameCosmetic.image_url} alt="Equipped avatar border" fill className="pointer-events-none absolute inset-0 z-20 object-contain" unoptimized />}
         </div>
         <div className="mt-4">
           <h2 className="font-headline text-xl font-black tracking-tight">
