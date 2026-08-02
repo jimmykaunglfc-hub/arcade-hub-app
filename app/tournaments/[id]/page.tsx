@@ -137,15 +137,15 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
   };
 
   return (
-    <main className="min-h-[100dvh] overflow-x-hidden bg-background px-4 text-on-background" style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}>
-      <div className="mx-auto min-w-0 max-w-2xl">
+    <main className="h-[100dvh] overflow-hidden bg-background px-4 text-on-background" style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))", paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+      <div className="mx-auto flex h-full min-w-0 max-w-2xl flex-col">
         <button
           onClick={() => router.replace("/")}
-          className="sticky top-0 z-50 -mx-4 mb-5 block w-[calc(100%+2rem)] border-b border-surface-container-highest bg-background/95 px-4 py-4 text-left text-sm font-bold text-primary backdrop-blur"
+          className="z-50 -mx-4 mb-3 block w-[calc(100%+2rem)] shrink-0 border-b border-surface-container-highest bg-background px-4 py-4 text-left text-sm font-bold text-primary"
         >
           ← Back to home
         </button>
-        <section className="min-w-0 overflow-hidden rounded-[26px] border border-surface-container-highest bg-surface shadow-2xl">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[26px] border border-surface-container-highest bg-surface shadow-2xl">
           {tournament.card_image_url ? (
             <img
               src={tournament.card_image_url}
@@ -155,7 +155,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
           ) : (
             <div className="aspect-[16/7] bg-[radial-gradient(circle_at_80%_5%,rgba(204,255,0,.28),transparent_35%),linear-gradient(135deg,var(--surface-container-high),var(--surface))]" />
           )}
-          <div className="p-5">
+          <div className="flex min-h-0 flex-1 flex-col p-5">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-500">
               {tournament.status} tournament
             </p>
@@ -218,6 +218,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
               </TabButton>
             </div>
 
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-1 no-scrollbar">
             {tab === "overview" && (
               <>
                 <Section title="About tournament">
@@ -242,10 +243,6 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
             )}
             {tab === "games" && (
               <section className="mt-6 space-y-3">
-                <p className="text-sm text-on-surface-variant">
-                  Tournament games are separate from the normal game lobby. Play
-                  only the game and opponent listed in your scheduled fixture.
-                </p>
                 <div className="grid grid-cols-3 gap-3">
                   {games.map((game: string) => (
                     <button
@@ -352,10 +349,11 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
             {message && (
               <p className="mt-5 text-sm font-bold text-primary">{message}</p>
             )}
+            </div>
             <button
               onClick={() => void join()}
               disabled={joined || joining || tournament.status === "completed"}
-              className="mt-6 w-full rounded-xl bg-primary py-3.5 text-sm font-black text-on-primary disabled:opacity-60"
+              className="mt-4 w-full shrink-0 rounded-xl bg-primary py-3.5 text-sm font-black text-on-primary disabled:opacity-60"
             >
               {joined ? "Registered" : joining ? "Joining…" : "Join tournament"}
             </button>
