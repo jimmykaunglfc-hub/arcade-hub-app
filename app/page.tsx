@@ -18,6 +18,7 @@ import GlobalInviteListener from "../components/GlobalInviteListener";
 import GlobalNotificationListener from "../components/GlobalNotificationListener";
 import CampaignSplash from "../components/CampaignSplash";
 import InAppBroadcastDialog from "../components/InAppBroadcastDialog";
+import CompetitiveGameLaunch from "../components/CompetitiveGameLaunch";
 import JoeYokeLogo from "../components/JoeYokeLogo";
 
 // Game engines are intentionally loaded only after a player selects a game.
@@ -34,6 +35,10 @@ const ChessGame = dynamic(() => import("../components/games/ChessGame"), { ssr: 
 const SnookerGame = dynamic(() => import("../components/games/SnookerGame"), { ssr: false });
 const TicTacToeGame = dynamic(() => import("../components/games/TicTacToeGame"), { ssr: false });
 const UnoGame = dynamic(() => import("../components/games/UnoGame"), { ssr: false });
+const CupPong = dynamic(() => import("../components/games/CupPong"), { ssr: false });
+const FourInARow = dynamic(() => import("../components/games/FourInARow").then((mod) => mod.FourInARow), { ssr: false });
+const Bingo = dynamic(() => import("../components/games/Bingo").then((mod) => mod.BingoGame), { ssr: false });
+const PingPong = dynamic(() => import("../components/games/PingPong"), { ssr: false });
 import AuthView from "../components/AuthView";
 import { useTranslation } from "../lib/i18n";
 
@@ -334,6 +339,14 @@ export default function Home() {
             setActiveMatchId(null);
           }}
         />
+      ) : playingGame === "native://cup-pong" ? (
+        <CompetitiveGameLaunch gameKey="cup-pong" gameTitle="Cup Pong" Game={CupPong} onClose={() => setPlayingGame(null)} />
+      ) : playingGame === "native://four-in-a-row" ? (
+        <CompetitiveGameLaunch gameKey="four-in-a-row" gameTitle="Four in a Row" Game={FourInARow} onClose={() => setPlayingGame(null)} />
+      ) : playingGame === "native://bingo" ? (
+        <CompetitiveGameLaunch gameKey="bingo" gameTitle="Bingo" Game={Bingo} onClose={() => setPlayingGame(null)} />
+      ) : playingGame === "native://ping-pong" || playingGame === "native://table-tennis" ? (
+        <CompetitiveGameLaunch gameKey="ping-pong" gameTitle="Ping Pong" Game={PingPong} onClose={() => setPlayingGame(null)} />
       ) : playingGame ? (
         <GamePlayer
           gameUrl={playingGame}

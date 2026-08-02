@@ -22,6 +22,10 @@ const DEFAULT_GAMES = [
   { id: "pool", title: "8-Ball Pool", category: "Sports", entry_fee: 0, rating: "4.9", icon: "sports_score" },
   { id: "tictactoe", title: "Tic Tac Toe", category: "Strategy", entry_fee: 0, rating: "4.8", icon: "grid_3x3" },
   { id: "biometric_override", title: "Biometric Override", category: "Puzzle", entry_fee: 0, rating: "5.0", icon: "fingerprint" },
+  { id: "cup_pong", title: "Cup Pong", category: "Sports", entry_fee: 0, rating: "4.8", icon: "sports_baseball" },
+  { id: "four_in_a_row", title: "Four in a Row", category: "Strategy", entry_fee: 0, rating: "4.8", icon: "view_column" },
+  { id: "bingo", title: "Bingo", category: "Arcade", entry_fee: 0, rating: "4.7", icon: "casino" },
+  { id: "ping_pong", title: "Ping Pong", category: "Sports", entry_fee: 0, rating: "4.9", icon: "table_restaurant" },
 ];
 
 export default function GamesTab({ 
@@ -69,7 +73,10 @@ export default function GamesTab({
         .order("created_at", { ascending: false });
       
       if (gameData && gameData.length > 0) {
-        setDbGames(gameData);
+        // Keep native releases discoverable before an admin has created their
+        // optional artwork/fee record. Database entries take precedence.
+        const knownTitles = new Set(gameData.map((game) => String(game.title).toLowerCase()));
+        setDbGames([...gameData, ...DEFAULT_GAMES.filter((game) => !knownTitles.has(game.title.toLowerCase()))]);
       } else {
         setDbGames(DEFAULT_GAMES);
       }
