@@ -443,7 +443,7 @@ export default function ProfileTab({
         className={`bg-surface border border-surface-container-highest rounded-[24px] p-6 flex flex-col items-center text-center relative overflow-hidden shadow-sm ${hasProfileCardArtwork ? "text-white border-white/15 shadow-lg" : ""}`}
         style={{
           backgroundColor: profileCardCosmetic?.modifiers?.background_color,
-          backgroundImage: profileCardCosmetic?.image_url ? `linear-gradient(rgb(15 23 42 / 0.78), rgb(15 23 42 / 0.88)), url(${profileCardCosmetic.image_url})` : undefined,
+          backgroundImage: profileCardCosmetic?.image_url ? `linear-gradient(rgb(15 23 42 / 0.52), rgb(15 23 42 / 0.66)), url(${profileCardCosmetic.image_url})` : undefined,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
