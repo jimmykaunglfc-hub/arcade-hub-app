@@ -150,23 +150,23 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
             <img
               src={tournament.card_image_url}
               alt=""
-              className="aspect-[16/7] w-full bg-surface-container object-cover object-center"
+              className="aspect-[16/5] w-full bg-surface-container object-cover object-center"
             />
           ) : (
-            <div className="aspect-[16/7] bg-[radial-gradient(circle_at_80%_5%,rgba(204,255,0,.28),transparent_35%),linear-gradient(135deg,var(--surface-container-high),var(--surface))]" />
+            <div className="aspect-[16/5] bg-[radial-gradient(circle_at_80%_5%,rgba(204,255,0,.28),transparent_35%),linear-gradient(135deg,var(--surface-container-high),var(--surface))]" />
           )}
-          <div className="flex min-h-0 flex-1 flex-col p-5">
+          <div className="flex min-h-0 flex-1 flex-col p-4">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-500">
               {tournament.status} tournament
             </p>
-            <h1 className="mt-1 text-3xl font-black tracking-tight">
+            <h1 className="mt-1 text-2xl font-black leading-tight tracking-tight">
               {tournament.title}
             </h1>
-            <p className="mt-1 text-sm font-medium text-[#52627a] dark:text-[#b7c1d1]">
+            <p className="mt-1 line-clamp-1 text-xs font-medium text-[#52627a] dark:text-[#b7c1d1]">
               {games.join(" · ")}
             </p>
 
-            <div className="mt-5 grid grid-cols-3 divide-x divide-surface-container-highest rounded-xl border border-surface-container-highest bg-surface-container text-center text-sm">
+            <div className="mt-3 grid grid-cols-3 divide-x divide-surface-container-highest rounded-xl border border-surface-container-highest bg-surface-container text-center text-xs">
               <Info
                 label="Players"
                 value={`${tournament.current_slots ?? 0}/${
@@ -191,7 +191,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
               />
             </div>
 
-            <div className="mt-6 grid min-w-0 grid-cols-4 border-b border-surface-container-highest text-center text-[11px] font-bold sm:text-xs">
+            <div className="mt-3 grid min-w-0 grid-cols-4 border-b border-surface-container-highest text-center text-[11px] font-bold sm:text-xs">
               <TabButton
                 active={tab === "overview"}
                 onClick={() => setTab("overview")}
@@ -353,7 +353,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
             <button
               onClick={() => void join()}
               disabled={joined || joining || tournament.status === "completed"}
-              className="mt-4 w-full shrink-0 rounded-xl bg-primary py-3.5 text-sm font-black text-on-primary disabled:opacity-60"
+              className="mt-3 w-full shrink-0 rounded-xl bg-primary py-3 text-sm font-black text-on-primary disabled:opacity-60"
             >
               {joined ? "Registered" : joining ? "Joining…" : "Join tournament"}
             </button>
@@ -381,11 +381,11 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="p-3">
+    <div className="p-2.5">
       <p className="text-[9px] font-bold uppercase tracking-wider text-[#64748b] dark:text-slate-400">
         {label}
       </p>
-      <p className="mt-1 font-bold text-on-surface">{value}</p>
+      <p className="mt-0.5 font-bold text-on-surface">{value}</p>
     </div>
   );
 }
