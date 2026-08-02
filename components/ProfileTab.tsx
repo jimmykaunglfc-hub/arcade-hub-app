@@ -112,9 +112,10 @@ export default function ProfileTab({
       { count },
       { data: ledgerData },
       { data: config },
-      { data: equippedItems },
       { data: editConfig },
-      { data: inventoryItems },
+      { data: rawInventory },
+      { data: storeItems },
+      { data: cosmetics },
     ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase
@@ -134,13 +135,10 @@ export default function ProfileTab({
         .select("support_email")
         .eq("id", 1)
         .maybeSingle(),
-      supabase
-        .from("user_inventory")
-        .select("cosmetics(game_category, image_url, modifiers)")
-        .eq("user_id", user.id)
-        .eq("is_equipped", true),
       supabase.from("platform_config").select("profile_edit_cost, profile_edit_currency").eq("id", 1).maybeSingle(),
-      supabase.from("user_inventory").select("id, cosmetic_id, is_equipped, cosmetics(name, game_category, image_url, modifiers)").eq("user_id", user.id),
+      supabase.from("user_inventory").select("id, cosmetic_id, is_equipped").eq("user_id", user.id),
+      supabase.from("store_items").select("*"),
+      supabase.from("cosmetics").select("id, name, game_category, image_url, modifiers"),
     ]);
     if (!myProfile) {
       setFetchStatus("missing");
@@ -150,8 +148,15 @@ export default function ProfileTab({
     setName(myProfile.username || "");
     setAvatarUrl(myProfile.avatar_url || "");
     setInventoryCount(count || 0);
-    setInventory((inventoryItems || []) as InventoryItem[]);
-    const equipped = (equippedItems || []) as EquippedCosmetic[];
+    const storeById = new Map((storeItems || []).map((item) => [item.id, item]));
+    const cosmeticById = new Map((cosmetics || []).map((item) => [item.id, item]));
+    const resolvedInventory = (rawInventory || []).map((item) => {
+      const source = cosmeticById.get(item.cosmetic_id) || storeById.get(item.cosmetic_id);
+      const category = source?.game_category || source?.category || "other";
+      return { ...item, cosmetics: source ? { ...source, game_category: category } : null } as InventoryItem;
+    });
+    setInventory(resolvedInventory);
+    const equipped = resolvedInventory.filter((item) => item.is_equipped) as EquippedCosmetic[];
     setProfileCardCosmetic(equipped.find((item) => ["profile_card", "profile_card_theme"].includes(item.cosmetics?.game_category || ""))?.cosmetics || null);
     setAvatarFrameCosmetic(equipped.find((item) => ["avatar_frame", "profile_avatar_frame"].includes(item.cosmetics?.game_category || ""))?.cosmetics || null);
     setLedger((ledgerData || []) as LedgerEntry[]);
@@ -407,6 +412,7 @@ export default function ProfileTab({
       {control}
     </div>
   );
+  const profileDesignItems = inventory.filter((item) => ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame"].includes(item.cosmetics?.game_category || ""));
 
   return (
     <div className="space-y-5 animate-fade-in pb-12 w-full text-on-surface">
@@ -478,10 +484,6 @@ export default function ProfileTab({
           </div>
         </div>
       </div>
-      <button onClick={() => setModal("inventory")} className="flex w-full items-center justify-between rounded-[20px] border border-surface-container-highest bg-surface p-4 text-left transition hover:bg-surface-variant">
-        <span className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-primary-container p-2 text-primary">palette</span><span><b className="block text-sm">Profile cosmetics</b><small className="text-on-surface-variant">Change your card background and avatar border</small></span></span>
-        <span className="text-xs font-bold text-primary">Inventory</span>
-      </button>
       <section className="space-y-3">
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
           {t("language")}
@@ -535,6 +537,9 @@ export default function ProfileTab({
                 chevron_right
               </span>
             </div>
+          </button>
+          <button onClick={() => setModal("inventory")} className="w-full p-4 text-left hover:bg-surface-variant">
+            <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-surface-container-high p-2 text-primary">inventory_2</span><span><b className="block text-sm">My inventory</b><small className="text-on-surface-variant">{inventoryCount} purchased cosmetics</small></span></span><span className="material-symbols-outlined text-on-surface-variant">chevron_right</span></div>
           </button>
         </div>
       </section>
@@ -731,16 +736,15 @@ export default function ProfileTab({
                 )}
                 {modal === "inventory" && (
                   <div className="space-y-4">
-                    <p className="text-xs text-on-surface-variant">Choose an owned card background or avatar border to equip it immediately. Your other purchased cosmetics are listed here too.</p>
+                    <p className="text-xs text-on-surface-variant">All cosmetics you have purchased. To change your avatar border or profile card background, use Edit Profile.</p>
                     {inventory.length ? <div className="grid grid-cols-2 gap-3">{inventory.map((item) => {
                       const category = item.cosmetics?.game_category || "other";
-                      const isProfileItem = ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame"].includes(category);
-                      return <button key={item.id} disabled={saving || !isProfileItem} onClick={() => void equipProfileCosmetic(item)} className={`relative overflow-hidden rounded-2xl border p-3 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"} ${!isProfileItem ? "opacity-60" : "active:scale-[0.98]"}`}>
+                      return <div key={item.id} className={`relative overflow-hidden rounded-2xl border p-3 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"}`}>
                         <div className="mb-3 flex h-20 items-center justify-center overflow-hidden rounded-xl bg-surface">{item.cosmetics?.image_url ? <img src={item.cosmetics.image_url} alt="" className="h-full w-full object-cover" /> : <span className="material-symbols-outlined text-3xl text-primary">palette</span>}</div>
                         <b className="block truncate text-xs">{item.cosmetics?.name || "Purchased cosmetic"}</b>
                         <small className="mt-1 block capitalize text-on-surface-variant">{category.replaceAll("_", " ")}</small>
                         {item.is_equipped && <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-1 text-[9px] font-black text-on-primary">EQUIPPED</span>}
-                      </button>;
+                      </div>;
                     })}</div> : <p className="py-8 text-center text-sm text-on-surface-variant">No cosmetics purchased yet. Visit the Shop to unlock some.</p>}
                   </div>
                 )}
@@ -774,6 +778,11 @@ export default function ProfileTab({
                         className="mt-1 w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest"
                       />
                     </label>
+                    <div className="border-t border-surface-container-highest pt-4">
+                      <b className="text-xs">Profile card design</b>
+                      <p className="mt-1 text-xs text-on-surface-variant">Choose a purchased avatar border or card background.</p>
+                      {profileDesignItems.length ? <div className="mt-3 grid grid-cols-2 gap-2">{profileDesignItems.map((item) => <button key={item.id} disabled={saving} onClick={() => void equipProfileCosmetic(item)} className={`rounded-xl border p-2 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"}`}><div className="h-14 overflow-hidden rounded-lg bg-surface">{item.cosmetics?.image_url ? <img src={item.cosmetics.image_url} alt="" className="h-full w-full object-cover" /> : null}</div><span className="mt-2 block truncate text-[10px] font-bold">{item.cosmetics?.name || "Profile cosmetic"}</span>{item.is_equipped && <span className="text-[9px] font-black text-primary">EQUIPPED</span>}</button>)}</div> : <p className="mt-3 text-xs text-on-surface-variant">No profile designs purchased yet.</p>}
+                    </div>
                     <p className="text-xs text-on-surface-variant">
                       Your first profile edit is free. Later edits cost {profileEditConfig.profile_edit_cost} {profileEditConfig.profile_edit_currency.toUpperCase()}, as set by the game team.
                     </p>
