@@ -379,7 +379,7 @@ export default function Home() {
       >
         {/* HEADER */}
         <header
-          className="fixed top-0 left-0 right-0 z-50 bg-background flex justify-between items-center px-5 transition-colors duration-300"
+          className="fixed top-0 left-0 right-0 z-[100001] bg-background flex justify-between items-center px-5 transition-colors duration-300"
           style={{
             height: "calc(90px + env(safe-area-inset-top))",
             paddingTop: "env(safe-area-inset-top)",
@@ -503,18 +503,20 @@ export default function Home() {
 
         {showNotifications && (
           <div
-            className="fixed inset-x-0 z-40 flex min-h-0 w-full flex-col bg-background px-5"
+            className="fixed inset-0 z-[100000] flex h-[100dvh] w-screen min-h-0 flex-col bg-background"
             style={{
-              top: "calc(90px + env(safe-area-inset-top))",
-              bottom: "env(safe-area-inset-bottom)",
+              paddingTop: "calc(90px + env(safe-area-inset-top))",
+              paddingBottom: "env(safe-area-inset-bottom)",
             }}
           >
-            <NotificationsCenter
-              userId={myUserId}
-              points={userPoints}
-              gems={userGems}
-              onBack={() => setShowNotifications(false)}
-            />
+            <div className="min-h-0 flex-1 px-5">
+              <NotificationsCenter
+                userId={myUserId}
+                points={userPoints}
+                gems={userGems}
+                onBack={() => setShowNotifications(false)}
+              />
+            </div>
           </div>
         )}
 

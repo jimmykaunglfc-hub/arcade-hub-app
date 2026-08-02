@@ -8,12 +8,24 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Joe Yoke | Social Gaming Hub",
   description: "Play HTML5 games and chat with friends.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Joe Yoke",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    apple: "/logo-dark.jpeg",
+    icon: "/logo-dark.jpeg",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: "#070A12",
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({
