@@ -443,30 +443,13 @@ export default function Home() {
 
         {/* MAIN CONTENT AREA */}
         <main
-          className={`flex-1 min-w-0 overflow-x-hidden px-5 w-full z-10 ${showNotifications ? "overflow-hidden" : "overflow-y-auto no-scrollbar"}`}
+          className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto no-scrollbar px-5 w-full z-10"
           style={{
             paddingTop: "calc(100px + env(safe-area-inset-top))",
-            paddingBottom: showNotifications
-              ? "env(safe-area-inset-bottom)"
-              : "calc(100px + env(safe-area-inset-bottom))",
+            paddingBottom: "calc(100px + env(safe-area-inset-bottom))",
           }}
         >
-          {showNotifications ? (
-            <div
-              className="fixed inset-x-0 z-40 flex min-h-0 flex-col bg-background px-5"
-              style={{
-                top: "calc(90px + env(safe-area-inset-top))",
-                bottom: "env(safe-area-inset-bottom)",
-              }}
-            >
-              <NotificationsCenter
-                userId={myUserId}
-                points={userPoints}
-                gems={userGems}
-                onBack={() => setShowNotifications(false)}
-              />
-            </div>
-          ) : !session &&
+          {!showNotifications && !session &&
             (activeTab === "Chats" ||
               activeTab === "Store" ||
               activeTab === "Profile") ? (
@@ -517,6 +500,23 @@ export default function Home() {
             </>
           )}
         </main>
+
+        {showNotifications && (
+          <div
+            className="fixed inset-x-0 z-40 flex min-h-0 w-full flex-col bg-background px-5"
+            style={{
+              top: "calc(90px + env(safe-area-inset-top))",
+              bottom: "env(safe-area-inset-bottom)",
+            }}
+          >
+            <NotificationsCenter
+              userId={myUserId}
+              points={userPoints}
+              gems={userGems}
+              onBack={() => setShowNotifications(false)}
+            />
+          </div>
+        )}
 
         {/* Notifications are a full-screen destination, so navigation cannot cover actions. */}
         {!showNotifications && (
