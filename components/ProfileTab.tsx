@@ -152,7 +152,15 @@ export default function ProfileTab({
     const cosmeticById = new Map((cosmetics || []).map((item) => [item.id, item]));
     const resolvedInventory = (rawInventory || []).map((item) => {
       const source = cosmeticById.get(item.cosmetic_id) || storeById.get(item.cosmetic_id);
-      const category = source?.game_category || source?.category || "other";
+      const sourceCategory = source?.game_category || source?.category || "other";
+      const cosmeticName = String(source?.name || "").toLowerCase();
+      const category = ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame"].includes(sourceCategory)
+        ? sourceCategory
+        : /avatar|border|frame/.test(cosmeticName)
+        ? "avatar_frame"
+        : /profile.*card|card.*background|background/.test(cosmeticName)
+        ? "profile_card"
+        : sourceCategory;
       return { ...item, cosmetics: source ? { ...source, game_category: category } : null } as InventoryItem;
     });
     setInventory(resolvedInventory);
@@ -781,7 +789,7 @@ export default function ProfileTab({
                     <div className="border-t border-surface-container-highest pt-4">
                       <b className="text-xs">Profile card design</b>
                       <p className="mt-1 text-xs text-on-surface-variant">Choose a purchased avatar border or card background.</p>
-                      {profileDesignItems.length ? <div className="mt-3 grid grid-cols-2 gap-2">{profileDesignItems.map((item) => <button key={item.id} disabled={saving} onClick={() => void equipProfileCosmetic(item)} className={`rounded-xl border p-2 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"}`}><div className="h-14 overflow-hidden rounded-lg bg-surface">{item.cosmetics?.image_url ? <img src={item.cosmetics.image_url} alt="" className="h-full w-full object-cover" /> : null}</div><span className="mt-2 block truncate text-[10px] font-bold">{item.cosmetics?.name || "Profile cosmetic"}</span>{item.is_equipped && <span className="text-[9px] font-black text-primary">EQUIPPED</span>}</button>)}</div> : <p className="mt-3 text-xs text-on-surface-variant">No profile designs purchased yet.</p>}
+                      {profileDesignItems.length ? <div className="mt-3 grid grid-cols-2 gap-2">{profileDesignItems.map((item) => <button key={item.id} disabled={saving} onClick={() => void equipProfileCosmetic(item)} className={`rounded-xl border p-2 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"}`}><div className="h-14 overflow-hidden rounded-lg bg-surface">{item.cosmetics?.image_url ? <img src={item.cosmetics.image_url} alt="" className="h-full w-full object-cover" /> : null}</div><span className="mt-2 block truncate text-[10px] font-bold">{item.cosmetics?.name || "Profile cosmetic"}</span><span className="mt-2 block rounded-lg bg-primary px-2 py-1 text-center text-[9px] font-black text-on-primary">{item.is_equipped ? "EQUIPPED" : "EQUIP DESIGN"}</span></button>)}</div> : <p className="mt-3 text-xs text-on-surface-variant">No profile designs purchased yet.</p>}
                     </div>
                     <p className="text-xs text-on-surface-variant">
                       Your first profile edit is free. Later edits cost {profileEditConfig.profile_edit_cost} {profileEditConfig.profile_edit_currency.toUpperCase()}, as set by the game team.
