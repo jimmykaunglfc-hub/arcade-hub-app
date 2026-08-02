@@ -7,20 +7,36 @@ import { supabase } from "@/lib/supabaseClient";
 import PublicProfileCardModal from "@/components/PublicProfileCardModal";
 
 type Player = { id: string; username: string; avatar_url: string | null; points: number; gems: number };
+const LEADERBOARD_CACHE_KEY = "joeyoke_global_leaderboard_v1";
+
+const readCachedLeaderboard = (): Player[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(LEADERBOARD_CACHE_KEY) || "null") as { players?: Player[] } | null;
+    return Array.isArray(cached?.players) ? cached.players : [];
+  } catch { return []; }
+};
 
 export default function LeaderboardPage() {
   const router = useRouter();
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [players, setPlayers] = useState<Player[]>(readCachedLeaderboard);
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   const [viewerId, setViewerId] = useState<string | null>(null);
 
   useEffect(() => {
+    const savedTheme = localStorage.getItem("app_theme");
+    document.documentElement.classList.toggle("dark", savedTheme !== "light");
     void supabase.auth.getUser().then(({ data }) => setViewerId(data.user?.id || null));
-    void supabase.from("profiles").select("id, username, avatar_url, points, gems").order("points", { ascending: false }).limit(50)
-      .then(({ data }) => setPlayers((data || []) as Player[]));
+    void supabase.rpc("get_global_leaderboard")
+      .then(({ data }) => {
+        const nextPlayers = (data || []) as Player[];
+        if (!nextPlayers.length) return;
+        setPlayers(nextPlayers);
+        sessionStorage.setItem(LEADERBOARD_CACHE_KEY, JSON.stringify({ players: nextPlayers, savedAt: Date.now() }));
+      });
   }, []);
 
-  return <main className="h-[100dvh] overflow-hidden bg-background px-4 text-on-background" style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+  return <main className="h-[100dvh] overflow-hidden touch-pan-y bg-background px-4 text-on-background" style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(3.5rem, env(safe-area-inset-bottom))", overscrollBehaviorX: "none" }}>
     <div className="mx-auto flex h-full max-w-xl min-h-0 flex-col">
       <header className="shrink-0 border-b border-surface-container-highest bg-background pb-4">
         <button onClick={() => router.back()} className="mb-4 text-sm font-bold text-primary">← Back</button>
