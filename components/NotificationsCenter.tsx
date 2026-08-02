@@ -18,10 +18,12 @@ export default function NotificationsCenter({
   userId,
   points,
   gems,
+  onBack,
 }: {
   userId: string | null;
   points: number;
   gems: number;
+  onBack: () => void;
 }) {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,31 +139,47 @@ export default function NotificationsCenter({
       </div>
     );
   return (
-    <div className="space-y-4 pb-8 animate-fade-in min-w-0 max-w-full overflow-x-hidden">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-        <h2 className="font-headline text-xl font-black">Notifications</h2>
-        <p className="text-xs text-on-surface-variant mt-1">
-          Game activity, automated updates, and announcements from the team.
-        </p>
-        </div>
-        <button onClick={() => void markAllRead()} className="shrink-0 rounded-lg bg-primary-container px-3 py-2 text-[10px] font-black text-primary">Mark all read</button>
-      </div>
-      <div className="flex max-w-full min-w-0 gap-2 overflow-x-auto no-scrollbar touch-pan-x">
-        {(["all", "general", "system", "promotion"] as const).map((tab) => (
+    <div className="min-w-0 max-w-full animate-fade-in overflow-x-hidden pb-8">
+      <div className="sticky top-[calc(90px+env(safe-area-inset-top))] z-20 -mx-5 bg-background px-5 pb-4 pt-1">
+        <button
+          onClick={onBack}
+          className="mb-4 flex items-center gap-1 text-xs font-bold text-primary"
+        >
+          <span className="material-symbols-outlined text-base">arrow_back</span>
+          Back
+        </button>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-headline text-xl font-black">Notifications</h2>
+            <p className="mt-1 text-xs text-on-surface-variant">
+              Game activity, automated updates, and announcements from the team.
+            </p>
+          </div>
           <button
-            key={tab}
-            onClick={() => setCategory(tab)}
-            className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold capitalize ${
-              category === tab
-                ? "bg-primary text-on-primary"
-                : "bg-surface border border-surface-container-highest text-on-surface-variant"
-            }`}
+            onClick={() => void markAllRead()}
+            disabled={!items.some((item) => item.kind !== "broadcast" && !item.is_read)}
+            className="shrink-0 rounded-lg bg-primary-container px-3 py-2 text-[10px] font-black text-primary disabled:opacity-50"
           >
-            {tab}
+            Mark all read
           </button>
-        ))}
+        </div>
+        <div className="mt-4 flex max-w-full min-w-0 gap-2 overflow-x-auto no-scrollbar touch-pan-x">
+          {(["all", "general", "system", "promotion"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setCategory(tab)}
+              className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold capitalize ${
+                category === tab
+                  ? "bg-primary text-on-primary"
+                  : "bg-surface border border-surface-container-highest text-on-surface-variant"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
       </div>
+      <div className="space-y-3">
       {loading ? (
         <p className="py-10 text-center text-xs text-on-surface-variant animate-pulse">
           Loading notifications…
@@ -171,7 +189,7 @@ export default function NotificationsCenter({
           You’re all caught up.
         </div>
       ) : (
-        <div className="space-y-3">
+        <>
           {filteredItems.map((item) => (
             <button
               key={item.id}
@@ -204,8 +222,9 @@ export default function NotificationsCenter({
               </div>
             </button>
           ))}
-        </div>
+        </>
       )}
+      </div>
     </div>
   );
 }

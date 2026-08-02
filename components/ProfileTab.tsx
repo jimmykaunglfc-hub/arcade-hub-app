@@ -205,20 +205,17 @@ export default function ProfileTab({
     const isFrame = ["avatar_frame", "profile_avatar_frame", "avatar_border"].includes(category);
     if (!isCard && !isFrame) return showMessage("This cosmetic is used inside its game.");
     setSaving(true);
-    const categories = isCard ? ["profile_card", "profile_card_theme"] : ["avatar_frame", "profile_avatar_frame", "avatar_border"];
-    const slotInventoryIds = inventory
-      .filter((entry) => categories.includes(entry.cosmetics?.game_category || ""))
-      .map((entry) => entry.id);
-    if (slotInventoryIds.length) {
-      const { error: slotError } = await supabase.from("user_inventory").update({ is_equipped: false }).eq("user_id", profile.id).in("id", slotInventoryIds);
+    const equippedInventoryIds = inventory.map((entry) => entry.id);
+    if (equippedInventoryIds.length) {
+      const { error: slotError } = await supabase.from("user_inventory").update({ is_equipped: false }).eq("user_id", profile.id).in("id", equippedInventoryIds);
       if (slotError) { setSaving(false); return showMessage(slotError.message); }
     }
     const { error } = await supabase.from("user_inventory").update({ is_equipped: true }).eq("id", item.id).eq("user_id", profile.id);
     setSaving(false);
     if (error) return showMessage(error.message);
-    setInventory((current) => current.map((entry) => ({ ...entry, is_equipped: entry.id === item.id ? true : slotInventoryIds.includes(entry.id) ? false : entry.is_equipped })));
-    if (isCard) setProfileCardCosmetic(item.cosmetics);
-    if (isFrame) setAvatarFrameCosmetic(item.cosmetics);
+    setInventory((current) => current.map((entry) => ({ ...entry, is_equipped: entry.id === item.id })));
+    setProfileCardCosmetic(isCard ? item.cosmetics : null);
+    setAvatarFrameCosmetic(isFrame ? item.cosmetics : null);
     showMessage(`${item.cosmetics.name || "Cosmetic"} equipped.`);
   };
   const updateLanguage = async (code: LanguageCode) => {

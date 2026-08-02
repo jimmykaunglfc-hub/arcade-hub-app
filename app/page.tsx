@@ -450,22 +450,12 @@ export default function Home() {
           }}
         >
           {showNotifications ? (
-            <>
-              <button
-                onClick={() => setShowNotifications(false)}
-                className="mb-4 text-xs font-bold text-primary flex items-center gap-1"
-              >
-                <span className="material-symbols-outlined text-base">
-                  arrow_back
-                </span>
-                Back
-              </button>
-              <NotificationsCenter
-                userId={myUserId}
-                points={userPoints}
-                gems={userGems}
-              />
-            </>
+            <NotificationsCenter
+              userId={myUserId}
+              points={userPoints}
+              gems={userGems}
+              onBack={() => setShowNotifications(false)}
+            />
           ) : !session &&
             (activeTab === "Chats" ||
               activeTab === "Store" ||
