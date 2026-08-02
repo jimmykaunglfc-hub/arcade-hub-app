@@ -5,6 +5,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 import MatchmakingModal from "../MatchmakingModal";
+import GameEngagementMenu from "../GameEngagementMenu";
 
 // 🛍️ NEW: Live Database Cosmetic Hook
 import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
@@ -636,6 +637,8 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
         {toast && <div className="absolute top-24 z-[300] bg-rose-500/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl font-headline font-bold text-sm shadow-2xl animate-fade-in border border-rose-400">{toast}</div>}
         
+        <GameEngagementMenu gameName="Uno Arena" entryFee={entryFee} onOnline={startOnlineMatchmaking} onHost={hostMatch} onLocal={() => startModeGame("quick")} onExit={handleExit} roomCode={joinInput} setRoomCode={setJoinInput} onJoin={joinMatch} />
+        {/*
         <div className="w-full max-w-[360px] bg-[#18181b] rounded-[32px] p-6 shadow-2xl border border-white/5 flex flex-col relative overflow-hidden">
           <div className="flex items-center gap-4 mb-8">
             <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10"><span className="material-symbols-outlined text-2xl text-neutral-300">style</span></div>
@@ -660,7 +663,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
             <button onClick={joinMatch} disabled={joinInput.length < 4} className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5 touch-manipulation">Join</button>
           </div>
           <button onClick={handleExit} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase touch-manipulation">EXIT ARENA</button>
-        </div>
+        </div>*/}
       </div>
   );
 
