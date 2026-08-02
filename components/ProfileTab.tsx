@@ -449,15 +449,17 @@ export default function ProfileTab({
           <span className="material-symbols-outlined text-[16px]">edit</span>
           {t("editNamePhoto")}
         </button>
-        <div className="w-24 h-24 rounded-full border-4 border-surface-container-high overflow-hidden relative bg-surface-variant shadow-inner">
-          <Image
-            src={profile.avatar_url || "/logo-dark.jpeg"}
-            alt="Profile avatar"
-            fill
-            className="object-cover"
-            unoptimized
-          />
-          {avatarFrameCosmetic?.image_url && <Image src={avatarFrameCosmetic.image_url} alt="Equipped avatar frame" fill className="pointer-events-none z-10 scale-110 object-contain" unoptimized />}
+        <div className="relative h-28 w-28">
+          <div className="absolute inset-2 overflow-hidden rounded-full border-4 border-surface-container-high bg-surface-variant shadow-inner">
+            <Image
+              src={profile.avatar_url || "/logo-dark.jpeg"}
+              alt="Profile avatar"
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          </div>
+          {avatarFrameCosmetic?.image_url && <Image src={avatarFrameCosmetic.image_url} alt="Equipped avatar frame" fill className="pointer-events-none absolute -inset-1 z-10 object-contain" unoptimized />}
         </div>
         <div className="mt-4">
           <h2 className="font-headline text-xl font-black tracking-tight">
