@@ -446,6 +446,13 @@ export default function HomeTab({
           </div>
         </div>
 
+        <button
+          onClick={() => { window.location.href = "/leaderboard"; }}
+          className="mt-4 w-full rounded-xl border border-black/15 bg-black/10 py-2.5 text-xs font-black uppercase tracking-wider transition hover:bg-black/15 active:scale-[0.98]"
+        >
+          View Leaderboard
+        </button>
+
         <div className="flex justify-between items-center mt-6 pt-4 border-t border-black/10">
           <div className="flex flex-col items-start">
             <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">

@@ -10,6 +10,7 @@ interface Friend {
   avatar_url: string;
   last_seen_at?: string;
   is_online?: boolean;
+  avatar_frame_url?: string | null;
 }
 
 interface FriendRequest extends Friend { requestId: string; }
@@ -114,8 +115,17 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
     const accepted = (links || []).filter((link) => link.status === "accepted");
     const requested = (links || []).filter((link) => link.status === "pending" && link.receiver_id === id);
     const profileIds = [...new Set([...accepted.map((link) => link.requester_id === id ? link.receiver_id : link.requester_id), ...requested.map((link) => link.requester_id)])];
-    const { data: profiles } = profileIds.length ? await supabase.from("profiles").select("id, username, avatar_url, last_seen_at").in("id", profileIds) : { data: [] as Friend[] };
-    const profileById = new Map((profiles || []).map((profile) => [profile.id, { ...profile, is_online: Boolean(profile.last_seen_at && Date.now() - new Date(profile.last_seen_at).getTime() < 3 * 60 * 1000) }]));
+    const [{ data: profiles }, { data: inventory }, { data: storeItems }] = await Promise.all([
+      profileIds.length ? supabase.from("profiles").select("id, username, avatar_url, last_seen_at").in("id", profileIds) : Promise.resolve({ data: [] as Friend[] }),
+      profileIds.length ? supabase.from("user_inventory").select("user_id, cosmetic_id, is_equipped").in("user_id", profileIds).eq("is_equipped", true) : Promise.resolve({ data: [] as any[] }),
+      supabase.from("store_items").select("id, image_url, cosmetic_type"),
+    ]);
+    const itemById = new Map((storeItems || []).map((item) => [item.id, item]));
+    const frameByUser = new Map((inventory || []).flatMap((entry) => {
+      const item = itemById.get(entry.cosmetic_id);
+      return item?.cosmetic_type === "avatar_frame" ? [[entry.user_id, item.image_url] as [string, string]] : [];
+    }));
+    const profileById = new Map((profiles || []).map((profile) => [profile.id, { ...profile, avatar_frame_url: frameByUser.get(profile.id) || null, is_online: Boolean(profile.last_seen_at && Date.now() - new Date(profile.last_seen_at).getTime() < 3 * 60 * 1000) }]));
     const resolvedFriends = (accepted.map((link) => profileById.get(link.requester_id === id ? link.receiver_id : link.requester_id)).filter(Boolean) as Friend[]).sort((a, b) => Number(Boolean(b.is_online)) - Number(Boolean(a.is_online)) || a.username.localeCompare(b.username));
     const resolvedRequests = requested.map((link) => ({ ...(profileById.get(link.requester_id) as Friend), requestId: link.id })).filter((request) => request.id);
     const resolvedGroups = (allGroups || []) as ChatGroup[];
@@ -516,7 +526,8 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-full overflow-visible relative bg-surface-container-high shrink-0 border border-surface-container-highest">
-                        <Image src={friend.avatar_url} alt={friend.username} fill className="object-cover rounded-full" unoptimized />
+                        <Image src={friend.avatar_url || "/logo-dark.jpeg"} alt={friend.username} fill className="object-cover rounded-full" unoptimized />
+                        {friend.avatar_frame_url && <Image src={friend.avatar_frame_url} alt="" fill className="pointer-events-none scale-[1.2] object-contain" unoptimized />}
                         <div className={`absolute -bottom-1 -right-1 w-5 h-5 border-[3px] border-surface rounded-full shadow-[0_0_14px_rgba(204,255,0,0.8)] ${isOnline(friend) ? "bg-primary" : "bg-on-surface-variant"}`}></div>
                       </div>
                       <div>
@@ -733,6 +744,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden relative bg-surface-container-high border border-surface-container-highest">
               <Image src={activeChat?.avatar_url || ""} alt="User" fill className="object-cover" unoptimized />
+              {activeChat?.avatar_frame_url && <Image src={activeChat.avatar_frame_url} alt="" fill className="pointer-events-none scale-[1.2] object-contain" unoptimized />}
             </div>
             <div>
               <h3 className="font-headline text-sm font-bold text-on-surface leading-tight">{activeChat?.username}</h3>
