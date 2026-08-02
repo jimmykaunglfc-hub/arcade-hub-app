@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "../lib/supabaseClient";
 
 interface GamesTabProps {
@@ -54,6 +55,10 @@ export default function GamesTab({
       .replace(/^-+|-+$/g, "");
     return `native://${slug}`;
   };
+  // Catalog titles can differ only by punctuation (for example, “8 Ball Pool”
+  // vs “8-Ball Pool”). Treat these as the same native game when merging the
+  // backend catalog with the offline fallback.
+  const catalogKey = (title: string) => title.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   // Fetch data from Control Core
   const fetchLiveArcadeData = async () => {
@@ -72,8 +77,8 @@ export default function GamesTab({
       
       const activeGames = (gameData || []).filter((game: any) => game.status === "active");
       if (activeGames.length > 0) {
-        const knownTitles = new Set(activeGames.map((game: any) => String(game.title).toLowerCase()));
-        setDbGames([...activeGames, ...DEFAULT_GAMES.filter((game) => !knownTitles.has(game.title.toLowerCase()))]);
+        const knownTitles = new Set(activeGames.map((game: any) => catalogKey(String(game.title))));
+        setDbGames([...activeGames, ...DEFAULT_GAMES.filter((game) => !knownTitles.has(catalogKey(game.title)))]);
       } else {
         setDbGames(DEFAULT_GAMES);
       }
@@ -199,7 +204,17 @@ export default function GamesTab({
           })}
         </div>
       </div>
-      {ratingGame && <div className="fixed inset-0 z-[200] grid place-items-center bg-black/70 p-5 backdrop-blur-sm"><div className="w-full max-w-xs rounded-3xl bg-surface p-6 text-center shadow-2xl"><h2 className="font-headline text-lg font-black">Rate {ratingGame.title}</h2><p className="mt-2 text-xs text-on-surface-variant">Your rating helps players discover great games.</p><div className="mt-6 flex justify-center gap-2">{[1, 2, 3, 4, 5].map((rating) => <button key={rating} disabled={ratingSaving} onClick={() => void saveRating(rating)} className="material-symbols-outlined text-3xl text-amber-500">star</button>)}</div><button onClick={() => setRatingGame(null)} className="mt-6 text-xs font-bold text-primary">Cancel</button></div></div>}
+      {ratingGame && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/70 p-5 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-label={`Rate ${ratingGame.title}`} className="w-full max-w-xs rounded-3xl bg-surface p-6 text-center shadow-2xl">
+            <h2 className="font-headline text-lg font-black">Rate {ratingGame.title}</h2>
+            <p className="mt-2 text-xs text-on-surface-variant">Your rating helps players discover great games.</p>
+            <div className="mt-6 flex justify-center gap-2">{[1, 2, 3, 4, 5].map((rating) => <button key={rating} disabled={ratingSaving} onClick={() => void saveRating(rating)} className="material-symbols-outlined text-3xl text-amber-500">star</button>)}</div>
+            <button onClick={() => setRatingGame(null)} className="mt-6 text-xs font-bold text-primary">Cancel</button>
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );
