@@ -3,6 +3,7 @@
 import { ChangeEvent, useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
+import PublicProfileCardModal from "./PublicProfileCardModal";
 
 interface Friend {
   id: string;
@@ -84,6 +85,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   const [groupDescription, setGroupDescription] = useState("");
   const [groupStatus, setGroupStatus] = useState("");
   const [activeChat, setActiveChat] = useState<Friend | null>(null);
+  const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -761,6 +763,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
         >
           Quit Chat
         </button>
+        <button onClick={() => activeChat && setViewingProfileId(activeChat.id)} className="ml-2 rounded-xl bg-surface-container-high px-3 py-2 text-[10px] font-bold text-primary">View Profile</button>
       </div>
 
       {/* 💬 MESSAGE CHANNEL CORE VIEWPORTS */}
@@ -948,6 +951,8 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
         </form>
 
       </div>
+
+      {viewingProfileId && <PublicProfileCardModal userId={viewingProfileId} onClose={() => setViewingProfileId(null)} />}
 
     </div>
   );

@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
+import PublicProfileCardModal from "@/components/PublicProfileCardModal";
 
 type Player = { id: string; username: string; avatar_url: string | null; points: number; gems: number };
 
 export default function LeaderboardPage() {
   const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
+  const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
 
   useEffect(() => {
     void supabase.from("profiles").select("id, username, avatar_url, points, gems").order("points", { ascending: false }).limit(50)
@@ -28,10 +30,11 @@ export default function LeaderboardPage() {
             <Image src={player.avatar_url || "/logo-dark.jpeg"} alt="" fill className="object-cover" unoptimized />
           </div>
           <div className="min-w-0 flex-1"><b className="block truncate text-sm">{player.username}</b><span className="text-xs text-on-surface-variant">Profile ranking</span></div>
-          <b className="text-sm">{Number(player.points || 0).toLocaleString()} PTS</b>
+          <div className="text-right"><b className="block text-sm">{Number(player.points || 0).toLocaleString()} PTS</b><button onClick={() => setViewingProfileId(player.id)} className="mt-1 text-[10px] font-bold text-primary">View profile</button></div>
         </div>)}
         {!players.length && <p className="p-8 text-center text-sm text-on-surface-variant">Loading leaderboard…</p>}
       </div>
+      {viewingProfileId && <PublicProfileCardModal userId={viewingProfileId} onClose={() => setViewingProfileId(null)} />}
     </div>
   </main>;
 }
