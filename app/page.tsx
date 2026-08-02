@@ -500,7 +500,6 @@ export default function Home() {
                 <ProfileTab
                   isDarkMode={isDarkMode}
                   onToggleTheme={toggleTheme}
-                  onOpenShop={() => setActiveTab("Store")}
                 />
               )}
             </>

@@ -22,6 +22,7 @@ type Modal =
   | "account"
   | "support"
   | "activity"
+  | "inventory"
   | "language"
   | "privacy-policy"
   | "terms-of-service"
@@ -41,6 +42,12 @@ type EquippedCosmetic = {
     modifiers?: { background_color?: string; accent_color?: string } | null;
   } | null;
 };
+type InventoryItem = {
+  id: string;
+  cosmetic_id: string;
+  is_equipped: boolean;
+  cosmetics?: { name?: string; game_category?: string; image_url?: string | null; modifiers?: { background_color?: string } | null } | null;
+};
 
 type ProfileEditConfig = {
   profile_edit_cost: number;
@@ -50,13 +57,11 @@ type ProfileEditConfig = {
 interface ProfileTabProps {
   isDarkMode: boolean;
   onToggleTheme: () => void;
-  onOpenShop: () => void;
 }
 
 export default function ProfileTab({
   isDarkMode,
   onToggleTheme,
-  onOpenShop,
 }: ProfileTabProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [fetchStatus, setFetchStatus] = useState<
@@ -67,6 +72,7 @@ export default function ProfileTab({
   const [inventoryCount, setInventoryCount] = useState(0);
   const [profileCardCosmetic, setProfileCardCosmetic] = useState<EquippedCosmetic["cosmetics"]>(null);
   const [avatarFrameCosmetic, setAvatarFrameCosmetic] = useState<EquippedCosmetic["cosmetics"]>(null);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [activityLedger, setActivityLedger] = useState<LedgerEntry[]>([]);
   const [supportEmail, setSupportEmail] = useState("support@joeyoke.com");
@@ -108,6 +114,7 @@ export default function ProfileTab({
       { data: config },
       { data: equippedItems },
       { data: editConfig },
+      { data: inventoryItems },
     ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase
@@ -133,6 +140,7 @@ export default function ProfileTab({
         .eq("user_id", user.id)
         .eq("is_equipped", true),
       supabase.from("platform_config").select("profile_edit_cost, profile_edit_currency").eq("id", 1).maybeSingle(),
+      supabase.from("user_inventory").select("id, cosmetic_id, is_equipped, cosmetics(name, game_category, image_url, modifiers)").eq("user_id", user.id),
     ]);
     if (!myProfile) {
       setFetchStatus("missing");
@@ -142,6 +150,7 @@ export default function ProfileTab({
     setName(myProfile.username || "");
     setAvatarUrl(myProfile.avatar_url || "");
     setInventoryCount(count || 0);
+    setInventory((inventoryItems || []) as InventoryItem[]);
     const equipped = (equippedItems || []) as EquippedCosmetic[];
     setProfileCardCosmetic(equipped.find((item) => ["profile_card", "profile_card_theme"].includes(item.cosmetics?.game_category || ""))?.cosmetics || null);
     setAvatarFrameCosmetic(equipped.find((item) => ["avatar_frame", "profile_avatar_frame"].includes(item.cosmetics?.game_category || ""))?.cosmetics || null);
@@ -174,6 +183,26 @@ export default function ProfileTab({
       .limit(200);
     setActivityLedger((data || []) as LedgerEntry[]);
     setModal("activity");
+  };
+  const equipProfileCosmetic = async (item: InventoryItem) => {
+    if (!profile || !item.cosmetics?.game_category) return;
+    const category = item.cosmetics.game_category;
+    const isCard = ["profile_card", "profile_card_theme"].includes(category);
+    const isFrame = ["avatar_frame", "profile_avatar_frame"].includes(category);
+    if (!isCard && !isFrame) return showMessage("This cosmetic is used inside its game.");
+    setSaving(true);
+    const categories = isCard ? ["profile_card", "profile_card_theme"] : ["avatar_frame", "profile_avatar_frame"];
+    const { data: slotCosmetics, error: slotError } = await supabase.from("cosmetics").select("id").in("game_category", categories);
+    if (slotError) { setSaving(false); return showMessage(slotError.message); }
+    const slotIds = (slotCosmetics || []).map((cosmetic) => cosmetic.id);
+    if (slotIds.length) await supabase.from("user_inventory").update({ is_equipped: false }).eq("user_id", profile.id).in("cosmetic_id", slotIds);
+    const { error } = await supabase.from("user_inventory").update({ is_equipped: true }).eq("id", item.id).eq("user_id", profile.id);
+    setSaving(false);
+    if (error) return showMessage(error.message);
+    setInventory((current) => current.map((entry) => ({ ...entry, is_equipped: entry.id === item.id ? true : slotIds.includes(entry.cosmetic_id) ? false : entry.is_equipped })));
+    if (isCard) setProfileCardCosmetic(item.cosmetics);
+    if (isFrame) setAvatarFrameCosmetic(item.cosmetics);
+    showMessage(`${item.cosmetics.name || "Cosmetic"} equipped.`);
   };
   const updateLanguage = async (code: LanguageCode) => {
     setLanguage(code);
@@ -449,9 +478,9 @@ export default function ProfileTab({
           </div>
         </div>
       </div>
-      <button onClick={onOpenShop} className="flex w-full items-center justify-between rounded-[20px] border border-surface-container-highest bg-surface p-4 text-left transition hover:bg-surface-variant">
+      <button onClick={() => setModal("inventory")} className="flex w-full items-center justify-between rounded-[20px] border border-surface-container-highest bg-surface p-4 text-left transition hover:bg-surface-variant">
         <span className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-primary-container p-2 text-primary">palette</span><span><b className="block text-sm">Profile cosmetics</b><small className="text-on-surface-variant">Change your card background and avatar border</small></span></span>
-        <span className="text-xs font-bold text-primary">Open Shop</span>
+        <span className="text-xs font-bold text-primary">Inventory</span>
       </button>
       <section className="space-y-3">
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
@@ -610,6 +639,8 @@ export default function ProfileTab({
                     ? "Edit Profile"
                     : modal === "activity"
                     ? "Activity history"
+                    : modal === "inventory"
+                    ? "My inventory"
                     : modal === "language"
                     ? t("appLanguage")
                     : modal === "account"
@@ -696,6 +727,21 @@ export default function ProfileTab({
                         No activity recorded yet.
                       </p>
                     )}
+                  </div>
+                )}
+                {modal === "inventory" && (
+                  <div className="space-y-4">
+                    <p className="text-xs text-on-surface-variant">Choose an owned card background or avatar border to equip it immediately. Your other purchased cosmetics are listed here too.</p>
+                    {inventory.length ? <div className="grid grid-cols-2 gap-3">{inventory.map((item) => {
+                      const category = item.cosmetics?.game_category || "other";
+                      const isProfileItem = ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame"].includes(category);
+                      return <button key={item.id} disabled={saving || !isProfileItem} onClick={() => void equipProfileCosmetic(item)} className={`relative overflow-hidden rounded-2xl border p-3 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"} ${!isProfileItem ? "opacity-60" : "active:scale-[0.98]"}`}>
+                        <div className="mb-3 flex h-20 items-center justify-center overflow-hidden rounded-xl bg-surface">{item.cosmetics?.image_url ? <img src={item.cosmetics.image_url} alt="" className="h-full w-full object-cover" /> : <span className="material-symbols-outlined text-3xl text-primary">palette</span>}</div>
+                        <b className="block truncate text-xs">{item.cosmetics?.name || "Purchased cosmetic"}</b>
+                        <small className="mt-1 block capitalize text-on-surface-variant">{category.replaceAll("_", " ")}</small>
+                        {item.is_equipped && <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-1 text-[9px] font-black text-on-primary">EQUIPPED</span>}
+                      </button>;
+                    })}</div> : <p className="py-8 text-center text-sm text-on-surface-variant">No cosmetics purchased yet. Visit the Shop to unlock some.</p>}
                   </div>
                 )}
                 {modal === "identity" && (
