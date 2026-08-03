@@ -476,6 +476,14 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+  const handleShareReferral = async () => {
+    const shareData = { title: "Join me on Joe Yoke", text: `Use my referral code: ${myUsername}` };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch { /* User dismissed the native sheet. */ }
+      return;
+    }
+    setShowShareSheet(true);
+  };
 
   const openChat = (friend: Friend) => {
     setActiveChat(friend);
@@ -584,7 +592,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                   <span className="material-symbols-outlined text-base">{copied ? "check" : "content_copy"}</span>
                 </button>
               </div>
-              <button onClick={(event) => { event.stopPropagation(); setShowShareSheet(true); }} className="relative z-10 mt-3 rounded-xl bg-black px-4 py-2 text-xs font-black text-white">Share referral code</button>
+              <button onClick={(event) => { event.stopPropagation(); void handleShareReferral(); }} className="relative z-10 mt-3 rounded-xl bg-black px-4 py-2 text-xs font-black text-white">Share referral code</button>
             </div>
 
             <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm">
@@ -602,7 +610,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
               {inviteStatus && <p className="font-body text-[11px] text-primary font-bold mt-3">{inviteStatus}</p>}
             </div>
             {pendingRequests.length > 0 && <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm"><h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3">Connection requests</h3><div className="space-y-3">{pendingRequests.map((request) => <div key={request.requestId} className="flex items-center gap-3"><div className="w-9 h-9 rounded-full overflow-hidden relative bg-surface-container-high"><Image src={request.avatar_url} alt="" fill className="object-cover" unoptimized /></div><span className="flex-1 text-sm font-bold text-on-surface">{request.username}</span><button onClick={() => respondToFriendRequest(request.requestId, false)} className="text-xs font-bold text-on-surface-variant">Decline</button><button onClick={() => respondToFriendRequest(request.requestId, true)} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary">Accept</button></div>)}</div></div>}
-            {showShareSheet && <div className="fixed inset-0 z-[100101] flex items-end bg-black/60 backdrop-blur-sm"><div className="w-full rounded-t-[30px] bg-surface px-5 pb-[calc(22px+env(safe-area-inset-bottom))] pt-3 shadow-2xl"><div className="mx-auto h-1.5 w-10 rounded-full bg-on-surface-variant/40" /><div className="mt-4 flex items-center justify-between"><h3 className="font-headline text-xl font-black">Share referral code</h3><button onClick={() => setShowShareSheet(false)} className="grid h-9 w-9 place-items-center rounded-full bg-surface-container-high"><span className="material-symbols-outlined">close</span></button></div><p className="mt-1 text-xs text-on-surface-variant">Invite friends with code <b className="text-on-surface">{myUsername}</b></p><div className="mt-6 flex gap-4 overflow-x-auto pb-2 no-scrollbar">{[["Telegram","send","bg-sky-500"],["Messenger","chat","bg-gradient-to-br from-violet-500 to-blue-500"],["Facebook","f","bg-blue-600"],["WhatsApp","forum","bg-emerald-500"],["Viber","phone","bg-violet-600"],["TikTok","music_note","bg-black"],["X","close","bg-neutral-800"]].map(([network, icon, color]) => <button key={network} onClick={() => { if (navigator.share) void navigator.share({ title: "Join me on Joe Yoke", text: `Use my referral code: ${myUsername}` }); setShowShareSheet(false); }} className="flex w-14 shrink-0 flex-col items-center gap-2"><span className={`grid h-14 w-14 place-items-center rounded-full text-2xl font-black text-white ${color}`}><span className="material-symbols-outlined">{icon}</span></span><span className="text-center text-[10px] font-bold text-on-surface">{network}</span></button>)}</div><button onClick={() => { handleCopyId(); setShowShareSheet(false); }} className="mt-5 flex w-full items-center gap-4 border-t border-surface-container-highest pt-5 text-left"><span className="grid h-12 w-12 place-items-center rounded-full bg-surface-container-high text-on-surface"><span className="material-symbols-outlined">content_copy</span></span><span><b className="block text-sm">Copy referral link</b><small className="text-xs text-on-surface-variant">Copy your code to share anywhere</small></span></button><button onClick={() => { if (navigator.share) void navigator.share({ title: "Join me on Joe Yoke", text: `Use my referral code: ${myUsername}` }); }} className="mt-4 w-full rounded-xl bg-primary py-3 text-xs font-black text-on-primary">Open system share sheet</button></div></div>}
+            {showShareSheet && <div className="fixed inset-0 z-[100101] flex items-end bg-black/60 backdrop-blur-sm"><div className="w-full rounded-t-[30px] bg-surface px-5 pb-[calc(22px+env(safe-area-inset-bottom))] pt-3 shadow-2xl"><div className="mx-auto h-1.5 w-10 rounded-full bg-on-surface-variant/40" /><div className="mt-4 flex items-center justify-between"><h3 className="font-headline text-xl font-black">Share referral code</h3><button onClick={() => setShowShareSheet(false)} className="grid h-9 w-9 place-items-center rounded-full bg-surface-container-high"><span className="material-symbols-outlined">close</span></button></div><p className="mt-1 text-xs text-on-surface-variant">Copy your code to share it in any app.</p><button onClick={() => { handleCopyId(); setShowShareSheet(false); }} className="mt-5 flex w-full items-center gap-4 rounded-2xl bg-surface-container-high p-4 text-left"><span className="grid h-12 w-12 place-items-center rounded-full bg-primary text-on-primary"><span className="material-symbols-outlined">content_copy</span></span><span><b className="block text-sm">Copy referral code</b><small className="text-xs text-on-surface-variant">{myUsername}</small></span></button></div></div>}
           </div>
         )}
       </div>
