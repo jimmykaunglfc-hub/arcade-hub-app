@@ -11,6 +11,7 @@ type Reward = {
   probability: number;
   display_order: number;
   is_active: boolean;
+  wheel_color: string;
 };
 const blank = (): Omit<Reward, "id"> => ({
   label: "",
@@ -19,6 +20,7 @@ const blank = (): Omit<Reward, "id"> => ({
   probability: 1,
   display_order: 0,
   is_active: true,
+  wheel_color: "#93df25",
 });
 
 export default function WheelRewardsPage() {
@@ -76,6 +78,7 @@ export default function WheelRewardsPage() {
       probability: reward.probability,
       display_order: reward.display_order,
       is_active: reward.is_active,
+      wheel_color: reward.wheel_color || "#93df25",
     });
   };
   return (
@@ -128,7 +131,8 @@ export default function WheelRewardsPage() {
                   className="flex items-center justify-between gap-4 p-4"
                 >
                   <div>
-                    <p className="text-sm font-bold text-white">
+                    <p className="flex items-center gap-2 text-sm font-bold text-white">
+                      <span className="h-3 w-3 rounded-full border border-white/20" style={{ backgroundColor: reward.wheel_color || "#93df25" }} />
                       {reward.label}
                     </p>
                     <p className="mt-1 text-xs text-neutral-400">
@@ -217,6 +221,18 @@ export default function WheelRewardsPage() {
               />
             </label>
           </div>
+          <label className="block text-xs font-bold text-neutral-300">
+            Wheel segment color
+            <span className="mt-1.5 flex h-12 items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3">
+              <input
+                type="color"
+                value={draft.wheel_color}
+                onChange={(e) => setDraft({ ...draft, wheel_color: e.target.value })}
+                className="h-7 w-10 cursor-pointer border-0 bg-transparent p-0"
+              />
+              <span className="font-mono text-xs text-neutral-400">{draft.wheel_color}</span>
+            </span>
+          </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-xs font-bold text-neutral-300">
               Probability weight

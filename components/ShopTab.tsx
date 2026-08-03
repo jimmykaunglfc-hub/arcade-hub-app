@@ -8,20 +8,6 @@ interface ShopTabProps {
   userId?: string | null;
 }
 
-// 🎡 WHEEL SLOTS DEFINITION
-const WHEEL_SLOTS = [
-  { id: 1, label: "250 PTS", type: "points" as const, value: 250 },
-  { id: 2, label: "5 GEMS", type: "gems" as const, value: 5 },
-  { id: 3, label: "500 PTS", type: "points" as const, value: 500 },
-  { id: 4, label: "100 PTS", type: "points" as const, value: 100 },
-  { id: 5, label: "10 GEMS", type: "gems" as const, value: 10 },
-  { id: 6, label: "1,000 PTS", type: "points" as const, value: 1000 },
-  { id: 7, label: "2 GEMS", type: "gems" as const, value: 2 },
-  { id: 8, label: "750 PTS", type: "points" as const, value: 750 },
-];
-
-const COOLDOWN_24H_MS = 24 * 60 * 60 * 1000;
-
 const getCosmeticSlot = (item: any) => {
   const type = item?.cosmetic_type || "game_cosmetic";
   if (type !== "game_cosmetic") return type;
@@ -36,14 +22,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
   // Database States
   const [dbStoreItems, setDbStoreItems] = useState<any[]>([]);
   const [userInventory, setUserInventory] = useState<any[]>([]);
-  const [lastSpin, setLastSpin] = useState<number | null>(null);
-  const [wheelSlots, setWheelSlots] = useState(WHEEL_SLOTS);
-
-  // Wheel State
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [wheelRotation, setWheelRotation] = useState(0);
   const [rewardModal, setRewardModal] = useState<{ title: string; desc: string } | null>(null);
-  const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
 
   // 📡 FETCH LIVE STORE DATA (From store_items & user_inventory)
   const fetchStoreData = async () => {
@@ -95,87 +74,11 @@ export default function ShopTab({ userId }: ShopTabProps) {
       }
     }
 
-    // 3. Fetch Profile Last Spin and the admin-managed wheel display.
-    const [{ data: profile }, { data: rewards }] = await Promise.all([
-      supabase
-      .from("profiles")
-      .select("last_spin")
-      .eq("id", userId)
-      .single(),
-      supabase
-        .from("wheel_rewards")
-        .select("id, label, reward_type, reward_value, display_order")
-        .eq("is_active", true)
-        .order("display_order"),
-    ]);
-    
-    if (profile?.last_spin) {
-      setLastSpin(new Date(profile.last_spin).getTime());
-    }
-    if (rewards?.length) setWheelSlots(rewards.map((reward: any) => ({ id: reward.id, label: reward.label, type: reward.reward_type, value: reward.reward_value })));
   };
 
   useEffect(() => {
     fetchStoreData();
   }, [userId]);
-
-  // ⏱️ 24-HOUR COOLDOWN TIMER ENGINE
-  useEffect(() => {
-    const checkCooldown = () => {
-      if (!lastSpin) {
-        setCooldownRemaining(0);
-        return;
-      }
-      const elapsed = Date.now() - lastSpin;
-      const remaining = COOLDOWN_24H_MS - elapsed;
-      setCooldownRemaining(remaining > 0 ? remaining : 0);
-    };
-
-    checkCooldown();
-    const timer = setInterval(checkCooldown, 1000);
-    return () => clearInterval(timer);
-  }, [lastSpin]);
-
-  const formatCooldown = (ms: number) => {
-    const totalSecs = Math.floor(ms / 1000);
-    const hrs = Math.floor(totalSecs / 3600);
-    const mins = Math.floor((totalSecs % 3600) / 60);
-    const secs = totalSecs % 60;
-    return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  // 🎡 SPIN THE WHEEL MECHANIC
-  const handleSpinCore = async () => {
-    if (isSpinning || cooldownRemaining > 0 || !userId) return;
-
-    setIsSpinning(true);
-
-    const { data: winningSlot, error } = await supabase.rpc("spin_daily_wheel");
-    if (error || !winningSlot) {
-      setIsSpinning(false);
-      setRewardModal({ title: "WHEEL UNAVAILABLE", desc: error?.message || "The wheel is being configured by the team." });
-      return;
-    }
-    const winningIndex = Math.max(0, wheelSlots.findIndex(slot => String(slot.id) === String(winningSlot.id)));
-
-    const slotAngle = 360 / wheelSlots.length;
-    const targetAngle = 360 * 5 + (360 - winningIndex * slotAngle);
-
-    setWheelRotation(targetAngle);
-    soundEngine.playSFX("dice_roll");
-
-    setTimeout(async () => {
-      setIsSpinning(false);
-      soundEngine.playSFX("victory");
-
-      setLastSpin(new Date(winningSlot.spun_at).getTime());
-
-      setRewardModal({
-        title: "CORE EXTRACTION SUCCESS",
-        desc: `You extracted +${winningSlot.value} ${winningSlot.type === "points" ? "PTS" : "GEMS"} from the Matrix Core!`,
-      });
-    }, 3500);
-  };
 
   // 🛒 PURCHASE CURRENCY PACKS (Mocked IAP/Conversion)
   const handleBuyCurrencyPack = async (item: any) => {
@@ -271,67 +174,8 @@ export default function ShopTab({ userId }: ShopTabProps) {
   return (
     <>
       <div className="w-full max-w-md mx-auto flex flex-col font-sans pt-2 pb-6 select-none">
-        
-        {/* 1. DAILY FORTUNE WHEEL CARD */}
-        <div className="w-full bg-surface border border-surface-container-highest dark:bg-[#18181b] dark:border-white/10 rounded-[28px] p-5 mb-6 shadow-xl flex flex-col items-center text-center relative overflow-hidden">
-          <h2 className="font-headline font-black text-lg text-on-surface dark:text-white mb-1">
-            Daily Fortune Wheel
-          </h2>
-          <p className="text-xs text-on-surface-variant dark:text-neutral-400 font-medium max-w-[260px] mb-5">
-            Spin the matrix core module to extract free tokens.
-          </p>
-
-          <div className="relative w-48 h-48 mb-6 flex items-center justify-center">
-            <div className="absolute -top-2 z-30 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[14px] border-t-primary dark:border-t-[#CCFF00] drop-shadow-[0_2px_8px_rgba(204,255,0,0.8)]" />
-
-            <div
-              className="w-full h-full rounded-full border-4 border-surface-container-highest dark:border-[#27272a] relative overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] transition-transform duration-[3500ms] cubic-bezier(0.15,0.95,0.3,1)"
-              style={{ transform: `rotate(${wheelRotation}deg)` }}
-            >
-              {wheelSlots.map((slot, index) => {
-                const angle = (360 / wheelSlots.length) * index;
-                return (
-                  <div
-                    key={slot.id}
-                    className="absolute w-full h-full top-0 left-0 flex justify-center pt-2"
-                    style={{
-                      transform: `rotate(${angle}deg)`,
-                      transformOrigin: "50% 50%",
-                    }}
-                  >
-                    <span className="text-[9px] font-black text-on-surface dark:text-neutral-300 uppercase tracking-tighter">
-                      {slot.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="absolute inset-0 m-auto w-14 h-14 bg-background dark:bg-[#09090b] border-2 border-primary dark:border-[#CCFF00] rounded-full flex items-center justify-center shadow-lg z-20">
-              <span className="material-symbols-outlined text-xl text-primary dark:text-[#CCFF00] animate-pulse">
-                bolt
-              </span>
-            </div>
-          </div>
-
-          <button
-            onClick={handleSpinCore}
-            disabled={isSpinning || cooldownRemaining > 0}
-            className={`w-full py-4 rounded-2xl font-headline font-black text-sm tracking-wider uppercase transition-all shadow-lg active:scale-95 ${
-              cooldownRemaining > 0
-                ? "bg-surface-container-highest text-on-surface-variant cursor-not-allowed border border-white/5"
-                : "bg-primary text-on-primary dark:bg-[#CCFF00] dark:text-black shadow-[0_0_20px_rgba(204,255,0,0.25)]"
-            }`}
-          >
-            {isSpinning
-              ? "EXTRACTING CORE..."
-              : cooldownRemaining > 0
-              ? `COOLDOWN: ${formatCooldown(cooldownRemaining)}`
-              : "SPIN CORE"}
-          </button>
-        </div>
-
-        {/* 2. STORE CATEGORY TABS */}
+        <h1 className="mb-5 font-headline text-xl font-black text-on-surface">Store</h1>
+        {/* Store category tabs */}
         <div className="grid grid-cols-2 gap-3 p-1.5 bg-surface border border-surface-container-highest dark:bg-[#18181b] dark:border-white/5 rounded-2xl mb-6">
           <button
             onClick={() => setActiveTab("currency")}
@@ -341,7 +185,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
                 : "text-on-surface-variant dark:text-neutral-400 hover:text-white"
             }`}
           >
-            Currency
+            Get Points
           </button>
           <button
             onClick={() => setActiveTab("cosmetics")}
@@ -355,34 +199,37 @@ export default function ShopTab({ userId }: ShopTabProps) {
           </button>
         </div>
 
-        {/* 3. TAB CONTENT: CURRENCY PACKS (Dynamic) */}
+        {/* Get Points: compact purchase cards matching the store reference. */}
         {activeTab === "currency" && (
-          <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="mb-4 rounded-[20px] bg-gradient-to-r from-lime-500 to-emerald-500 p-5 text-black">
+              <p className="font-headline text-sm font-black">Out of points?</p>
+              <p className="mt-1 max-w-[250px] text-[11px] font-semibold leading-relaxed">Purchase more points to keep playing matches and spinning the wheel.</p>
+            </div>
+            <div className="space-y-3">
             {currencyItems.length === 0 ? (
-              <p className="col-span-2 text-center text-xs text-on-surface-variant mt-10">No currency packs available.</p>
+              <p className="text-center text-xs text-on-surface-variant mt-10">No point packs available.</p>
             ) : (
               currencyItems.map((item) => (
-                <div key={item.id} className="bg-surface border border-surface-container-highest dark:bg-[#18181b] dark:border-white/5 rounded-3xl p-5 flex flex-col items-center text-center shadow-lg relative overflow-hidden">
-                  <div className="w-14 h-14 bg-surface-container-highest dark:bg-[#27272a] rounded-2xl flex items-center justify-center mb-4 p-2 overflow-hidden">
+                <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-surface-container-highest bg-surface p-3.5 shadow-sm dark:border-white/5 dark:bg-[#111a2c]">
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-container p-2 overflow-hidden">
                     {item.image_url && item.image_url !== "https://img.icons8.com/color/96/present.png" ? (
                        <img src={item.image_url} alt={item.name} className="w-full h-full object-contain" />
                     ) : (
-                       <span className="material-symbols-outlined text-2xl text-primary dark:text-[#CCFF00]">bolt</span>
+                       <span className="material-symbols-outlined text-xl text-primary">bolt</span>
                     )}
                   </div>
-                  <h3 className="font-headline font-black text-xl text-on-surface dark:text-white line-clamp-1">{item.name}</h3>
-                  <p className="text-[10px] font-bold text-primary dark:text-[#CCFF00] uppercase tracking-widest mb-6 truncate max-w-full">
-                    {item.description || "PACK"}
-                  </p>
+                  <div className="min-w-0 flex-1 text-left"><h3 className="font-headline text-sm font-black text-on-surface dark:text-white">{item.name}</h3><p className="truncate text-[10px] font-medium text-on-surface-variant">{item.description || "Points package"}</p></div>
                   <button
                     onClick={() => handleBuyCurrencyPack(item)}
-                    className="w-full bg-surface-container-highest hover:opacity-90 dark:bg-[#27272a] text-on-surface dark:text-white font-bold py-3 rounded-xl text-xs transition-colors active:scale-95"
+                    className="shrink-0 rounded-xl bg-surface-container-highest px-4 py-2.5 text-xs font-black text-on-surface transition-colors active:scale-95 dark:bg-white dark:text-black"
                   >
                     {item.price_currency === 'fiat_usd' ? `$${Number(item.price_fiat).toFixed(2)}` : `${item.price_points.toLocaleString()} PTS`}
                   </button>
                 </div>
               ))
             )}
+            </div>
           </div>
         )}
 
@@ -400,7 +247,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
                 return (
                   <div
                     key={item.id}
-                    className={`bg-surface dark:bg-[#18181b] border rounded-3xl p-5 flex flex-col items-center text-center shadow-lg relative overflow-hidden transition-all ${
+                    className={`bg-surface dark:bg-[#111a2c] border rounded-2xl p-3.5 flex flex-col items-center text-center shadow-lg relative overflow-hidden transition-all ${
                       isEquipped
                         ? "border-primary dark:border-[#CCFF00] shadow-[0_0_20px_rgba(204,255,0,0.15)]"
                         : "border-surface-container-highest dark:border-white/5"
@@ -410,7 +257,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
                       {item.sku}
                     </span>
 
-                    <div className="w-14 h-14 bg-surface-container-highest dark:bg-[#27272a] rounded-2xl flex items-center justify-center mb-3 overflow-hidden p-1">
+                    <div className="w-full aspect-[1.45] bg-secondary-container/50 dark:bg-[#3c185a] rounded-xl flex items-center justify-center mb-3 overflow-hidden p-2">
                       {item.image_url && item.image_url !== "https://img.icons8.com/color/96/present.png" ? (
                         <img src={item.image_url} alt={item.name} className="w-full h-full object-contain" />
                       ) : (

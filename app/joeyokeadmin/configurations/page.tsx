@@ -34,6 +34,8 @@ export default function SiteSettingsPage() {
   const [supportEmail, setSupportEmail] = useState("");
   const [profileEditCost, setProfileEditCost] = useState<number | "">(100);
   const [profileEditCurrency, setProfileEditCurrency] = useState<"points" | "gems">("points");
+  const [wheelSpinCost, setWheelSpinCost] = useState<number | "">(20);
+  const [wheelSpinCurrency, setWheelSpinCurrency] = useState<"points" | "gems">("points");
 
   useEffect(() => {
     fetchConfig();
@@ -60,6 +62,8 @@ export default function SiteSettingsPage() {
         setSupportEmail(data.support_email || "");
         setProfileEditCost(data.profile_edit_cost ?? 100);
         setProfileEditCurrency(data.profile_edit_currency === "gems" ? "gems" : "points");
+        setWheelSpinCost(data.wheel_spin_cost ?? 20);
+        setWheelSpinCurrency(data.wheel_spin_currency === "gems" ? "gems" : "points");
       }
     } catch (err: any) {
       console.error("Error fetching platform config:", err.message);
@@ -85,6 +89,8 @@ export default function SiteSettingsPage() {
         support_email: supportEmail.trim(),
         profile_edit_cost: Math.max(0, Number(profileEditCost || 0)),
         profile_edit_currency: profileEditCurrency,
+        wheel_spin_cost: Math.max(0, Number(wheelSpinCost || 0)),
+        wheel_spin_currency: wheelSpinCurrency,
         updated_at: new Date().toISOString(),
       };
 
@@ -372,6 +378,26 @@ export default function SiteSettingsPage() {
             <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
               Profile edit currency
               <select value={profileEditCurrency} onChange={(e) => setProfileEditCurrency(e.target.value as "points" | "gems")} className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]">
+                <option value="points">Points</option>
+                <option value="gems">Gems</option>
+              </select>
+            </label>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Wheel spin cost
+              <input
+                type="number"
+                min="0"
+                value={wheelSpinCost}
+                onChange={(e) => setWheelSpinCost(e.target.value === "" ? "" : Number(e.target.value))}
+                className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]"
+              />
+              <span className="mt-1 block normal-case tracking-normal text-neutral-500">Use 0 to make the daily spin free.</span>
+            </label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Wheel spin currency
+              <select value={wheelSpinCurrency} onChange={(e) => setWheelSpinCurrency(e.target.value as "points" | "gems")} className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]">
                 <option value="points">Points</option>
                 <option value="gems">Gems</option>
               </select>

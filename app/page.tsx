@@ -43,6 +43,7 @@ const HomeTab = dynamic(() => import("../components/HomeTab"), { ssr: false, loa
 const GamesTab = dynamic(() => import("../components/GamesTab"), { ssr: false, loading: TabLoading });
 const ChatTab = dynamic(() => import("../components/ChatTab"), { ssr: false, loading: TabLoading });
 const ShopTab = dynamic(() => import("../components/ShopTab"), { ssr: false, loading: TabLoading });
+const SpinTab = dynamic(() => import("../components/SpinTab"), { ssr: false, loading: TabLoading });
 const ProfileTab = dynamic(() => import("../components/ProfileTab"), { ssr: false, loading: TabLoading });
 const NotificationsCenter = dynamic(() => import("../components/NotificationsCenter"), { ssr: false, loading: TabLoading });
 
@@ -228,7 +229,7 @@ export default function Home() {
     if (!route) return;
     if (route.startsWith("native://")) { setPlayingGame(route); return; }
     const tab = route.replace(/^tab:/i, "").toLowerCase();
-    const tabs: Record<string, string> = { home: "Home", explore: "Explore", store: "Store", chats: "Chats", chat: "Chats", profile: "Profile" };
+    const tabs: Record<string, string> = { home: "Home", explore: "Explore", store: "Store", spin: "Spin", chats: "Chats", chat: "Chats", profile: "Profile" };
     if (tabs[tab]) { setActiveTab(tabs[tab]); setShowNotifications(false); return; }
     if (route.startsWith("/")) window.location.assign(route);
     else if (/^https?:\/\//i.test(route)) window.open(route, "_blank", "noopener,noreferrer");
@@ -378,7 +379,7 @@ export default function Home() {
         }
       >
         {/* HEADER */}
-        <header
+        {activeTab !== "Spin" && <header
           className="fixed top-0 left-0 right-0 z-[100001] bg-background flex justify-between items-center px-5 transition-colors duration-300"
           style={{
             height: "calc(90px + env(safe-area-inset-top))",
@@ -439,19 +440,20 @@ export default function Home() {
               {unreadNotificationCount > 0 && <span className="absolute -right-1 -top-1 min-w-4 h-4 px-1 rounded-full bg-primary text-on-primary text-[9px] font-black flex items-center justify-center">{unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}</span>}
             </button>
           </div>
-        </header>
+        </header>}
 
         {/* MAIN CONTENT AREA */}
         <main
           className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto no-scrollbar px-5 w-full z-10"
           style={{
-            paddingTop: "calc(100px + env(safe-area-inset-top))",
+            paddingTop: activeTab === "Spin" ? "calc(16px + env(safe-area-inset-top))" : "calc(100px + env(safe-area-inset-top))",
             paddingBottom: "calc(100px + env(safe-area-inset-bottom))",
           }}
         >
           {!showNotifications && !session &&
             (activeTab === "Chats" ||
               activeTab === "Store" ||
+              activeTab === "Spin" ||
               activeTab === "Profile") ? (
             <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
           ) : (
@@ -464,6 +466,7 @@ export default function Home() {
                   onNavigate={(tab) => {
                     if (tab === "explore") setActiveTab("Explore");
                     if (tab === "store") setActiveTab("Store");
+                    if (tab === "spin") setActiveTab("Spin");
                   }}
                   rankData={rankData}
                   onPointsUpdated={() => fetchLiveBalance(myUserId!)}
@@ -490,6 +493,8 @@ export default function Home() {
               )}
 
               {activeTab === "Store" && <ShopTab userId={myUserId} />}
+
+              {activeTab === "Spin" && <SpinTab userId={myUserId} onBack={() => setActiveTab("Home")} onWalletUpdated={() => myUserId && fetchLiveBalance(myUserId)} />}
 
               {activeTab === "Profile" && (
                 <ProfileTab
@@ -521,7 +526,7 @@ export default function Home() {
         )}
 
         {/* Notifications are a full-screen destination, so navigation cannot cover actions. */}
-        {!showNotifications && (
+        {!showNotifications && activeTab !== "Spin" && (
         <nav
           data-bottom-nav
           className="fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-surface-container-highest px-2 pt-1 flex justify-around items-center transition-colors duration-300"

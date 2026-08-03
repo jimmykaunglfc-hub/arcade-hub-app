@@ -507,7 +507,7 @@ export default function HomeTab({
           </button>
 
           <button
-            onClick={() => onNavigate("store")}
+            onClick={() => onNavigate("spin")}
             className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex flex-col items-center justify-center gap-3 hover:bg-surface-variant transition-colors active:scale-95 shadow-sm touch-manipulation"
           >
             <div className="w-14 h-14 rounded-full bg-secondary-container flex items-center justify-center shadow-sm">
