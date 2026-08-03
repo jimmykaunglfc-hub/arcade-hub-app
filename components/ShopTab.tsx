@@ -174,12 +174,15 @@ export default function ShopTab({ userId }: ShopTabProps) {
   return (
     <>
       <div className="w-full max-w-md mx-auto flex flex-col font-sans pt-2 pb-6 select-none">
-        {/* This stays reachable while the catalog scrolls, directly below the app header. */}
+        {/* Persistent Store sub-navigation. The spacer keeps catalog cards from
+            passing underneath the fixed control while the list scrolls. */}
         <div
-          className="sticky z-40 -mx-1 mb-6 bg-background px-1 pb-3 pt-1"
+          className="h-[52px]"
+        >
+        <div
+          className="fixed left-1/2 z-[100] grid w-[calc(100%-40px)] max-w-md -translate-x-1/2 grid-cols-2 gap-3 rounded-2xl border border-surface-container-highest bg-surface p-1.5 shadow-lg dark:border-white/5 dark:bg-[#18181b]"
           style={{ top: "calc(90px + env(safe-area-inset-top))" }}
         >
-        <div className="grid grid-cols-2 gap-3 rounded-2xl border border-surface-container-highest bg-surface p-1.5 shadow-lg dark:border-white/5 dark:bg-[#18181b]">
           <button
             onClick={() => setActiveTab("currency")}
             className={`py-3 rounded-xl font-headline font-bold text-xs uppercase tracking-wider transition-all ${
