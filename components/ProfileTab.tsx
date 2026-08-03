@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
+import { soundEngine } from "../lib/soundManager";
 import { LANGUAGES, LanguageCode, useTranslation } from "../lib/i18n";
 
 type Profile = {
@@ -188,6 +189,8 @@ export default function ProfileTab({
 
   useEffect(() => {
     void fetchProfileData();
+    soundEngine.restorePreference();
+    setSoundEnabled(!soundEngine.getMutedState());
   }, []);
 
   const showMessage = (text: string) => {
@@ -612,7 +615,11 @@ export default function ProfileTab({
             "volume_up",
             t("soundEffects"),
             t("inGameAudio"),
-            toggle(soundEnabled, () => setSoundEnabled(!soundEnabled))
+            toggle(soundEnabled, () => {
+              const next = !soundEnabled;
+              setSoundEnabled(next);
+              soundEngine.setMuted(!next);
+            })
           )}
           {setting(
             "vibration",

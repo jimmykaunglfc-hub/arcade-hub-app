@@ -4,6 +4,7 @@ class SoundEngine {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
   private bgmAudio: HTMLAudioElement | null = null;
+  private bgmSource: string | null = null;
 
   constructor() {
     // AudioContext will be initialized on first user interaction
@@ -22,11 +23,20 @@ class SoundEngine {
   }
 
   public toggleMute(): boolean {
-    this.isMuted = !this.isMuted;
-    if (this.bgmAudio) {
-      this.bgmAudio.muted = this.isMuted;
-    }
+    this.setMuted(!this.isMuted);
     return this.isMuted;
+  }
+
+  public setMuted(muted: boolean) {
+    this.isMuted = muted;
+    if (typeof window !== "undefined") localStorage.setItem("joeyoke_sound_enabled", muted ? "false" : "true");
+    if (this.bgmAudio) this.bgmAudio.muted = muted;
+  }
+
+  public restorePreference() {
+    if (typeof window === "undefined") return;
+    this.isMuted = localStorage.getItem("joeyoke_sound_enabled") === "false";
+    if (this.bgmAudio) this.bgmAudio.muted = this.isMuted;
   }
 
   public getMutedState(): boolean {
@@ -173,9 +183,16 @@ class SoundEngine {
 
   // --- BACKGROUND MUSIC MANAGER ---
   public startBGM(src: string, volume = 0.3) {
+    if (!src) return;
+    if (this.bgmAudio && this.bgmSource === src) {
+      this.bgmAudio.volume = volume;
+      if (!this.isMuted) void this.bgmAudio.play().catch(() => {});
+      return;
+    }
     this.stopBGM();
     try {
       this.bgmAudio = new Audio(src);
+      this.bgmSource = src;
       this.bgmAudio.loop = true;
       this.bgmAudio.volume = volume;
       this.bgmAudio.muted = this.isMuted;
@@ -190,6 +207,7 @@ class SoundEngine {
       this.bgmAudio.pause();
       this.bgmAudio.currentTime = 0;
       this.bgmAudio = null;
+      this.bgmSource = null;
     }
   }
 }

@@ -6,10 +6,12 @@ import { supabase } from "@/lib/supabaseClient";
 interface ResetConfig {
   schedule: "weekly" | "monthly" | "quarterly" | "manual";
   enabled: boolean;
+  retention_percent: number;
+  minimum_balance: number;
 }
 
 export default function PointsResetSettings() {
-  const [config, setConfig] = useState<ResetConfig>({ schedule: "monthly", enabled: true });
+  const [config, setConfig] = useState<ResetConfig>({ schedule: "quarterly", enabled: false, retention_percent: 0, minimum_balance: 0 });
   const [lastResetAt, setLastResetAt] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -23,12 +25,12 @@ export default function PointsResetSettings() {
     const { data } = await supabase
       .from("system_settings")
       .select("key, value")
-      .in("key", ["points_reset_config", "last_points_reset_at"]);
+      .in("key", ["points_expiry_config", "last_points_expiry_at"]);
 
     if (data) {
       data.forEach((row) => {
-        if (row.key === "points_reset_config") setConfig(row.value);
-        if (row.key === "last_points_reset_at") setLastResetAt(row.value);
+        if (row.key === "points_expiry_config") setConfig((current) => ({ ...current, ...row.value }));
+        if (row.key === "last_points_expiry_at") setLastResetAt(row.value);
       });
     }
   };
@@ -39,7 +41,7 @@ export default function PointsResetSettings() {
 
     const { error } = await supabase
       .from("system_settings")
-      .upsert({ key: "points_reset_config", value: config, updated_at: new Date().toISOString() });
+      .upsert({ key: "points_expiry_config", value: config, updated_at: new Date().toISOString() });
 
     setIsSaving(false);
     setMessage(error ? "Failed to save configuration." : "Settings updated successfully.");
@@ -47,7 +49,7 @@ export default function PointsResetSettings() {
 
   const handleManualReset = async () => {
     const confirmed = window.confirm(
-      "Are you sure you want to reset ALL user points to 0? This action cannot be undone."
+      `Apply the current expiry policy now? Balances will retain ${config.retention_percent}% (minimum ${config.minimum_balance} points).`
     );
     if (!confirmed) return;
 
@@ -55,11 +57,11 @@ export default function PointsResetSettings() {
     setMessage(null);
 
     try {
-      const { data, error } = await supabase.rpc("reset_all_user_points");
+      const { data, error } = await supabase.rpc("expire_points_by_policy", { p_force: true });
       if (error) throw error;
 
-      setLastResetAt(data.reset_at);
-      setMessage(`Successfully reset points for ${data.affected_users} users!`);
+      setLastResetAt(data.expired_at);
+      setMessage(`Point expiry applied to ${data.affected_users} users.`);
     } catch (err: any) {
       setMessage(`Reset failed: ${err.message}`);
     } finally {
@@ -74,8 +76,8 @@ export default function PointsResetSettings() {
           <span className="material-symbols-outlined text-xl">restart_alt</span>
         </div>
         <div>
-          <h2 className="text-lg font-black uppercase font-headline">User Points Reset System</h2>
-          <p className="text-xs text-neutral-400">Configure recurring point cycles or wipe test data</p>
+          <h2 className="text-lg font-black uppercase font-headline">Point Expiry Policy</h2>
+          <p className="text-xs text-neutral-400">Set a transparent recurring balance cut-off to control point inflation.</p>
         </div>
       </div>
 
@@ -90,14 +92,14 @@ export default function PointsResetSettings() {
         <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
           config.enabled ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-neutral-800 text-neutral-400"
         }`}>
-          {config.enabled ? "Auto-Reset Active" : "Disabled"}
+          {config.enabled ? "Expiry Active" : "Disabled"}
         </span>
       </div>
 
       {/* SCHEDULE SETTINGS */}
       <div className="space-y-4 mb-6">
         <div className="flex justify-between items-center">
-          <label className="text-xs font-bold text-neutral-300">Enable Automated Resets</label>
+          <label className="text-xs font-bold text-neutral-300">Enable Automated Expiry</label>
           <input
             type="checkbox"
             checked={config.enabled}
@@ -107,15 +109,15 @@ export default function PointsResetSettings() {
         </div>
 
         <div>
-          <label className="text-xs font-bold text-neutral-300 block mb-1">Recurring Interval</label>
+          <label className="text-xs font-bold text-neutral-300 block mb-1">Expiry interval</label>
           <select
             value={config.schedule}
             onChange={(e) => setConfig({ ...config, schedule: e.target.value as any })}
             className="w-full bg-[#09090b] border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-[#CCFF00]"
           >
-            <option value="weekly">Every Week (Sunday at 00:00 UTC)</option>
-            <option value="monthly">Every Month (1st day at 00:00 UTC)</option>
-            <option value="quarterly">Every Quarter (First day of Quarter)</option>
+            <option value="weekly">Every week</option>
+            <option value="monthly">Every month</option>
+            <option value="quarterly">Every quarter</option>
             <option value="manual">Manual Execution Only</option>
           </select>
         </div>
@@ -125,24 +127,29 @@ export default function PointsResetSettings() {
           disabled={isSaving}
           className="w-full bg-white/10 hover:bg-white/20 text-white font-black text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/10 disabled:opacity-50"
         >
-          {isSaving ? "Saving..." : "Save Reset Schedule"}
+          {isSaving ? "Saving..." : "Save expiry policy"}
         </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <label className="text-xs font-bold text-neutral-300">Keep after expiry (%)<input type="number" min="0" max="100" value={config.retention_percent} onChange={(e) => setConfig({ ...config, retention_percent: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })} className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#09090b] px-3 py-2 text-sm text-white outline-none" /></label>
+        <label className="text-xs font-bold text-neutral-300">Minimum balance<input type="number" min="0" value={config.minimum_balance} onChange={(e) => setConfig({ ...config, minimum_balance: Math.max(0, Number(e.target.value) || 0) })} className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#09090b] px-3 py-2 text-sm text-white outline-none" /></label>
       </div>
 
       <hr className="border-white/5 my-6" />
 
       {/* EMERGENCY MANUAL TRIGGER */}
       <div className="bg-rose-500/5 border border-rose-500/10 rounded-xl p-4">
-        <h3 className="text-xs font-black text-rose-400 uppercase tracking-wider mb-1">Immediate Point Wipe</h3>
+        <h3 className="text-xs font-black text-rose-400 uppercase tracking-wider mb-1">Run expiry now</h3>
         <p className="text-[11px] text-neutral-400 mb-3">
-          Instantly set all user points back to 0. Use this when clearing test accounts.
+          Applies the configured retention percentage and minimum balance immediately. This cannot be undone.
         </p>
         <button
           onClick={handleManualReset}
           disabled={isResetting}
           className="w-full bg-rose-600 hover:bg-rose-500 text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-transform active:scale-95 disabled:opacity-50 shadow-lg shadow-rose-950/30"
         >
-          {isResetting ? "Resetting Points..." : "Reset All User Points To 0 Now"}
+          {isResetting ? "Applying expiry..." : "Apply point expiry now"}
         </button>
       </div>
 

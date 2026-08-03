@@ -15,26 +15,14 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 1. Fetch current schedule configuration
-    const { data: configData } = await supabaseAdmin
-      .from("system_settings")
-      .select("value")
-      .eq("key", "points_reset_config")
-      .single();
-
-    const config = configData?.value || { enabled: true, schedule: "monthly" };
-
-    if (!config.enabled) {
-      return NextResponse.json({ message: "Points reset is disabled in system settings." });
-    }
-
-    // 2. Execute the database reset function
-    const { data, error } = await supabaseAdmin.rpc("reset_all_user_points");
+    // The database checks the configured cadence. Calling this route daily is
+    // safe: it only applies an expiry when the next cycle is due.
+    const { data, error } = await supabaseAdmin.rpc("expire_points_by_policy", { p_force: false });
 
     if (error) throw error;
 
     return NextResponse.json({
-      message: "Points reset completed successfully",
+      message: "Point-expiry cycle checked successfully",
       result: data,
     });
   } catch (err: any) {

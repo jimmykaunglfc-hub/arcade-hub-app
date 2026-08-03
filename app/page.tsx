@@ -14,6 +14,7 @@ import CampaignSplash from "../components/CampaignSplash";
 import InAppBroadcastDialog from "../components/InAppBroadcastDialog";
 import CompetitiveGameLaunch from "../components/CompetitiveGameLaunch";
 import JoeYokeLogo from "../components/JoeYokeLogo";
+import { soundEngine } from "../lib/soundManager";
 
 // Game engines are intentionally loaded only after a player selects a game.
 // This keeps Phaser, Matter, chess and their game UIs out of the launch bundle.
@@ -84,6 +85,20 @@ export default function Home() {
     } catch {
       // Ignore a malformed one-time tournament launch request.
     }
+  }, []);
+
+  // Browsers block ambient audio until the first tap. The source is opt-in so
+  // development and production never request a missing or unlicensed asset.
+  useEffect(() => {
+    const source = process.env.NEXT_PUBLIC_APP_BGM_URL;
+    if (!source) return;
+    const beginAudio = () => {
+      soundEngine.restorePreference();
+      soundEngine.startBGM(source, 0.22);
+      window.removeEventListener("pointerdown", beginAudio);
+    };
+    window.addEventListener("pointerdown", beginAudio, { once: true });
+    return () => window.removeEventListener("pointerdown", beginAudio);
   }, []);
 
   useEffect(() => {

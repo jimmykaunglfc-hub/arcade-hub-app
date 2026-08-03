@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import MatchmakingModal from "@/components/MatchmakingModal";
+import { shareAchievement } from "@/lib/socialShare";
 
 type TournamentPageProps = { params: Promise<{ id: string }> };
 
@@ -23,6 +24,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
   const [findingGame, setFindingGame] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [gameCards, setGameCards] = useState<any[]>([]);
+  const [shareMessage, setShareMessage] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -134,6 +136,12 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
   const startTournamentMatchmaking = (gameName: string) => {
     if (!currentUserId) return setMessage("Sign in to play tournament games.");
     setFindingGame(gameName);
+  };
+  const shareTournamentRank = async () => {
+    if (!myRow) return;
+    const status = await shareAchievement({ eyebrow: "Tournament result", title: `#${myRow.rank} in ${tournament.title}`, subtitle: `${myRow.wins || 0} wins · ${myRow.draws || 0} draws · ${myRow.losses || 0} losses`, stat: `${myRow.score || 0} tournament points`, accent: "gold" });
+    setShareMessage(status === "shared" ? "Tournament rank shared." : "Rank card downloaded and text copied.");
+    window.setTimeout(() => setShareMessage(""), 3000);
   };
 
   return (
@@ -267,6 +275,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
             )}
             {tab === "leaderboard" && (
               <section className="mt-6">
+                {myRow && tournament.status === "completed" && <button onClick={() => void shareTournamentRank()} className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary-container px-3 py-2.5 text-xs font-black text-on-primary-container"><span className="material-symbols-outlined text-base">share</span>Share my final tournament rank</button>}
                 <p className="mb-3 text-xs text-on-surface-variant">
                   Score: win {tournament.win_points ?? 3}, draw{" "}
                   {tournament.draw_points ?? 1}, loss{" "}
@@ -349,6 +358,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
             {message && (
               <p className="mt-5 text-sm font-bold text-primary">{message}</p>
             )}
+            {shareMessage && <p className="mt-3 text-center text-xs font-bold text-primary">{shareMessage}</p>}
             </div>
             <button
               onClick={() => void join()}

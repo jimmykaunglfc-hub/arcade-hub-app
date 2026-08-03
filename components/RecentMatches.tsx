@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { getRecentMatches } from "../lib/matchManager";
+import { shareAchievement } from "../lib/socialShare";
 
 interface Match {
   id: string;
@@ -24,6 +25,20 @@ const GAME_ICONS: Record<string, string> = {
 export default function RecentMatches() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
+
+  const shareMatch = async (match: Match) => {
+    const outcome = match.result === "Win" ? "Victory" : match.result === "Draw" ? "Draw" : "Match played";
+    const status = await shareAchievement({
+      eyebrow: "Match result",
+      title: `${outcome} in ${match.game_title}`,
+      subtitle: `vs ${match.opponent_name || "Opponent"}`,
+      stat: match.result === "Win" ? `+${match.reward_points.toLocaleString()} points` : match.result === "Draw" ? "A hard-fought draw" : "Ready for the rematch",
+      accent: match.result === "Win" ? "lime" : match.result === "Draw" ? "gold" : "violet",
+    });
+    setShareMessage(status === "shared" ? "Achievement shared." : "Share card downloaded and text copied.");
+    window.setTimeout(() => setShareMessage(null), 3000);
+  };
 
   const fetchMatches = async () => {
     setLoading(true);
@@ -78,6 +93,7 @@ export default function RecentMatches() {
           LAST {matches.length} GAMES
         </span>
       </div>
+      {shareMessage && <p className="mb-3 rounded-lg bg-[#CCFF00]/10 px-3 py-2 text-[10px] font-bold text-[#CCFF00]">{shareMessage}</p>}
 
       {matches.length === 0 ? (
         <div className="text-center py-6 text-neutral-500 text-xs font-medium border border-dashed border-white/10 rounded-2xl">
@@ -112,7 +128,8 @@ export default function RecentMatches() {
                   </div>
                 </div>
 
-                {/* Right: Outcome Tag & Points */}
+                {/* Right: Outcome, points, and a compact share card action */}
+                <div className="flex items-center gap-2">
                 <div className="flex flex-col items-end gap-0.5">
                   <span
                     className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
@@ -133,6 +150,10 @@ export default function RecentMatches() {
                       ? "0 PTS"
                       : "LOSS"}
                   </span>
+                </div>
+                <button onClick={() => void shareMatch(match)} aria-label={`Share ${match.game_title} result`} className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-neutral-300 hover:text-[#CCFF00]">
+                  <span className="material-symbols-outlined text-base">share</span>
+                </button>
                 </div>
               </div>
             );
