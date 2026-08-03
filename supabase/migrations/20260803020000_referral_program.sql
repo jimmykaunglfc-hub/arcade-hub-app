@@ -45,3 +45,9 @@ returns table(invited integer, earned integer) language sql security definer set
   from public.profiles where referred_by = auth.uid();
 $$;
 grant execute on function public.get_my_referral_dashboard() to authenticated;
+
+create or replace function public.get_my_referral_invitees()
+returns table(username text, network_id text, created_at timestamptz) language sql security definer set search_path=public as $$
+  select p.username, p.network_id, p.created_at from public.profiles p where p.referred_by = auth.uid() order by p.created_at desc;
+$$;
+grant execute on function public.get_my_referral_invitees() to authenticated;

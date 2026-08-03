@@ -71,7 +71,7 @@ const INITIAL_BOARD = [
 ];
 
 export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChange }: ChatTabProps) {
-  const [activeView, setActiveView] = useState<"hub" | "chat">("hub");
+  const [activeView, setActiveView] = useState<"hub" | "chat" | "referral">("hub");
   const [hubTab, setHubTab] = useState<"dms" | "groups" | "network">("dms");
 
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -85,6 +85,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [groupStatus, setGroupStatus] = useState("");
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [activeChat, setActiveChat] = useState<Friend | null>(null);
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   
@@ -98,6 +99,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   const [showReferralDashboard, setShowReferralDashboard] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [referralStats, setReferralStats] = useState({ invited: 0, earned: 0 });
+  const [referralInvitees, setReferralInvitees] = useState<Array<{ username: string; network_id: string; created_at: string }>>([]);
   
   const [showGameSelector, setShowGameSelector] = useState(false);
   const [inviteStep, setInviteStep] = useState<"game" | "carrom_mode">("game");
@@ -119,6 +121,8 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
     ]);
     const { data: referralData } = await supabase.rpc("get_my_referral_dashboard");
     if (referralData) setReferralStats(Array.isArray(referralData) ? referralData[0] : referralData);
+    const { data: invitees } = await supabase.rpc("get_my_referral_invitees");
+    if (invitees) setReferralInvitees(invitees as Array<{ username: string; network_id: string; created_at: string }>);
     if (myProfile) setMyUsername(myProfile.network_id || myProfile.username);
     const accepted = (links || []).filter((link) => link.status === "accepted");
     const requested = (links || []).filter((link) => link.status === "pending" && link.receiver_id === id);
@@ -550,13 +554,13 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
 
         {hubTab === "groups" && (
           <div className="flex flex-col gap-3">
-            <form onSubmit={createGroup} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 space-y-2 shadow-sm">
+            {!showCreateGroup ? <button onClick={() => setShowCreateGroup(true)} className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-primary/50 bg-primary-container/20 p-4 text-left"><span className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-on-primary"><span className="material-symbols-outlined">add</span></span><span><b className="block text-sm">Create a new group</b><small className="text-xs text-on-surface-variant">Start a community for your friends</small></span></button> : <form onSubmit={createGroup} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 space-y-2 shadow-sm">
               <h3 className="font-headline text-sm font-extrabold text-on-surface">Create a group</h3>
               <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Group name" className="w-full rounded-xl border border-surface-container-highest bg-background px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" />
               <input value={groupDescription} onChange={(event) => setGroupDescription(event.target.value)} placeholder="Description (optional)" className="w-full rounded-xl border border-surface-container-highest bg-background px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" />
-              <button className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-on-primary">Create group</button>
+              <div className="flex gap-2"><button className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-on-primary">Create group</button><button type="button" onClick={() => setShowCreateGroup(false)} className="rounded-xl bg-surface-container-high px-4 py-2 text-xs font-bold">Cancel</button></div>
               {groupStatus && <p className="text-[11px] font-medium text-on-surface-variant">{groupStatus}</p>}
-            </form>
+            </form>}
             {groups.map((group) => (
               <div key={group.id} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex items-center gap-4 shadow-sm">
                 <div className="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-primary text-[24px]">grid_4x4</span></div>
@@ -570,7 +574,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
 
         {hubTab === "network" && (
           <div className="flex flex-col gap-4">
-            <div onClick={() => setShowReferralDashboard(true)} role="button" tabIndex={0} className="w-full text-left bg-gradient-to-br from-[#a9f500] to-emerald-500 rounded-[24px] p-5 relative overflow-hidden shadow-sm text-black active:scale-[.98] cursor-pointer">
+            <div onClick={() => setActiveView("referral")} role="button" tabIndex={0} className="w-full text-left bg-gradient-to-br from-[#a9f500] to-emerald-500 rounded-[24px] p-5 relative overflow-hidden shadow-sm text-black active:scale-[.98] cursor-pointer">
               <span className="material-symbols-outlined absolute -right-2 -top-2 text-[90px] opacity-15">group_add</span>
               <h3 className="font-headline text-xl font-black mb-1">Invite &amp; Earn!</h3>
               <p className="max-w-[250px] text-xs font-semibold">Share your referral code and earn rewards when friends join.</p>
@@ -598,12 +602,15 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
               {inviteStatus && <p className="font-body text-[11px] text-primary font-bold mt-3">{inviteStatus}</p>}
             </div>
             {pendingRequests.length > 0 && <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm"><h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3">Connection requests</h3><div className="space-y-3">{pendingRequests.map((request) => <div key={request.requestId} className="flex items-center gap-3"><div className="w-9 h-9 rounded-full overflow-hidden relative bg-surface-container-high"><Image src={request.avatar_url} alt="" fill className="object-cover" unoptimized /></div><span className="flex-1 text-sm font-bold text-on-surface">{request.username}</span><button onClick={() => respondToFriendRequest(request.requestId, false)} className="text-xs font-bold text-on-surface-variant">Decline</button><button onClick={() => respondToFriendRequest(request.requestId, true)} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary">Accept</button></div>)}</div></div>}
-            {showReferralDashboard && <div className="fixed inset-0 z-[100100] flex items-center justify-center bg-black/75 p-5 backdrop-blur-sm"><div className="w-full max-w-sm rounded-[28px] bg-surface p-6 shadow-2xl"><div className="flex items-center justify-between"><h3 className="font-headline text-lg font-black">Invite dashboard</h3><button onClick={() => setShowReferralDashboard(false)}><span className="material-symbols-outlined">close</span></button></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-surface-container-high p-4"><b className="text-2xl text-primary">{referralStats.invited}</b><p className="mt-1 text-xs text-on-surface-variant">Friends invited</p></div><div className="rounded-2xl bg-surface-container-high p-4"><b className="text-2xl text-primary">{referralStats.earned}</b><p className="mt-1 text-xs text-on-surface-variant">Points earned</p></div></div><p className="mt-5 text-xs leading-relaxed text-on-surface-variant">Share your code. When a new player uses it, rewards are credited automatically to both accounts.</p></div></div>}
-            {showShareSheet && <div className="fixed inset-0 z-[100101] flex items-end bg-black/60 p-4 backdrop-blur-sm"><div className="w-full rounded-[28px] bg-surface p-5"><div className="flex items-center justify-between"><h3 className="font-headline text-base font-black">Share referral code</h3><button onClick={() => setShowShareSheet(false)}><span className="material-symbols-outlined">close</span></button></div><div className="mt-4 grid grid-cols-4 gap-3">{["Facebook","Messenger","Telegram","Viber","TikTok","WhatsApp","X","Copy"].map((network) => <button key={network} onClick={() => { if (network === "Copy") handleCopyId(); else if (navigator.share) void navigator.share({ title: "Join me on Joe Yoke", text: `Use my referral code: ${myUsername}` }); setShowShareSheet(false); }} className="rounded-xl bg-surface-container-high px-2 py-3 text-[10px] font-bold text-on-surface">{network}</button>)}</div></div></div>}
+            {showShareSheet && <div className="fixed inset-0 z-[100101] flex items-end bg-black/60 p-4 backdrop-blur-sm"><div className="w-full rounded-[28px] bg-surface p-5"><div className="flex items-center justify-between"><h3 className="font-headline text-base font-black">Share referral code</h3><button onClick={() => setShowShareSheet(false)}><span className="material-symbols-outlined">close</span></button></div><div className="mt-4 grid grid-cols-4 gap-3">{[["Facebook","f"],["Messenger","chat"],["Telegram","send"],["Viber","phone"],["TikTok","music_note"],["WhatsApp","forum"],["X","close"],["Copy","content_copy"]].map(([network, icon]) => <button key={network} onClick={() => { if (network === "Copy") handleCopyId(); else if (navigator.share) void navigator.share({ title: "Join me on Joe Yoke", text: `Use my referral code: ${myUsername}` }); setShowShareSheet(false); }} className="grid place-items-center gap-1 rounded-xl bg-surface-container-high px-2 py-3 text-[10px] font-bold text-on-surface"><span className="material-symbols-outlined text-xl">{icon}</span>{network}</button>)}</div></div></div>}
           </div>
         )}
       </div>
     );
+  }
+
+  if (activeView === "referral") {
+    return <div className="fixed inset-0 z-[100002] overflow-y-auto bg-background px-5 pb-8 pt-[calc(18px+env(safe-area-inset-top))] text-on-surface"><header className="flex items-center gap-3"><button onClick={() => setActiveView("hub")} className="grid h-10 w-10 place-items-center rounded-full"><span className="material-symbols-outlined">arrow_back</span></button><h1 className="font-headline text-lg font-black">Invite dashboard</h1></header><section className="mt-7 rounded-[28px] bg-gradient-to-br from-[#a9f500] to-emerald-500 p-6 text-black"><p className="text-xs font-bold">Your referral code</p><p className="mt-1 font-headline text-2xl font-black">{myUsername}</p><button onClick={handleCopyId} className="mt-4 rounded-xl bg-black px-4 py-2 text-xs font-black text-white">Copy code</button></section><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-surface-container-high p-5"><b className="text-3xl text-primary">{referralStats.invited}</b><p className="mt-1 text-xs text-on-surface-variant">Total invitees</p></div><div className="rounded-2xl bg-surface-container-high p-5"><b className="text-3xl text-primary">{referralStats.earned}</b><p className="mt-1 text-xs text-on-surface-variant">Points earned</p></div></div><h2 className="mt-7 font-headline text-base font-black">Invitee information</h2><div className="mt-3 space-y-3">{referralInvitees.length ? referralInvitees.map((invitee) => <div key={invitee.network_id} className="flex items-center gap-3 rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="grid h-10 w-10 place-items-center rounded-full bg-primary-container font-black text-primary">{invitee.username.slice(0,1)}</span><span className="min-w-0 flex-1"><b className="block text-sm">{invitee.username}</b><small className="text-xs text-on-surface-variant">{invitee.network_id} · Joined {new Date(invitee.created_at).toLocaleDateString()}</small></span><span className="rounded-full bg-primary-container px-2 py-1 text-[10px] font-bold text-primary">Active</span></div>) : <p className="rounded-2xl bg-surface p-5 text-center text-xs text-on-surface-variant">No invitees yet. Share your code to get started.</p>}</div></div>;
   }
 
   // ============================================================================
