@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { soundEngine } from "@/lib/soundManager";
 import { supabase } from "@/lib/supabaseClient";
+import JoeYokeLogo from "./JoeYokeLogo";
 
 type WheelSlot = {
   id: string | number;
@@ -28,8 +29,6 @@ const FALLBACK_SLOTS: WheelSlot[] = [
   { id: 6, label: "1,000 PTS", type: "points", value: 1000, color: "#7b879b" },
 ];
 const DEFAULT_COLORS = ["#93df25", "#c33bd9", "#35a9dc", "#e83b58", "#f6bb22", "#7b879b"];
-const COOLDOWN_24H_MS = 24 * 60 * 60 * 1000;
-
 export default function SpinTab({ userId, onBack, onWalletUpdated }: { userId?: string | null; onBack: () => void; onWalletUpdated?: () => void }) {
   const [slots, setSlots] = useState<WheelSlot[]>(FALLBACK_SLOTS);
   const [lastSpin, setLastSpin] = useState<number | null>(null);
@@ -38,6 +37,8 @@ export default function SpinTab({ userId, onBack, onWalletUpdated }: { userId?: 
   const [isSpinning, setIsSpinning] = useState(false);
   const [spinCost, setSpinCost] = useState(20);
   const [spinCurrency, setSpinCurrency] = useState<"points" | "gems">("points");
+  const [cooldownHours, setCooldownHours] = useState(24);
+  const [spinRules, setSpinRules] = useState("One spin every 24 hours.");
   const [message, setMessage] = useState<{ title: string; body: string } | null>(null);
 
   useEffect(() => {
@@ -46,13 +47,15 @@ export default function SpinTab({ userId, onBack, onWalletUpdated }: { userId?: 
       const [{ data: rewards }, { data: profile }, { data: config }] = await Promise.all([
         supabase.from("wheel_rewards").select("id, label, reward_type, reward_value, display_order, wheel_color").eq("is_active", true).order("display_order"),
         supabase.from("profiles").select("last_spin").eq("id", userId).maybeSingle(),
-        supabase.from("platform_config").select("wheel_spin_cost, wheel_spin_currency").eq("id", 1).maybeSingle(),
+        supabase.from("platform_config").select("wheel_spin_cost, wheel_spin_currency, wheel_spin_cooldown_hours, wheel_spin_rules").eq("id", 1).maybeSingle(),
       ]);
       if (rewards?.length) setSlots((rewards as RewardRow[]).map((reward) => ({ id: reward.id, label: reward.label, type: reward.reward_type, value: reward.reward_value, color: reward.wheel_color })));
       setLastSpin(profile?.last_spin ? new Date(profile.last_spin).getTime() : null);
       if (config) {
         setSpinCost(Math.max(0, Number(config.wheel_spin_cost ?? 20)));
         setSpinCurrency(config.wheel_spin_currency === "gems" ? "gems" : "points");
+        setCooldownHours(Math.max(0, Number(config.wheel_spin_cooldown_hours ?? 24)));
+        setSpinRules(config.wheel_spin_rules?.trim() || "One spin every 24 hours.");
       }
     };
     void load();
@@ -60,13 +63,13 @@ export default function SpinTab({ userId, onBack, onWalletUpdated }: { userId?: 
 
   useEffect(() => {
     const refresh = () => {
-      const remaining = lastSpin ? COOLDOWN_24H_MS - (Date.now() - lastSpin) : 0;
+      const remaining = lastSpin ? cooldownHours * 60 * 60 * 1000 - (Date.now() - lastSpin) : 0;
       setCooldown(Math.max(0, remaining));
     };
     refresh();
     const timer = window.setInterval(refresh, 1000);
     return () => window.clearInterval(timer);
-  }, [lastSpin]);
+  }, [cooldownHours, lastSpin]);
 
   const wheelBackground = useMemo(() => {
     const angle = 360 / slots.length;
@@ -117,6 +120,7 @@ export default function SpinTab({ userId, onBack, onWalletUpdated }: { userId?: 
       <div className="mt-12">
         <h2 className="font-headline text-2xl font-black text-on-surface">Test Your Luck</h2>
         <p className="mx-auto mt-2 max-w-[270px] text-xs font-medium leading-relaxed text-on-surface-variant">Use your points to spin the wheel and win huge point multipliers or rare Gems!</p>
+        <p className="mx-auto mt-3 max-w-[300px] text-[10px] font-bold leading-relaxed text-primary">{spinRules}</p>
       </div>
 
       <div className="relative mx-auto mt-9 h-64 w-64 sm:h-72 sm:w-72">
@@ -129,7 +133,7 @@ export default function SpinTab({ userId, onBack, onWalletUpdated }: { userId?: 
             })}
           </div>
         </div>
-        <div className="absolute left-1/2 top-1/2 z-20 grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[5px] border-[#10192b] bg-[#1f2a40] shadow-lg"><span className="material-symbols-outlined text-xl text-white">casino</span></div>
+        <div className="absolute left-1/2 top-1/2 z-20 grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[5px] border-[#10192b] bg-[#1f2a40] p-1 shadow-lg"><JoeYokeLogo className="h-full w-full overflow-hidden rounded-full" /></div>
       </div>
 
       <div className="mt-auto pt-14">

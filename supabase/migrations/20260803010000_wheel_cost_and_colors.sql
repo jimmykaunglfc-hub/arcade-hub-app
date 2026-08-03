@@ -14,7 +14,11 @@ alter table public.platform_config
   add column if not exists wheel_spin_cost integer not null default 20
     check (wheel_spin_cost >= 0),
   add column if not exists wheel_spin_currency text not null default 'points'
-    check (wheel_spin_currency in ('points', 'gems'));
+    check (wheel_spin_currency in ('points', 'gems')),
+  add column if not exists wheel_spin_cooldown_hours integer not null default 24
+    check (wheel_spin_cooldown_hours between 0 and 168),
+  add column if not exists wheel_spin_rules text not null default 'One spin every 24 hours.'
+    check (char_length(wheel_spin_rules) <= 180);
 
 create or replace function public.spin_daily_wheel()
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -26,15 +30,17 @@ declare
   total numeric;
   charge integer;
   charge_currency text;
+  cooldown_hours integer;
   new_balance integer;
 begin
   select * into player from public.profiles where id = auth.uid() for update;
   if not found then raise exception 'Profile not found'; end if;
-  if player.last_spin is not null and player.last_spin > now() - interval '24 hours' then
+  select * into settings from public.platform_config where id = 1;
+  cooldown_hours := greatest(coalesce(settings.wheel_spin_cooldown_hours, 24), 0);
+  if cooldown_hours > 0 and player.last_spin is not null and player.last_spin > now() - make_interval(hours => cooldown_hours) then
     raise exception 'Daily spin is still on cooldown';
   end if;
 
-  select * into settings from public.platform_config where id = 1;
   charge := greatest(coalesce(settings.wheel_spin_cost, 20), 0);
   charge_currency := coalesce(settings.wheel_spin_currency, 'points');
   if charge_currency = 'gems' and coalesce(player.gems, 0) < charge then

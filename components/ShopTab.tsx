@@ -174,9 +174,12 @@ export default function ShopTab({ userId }: ShopTabProps) {
   return (
     <>
       <div className="w-full max-w-md mx-auto flex flex-col font-sans pt-2 pb-6 select-none">
-        <h1 className="mb-5 font-headline text-xl font-black text-on-surface">Store</h1>
-        {/* Store category tabs */}
-        <div className="grid grid-cols-2 gap-3 p-1.5 bg-surface border border-surface-container-highest dark:bg-[#18181b] dark:border-white/5 rounded-2xl mb-6">
+        {/* This stays reachable while the catalog scrolls, directly below the app header. */}
+        <div
+          className="sticky z-40 -mx-1 mb-6 bg-background px-1 pb-3 pt-1"
+          style={{ top: "calc(90px + env(safe-area-inset-top))" }}
+        >
+        <div className="grid grid-cols-2 gap-3 rounded-2xl border border-surface-container-highest bg-surface p-1.5 shadow-lg dark:border-white/5 dark:bg-[#18181b]">
           <button
             onClick={() => setActiveTab("currency")}
             className={`py-3 rounded-xl font-headline font-bold text-xs uppercase tracking-wider transition-all ${
@@ -197,6 +200,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
           >
             Cosmetics
           </button>
+        </div>
         </div>
 
         {/* Get Points: compact purchase cards matching the store reference. */}

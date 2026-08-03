@@ -36,6 +36,8 @@ export default function SiteSettingsPage() {
   const [profileEditCurrency, setProfileEditCurrency] = useState<"points" | "gems">("points");
   const [wheelSpinCost, setWheelSpinCost] = useState<number | "">(20);
   const [wheelSpinCurrency, setWheelSpinCurrency] = useState<"points" | "gems">("points");
+  const [wheelSpinCooldownHours, setWheelSpinCooldownHours] = useState<number | "">(24);
+  const [wheelSpinRules, setWheelSpinRules] = useState("One spin every 24 hours.");
 
   useEffect(() => {
     fetchConfig();
@@ -64,6 +66,8 @@ export default function SiteSettingsPage() {
         setProfileEditCurrency(data.profile_edit_currency === "gems" ? "gems" : "points");
         setWheelSpinCost(data.wheel_spin_cost ?? 20);
         setWheelSpinCurrency(data.wheel_spin_currency === "gems" ? "gems" : "points");
+        setWheelSpinCooldownHours(data.wheel_spin_cooldown_hours ?? 24);
+        setWheelSpinRules(data.wheel_spin_rules || "One spin every 24 hours.");
       }
     } catch (err: any) {
       console.error("Error fetching platform config:", err.message);
@@ -91,6 +95,8 @@ export default function SiteSettingsPage() {
         profile_edit_currency: profileEditCurrency,
         wheel_spin_cost: Math.max(0, Number(wheelSpinCost || 0)),
         wheel_spin_currency: wheelSpinCurrency,
+        wheel_spin_cooldown_hours: Math.min(168, Math.max(0, Number(wheelSpinCooldownHours || 0))),
+        wheel_spin_rules: wheelSpinRules.trim(),
         updated_at: new Date().toISOString(),
       };
 
@@ -402,7 +408,15 @@ export default function SiteSettingsPage() {
                 <option value="gems">Gems</option>
               </select>
             </label>
+            <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Wheel cooldown (hours)
+              <input type="number" min="0" max="168" value={wheelSpinCooldownHours} onChange={(e) => setWheelSpinCooldownHours(e.target.value === "" ? "" : Number(e.target.value))} className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]" />
+            </label>
           </div>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+            Wheel rules shown to players
+            <textarea value={wheelSpinRules} onChange={(e) => setWheelSpinRules(e.target.value)} maxLength={180} rows={2} className="mt-1.5 w-full resize-none bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs normal-case tracking-normal text-white focus:outline-none focus:border-[#CCFF00]" />
+          </label>
         </div>
 
       </form>
