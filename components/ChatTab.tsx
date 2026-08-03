@@ -505,7 +505,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
       <div className="w-full animate-fade-in text-on-surface flex flex-col gap-2 pb-6">
         
         {/* ADAPTIVE HUB SWITCHER BAR */}
-        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-surface-container-highest bg-surface-container-high p-1.5 mb-3">
+        <div className="grid grid-cols-3 gap-1.5 rounded-2xl border border-surface-container-highest bg-surface p-1.5 shadow-sm mb-3">
           {[
             { id: "dms", label: "Direct" },
             { id: "groups", label: "Groups" },
@@ -516,7 +516,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
               onClick={() => setHubTab(tab.id as "dms" | "groups" | "network")}
               className={`py-2.5 rounded-xl font-headline text-[12px] font-bold whitespace-nowrap transition-all ${
                 hubTab === tab.id 
-                  ? "bg-background text-on-surface shadow-sm"
+                  ? "bg-primary text-on-primary shadow-md"
                   : "text-on-surface-variant hover:text-on-surface"
               }`}
             >

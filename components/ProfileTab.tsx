@@ -24,6 +24,7 @@ type Modal =
   | "support"
   | "activity"
   | "inventory"
+  | "favorites"
   | "language"
   | "privacy-policy"
   | "terms-of-service"
@@ -593,7 +594,7 @@ export default function ProfileTab({
           <button onClick={() => setModal("inventory")} className="w-full p-4 text-left hover:bg-surface-variant">
             <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-surface-container-high p-2 text-primary">inventory_2</span><span><b className="block text-sm">My inventory</b><small className="text-on-surface-variant">{inventoryCount} purchased cosmetics</small></span></span><span className="material-symbols-outlined text-on-surface-variant">chevron_right</span></div>
           </button>
-          <div className="p-4"><div className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-surface-container-high p-2 text-primary">star</span><span><b className="block text-sm">Favorite games</b><small className="text-on-surface-variant">{favoriteGames.length ? `${favoriteGames.length} saved game${favoriteGames.length === 1 ? "" : "s"}` : "No saved games yet"}</small></span></div>{favoriteGames.length > 0 && <div className="mt-3 grid grid-cols-2 gap-2">{favoriteGames.map((game) => <div key={game.game_id} className="rounded-xl bg-surface-container-high p-3"><span className="material-symbols-outlined text-primary">star</span><b className="mt-1 block truncate text-xs">{game.title}</b><small className="text-[10px] text-on-surface-variant">{game.category || "Arcade"}</small></div>)}</div>}</div>
+          <button onClick={() => setModal("favorites")} className="w-full p-4 text-left hover:bg-surface-variant"><div className="flex items-center justify-between gap-3"><span className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-surface-container-high p-2 text-primary">star</span><span><b className="block text-sm">Favorite games</b><small className="text-on-surface-variant">{favoriteGames.length ? `${favoriteGames.length} saved game${favoriteGames.length === 1 ? "" : "s"}` : "No saved games yet"}</small></span></span><span className="material-symbols-outlined text-on-surface-variant">chevron_right</span></div></button>
         </div>
       </section>
       <section className="space-y-3">
@@ -699,6 +700,8 @@ export default function ProfileTab({
                     ? "Activity history"
                     : modal === "inventory"
                     ? "My inventory"
+                    : modal === "favorites"
+                    ? "Favorite games"
                     : modal === "language"
                     ? t("appLanguage")
                     : modal === "account"
@@ -803,6 +806,7 @@ export default function ProfileTab({
                     })}</div> : <p className="py-8 text-center text-sm text-on-surface-variant">No cosmetics purchased yet. Visit the Shop to unlock some.</p>}
                   </div>
                 )}
+                {modal === "favorites" && <div className="grid grid-cols-2 gap-3 p-5">{favoriteGames.length ? favoriteGames.map((game) => <div key={game.game_id} className="rounded-2xl border border-surface-container-highest bg-surface-container-high p-4"><span className="material-symbols-outlined text-primary">star</span><b className="mt-2 block truncate text-sm">{game.title}</b><small className="text-on-surface-variant">{game.category || "Arcade"}</small></div>) : <p className="col-span-2 py-10 text-center text-xs text-on-surface-variant">No saved games yet. Tap the star on a game detail page to add one.</p>}</div>}
                 {modal === "identity" && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
