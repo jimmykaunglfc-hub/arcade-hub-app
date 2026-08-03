@@ -19,6 +19,7 @@ const providerDetails: Record<SocialProvider, { label: string; icon: string }> =
 export default function AuthView({ onAuthSuccess }: AuthViewProps) {
   const [stage, setStage] = useState<AuthStage>("email");
   const [email, setEmail] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [otp, setOtp] = useState("");
   const [loadingProvider, setLoadingProvider] = useState<SocialProvider | "email" | "verify" | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -61,6 +62,10 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
       if (data.session) {
         const { error: profileError } = await supabase.rpc("ensure_my_profile");
         if (profileError) throw profileError;
+        if (referralCode.trim()) {
+          const { error: referralError } = await supabase.rpc("apply_referral_code", { p_referral_code: referralCode.trim() });
+          if (referralError) throw referralError;
+        }
       }
       onAuthSuccess();
     } catch (error) {
@@ -172,6 +177,10 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
                   value={email}
                   className="w-full rounded-2xl border border-surface-container-highest bg-background px-4 py-3.5 text-sm text-on-surface outline-none transition focus:border-primary/70 focus:ring-2 focus:ring-primary/15 placeholder:text-on-surface-variant"
                 />
+              </label>
+              <label className="block text-left">
+                <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">Referral code <span className="normal-case tracking-normal">(optional)</span></span>
+                <input value={referralCode} onChange={(event) => setReferralCode(event.target.value)} placeholder="Friend's referral code" className="w-full rounded-xl border border-surface-container-highest bg-background px-4 py-3 text-sm text-on-surface outline-none focus:border-primary" />
               </label>
               <button
                 type="submit"

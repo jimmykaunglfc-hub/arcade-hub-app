@@ -94,6 +94,8 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   const [searchTarget, setSearchTarget] = useState("");
   const [inviteStatus, setInviteStatus] = useState("");
   const [copied, setCopied] = useState(false);
+  const [showReferralDashboard, setShowReferralDashboard] = useState(false);
+  const [referralStats, setReferralStats] = useState({ invited: 0, earned: 0 });
   
   const [showGameSelector, setShowGameSelector] = useState(false);
   const [inviteStep, setInviteStep] = useState<"game" | "carrom_mode">("game");
@@ -113,6 +115,8 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       supabase.from("chat_group_members").select("group_id").eq("user_id", id),
       supabase.from("direct_messages").select("sender_id").eq("receiver_id", id).is("read_at", null),
     ]);
+    const { data: referralData } = await supabase.rpc("get_my_referral_dashboard");
+    if (referralData) setReferralStats(Array.isArray(referralData) ? referralData[0] : referralData);
     if (myProfile) setMyUsername(myProfile.network_id || myProfile.username);
     const accepted = (links || []).filter((link) => link.status === "accepted");
     const requested = (links || []).filter((link) => link.status === "pending" && link.receiver_id === id);
@@ -487,17 +491,17 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
         {/* ADAPTIVE HUB SWITCHER BAR */}
         <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-3">
           {[
-            { id: "dms", label: "Messages" },
+            { id: "dms", label: "Direct" },
             { id: "groups", label: "Groups" },
-            { id: "network", label: "Network" }
+            { id: "network", label: "Invite" }
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setHubTab(tab.id as "dms" | "groups" | "network")}
-              className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
+              className={`flex-1 py-2.5 rounded-xl font-headline text-[12px] font-bold whitespace-nowrap transition-all ${
                 hubTab === tab.id 
-                  ? "bg-primary text-on-primary" 
-                  : "bg-surface text-on-surface-variant hover:text-on-surface border border-surface-container-highest"
+                  ? "bg-background text-on-surface shadow-sm"
+                  : "text-on-surface-variant hover:text-on-surface"
               }`}
             >
               {tab.label}
@@ -514,12 +518,12 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                 <p className="font-body text-xs text-on-surface-variant font-medium">Your inbox is empty.<br/>Connect via the Network tab.</p>
               </div>
             ) : (
-              <div className="bg-surface border border-surface-container-highest rounded-[24px] overflow-hidden shadow-sm divide-y divide-surface-variant">
+              <div className="space-y-3">
                 {friends.map((friend) => (
                   <button 
                     key={friend.id}
                     onClick={() => openChat(friend)}
-                    className="w-full p-4 flex items-center justify-between transition-all hover:bg-surface-variant text-left active:bg-surface-variant"
+                    className="w-full rounded-[22px] border border-surface-container-highest bg-surface p-4 flex items-center justify-between transition-all hover:bg-surface-variant text-left active:scale-[.98] shadow-sm"
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-full overflow-visible relative bg-surface-container-high shrink-0 border border-surface-container-highest">
@@ -529,7 +533,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
                       </div>
                       <div>
                         <h4 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">{friend.username}</h4>
-                        <p className="font-caps text-[11px] font-black uppercase tracking-[0.12em] text-on-surface-variant truncate mt-1">{isOnline(friend) ? "Online now" : "Offline"}</p>
+                        <p className="font-body text-[11px] font-medium text-on-surface-variant truncate mt-1">{isOnline(friend) ? "Online now" : "Say hi and start a match"}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">{unreadByFriend[friend.id] > 0 && <span className="min-w-5 h-5 px-1 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center">{unreadByFriend[friend.id]}</span>}<span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span></div>
@@ -562,31 +566,34 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
 
         {hubTab === "network" && (
           <div className="flex flex-col gap-4">
-            <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 relative overflow-hidden shadow-sm">
-              <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Your Network ID</h3>
+            <button onClick={() => setShowReferralDashboard(true)} className="w-full text-left bg-gradient-to-br from-[#a9f500] to-emerald-500 rounded-[24px] p-5 relative overflow-hidden shadow-sm text-black active:scale-[.98]">
+              <span className="material-symbols-outlined absolute -right-2 -top-2 text-[90px] opacity-15">group_add</span>
+              <h3 className="font-headline text-xl font-black mb-1">Invite &amp; Earn!</h3>
+              <p className="max-w-[250px] text-xs font-semibold">Share your referral code and earn rewards when friends join.</p>
               <div className="flex items-end justify-between relative z-10">
-                <p className="font-headline text-xl font-extrabold tracking-tight text-on-surface">{myUsername || "Loading..."}</p>
-                <button onClick={handleCopyId} className="w-10 h-10 bg-surface-container-high rounded-xl flex items-center justify-center text-primary hover:bg-surface-variant active:scale-95 transition-all">
+                <p className="mt-4 font-headline text-sm font-black tracking-tight">{myUsername || "Loading..."}</p>
+                <button onClick={handleCopyId} className="h-10 rounded-xl bg-black px-4 text-xs font-black text-white active:scale-95 transition-all">
                   <span className="material-symbols-outlined text-base">{copied ? "check" : "content_copy"}</span>
                 </button>
               </div>
-            </div>
+            </button>
 
             <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm">
-              <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3">Add Connection</h3>
+              <h3 className="font-headline text-sm font-extrabold text-on-surface mb-3">Add Friend by ID</h3>
               <form onSubmit={handleAddFriend} className="flex flex-col gap-2 sm:flex-row">
                 <input 
                   type="text" 
-                  placeholder="Enter Network ID..."
+                  placeholder="Enter User ID..."
                   value={searchTarget}
                   onChange={(e) => setSearchTarget(e.target.value)}
                   className="min-w-0 flex-1 bg-background border border-surface-container-highest rounded-xl px-4 py-3 font-body text-xs focus:outline-none focus:border focus:border-primary text-on-surface placeholder-on-surface-variant transition-colors"
                 />
-                <button type="submit" className="h-11 shrink-0 whitespace-nowrap px-5 bg-primary text-on-primary hover:opacity-90 font-headline font-bold text-xs rounded-xl shadow-sm active:scale-95 transition-all">Invite</button>
+                <button type="submit" className="h-11 shrink-0 whitespace-nowrap px-5 bg-primary text-on-primary hover:opacity-90 font-headline font-bold text-xs rounded-xl shadow-sm active:scale-95 transition-all">Add</button>
               </form>
               {inviteStatus && <p className="font-body text-[11px] text-primary font-bold mt-3">{inviteStatus}</p>}
             </div>
             {pendingRequests.length > 0 && <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm"><h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3">Connection requests</h3><div className="space-y-3">{pendingRequests.map((request) => <div key={request.requestId} className="flex items-center gap-3"><div className="w-9 h-9 rounded-full overflow-hidden relative bg-surface-container-high"><Image src={request.avatar_url} alt="" fill className="object-cover" unoptimized /></div><span className="flex-1 text-sm font-bold text-on-surface">{request.username}</span><button onClick={() => respondToFriendRequest(request.requestId, false)} className="text-xs font-bold text-on-surface-variant">Decline</button><button onClick={() => respondToFriendRequest(request.requestId, true)} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary">Accept</button></div>)}</div></div>}
+            {showReferralDashboard && <div className="fixed inset-0 z-[100100] flex items-center justify-center bg-black/75 p-5 backdrop-blur-sm"><div className="w-full max-w-sm rounded-[28px] bg-surface p-6 shadow-2xl"><div className="flex items-center justify-between"><h3 className="font-headline text-lg font-black">Invite dashboard</h3><button onClick={() => setShowReferralDashboard(false)}><span className="material-symbols-outlined">close</span></button></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-surface-container-high p-4"><b className="text-2xl text-primary">{referralStats.invited}</b><p className="mt-1 text-xs text-on-surface-variant">Friends invited</p></div><div className="rounded-2xl bg-surface-container-high p-4"><b className="text-2xl text-primary">{referralStats.earned}</b><p className="mt-1 text-xs text-on-surface-variant">Points earned</p></div></div><p className="mt-5 text-xs leading-relaxed text-on-surface-variant">Share your code. When a new player uses it, rewards are credited automatically to both accounts.</p></div></div>}
           </div>
         )}
       </div>
@@ -598,10 +605,10 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   // ============================================================================
   return (
     <div
-      className="fixed inset-x-0 z-20 flex min-h-0 flex-col gap-2 overflow-hidden px-5 animate-fade-in text-on-background"
+      className="fixed inset-0 z-[100002] flex min-h-0 flex-col gap-0 overflow-hidden bg-background animate-fade-in text-on-background"
       style={{
-        top: "calc(100px + env(safe-area-inset-top))",
-        bottom: "calc(76px + env(safe-area-inset-bottom))",
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
       
@@ -729,11 +736,11 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       )}
 
       {/* 📞 HEADER CONSOLE BAR ROW */}
-      <div className="shrink-0 w-full bg-surface border border-surface-container-highest rounded-[24px] p-3 flex items-center gap-2 shadow-sm">
+      <div className="shrink-0 w-full border-b border-surface-container-highest bg-background px-5 py-4 flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <button 
             onClick={() => setActiveView("hub")} 
-            className="w-10 h-10 rounded-[14px] bg-background border border-surface-container-highest hover:bg-surface-variant text-on-surface flex items-center justify-center transition-transform active:scale-95"
+            className="w-10 h-10 rounded-[14px] hover:bg-surface-variant text-on-surface flex items-center justify-center transition-transform active:scale-95"
           >
             <span className="material-symbols-outlined text-[20px]">arrow_back</span>
           </button>
@@ -753,13 +760,12 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <button onClick={() => activeChat && setViewingProfileId(activeChat.id)} aria-label="View profile" className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container-high text-primary"><span className="material-symbols-outlined text-[20px]">person</span></button>
-          <button onClick={() => setActiveView("hub")} aria-label="Quit chat" className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 text-red-500"><span className="material-symbols-outlined text-[20px]">close</span></button>
+          <button onClick={() => activeChat && setViewingProfileId(activeChat.id)} aria-label="View profile" className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-high text-on-surface"><span className="material-symbols-outlined text-[20px]">person</span></button>
         </div>
       </div>
 
       {/* 💬 MESSAGE CHANNEL CORE VIEWPORTS */}
-      <div className="relative min-h-0 flex-1 w-full overflow-y-auto overscroll-contain px-2 py-4 space-y-5 no-scrollbar">
+      <div className="relative min-h-0 flex-1 w-full overflow-y-auto overscroll-contain px-5 py-4 space-y-5 no-scrollbar">
         {chatLoading && <div className="py-8 text-center text-xs font-bold text-on-surface-variant animate-pulse">Loading conversation…</div>}
         {!chatLoading && messages.map((msg) => {
           const isMe = msg.sender_id === myUserId;
@@ -896,7 +902,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       </div>
 
       {/* 📥 INLINE DOCK DECK INPUT TRAILER */}
-      <div className="shrink-0 w-full bg-surface border border-surface-container-highest rounded-[24px] p-2 flex items-center gap-2 shadow-xl mb-1">
+      <div className="shrink-0 w-full border-t border-surface-container-highest bg-background p-3 flex items-center gap-2">
         <input ref={attachmentInputRef} type="file" accept="image/*,.pdf,.txt" className="hidden" onChange={handleAttachment} />
         
         <button

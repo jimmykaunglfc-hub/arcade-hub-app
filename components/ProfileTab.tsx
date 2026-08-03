@@ -9,6 +9,7 @@ import { LANGUAGES, LanguageCode, useTranslation } from "../lib/i18n";
 type Profile = {
   id: string;
   email: string;
+  network_id?: string;
   username: string;
   avatar_url: string | null;
   created_at: string;
@@ -439,6 +440,7 @@ export default function ProfileTab({
   const usesLeftAvatarCardLayout = profileCardCosmetic?.profile_card_layout === "avatar_left";
   const hasProfileCardArtwork = Boolean(profileCardCosmetic?.image_url);
   const maskedEmail = profile?.email ? profile.email.replace(/^(.{2})[^@]*(?=@)/, "$1••••") : "";
+  const copyUserId = async () => { if (profile?.network_id) { await navigator.clipboard.writeText(profile.network_id); setMessage("User ID copied."); } };
 
   return (
     <div className="space-y-5 animate-fade-in pb-12 w-full text-on-surface">
@@ -498,9 +500,9 @@ export default function ProfileTab({
           <h2 className="font-headline text-xl font-black tracking-tight text-inherit">
             {profile.username}
           </h2>
-          <p className={`font-body text-[13px] mt-0.5 ${hasProfileCardArtwork ? "text-white/80" : "text-on-surface-variant"}`}>
-            {maskedEmail}
-          </p>
+          <button onClick={copyUserId} className={`mx-auto mt-1 flex items-center gap-1 font-body text-[13px] ${hasProfileCardArtwork ? "text-white/80" : "text-on-surface-variant"}`}>
+            <span>{profile.network_id || maskedEmail}</span><span className="material-symbols-outlined text-[14px]">content_copy</span>
+          </button>
         </div>
         <div className={`grid grid-cols-3 gap-2 w-full mt-6 pt-4 ${hasProfileCardArtwork ? "border-t border-white/45" : "border-t border-surface-variant"}`}>
           <div className="rounded-xl bg-black/25 px-2 py-2 backdrop-blur-sm">
