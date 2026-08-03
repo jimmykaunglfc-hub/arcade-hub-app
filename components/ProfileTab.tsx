@@ -72,6 +72,7 @@ export default function ProfileTab({
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [inventoryCount, setInventoryCount] = useState(0);
+  const [favoriteGames, setFavoriteGames] = useState<Array<{ game_id: string; title: string; category?: string }>>([]);
   const [profileCardCosmetic, setProfileCardCosmetic] = useState<EquippedCosmetic["cosmetics"]>(null);
   const [avatarFrameCosmetic, setAvatarFrameCosmetic] = useState<EquippedCosmetic["cosmetics"]>(null);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -118,6 +119,8 @@ export default function ProfileTab({
       { data: rawInventory },
       { data: storeItems },
       { data: cosmetics },
+      { data: favorites },
+      { data: catalog },
     ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase
@@ -141,6 +144,8 @@ export default function ProfileTab({
       supabase.from("user_inventory").select("id, cosmetic_id, is_equipped").eq("user_id", user.id),
       supabase.from("store_items").select("*"),
       supabase.from("cosmetics").select("id, name, game_category, image_url, modifiers"),
+      supabase.from("game_favorites").select("game_id").eq("user_id", user.id),
+      supabase.rpc("get_game_catalog"),
     ]);
     if (!myProfile) {
       setFetchStatus("missing");
@@ -150,6 +155,8 @@ export default function ProfileTab({
     setName(myProfile.username || "");
     setAvatarUrl(myProfile.avatar_url || "");
     setInventoryCount(count || 0);
+    const catalogById = new Map<string, { title?: string; category?: string }>((catalog || []).map((game: any) => [String(game.id), game]));
+    setFavoriteGames((favorites || []).map((favorite: any) => { const game = catalogById.get(String(favorite.game_id)); return { game_id: String(favorite.game_id), title: game?.title || String(favorite.game_id), category: game?.category }; }));
     const storeById = new Map((storeItems || []).map((item) => [item.id, item]));
     const cosmeticById = new Map((cosmetics || []).map((item) => [item.id, item]));
     const resolvedInventory = (rawInventory || []).map((item) => {
@@ -586,6 +593,7 @@ export default function ProfileTab({
           <button onClick={() => setModal("inventory")} className="w-full p-4 text-left hover:bg-surface-variant">
             <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-surface-container-high p-2 text-primary">inventory_2</span><span><b className="block text-sm">My inventory</b><small className="text-on-surface-variant">{inventoryCount} purchased cosmetics</small></span></span><span className="material-symbols-outlined text-on-surface-variant">chevron_right</span></div>
           </button>
+          <div className="p-4"><div className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-surface-container-high p-2 text-primary">star</span><span><b className="block text-sm">Favorite games</b><small className="text-on-surface-variant">{favoriteGames.length ? `${favoriteGames.length} saved game${favoriteGames.length === 1 ? "" : "s"}` : "No saved games yet"}</small></span></div>{favoriteGames.length > 0 && <div className="mt-3 grid grid-cols-2 gap-2">{favoriteGames.map((game) => <div key={game.game_id} className="rounded-xl bg-surface-container-high p-3"><span className="material-symbols-outlined text-primary">star</span><b className="mt-1 block truncate text-xs">{game.title}</b><small className="text-[10px] text-on-surface-variant">{game.category || "Arcade"}</small></div>)}</div>}</div>
         </div>
       </section>
       <section className="space-y-3">

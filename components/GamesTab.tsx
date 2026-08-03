@@ -11,6 +11,7 @@ interface GamesTabProps {
   onPointsUpdated?: () => void; 
   rewardClaimed?: boolean; 
   setRewardClaimed?: (status: boolean) => void;
+  onGameDetailsChange?: (open: boolean) => void;
 }
 
 // 🎮 LOCAL FALLBACK GAMES (Guarantees cards render if Supabase DB is empty or loading)
@@ -36,6 +37,7 @@ export default function GamesTab({
   onPointsUpdated,
   rewardClaimed,
   setRewardClaimed
+  ,onGameDetailsChange
 }: GamesTabProps) {
   const [activeCategory, setActiveCategory] = useState<string>("All");
   
@@ -45,6 +47,8 @@ export default function GamesTab({
   const [, setLoading] = useState(true);
   const [ratingGame, setRatingGame] = useState<any | null>(null);
   const [ratingSaving, setRatingSaving] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<any | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   // Helper for clean native routing slugs (e.g. "Tic Tac Toe" -> "native://tic-tac-toe")
   const formatGameSlug = (title: string) => {
@@ -94,10 +98,19 @@ export default function GamesTab({
     fetchLiveArcadeData();
   }, []);
 
-  // --- LAUNCH GAME DIRECTLY ---
+  // Cards open a detail page first; matchmaking starts only from Play.
   const handleGameClick = (game: any) => {
-    const url = formatGameSlug(game.title);
-    onPlay(url);
+    setSelectedGame(game);
+    onGameDetailsChange?.(true);
+    if (userId) void supabase.from("game_favorites").select("game_id").eq("user_id", userId).eq("game_id", String(game.id)).maybeSingle().then(({ data }) => setIsFavorite(Boolean(data)));
+  };
+
+  const toggleFavorite = async () => {
+    if (!selectedGame || !userId) return;
+    const gameId = String(selectedGame.id);
+    if (isFavorite) await supabase.from("game_favorites").delete().eq("user_id", userId).eq("game_id", gameId);
+    else await supabase.from("game_favorites").insert({ user_id: userId, game_id: gameId });
+    setIsFavorite(!isFavorite);
   };
 
   const saveRating = async (rating: number) => {
@@ -117,6 +130,11 @@ export default function GamesTab({
   const filteredGames = activeCategory === "All" 
     ? activeGamesList 
     : activeGamesList.filter(g => g.category === activeCategory);
+
+  if (selectedGame) {
+    const entryFee = Number(selectedGame.entry_fee || 0);
+    return <div className="fixed inset-0 z-[100002] overflow-y-auto bg-background px-5 pb-8 pt-[calc(18px+env(safe-area-inset-top))] text-on-surface"><header className="flex items-center gap-3 border-b border-surface-container-highest pb-4"><button onClick={() => { setSelectedGame(null); onGameDetailsChange?.(false); }} className="grid h-10 w-10 place-items-center rounded-full"><span className="material-symbols-outlined">arrow_back</span></button><h1 className="font-headline text-lg font-black">{selectedGame.title}</h1></header><section className="relative mt-6 h-64 overflow-hidden rounded-[26px] bg-gradient-to-b from-secondary-container to-background p-6"><div className="absolute inset-0 bg-cover bg-center opacity-45" style={{ backgroundImage: selectedGame.image_url ? `url('${selectedGame.image_url}')` : undefined }} /><div className="absolute inset-x-6 bottom-6"><h2 className="font-headline text-3xl font-black text-white">{selectedGame.title}</h2><div className="mt-2 flex gap-2"><span className="rounded-lg bg-white/15 px-3 py-1 text-xs font-bold text-white">{selectedGame.category || "Arcade"}</span><span className="rounded-lg bg-white/15 px-3 py-1 text-xs font-bold text-white">★ {selectedGame.average_rating ? Number(selectedGame.average_rating).toFixed(1) : selectedGame.rating || "New"}</span></div></div></section><div className="mt-5 flex gap-3"><button onClick={() => onPlay(formatGameSlug(selectedGame.title))} className="flex-1 rounded-2xl bg-primary py-4 font-headline text-sm font-black text-on-primary shadow-[0_0_20px_rgba(168,238,0,.28)]"><span className="material-symbols-outlined mr-2 align-middle">play_arrow</span>Play{entryFee ? ` (-${entryFee.toLocaleString()} Pts)` : ""}</button><button onClick={() => void toggleFavorite()} aria-label="Save game" className={`grid h-14 w-14 place-items-center rounded-2xl ${isFavorite ? "bg-primary text-on-primary" : "bg-surface-container-high"}`}><span className="material-symbols-outlined" style={{ fontVariationSettings: isFavorite ? "'FILL' 1" : undefined }}>star</span></button></div><section className="mt-8"><h3 className="font-headline text-lg font-black">About this game</h3><p className="mt-3 text-sm leading-relaxed text-on-surface-variant">{selectedGame.description || `${selectedGame.title} is ready to play in the Joe Yoke arcade. Challenge friends or start a match when you are ready.`}</p><div className="mt-6 grid grid-cols-2 gap-4"><div className="rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="material-symbols-outlined text-primary">groups</span><p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Active players</p><b className="mt-1 block text-lg">Online</b></div><div className="rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="material-symbols-outlined text-secondary">shield</span><p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Category</p><b className="mt-1 block text-lg">{selectedGame.category || "Arcade"}</b></div></div></section></div>;
+  }
 
   return (
     <div className="w-full pb-6 animate-fade-in text-on-surface">
