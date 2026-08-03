@@ -45,6 +45,7 @@ interface ChatTabProps {
   currentPoints: number;
   userId: string | null;
   onPlay?: (url: string, matchId: string) => void;
+  onChatOpenChange?: (open: boolean) => void;
 }
 
 type ChallengeGame =
@@ -69,7 +70,7 @@ const INITIAL_BOARD = [
   [1, 0, 1, 0, 1, 0, 1, 0]
 ];
 
-export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps) {
+export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChange }: ChatTabProps) {
   const [activeView, setActiveView] = useState<"hub" | "chat">("hub");
   const [hubTab, setHubTab] = useState<"dms" | "groups" | "network">("dms");
 
@@ -95,6 +96,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   const [inviteStatus, setInviteStatus] = useState("");
   const [copied, setCopied] = useState(false);
   const [showReferralDashboard, setShowReferralDashboard] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
   const [referralStats, setReferralStats] = useState({ invited: 0, earned: 0 });
   
   const [showGameSelector, setShowGameSelector] = useState(false);
@@ -474,7 +476,9 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
   const openChat = (friend: Friend) => {
     setActiveChat(friend);
     setActiveView("chat");
+    onChatOpenChange?.(true);
   };
+  const closeChat = () => { setActiveView("hub"); onChatOpenChange?.(false); };
 
   const formatTime = (isoString?: string) => {
     if (!isoString) return "";
@@ -489,7 +493,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       <div className="w-full animate-fade-in text-on-surface flex flex-col gap-2 pb-6">
         
         {/* ADAPTIVE HUB SWITCHER BAR */}
-        <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-3">
+        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-surface-container-highest bg-surface-container-high p-1.5 mb-3">
           {[
             { id: "dms", label: "Direct" },
             { id: "groups", label: "Groups" },
@@ -498,7 +502,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
             <button
               key={tab.id}
               onClick={() => setHubTab(tab.id as "dms" | "groups" | "network")}
-              className={`flex-1 py-2.5 rounded-xl font-headline text-[12px] font-bold whitespace-nowrap transition-all ${
+              className={`py-2.5 rounded-xl font-headline text-[12px] font-bold whitespace-nowrap transition-all ${
                 hubTab === tab.id 
                   ? "bg-background text-on-surface shadow-sm"
                   : "text-on-surface-variant hover:text-on-surface"
@@ -566,17 +570,18 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
 
         {hubTab === "network" && (
           <div className="flex flex-col gap-4">
-            <button onClick={() => setShowReferralDashboard(true)} className="w-full text-left bg-gradient-to-br from-[#a9f500] to-emerald-500 rounded-[24px] p-5 relative overflow-hidden shadow-sm text-black active:scale-[.98]">
+            <div onClick={() => setShowReferralDashboard(true)} role="button" tabIndex={0} className="w-full text-left bg-gradient-to-br from-[#a9f500] to-emerald-500 rounded-[24px] p-5 relative overflow-hidden shadow-sm text-black active:scale-[.98] cursor-pointer">
               <span className="material-symbols-outlined absolute -right-2 -top-2 text-[90px] opacity-15">group_add</span>
               <h3 className="font-headline text-xl font-black mb-1">Invite &amp; Earn!</h3>
               <p className="max-w-[250px] text-xs font-semibold">Share your referral code and earn rewards when friends join.</p>
               <div className="flex items-end justify-between relative z-10">
                 <p className="mt-4 font-headline text-sm font-black tracking-tight">{myUsername || "Loading..."}</p>
-                <button onClick={handleCopyId} className="h-10 rounded-xl bg-black px-4 text-xs font-black text-white active:scale-95 transition-all">
+                <button onClick={(event) => { event.stopPropagation(); handleCopyId(); }} className="h-10 rounded-xl bg-black px-4 text-xs font-black text-white active:scale-95 transition-all">
                   <span className="material-symbols-outlined text-base">{copied ? "check" : "content_copy"}</span>
                 </button>
               </div>
-            </button>
+              <button onClick={(event) => { event.stopPropagation(); setShowShareSheet(true); }} className="relative z-10 mt-3 rounded-xl bg-black px-4 py-2 text-xs font-black text-white">Share referral code</button>
+            </div>
 
             <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm">
               <h3 className="font-headline text-sm font-extrabold text-on-surface mb-3">Add Friend by ID</h3>
@@ -594,6 +599,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
             </div>
             {pendingRequests.length > 0 && <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm"><h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3">Connection requests</h3><div className="space-y-3">{pendingRequests.map((request) => <div key={request.requestId} className="flex items-center gap-3"><div className="w-9 h-9 rounded-full overflow-hidden relative bg-surface-container-high"><Image src={request.avatar_url} alt="" fill className="object-cover" unoptimized /></div><span className="flex-1 text-sm font-bold text-on-surface">{request.username}</span><button onClick={() => respondToFriendRequest(request.requestId, false)} className="text-xs font-bold text-on-surface-variant">Decline</button><button onClick={() => respondToFriendRequest(request.requestId, true)} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary">Accept</button></div>)}</div></div>}
             {showReferralDashboard && <div className="fixed inset-0 z-[100100] flex items-center justify-center bg-black/75 p-5 backdrop-blur-sm"><div className="w-full max-w-sm rounded-[28px] bg-surface p-6 shadow-2xl"><div className="flex items-center justify-between"><h3 className="font-headline text-lg font-black">Invite dashboard</h3><button onClick={() => setShowReferralDashboard(false)}><span className="material-symbols-outlined">close</span></button></div><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-surface-container-high p-4"><b className="text-2xl text-primary">{referralStats.invited}</b><p className="mt-1 text-xs text-on-surface-variant">Friends invited</p></div><div className="rounded-2xl bg-surface-container-high p-4"><b className="text-2xl text-primary">{referralStats.earned}</b><p className="mt-1 text-xs text-on-surface-variant">Points earned</p></div></div><p className="mt-5 text-xs leading-relaxed text-on-surface-variant">Share your code. When a new player uses it, rewards are credited automatically to both accounts.</p></div></div>}
+            {showShareSheet && <div className="fixed inset-0 z-[100101] flex items-end bg-black/60 p-4 backdrop-blur-sm"><div className="w-full rounded-[28px] bg-surface p-5"><div className="flex items-center justify-between"><h3 className="font-headline text-base font-black">Share referral code</h3><button onClick={() => setShowShareSheet(false)}><span className="material-symbols-outlined">close</span></button></div><div className="mt-4 grid grid-cols-4 gap-3">{["Facebook","Messenger","Telegram","Viber","TikTok","WhatsApp","X","Copy"].map((network) => <button key={network} onClick={() => { if (network === "Copy") handleCopyId(); else if (navigator.share) void navigator.share({ title: "Join me on Joe Yoke", text: `Use my referral code: ${myUsername}` }); setShowShareSheet(false); }} className="rounded-xl bg-surface-container-high px-2 py-3 text-[10px] font-bold text-on-surface">{network}</button>)}</div></div></div>}
           </div>
         )}
       </div>
@@ -739,7 +745,7 @@ export default function ChatTab({ currentPoints, userId, onPlay }: ChatTabProps)
       <div className="shrink-0 w-full border-b border-surface-container-highest bg-background px-5 py-4 flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <button 
-            onClick={() => setActiveView("hub")} 
+            onClick={closeChat}
             className="w-10 h-10 rounded-[14px] hover:bg-surface-variant text-on-surface flex items-center justify-center transition-transform active:scale-95"
           >
             <span className="material-symbols-outlined text-[20px]">arrow_back</span>

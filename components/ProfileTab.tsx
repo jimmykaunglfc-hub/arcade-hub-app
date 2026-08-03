@@ -440,7 +440,7 @@ export default function ProfileTab({
   const usesLeftAvatarCardLayout = profileCardCosmetic?.profile_card_layout === "avatar_left";
   const hasProfileCardArtwork = Boolean(profileCardCosmetic?.image_url);
   const maskedEmail = profile?.email ? profile.email.replace(/^(.{2})[^@]*(?=@)/, "$1••••") : "";
-  const copyUserId = async () => { if (profile?.network_id) { await navigator.clipboard.writeText(profile.network_id); setMessage("User ID copied."); } };
+  const copyUserId = async () => { if (profile?.network_id) { await navigator.clipboard.writeText(profile.network_id); setMessage("User ID copied."); window.setTimeout(() => setMessage(null), 2500); } };
 
   return (
     <div className="space-y-5 animate-fade-in pb-12 w-full text-on-surface">

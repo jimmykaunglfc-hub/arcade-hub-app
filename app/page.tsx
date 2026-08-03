@@ -65,6 +65,7 @@ export default function Home() {
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [chatFullscreen, setChatFullscreen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   useEffect(() => {
@@ -379,7 +380,7 @@ export default function Home() {
         }
       >
         {/* HEADER */}
-        {activeTab !== "Spin" && <header
+        {activeTab !== "Spin" && !chatFullscreen && <header
           className="fixed top-0 left-0 right-0 z-[100001] bg-background flex justify-between items-center px-5 transition-colors duration-300"
           style={{
             height: "calc(90px + env(safe-area-inset-top))",
@@ -446,7 +447,7 @@ export default function Home() {
         <main
           className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto no-scrollbar px-5 w-full z-10"
           style={{
-            paddingTop: activeTab === "Spin" ? "calc(16px + env(safe-area-inset-top))" : "calc(100px + env(safe-area-inset-top))",
+            paddingTop: activeTab === "Spin" || chatFullscreen ? "0" : "calc(100px + env(safe-area-inset-top))",
             paddingBottom: "calc(100px + env(safe-area-inset-bottom))",
           }}
         >
@@ -485,6 +486,7 @@ export default function Home() {
                 <ChatTab
                   currentPoints={userPoints}
                   userId={myUserId}
+                  onChatOpenChange={setChatFullscreen}
                   onPlay={(url, matchId) => {
                     setActiveMatchId(matchId);
                     setPlayingGame(url);
@@ -526,7 +528,7 @@ export default function Home() {
         )}
 
         {/* Notifications are a full-screen destination, so navigation cannot cover actions. */}
-        {!showNotifications && activeTab !== "Spin" && (
+        {!showNotifications && activeTab !== "Spin" && !chatFullscreen && (
         <nav
           data-bottom-nav
           className="fixed bottom-0 left-0 w-full z-50 bg-surface border-t border-surface-container-highest px-2 pt-1 flex justify-around items-center transition-colors duration-300"
@@ -546,7 +548,7 @@ export default function Home() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => { setChatFullscreen(false); setActiveTab(tab.id); }}
                 className="relative flex flex-col items-center justify-center w-16 h-full transition-all"
               >
                 {isActive && (
