@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 import DailyLoginCard from "./DailyLoginCard";
+import { shareAchievement } from "../lib/socialShare";
 
 interface HomeTabProps {
   currentPoints: number;
@@ -124,6 +125,7 @@ export default function HomeTab({
   const [showStatsModal, setShowStatsModal] = useState<boolean>(false);
   const [dbMatches, setDbMatches] = useState<MatchRecord[]>([]);
   const [activeTournament, setActiveTournament] = useState<any | null>(null);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -318,6 +320,19 @@ export default function HomeTab({
   const displayedGroups = showAllGames
     ? groupedMatches
     : groupedMatches.slice(0, 5);
+
+  const shareMatch = async (match: MatchRecord) => {
+    const outcome = match.isVictory ? "Victory" : match.isDraw ? "Draw" : "Match played";
+    const status = await shareAchievement({
+      eyebrow: "Play history",
+      title: `${outcome} in ${match.gameName}`,
+      subtitle: `${username} vs ${match.opponentName || "Opponent"}`,
+      stat: match.isVictory ? match.reward : match.isDraw ? "A hard-fought draw" : "Ready for the rematch",
+      accent: match.isVictory ? "lime" : match.isDraw ? "gold" : "violet",
+    });
+    setShareMessage(status === "shared" ? "Match result shared." : "Share card downloaded and text copied.");
+    window.setTimeout(() => setShareMessage(null), 3000);
+  };
 
   return (
     <div className="w-full pb-6 animate-fade-in relative">
@@ -561,6 +576,7 @@ export default function HomeTab({
             </div>
 
             <div className="flex flex-col gap-3">
+              {shareMessage && <p className="rounded-xl bg-primary-container px-3 py-2 text-center text-xs font-bold text-on-primary-container">{shareMessage}</p>}
               {groupedMatches
                 .find((g) => g[0] === selectedGame)?.[1]
                 .map((match, i) => (
@@ -607,9 +623,7 @@ export default function HomeTab({
                         </p>
                       </div>
                     </div>
-                    <span className="text-[10px] text-on-surface-variant font-medium">
-                      {match.timeAgo}
-                    </span>
+                    <div className="flex items-center gap-2"><span className="text-[10px] text-on-surface-variant font-medium">{match.timeAgo}</span><button onClick={() => void shareMatch(match)} aria-label={`Share ${match.gameName} result`} className="grid h-8 w-8 place-items-center rounded-lg bg-surface-container text-primary transition active:scale-95"><span className="material-symbols-outlined text-base">share</span></button></div>
                   </div>
                 ))}
             </div>
