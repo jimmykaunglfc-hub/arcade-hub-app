@@ -34,6 +34,7 @@ const ALL_MODULES = [
   { id: "community", label: "Community & Social" },
   { id: "rewards", label: "Reward System" },
   { id: "wheel", label: "Wheel Rewards" },
+  { id: "referrals", label: "Referral Rewards" },
   { id: "badges", label: "Rank Badges" },
   { id: "economy", label: "Economy & Ledger" },
   { id: "redeem", label: "Redeem Requests" },

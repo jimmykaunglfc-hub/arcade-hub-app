@@ -23,6 +23,7 @@ import {
   Settings,
   CircleHelp,
   CircleDollarSign,
+  Share2,
   LogOut,
   Loader2,
 } from "lucide-react";
@@ -75,6 +76,12 @@ const NAV_ITEMS = [
     label: "Wheel Rewards",
     href: "/joeyokeadmin/wheel",
     icon: CircleDollarSign,
+  },
+  {
+    id: "referrals",
+    label: "Referral Rewards",
+    href: "/joeyokeadmin/referrals",
+    icon: Share2,
   },
   {
     id: "badges",
