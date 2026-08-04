@@ -35,6 +35,7 @@ const DEFAULT_GAMES = [
   { id: "game_2048", title: "2048", category: "Puzzle", entry_fee: 0, rating: "New", icon: "grid_view" },
   { id: "big_two", title: "Big Two", category: "Card", entry_fee: 0, rating: "New", icon: "playing_cards" },
   { id: "block_puzzle", title: "Block Puzzle", category: "Puzzle", entry_fee: 0, rating: "New", icon: "extension" },
+  { id: "monopoly", title: "Monopoly", category: "Board", entry_fee: 0, rating: "New", icon: "account_balance" },
 ];
 
 export default function GamesTab({ 
