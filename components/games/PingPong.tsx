@@ -13,9 +13,14 @@ import {
   type TableTennisPlayerId,
 } from "@/lib/TableTennisGame";
 import {
+  applySideSpin,
   calculateRacketTilt,
+  calculateSwipeSpin,
   calculateSwipeSteering,
   dampRacketTilt,
+  predictBallAtZPlane,
+  predictTableLanding,
+  sweepSphereAgainstPaddle,
   sweepSphereAgainstNet,
 } from "@/lib/pingPongPhysics";
 
@@ -45,6 +50,7 @@ export interface PingPongProps {
    */
   preloadedMatchId?: string | null;
   opponent?: { name: string; isBot: boolean } | null;
+  /** Existing CompetitiveGameLaunch integration reports wallet/match results. */
   onResult?: (result: "Win" | "Loss" | "Draw") => void;
 }
 
@@ -58,10 +64,12 @@ interface BallState extends Vector3 {
   vx: number;
   vy: number;
   vz: number;
+  /** Signed side-spin; positive values curve toward world-space right. */
+  spin: number;
   active: boolean;
   /** Prevents either paddle from touching a ball caught by the net. */
   netStopped: boolean;
-  servePhase: "toss" | "flight" | null;
+  servePhase: "waiting" | "toss" | "flight" | null;
 }
 
 interface PaddleState extends Vector3 {
@@ -77,6 +85,16 @@ interface PaddleState extends Vector3 {
 interface PaddleTarget extends Vector3 {
   tilt: number;
   swingX: number;
+}
+
+interface SwingIntent {
+  value: number;
+  expiresAt: number;
+}
+
+interface AssistWindow {
+  expiresAt: number;
+  landingX: number;
 }
 
 interface PaddlePositions {
@@ -114,6 +132,77 @@ interface TrailPoint extends Vector3 {
 }
 
 type Side = "local" | "opponent";
+type RacketDirection = "left" | "center" | "right";
+
+interface RacketAssetLayout {
+  crop: [x: number, y: number, width: number, height: number];
+  /** Face-center anchor within the cropped visible racket. */
+  anchor: [x: number, y: number];
+  /** Normalizes the visible racket-face diameter across differently cropped PNGs. */
+  renderScale: number;
+}
+
+type RacketAssetSet = Record<RacketDirection, HTMLImageElement>;
+type RacketSpriteSet = Record<RacketDirection, HTMLCanvasElement>;
+
+const RACKET_SPRITE_SIZE = 512;
+const RACKET_SPRITE_VISIBLE_HEIGHT = 260;
+
+const RACKET_ASSET_LAYOUTS: Record<
+  Side,
+  Record<RacketDirection, RacketAssetLayout>
+> = {
+  local: {
+    center: {
+      crop: [521, 355, 421, 701],
+      anchor: [0.5, 0.314],
+      renderScale: 1.38,
+    },
+    left: {
+      crop: [298, 275, 616, 528],
+      anchor: [0.375, 0.426],
+      renderScale: 1,
+    },
+    right: {
+      crop: [264, 275, 615, 529],
+      anchor: [0.624, 0.425],
+      renderScale: 1,
+    },
+  },
+  opponent: {
+    center: {
+      crop: [311, 196, 388, 648],
+      anchor: [0.5, 0.333],
+      renderScale: 1.35,
+    },
+    left: {
+      crop: [428, 456, 564, 506],
+      anchor: [0.344, 0.409],
+      renderScale: 1,
+    },
+    right: {
+      crop: [449, 456, 564, 506],
+      anchor: [0.62, 0.409],
+      renderScale: 1,
+    },
+  },
+};
+
+/** Hysteresis prevents noisy pointer samples from flipping sprites each frame. */
+const resolveRacketDirection = (
+  current: RacketDirection,
+  swingX: number
+): RacketDirection => {
+  if (current === "center") {
+    return swingX < -0.28 ? "left" : swingX > 0.28 ? "right" : "center";
+  }
+  if (current === "left") {
+    if (swingX > 0.28) return "right";
+    return swingX > -0.1 ? "center" : "left";
+  }
+  if (swingX < -0.28) return "left";
+  return swingX < 0.1 ? "center" : "right";
+};
 
 const REACTIONS = [
   { emoji: "🔥", label: "Fire" },
@@ -168,6 +257,55 @@ const OPPONENT_PADDLE_START: PaddleState = {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const createOpponentServeAim = () => {
+  const magnitude = 0.35 + Math.random() * 0.6;
+  return (Math.random() < 0.5 ? -1 : 1) * magnitude;
+};
+
+/**
+ * Pre-renders the large source PNGs into small normalized, fully opaque
+ * sprites. Runtime cross-fading previously made the racket blink or appear
+ * transparent during rapid direction changes.
+ */
+const createRacketSpriteSet = (
+  side: Side,
+  assets: RacketAssetSet
+): RacketSpriteSet => {
+  const renderSprite = (direction: RacketDirection) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = RACKET_SPRITE_SIZE;
+    canvas.height = RACKET_SPRITE_SIZE;
+    const context = canvas.getContext("2d");
+    if (!context) return canvas;
+
+    const asset = assets[direction];
+    const layout = RACKET_ASSET_LAYOUTS[side][direction];
+    const [sourceX, sourceY, sourceWidth, sourceHeight] = layout.crop;
+    const renderedHeight = RACKET_SPRITE_VISIBLE_HEIGHT * layout.renderScale;
+    const renderedWidth = renderedHeight * (sourceWidth / sourceHeight);
+    const [anchorX, anchorY] = layout.anchor;
+    context.globalAlpha = 1;
+    context.drawImage(
+      asset,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+      RACKET_SPRITE_SIZE / 2 - renderedWidth * anchorX,
+      RACKET_SPRITE_SIZE / 2 - renderedHeight * anchorY,
+      renderedWidth,
+      renderedHeight
+    );
+    return canvas;
+  };
+
+  return {
+    center: renderSprite("center"),
+    left: renderSprite("left"),
+    right: renderSprite("right"),
+  };
+};
+
 const oppositeSide = (side: Side): Side =>
   side === "local" ? "opponent" : "local";
 
@@ -179,14 +317,15 @@ const getAvatarUrl = (player: PingPongPlayer | undefined) =>
 
 const createServe = (server: Side, isDoubles = false): BallState => ({
   x: isDoubles ? (server === "local" ? 0.62 : -0.62) : 0,
-  y: 0.42,
+  y: server === "local" ? 0.48 : 0.42,
   z: server === "local" ? 2.24 : -2.24,
   vx: 0,
-  vy: 1.9,
+  vy: server === "local" ? 0 : 1.9,
   vz: 0,
+  spin: 0,
   active: true,
   netStopped: false,
-  servePhase: "toss",
+  servePhase: server === "local" ? "waiting" : "toss",
 });
 
 const createRally = (server: Side): RallyState => ({
@@ -242,9 +381,9 @@ function Avatar({
 export default function PingPong(props: PingPongProps) {
   const {
     onClose,
+    onResult,
     preloadedMatchId,
     opponent,
-    onResult,
     players: providedPlayers,
   } = props;
   const matchId = props.matchId ?? preloadedMatchId ?? "local-ping-pong";
@@ -267,8 +406,10 @@ export default function PingPong(props: PingPongProps) {
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const boardLogoRef = useRef<HTMLImageElement | null>(null);
-  const localRacketAssetRef = useRef<HTMLImageElement | null>(null);
-  const opponentRacketAssetRef = useRef<HTMLImageElement | null>(null);
+  const localRacketAssetsRef = useRef<RacketAssetSet | null>(null);
+  const opponentRacketAssetsRef = useRef<RacketAssetSet | null>(null);
+  const racketSpritesRef = useRef<Record<Side, RacketSpriteSet> | null>(null);
+  const opponentServeAimRef = useRef(createOpponentServeAim());
   const draggingRef = useRef(false);
   const roundLockedRef = useRef(false);
   const serveTimerRef = useRef<number | null>(null);
@@ -281,6 +422,16 @@ export default function PingPong(props: PingPongProps) {
   const lastTrailStampRef = useRef({ local: 0, opponent: 0 });
   const gameWinnerRef = useRef<Side | null>(null);
   const pointerSampleRef = useRef<{ x: number; at: number } | null>(null);
+  const swingIntentRef = useRef<SwingIntent>({ value: 0, expiresAt: 0 });
+  const lastPlayerSwipeAtRef = useRef(0);
+  const assistWindowsRef = useRef<Record<Side, AssistWindow | null>>({
+    local: null,
+    opponent: null,
+  });
+  const racketDirectionRef = useRef<Record<Side, RacketDirection>>({
+    local: "center",
+    opponent: "center",
+  });
   const localPaddleTargetRef = useRef<PaddleTarget>({
     x: LOCAL_PADDLE_START.x,
     y: LOCAL_PADDLE_START.y,
@@ -313,14 +464,12 @@ export default function PingPong(props: PingPongProps) {
     local: LOCAL_PADDLE_START,
     opponent: OPPONENT_PADDLE_START,
   });
-  const [status, setStatus] = useState("Drag to move your paddle");
+  const [status, setStatus] = useState(
+    initialServer === "local"
+      ? "Your serve — swipe left or right"
+      : "Opponent serve — get ready"
+  );
   const [gameWinner, setGameWinner] = useState<Side | null>(null);
-  const resultReportedRef = useRef(false);
-  useEffect(() => {
-    if (!gameWinner || resultReportedRef.current) return;
-    resultReportedRef.current = true;
-    onResult?.(gameWinner === "local" ? "Win" : "Loss");
-  }, [gameWinner, onResult]);
   const [activeReaction, setActiveReaction] = useState<{
     emoji: string;
     id: number;
@@ -342,19 +491,67 @@ export default function PingPong(props: PingPongProps) {
   }, [gameWinner]);
 
   useEffect(() => {
+    let cancelled = false;
+    const loadRacketSet = (
+      center: string,
+      left: string,
+      right: string
+    ): RacketAssetSet => {
+      const createAsset = (source: string) => {
+        const image = new Image();
+        image.src = source;
+        return image;
+      };
+      return {
+        center: createAsset(center),
+        left: createAsset(left),
+        right: createAsset(right),
+      };
+    };
+
     const logo = new Image();
     logo.src = "/joe-yoke-board-logo.png";
     boardLogoRef.current = logo;
-    const localRacket = new Image();
-    localRacket.src = "/ping-pong-racket-black-3d.png";
-    localRacketAssetRef.current = localRacket;
-    const opponentRacket = new Image();
-    opponentRacket.src = "/ping-pong-racket-red-3d.png";
-    opponentRacketAssetRef.current = opponentRacket;
+    const localAssets = loadRacketSet(
+      "/ping-pong-racket-black-center.png",
+      "/ping-pong-racket-black-left.png",
+      "/ping-pong-racket-black-right.png"
+    );
+    const opponentAssets = loadRacketSet(
+      "/ping-pong-racket-red-center.png",
+      "/ping-pong-racket-red-left.png",
+      "/ping-pong-racket-red-right.png"
+    );
+    localRacketAssetsRef.current = localAssets;
+    opponentRacketAssetsRef.current = opponentAssets;
+
+    const buildSpriteCache = async () => {
+      await Promise.allSettled(
+        [...Object.values(localAssets), ...Object.values(opponentAssets)].map(
+          (image) => image.decode()
+        )
+      );
+      if (
+        cancelled ||
+        [...Object.values(localAssets), ...Object.values(opponentAssets)].some(
+          (image) => image.naturalWidth <= 0
+        )
+      ) {
+        return;
+      }
+      racketSpritesRef.current = {
+        local: createRacketSpriteSet("local", localAssets),
+        opponent: createRacketSpriteSet("opponent", opponentAssets),
+      };
+    };
+    void buildSpriteCache();
+
     return () => {
+      cancelled = true;
       boardLogoRef.current = null;
-      localRacketAssetRef.current = null;
-      opponentRacketAssetRef.current = null;
+      localRacketAssetsRef.current = null;
+      opponentRacketAssetsRef.current = null;
+      racketSpritesRef.current = null;
     };
   }, []);
 
@@ -427,11 +624,20 @@ export default function PingPong(props: PingPongProps) {
       const nextBall = createServe(server, isDoubles);
       ballRef.current = nextBall;
       rallyRef.current = createRally(server);
+      if (server === "opponent") {
+        opponentServeAimRef.current = createOpponentServeAim();
+      }
+      swingIntentRef.current = { value: 0, expiresAt: 0 };
+      lastPlayerSwipeAtRef.current = 0;
+      assistWindowsRef.current = { local: null, opponent: null };
+      racketDirectionRef.current = { local: "center", opponent: "center" };
+      localPaddleTargetRef.current.swingX = 0;
+      localPaddleTargetRef.current.tilt = 0;
       roundLockedRef.current = false;
       setBallPosition({ ...nextBall });
       setStatus(
         server === "local"
-          ? "Your serve — regulation toss"
+          ? "Your serve — swipe left or right"
           : "Opponent serve — get ready"
       );
     },
@@ -451,11 +657,14 @@ export default function PingPong(props: PingPongProps) {
         "RALLY_WINNER"
       );
       const next = pointResult.state;
-      setMatchState(next);
+      // Always publish a detached snapshot so React cannot skip a scoreboard
+      // render even if a future authority returns a reused state object.
+      setMatchState({ ...next });
 
       if (pointResult.matchEnded) {
         gameWinnerRef.current = winner;
         setGameWinner(winner);
+        onResult?.(winner === "local" ? "Win" : "Loss");
         setStatus(`${reason} · Match complete`);
       } else if (pointResult.gameEnded) {
         setStatus(`${reason} · Game won — changing ends`);
@@ -473,7 +682,7 @@ export default function PingPong(props: PingPongProps) {
 
             if (pointResult.gameEnded) {
               const nextGame = gameEngine.resetGame();
-              setMatchState(nextGame);
+              setMatchState({ ...nextGame });
               resetRound(toSide(nextGame.currentServer));
               return;
             }
@@ -484,7 +693,7 @@ export default function PingPong(props: PingPongProps) {
         );
       }
     },
-    [gameEngine, resetRound]
+    [gameEngine, onResult, resetRound]
   );
 
   const sendReaction = useCallback((emoji: string) => {
@@ -514,7 +723,39 @@ export default function PingPong(props: PingPongProps) {
         ? ((normalizedX - previousSample.x) * 1000) /
           Math.max(now - previousSample.at, 8)
         : 0;
-      const swingX = clamp(pointerVelocityX / 3.2, -1, 1);
+      const measuredSwing = clamp(pointerVelocityX / 3.2, -1, 1);
+      // Preserve the last deliberate swipe long enough for the incoming ball
+      // to reach the racket. Tiny stationary pointer samples must not erase a
+      // shot direction selected a fraction of a second earlier.
+      if (Math.abs(measuredSwing) >= 0.08) {
+        const signedStrength =
+          Math.sign(measuredSwing) *
+          clamp(0.38 + Math.abs(measuredSwing) * 0.62, 0.38, 1);
+        swingIntentRef.current = {
+          value: signedStrength,
+          expiresAt: now + 650,
+        };
+        lastPlayerSwipeAtRef.current = now;
+
+        const ball = ballRef.current;
+        if (
+          ball.servePhase === "waiting" &&
+          rallyRef.current.server === "local"
+        ) {
+          ball.servePhase = "flight";
+          ball.vx = signedStrength * 1.85;
+          ball.vy = -1.15;
+          ball.vz = -4.55;
+          ball.spin = signedStrength * 0.8;
+          setStatus(
+            signedStrength < 0 ? "Serve aimed left" : "Serve aimed right"
+          );
+        }
+      }
+      const swingX =
+        now < swingIntentRef.current.expiresAt
+          ? swingIntentRef.current.value
+          : 0;
       pointerSampleRef.current = { x: normalizedX, at: now };
       // Keep the header area free for navigation while mapping the rest of the
       // screen to the player's half of the table.
@@ -1195,31 +1436,59 @@ export default function PingPong(props: PingPongProps) {
       const point = project(paddle, width, height);
       const isLocal = side === "local";
       const radius = (isLocal ? 35 : 19) * point.scale;
-      const racketAsset = isLocal
-        ? localRacketAssetRef.current
-        : opponentRacketAssetRef.current;
+      const direction = resolveRacketDirection(
+        racketDirectionRef.current[side],
+        paddle.swingX
+      );
+      racketDirectionRef.current[side] = direction;
+      const racketAssets = isLocal
+        ? localRacketAssetsRef.current
+        : opponentRacketAssetsRef.current;
+      const sprite = racketSpritesRef.current?.[side][direction];
+      if (sprite) {
+        const renderedSize =
+          radius *
+          (isLocal ? 2.05 : 2.62) *
+          (RACKET_SPRITE_SIZE / RACKET_SPRITE_VISIBLE_HEIGHT);
+        context.save();
+        context.globalAlpha = 1;
+        context.drawImage(
+          sprite,
+          point.x - renderedSize / 2,
+          point.y - renderedSize / 2,
+          renderedSize,
+          renderedSize
+        );
+        context.restore();
+        return;
+      }
 
+      // Startup fallback while the small opaque sprite cache is being built.
+      const racketAsset = racketAssets?.[direction];
+      const assetLayout = RACKET_ASSET_LAYOUTS[side][direction];
       if (
         racketAsset?.complete &&
         racketAsset.naturalWidth > 0 &&
         racketAsset.naturalHeight > 0
       ) {
-        const renderedSize = radius * (isLocal ? 3.6 : 4.15);
-        const anchorX = isLocal ? 0.575 : 0.493;
-        const anchorY = isLocal ? 0.42 : 0.39;
-        context.save();
-        // Do not add a screen-space offset here: the same projected point is
-        // used for collision and rendering, which makes hits feel immediate.
-        context.translate(point.x, point.y);
-        context.rotate(clamp(paddle.tilt, -0.66, 0.66));
+        const [sourceX, sourceY, sourceWidth, sourceHeight] = assetLayout.crop;
+        const renderedHeight =
+          radius *
+          (isLocal ? 2.05 : 2.62) *
+          assetLayout.renderScale;
+        const renderedWidth = renderedHeight * (sourceWidth / sourceHeight);
+        const [anchorX, anchorY] = assetLayout.anchor;
         context.drawImage(
           racketAsset,
-          -renderedSize * anchorX,
-          -renderedSize * anchorY,
-          renderedSize,
-          renderedSize
+          sourceX,
+          sourceY,
+          sourceWidth,
+          sourceHeight,
+          point.x - renderedWidth * anchorX,
+          point.y - renderedHeight * anchorY,
+          renderedWidth,
+          renderedHeight
         );
-        context.restore();
         return;
       }
 
@@ -1311,30 +1580,65 @@ export default function PingPong(props: PingPongProps) {
 
     const tryPaddleCollision = (
       side: Side,
+      previousBallPosition: Vector3,
       ball: BallState,
+      previousPaddle: PaddleState,
       paddle: PaddleState,
-      now: number
+      now: number,
+      assisted: boolean
     ) => {
       if (ball.servePhase === "toss" || ball.netStopped) return false;
 
       const movingTowardPaddle = side === "local" ? ball.vz > 0 : ball.vz < 0;
       const isReceiver =
         rallyRef.current.lastHitBy !== side && rallyRef.current.validBounce;
-      // A forgiving swept contact volume prevents fast mobile pointer samples
-      // from tunnelling through the paddle between animation frames.
-      const closeInDepth = Math.abs(ball.z - paddle.z) < 0.5;
-      const relativeX = ball.x - paddle.x;
-      const relativeY = ball.y - paddle.y;
-      const cosine = Math.cos(-paddle.tilt);
-      const sine = Math.sin(-paddle.tilt);
+      const approachDirection: 1 | -1 = side === "local" ? 1 : -1;
+      const radiusX = assisted ? 1.05 : 0.94;
+      const radiusY = assisted ? 0.98 : 0.86;
+      const sweptImpact = sweepSphereAgainstPaddle(
+        previousBallPosition,
+        ball,
+        {
+          x: paddle.x,
+          y: paddle.y,
+          z: paddle.z,
+          radiusX,
+          radiusY,
+          tilt: paddle.tilt,
+          ballRadius: BALL_RADIUS,
+          approachDirection,
+          previous: {
+            x: previousPaddle.x,
+            y: previousPaddle.y,
+            z: previousPaddle.z,
+            tilt: previousPaddle.tilt,
+          },
+        }
+      );
+      // The overlap fallback also catches a player moving the racket sideways
+      // into a slow ball while both remain close to the contact plane.
+      const closeInDepth = Math.abs(ball.z - paddle.z) < 0.42;
+      const contactX = sweptImpact?.x ?? ball.x;
+      const contactY = sweptImpact?.y ?? ball.y;
+      const contactPaddleX = sweptImpact?.paddleX ?? paddle.x;
+      const contactPaddleY = sweptImpact?.paddleY ?? paddle.y;
+      const contactPaddleZ = sweptImpact?.paddleZ ?? paddle.z;
+      const contactPaddleTilt = sweptImpact?.paddleTilt ?? paddle.tilt;
+      const relativeX = contactX - contactPaddleX;
+      const relativeY = contactY - contactPaddleY;
+      const cosine = Math.cos(-contactPaddleTilt);
+      const sine = Math.sin(-contactPaddleTilt);
       const racketX = relativeX * cosine - relativeY * sine;
       const racketY = relativeX * sine + relativeY * cosine;
       const closeToFace =
-        (racketX * racketX) / (0.82 * 0.82) +
-          (racketY * racketY) / (0.74 * 0.74) <
+        (racketX * racketX) / ((radiusX + 0.04) * (radiusX + 0.04)) +
+          (racketY * racketY) / ((radiusY + 0.04) * (radiusY + 0.04)) <
         1;
 
-      if (!movingTowardPaddle || !closeInDepth || !closeToFace) {
+      if (
+        !movingTowardPaddle ||
+        (!sweptImpact && (!closeInDepth || !closeToFace))
+      ) {
         return false;
       }
 
@@ -1351,29 +1655,65 @@ export default function PingPong(props: PingPongProps) {
         return true;
       }
 
-      const xOffset = ball.x - paddle.x;
-      ball.z = paddle.z + (side === "local" ? -0.24 : 0.24);
+      const xOffset = contactX - contactPaddleX;
+      ball.x = contactX;
+      ball.y = contactY;
+      ball.z = contactPaddleZ + (side === "local" ? -0.24 : 0.24);
       ball.vz =
         (side === "local" ? -1 : 1) *
-        Math.min(5.15, Math.max(3.7, Math.abs(ball.vz) * 1.04));
+        Math.min(6.15, Math.max(4.55, Math.abs(ball.vz) * 1.1));
+      const latchedLocalSwing =
+        side === "local" && now < swingIntentRef.current.expiresAt
+          ? swingIntentRef.current.value
+          : paddle.swingX;
+      const effectiveTilt = calculateRacketTilt(
+        latchedLocalSwing,
+        paddle.x / (TABLE_HALF_WIDTH * 2)
+      );
       const swipeSteering = calculateSwipeSteering(
-        paddle.swingX,
-        paddle.tilt,
+        latchedLocalSwing,
+        effectiveTilt,
         paddle.vx
       );
-      ball.vx = clamp(
-        ball.vx * 0.15 + swipeSteering + xOffset * 0.55,
-        -4.6,
-        4.6
+      let nextVelocityX = clamp(
+        ball.vx * 0.08 + swipeSteering * 1.2 + xOffset * 0.3,
+        -5.5,
+        5.5
+      );
+      if (Math.abs(latchedLocalSwing) >= 0.16) {
+        // A deliberate gesture owns the shot direction. Contact offset still
+        // affects power, but can no longer reverse a user's left/right swipe.
+        const minimumDirectionalSpeed =
+          1.4 + Math.abs(latchedLocalSwing) * 2.7;
+        nextVelocityX =
+          Math.sign(latchedLocalSwing) *
+          clamp(
+            Math.max(minimumDirectionalSpeed, Math.abs(nextVelocityX)),
+            minimumDirectionalSpeed,
+            5.5
+          );
+      }
+      ball.vx = nextVelocityX;
+      ball.spin = calculateSwipeSpin(
+        latchedLocalSwing,
+        effectiveTilt,
+        paddle.vx
       );
       ball.vy = clamp(
-        1.45 +
-          Math.abs(ball.vy) * 0.28 +
-          paddle.vy * 0.075 +
-          Math.abs(paddle.swingX) * 0.35,
-        1.2,
-        3.55
+        1.7 +
+          Math.abs(ball.vy) * 0.31 +
+          paddle.vy * 0.085 +
+          Math.abs(latchedLocalSwing) * 0.48,
+        1.45,
+        4.15
       );
+
+      if (side === "local") {
+        // Keep the matching directional artwork visible through follow-through
+        // without leaking the previous shot into the next rally.
+        swingIntentRef.current.expiresAt = now + 180;
+      }
+      assistWindowsRef.current[side] = null;
 
       rallyRef.current = {
         lastHitBy: side,
@@ -1408,11 +1748,43 @@ export default function PingPong(props: PingPongProps) {
         return;
       }
 
+      // Collision uses both ends of each paddle's movement during this fixed
+      // step, keeping the physical face synchronized with the rendered face.
+      const previousPaddles: PaddlePositions = {
+        local: { ...paddlesRef.current.local },
+        opponent: { ...paddlesRef.current.opponent },
+      };
+
       // Critically damped pointer follow: fast enough to feel direct, smooth
       // enough to avoid the jumpy racket motion visible in the first build.
       const local = paddlesRef.current.local;
       const target = localPaddleTargetRef.current;
-      if (
+      const localAssistWindow = assistWindowsRef.current.local;
+      const localPrediction =
+        ball.vz > 0 && rallyRef.current.validBounce
+          ? predictBallAtZPlane(
+              ball,
+              local.z - BALL_RADIUS,
+              GRAVITY
+            )
+          : null;
+      const localGestureReady = Boolean(
+        localAssistWindow &&
+          now < localAssistWindow.expiresAt &&
+          now - lastPlayerSwipeAtRef.current < 600
+      );
+      const localAssistActive = Boolean(
+        localGestureReady &&
+          localPrediction &&
+          localPrediction.time < 0.55 &&
+          localPrediction.y >= 0.22 &&
+          localPrediction.y <= 1.36
+      );
+      const hasLatchedSwing = now < swingIntentRef.current.expiresAt;
+      if (hasLatchedSwing) {
+        target.swingX = swingIntentRef.current.value;
+        target.tilt = calculateRacketTilt(target.swingX, target.x / 2.7);
+      } else if (
         !draggingRef.current ||
         now - (pointerSampleRef.current?.at ?? 0) > 40
       ) {
@@ -1421,12 +1793,24 @@ export default function PingPong(props: PingPongProps) {
         target.tilt = calculateRacketTilt(target.swingX, target.x / 2.7);
       }
       const follow = 1 - Math.exp(-26 * deltaSeconds);
+      const assistedTargetX = localAssistActive
+        ? target.x +
+          (clamp(localPrediction!.x, -1.34, 1.34) - target.x) * 0.82
+        : localGestureReady
+        ? target.x +
+          (clamp(localAssistWindow!.landingX, -1.34, 1.34) - target.x) *
+            0.28
+        : target.x;
+      const assistedTargetY = localAssistActive
+        ? target.y +
+          (clamp(localPrediction!.y, 0.3, 1.18) - target.y) * 0.72
+        : target.y;
       const nextLocal = {
-        x: local.x + (target.x - local.x) * follow,
-        y: local.y + (target.y - local.y) * follow,
+        x: local.x + (assistedTargetX - local.x) * follow,
+        y: local.y + (assistedTargetY - local.y) * follow,
         z: local.z + (target.z - local.z) * follow,
         tilt: dampRacketTilt(local.tilt, target.tilt, deltaSeconds),
-        swingX: dampRacketTilt(local.swingX, target.swingX, deltaSeconds, 20),
+        swingX: dampRacketTilt(local.swingX, target.swingX, deltaSeconds, 14),
       };
       paddlesRef.current.local = {
         ...nextLocal,
@@ -1467,9 +1851,45 @@ export default function PingPong(props: PingPongProps) {
       // onReceiveOpponentMove takes priority for 600ms.
       if (now > opponentNetworkActiveUntilRef.current) {
         const opponent = paddlesRef.current.opponent;
+        const opponentAssistWindow = assistWindowsRef.current.opponent;
+        const opponentPrediction =
+          ball.vz < 0 && rallyRef.current.validBounce
+            ? predictBallAtZPlane(
+                ball,
+                opponent.z + BALL_RADIUS,
+                GRAVITY
+              )
+            : null;
+        const opponentWindowActive = Boolean(
+          opponentAssistWindow && now < opponentAssistWindow.expiresAt
+        );
+        const opponentAssistActive = Boolean(
+          opponentWindowActive &&
+            opponentPrediction &&
+            opponentPrediction.time < 0.62 &&
+            opponentPrediction.y >= 0.22 &&
+            opponentPrediction.y <= 1.36
+        );
         const targetX =
-          ball.vz < 0 ? clamp(ball.x, -1.28, 1.28) : ball.x * 0.25;
-        const targetY = ball.vz < 0 ? clamp(ball.y, 0.34, 1.05) : 0.58;
+          ball.vz < 0
+            ? clamp(
+                opponentAssistActive
+                  ? opponentPrediction!.x
+                  : opponentWindowActive
+                  ? opponentAssistWindow!.landingX
+                  : ball.x,
+                -1.28,
+                1.28
+              )
+            : ball.x * 0.25;
+        const targetY =
+          ball.vz < 0
+            ? clamp(
+                opponentAssistActive ? opponentPrediction!.y : ball.y,
+                0.34,
+                1.05
+              )
+            : 0.58;
         const nextX =
           opponent.x +
           clamp(targetX - opponent.x, -2.5 * deltaSeconds, 2.5 * deltaSeconds);
@@ -1516,20 +1936,34 @@ export default function PingPong(props: PingPongProps) {
         }
       }
 
+      if (ball.servePhase === "waiting") {
+        // Hold the local serve visibly above the paddle until a deliberate
+        // horizontal gesture supplies both its aim and launch power.
+        ball.x = clamp(paddlesRef.current.local.x * 0.3, -0.72, 0.72);
+        ball.y = 0.48;
+        ball.z = 2.16;
+        ball.vx = 0;
+        ball.vy = 0;
+        ball.vz = 0;
+        return;
+      }
+
       // Regulation serve animation: the ball rises straight up more than six
       // inches before an automatic strike on the way down.
       if (ball.servePhase === "toss" && ball.vy < 0 && ball.y <= 0.57) {
         const server = rallyRef.current.server;
         ball.servePhase = "flight";
-        ball.vz = server === "local" ? -3.8 : 3.8;
+        ball.vz = server === "local" ? -4.55 : 4.45;
         ball.vx = isDoubles
           ? server === "local"
-            ? -0.9
-            : 0.9
+            ? -1.15
+            : 1.15
           : server === "local"
-          ? 0.2
-          : -0.2;
-        ball.vy = -0.55;
+          ? 0.3
+          : opponentServeAimRef.current;
+        ball.vy = -1.15;
+        ball.spin =
+          server === "local" ? 0.2 : opponentServeAimRef.current * 0.72;
         setStatus(server === "local" ? "Your serve" : "Opponent serves");
       }
 
@@ -1538,6 +1972,9 @@ export default function PingPong(props: PingPongProps) {
         y: ball.y,
         z: ball.z,
       };
+      const spinStep = applySideSpin(ball.vx, ball.spin, deltaSeconds);
+      ball.vx = clamp(spinStep.vx, -5.8, 5.8);
+      ball.spin = spinStep.spin;
       ball.vy += GRAVITY * deltaSeconds;
       ball.x += ball.vx * deltaSeconds;
       ball.y += ball.vy * deltaSeconds;
@@ -1565,6 +2002,7 @@ export default function PingPong(props: PingPongProps) {
           ball.z = NET_Z - netImpact.approachSide * (BALL_RADIUS + 0.008);
           ball.vx *= 0.88;
           ball.vz *= 0.48;
+          ball.spin *= 0.55;
           ball.vy = Math.max(ball.vy, 0.18);
           if (rally.isServe) rally.serveTouchedNet = true;
           setStatus(rally.isServe ? "Net cord — possible let" : "Tape clip");
@@ -1577,6 +2015,7 @@ export default function PingPong(props: PingPongProps) {
           ball.z = NET_Z + netImpact.approachSide * (BALL_RADIUS + 0.008);
           ball.vx *= 0.16;
           ball.vz = 0;
+          ball.spin = 0;
           ball.vy = Math.min(ball.vy * 0.18, -0.45);
           setStatus("Net fault — ball stopped");
         }
@@ -1586,6 +2025,32 @@ export default function PingPong(props: PingPongProps) {
         !ball.netStopped &&
         (previousPosition.z - NET_Z) * (ball.z - NET_Z) <= 0 &&
         previousPosition.z !== ball.z;
+
+      if (crossedNet && !ball.netStopped) {
+        const receiver = oppositeSide(rallyRef.current.lastHitBy);
+        const landing = predictTableLanding(
+          ball,
+          TABLE_HEIGHT,
+          BALL_RADIUS,
+          GRAVITY
+        );
+        const landsOnReceiverSide = landing
+          ? receiver === "local"
+            ? landing.z >= NET_Z
+            : landing.z < NET_Z
+          : false;
+        if (
+          landing &&
+          landsOnReceiverSide &&
+          Math.abs(landing.x) <= TABLE_HALF_WIDTH &&
+          Math.abs(landing.z) <= TABLE_HALF_LENGTH
+        ) {
+          assistWindowsRef.current[receiver] = {
+            expiresAt: now + 1400,
+            landingX: landing.x,
+          };
+        }
+      }
 
       // If extreme spin brings a valid shot back over the net untouched after
       // landing on the receiver's side, the original hitter wins the point.
@@ -1625,6 +2090,7 @@ export default function PingPong(props: PingPongProps) {
         ball.vy = Math.abs(ball.vy) * 0.82;
         ball.vx *= 0.992;
         ball.vz *= 0.994;
+        ball.spin *= 0.86;
 
         const bounceSide: Side = ball.z >= NET_Z ? "local" : "opponent";
         const rally = rallyRef.current;
@@ -1710,8 +2176,27 @@ export default function PingPong(props: PingPongProps) {
       // Resolve the table first. If a ball reaches the tabletop and racket in
       // the same physics step, the bounce must make the return legal before
       // paddle contact is evaluated.
-      tryPaddleCollision("local", ball, paddlesRef.current.local, now);
-      tryPaddleCollision("opponent", ball, paddlesRef.current.opponent, now);
+      tryPaddleCollision(
+        "local",
+        previousPosition,
+        ball,
+        previousPaddles.local,
+        paddlesRef.current.local,
+        now,
+        localAssistActive
+      );
+      tryPaddleCollision(
+        "opponent",
+        previousPosition,
+        ball,
+        previousPaddles.opponent,
+        paddlesRef.current.opponent,
+        now,
+        Boolean(
+          assistWindowsRef.current.opponent &&
+            now < assistWindowsRef.current.opponent!.expiresAt
+        )
+      );
 
       const outsidePlayVolume =
         Math.abs(ball.x) > TABLE_HALF_WIDTH + 1.0 ||
@@ -2047,4 +2532,3 @@ export default function PingPong(props: PingPongProps) {
     </section>
   );
 }
-
