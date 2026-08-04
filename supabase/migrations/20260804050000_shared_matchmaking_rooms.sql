@@ -84,6 +84,21 @@ create policy "big two members can read state" on public.big_two_match_state for
   exists (select 1 from public.matchmaking_room_players p where p.room_id = big_two_match_state.room_id and p.user_id = auth.uid() and p.left_at is null)
 );
 
+-- Hands are private: the table state may be shared, but no player may read a
+-- rival's cards. The application reads its own seat only.
+create table if not exists public.big_two_player_hands (
+  room_id uuid not null references public.matchmaking_rooms(id) on delete cascade,
+  seat smallint not null check (seat between 1 and 4),
+  cards jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (room_id, seat)
+);
+alter table public.big_two_player_hands enable row level security;
+drop policy if exists "big two players read only own hand" on public.big_two_player_hands;
+create policy "big two players read only own hand" on public.big_two_player_hands for select to authenticated using (
+  exists (select 1 from public.matchmaking_room_players p where p.room_id = big_two_player_hands.room_id and p.seat = big_two_player_hands.seat and p.user_id = auth.uid() and p.left_at is null)
+);
+
 create or replace function public.big_two_start_match(p_room_id uuid, p_turn_seconds integer default 30)
 returns jsonb
 language plpgsql security definer set search_path = public as $$
@@ -100,6 +115,71 @@ begin
 end;
 $$;
 grant execute on function public.big_two_start_match(uuid, integer) to authenticated;
+
+create or replace function public.big_two_deal_room(p_room_id uuid, p_turn_seconds integer default 30)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_host uuid; v_count integer; v_deck jsonb; v_seat integer; v_starter integer := 1;
+begin
+  select host_id into v_host from public.matchmaking_rooms where id = p_room_id for update;
+  select count(*) into v_count from public.matchmaking_room_players where room_id = p_room_id and left_at is null;
+  if v_host is distinct from auth.uid() or v_count <> 4 then raise exception 'Only the host may deal a full four-player room'; end if;
+
+  select jsonb_agg(jsonb_build_object('id', rank || '-' || suit, 'rank', rank, 'suit', suit) order by random())
+  into v_deck from generate_series(0,12) as r(rank) cross join generate_series(0,3) as s(suit);
+  delete from public.big_two_player_hands where room_id = p_room_id;
+  for v_seat in 1..4 loop
+    insert into public.big_two_player_hands(room_id, seat, cards)
+    select p_room_id, v_seat, jsonb_agg(v_deck -> (ordinality - 1) order by ordinality)
+    from generate_series((v_seat - 1) * 13 + 1, v_seat * 13) ordinality;
+    if exists (select 1 from public.big_two_player_hands h, jsonb_array_elements(h.cards) c where h.room_id=p_room_id and h.seat=v_seat and (c->>'rank')::integer=0 and (c->>'suit')::integer=0) then v_starter := v_seat; end if;
+  end loop;
+  insert into public.big_two_match_state(room_id,state,current_seat,turn_deadline,status)
+  values(p_room_id, jsonb_build_object('hand_counts', jsonb_build_array(13,13,13,13), 'table_cards', '[]'::jsonb, 'passes', 0, 'last_play_seat', null), v_starter, now() + make_interval(secs => greatest(10, least(p_turn_seconds,90))), 'playing')
+  on conflict(room_id) do update set state=excluded.state,current_seat=excluded.current_seat,turn_deadline=excluded.turn_deadline,status='playing',updated_at=now();
+  update public.matchmaking_rooms set status='playing' where id=p_room_id;
+  return jsonb_build_object('room_id',p_room_id,'starter_seat',v_starter);
+end; $$;
+grant execute on function public.big_two_deal_room(uuid, integer) to authenticated;
+
+create or replace function public.big_two_pass(p_room_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_seat integer; v_state jsonb; v_current integer; v_passes integer; v_next integer;
+begin
+  select p.seat into v_seat from public.matchmaking_room_players p where p.room_id=p_room_id and p.user_id=auth.uid() and p.left_at is null;
+  select state,current_seat into v_state,v_current from public.big_two_match_state where room_id=p_room_id and status='playing' for update;
+  if v_seat is null or v_current is null then raise exception 'Match or seat not found'; end if;
+  if v_seat <> v_current then raise exception 'It is not your turn'; end if;
+  if (select turn_deadline from public.big_two_match_state where room_id=p_room_id) < now() then raise exception 'Turn expired'; end if;
+  v_passes := coalesce((v_state->>'passes')::integer,0) + 1;
+  if v_passes >= 3 then
+    v_next := coalesce((v_state->>'last_play_seat')::integer, v_current);
+    v_state := jsonb_set(jsonb_set(jsonb_set(v_state,'{passes}','0'::jsonb),'{table_cards}','[]'::jsonb),'{last_play_seat}','null'::jsonb);
+    update public.big_two_match_state set current_seat=v_next, turn_deadline=now()+interval '30 seconds', state=v_state,updated_at=now() where room_id=p_room_id;
+    return jsonb_build_object('current_seat',v_next,'passes',0,'new_trick',true);
+  end if;
+  v_next := (v_current % 4) + 1;
+  update public.big_two_match_state set current_seat=v_next, turn_deadline=now()+interval '30 seconds', state=jsonb_set(v_state,'{passes}',to_jsonb(v_passes)),updated_at=now() where room_id=p_room_id;
+  return jsonb_build_object('current_seat',v_next,'passes',v_passes,'new_trick',false);
+end; $$;
+grant execute on function public.big_two_pass(uuid) to authenticated;
+
+create or replace function public.big_two_play_cards(p_room_id uuid, p_cards jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_seat integer; v_hand jsonb; v_state jsonb; v_current integer; v_remaining jsonb; v_count integer; v_next integer;
+begin
+  if jsonb_typeof(p_cards) <> 'array' or jsonb_array_length(p_cards) not in (1,2,3,5) then raise exception 'Invalid card count'; end if;
+  select p.seat into v_seat from public.matchmaking_room_players p where p.room_id=p_room_id and p.user_id=auth.uid() and p.left_at is null;
+  select state,current_seat into v_state,v_current from public.big_two_match_state where room_id=p_room_id and status='playing' for update;
+  if v_seat is null or v_seat <> v_current then raise exception 'It is not your turn'; end if;
+  select cards into v_hand from public.big_two_player_hands where room_id=p_room_id and seat=v_seat for update;
+  if (select count(*) from jsonb_array_elements(p_cards) wanted where not exists (select 1 from jsonb_array_elements(v_hand) owned where owned->>'id'=wanted->>'id')) > 0 then raise exception 'Card is not in your hand'; end if;
+  select coalesce(jsonb_agg(card),'[]'::jsonb) into v_remaining from jsonb_array_elements(v_hand) card where not exists (select 1 from jsonb_array_elements(p_cards) played where played->>'id'=card->>'id');
+  v_count := jsonb_array_length(v_remaining); v_next := (v_current % 4) + 1;
+  update public.big_two_player_hands set cards=v_remaining,updated_at=now() where room_id=p_room_id and seat=v_seat;
+  update public.big_two_match_state set state=jsonb_set(jsonb_set(jsonb_set(jsonb_set(v_state,'{table_cards}',p_cards),'{passes}','0'::jsonb),'{last_play_seat}',to_jsonb(v_seat)),array['hand_counts',(v_seat-1)::text],to_jsonb(v_count)), current_seat=v_next, turn_deadline=now()+interval '30 seconds', status=case when v_count=0 then 'completed' else 'playing' end,updated_at=now() where room_id=p_room_id;
+  return jsonb_build_object('current_seat',v_next,'hand_count',v_count,'completed',v_count=0);
+end; $$;
+grant execute on function public.big_two_play_cards(uuid, jsonb) to authenticated;
 
 -- Read model used by the lobby UI for four stable seats, names, avatars and
 -- ready indicators. Realtime subscriptions on these tables update all clients.

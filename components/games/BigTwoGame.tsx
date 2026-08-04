@@ -124,7 +124,9 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
 
  const passTurn=useCallback((player:number)=>{ if(!currentPlay)return; const nextPasses=passes+1; if(nextPasses>=3){setPasses(0);setCurrentPlay(null);setTurn(currentPlay.player);setMessage(`${playerNames[currentPlay.player]} controls the new trick.`);}else{setPasses(nextPasses);setTurn((player+1)%4);setMessage(`${playerNames[player]} passed.`);} },[currentPlay,passes,playerNames]);
 
- useEffect(()=>{ if(turn===0||winner!==null||hands[turn].length===0)return; const timer=window.setTimeout(()=>{const plays=legalPlays(hands[turn],currentPlay?.value??null,opening); if(plays.length===0){passTurn(turn);return;} const choice=plays[0];playCards(turn,choice.cards,choice.value);},650);return()=>window.clearTimeout(timer);},[currentPlay,hands,opening,passTurn,playCards,turn,winner]);
+ // Room-backed matches must never run local AI. A remote move is applied only
+ // after it is accepted by the shared match state; otherwise clients diverge.
+ useEffect(()=>{ if(roomId || turn===0||winner!==null||hands[turn].length===0)return; const timer=window.setTimeout(()=>{const plays=legalPlays(hands[turn],currentPlay?.value??null,opening); if(plays.length===0){passTurn(turn);return;} const choice=plays[0];playCards(turn,choice.cards,choice.value);},650);return()=>window.clearTimeout(timer);},[currentPlay,hands,opening,passTurn,playCards,roomId,turn,winner]);
 
  const selectedCards=useMemo(()=>hands[0].filter(card=>selected.includes(card.id)),[hands,selected]);
  const selectedValue=useMemo(()=>evaluate(selectedCards),[selectedCards]);
