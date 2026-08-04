@@ -140,7 +140,7 @@ export default function GamesTab({
     <div className="w-full pb-6 animate-fade-in text-on-surface">
 
       {/* 🏷️ HORIZONTAL CATEGORY PILLS */}
-      <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 mb-6 -mx-5 px-5">
+      <div className="sticky top-0 z-30 -mx-5 mb-6 bg-background px-5 pb-3 pt-1 shadow-[0_10px_18px_-18px_rgba(0,0,0,.9)]"><div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
         <button
           onClick={() => setActiveCategory("All")}
           className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
@@ -164,7 +164,7 @@ export default function GamesTab({
             {cat.name}
           </button>
         ))}
-      </div>
+      </div></div>
 
       {/* 🎮 TRENDING GAMES GRID */}
       <div className="space-y-4">

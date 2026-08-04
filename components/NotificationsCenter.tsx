@@ -200,7 +200,7 @@ export default function NotificationsCenter({
                   : "border-primary bg-primary-container/30"
               }`}
             >
-              <div className="flex gap-3">
+              <div className="relative flex gap-3 pr-6">
                 <span className="material-symbols-outlined text-primary">
                   {item.kind === "broadcast" ? "campaign" : "notifications"}
                 </span>
@@ -216,9 +216,7 @@ export default function NotificationsCenter({
                     {new Date(item.created_at).toLocaleString()}
                   </p>
                 </div>
-                {!item.is_read && (
-                  <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1" />
-                )}
+                {!item.is_read && <span className="absolute right-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-primary" aria-label="Unread" />}
               </div>
             </button>
           ))}

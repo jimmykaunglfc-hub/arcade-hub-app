@@ -543,7 +543,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-full overflow-visible relative bg-surface-container-high shrink-0 border border-surface-container-highest">
-                        <Image src={friend.avatar_url || "/logo-dark.jpeg"} alt={friend.username} fill className="object-cover rounded-full" unoptimized />
+                        <div className="absolute inset-1 overflow-hidden rounded-full"><Image src={friend.avatar_url || "/logo-dark.jpeg"} alt={friend.username} fill className="object-cover" unoptimized /></div>
                         {friend.avatar_frame_url && <Image src={friend.avatar_frame_url} alt="" fill className="pointer-events-none scale-[1.2] object-contain" unoptimized />}
                         <div className={`absolute -bottom-1 -right-1 w-5 h-5 border-[3px] border-surface rounded-full shadow-[0_0_14px_rgba(204,255,0,0.8)] ${isOnline(friend) ? "bg-primary" : "bg-on-surface-variant"}`}></div>
                       </div>
@@ -562,7 +562,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
 
         {hubTab === "groups" && (
           <div className="flex flex-col gap-3">
-            {!showCreateGroup ? <button onClick={() => setShowCreateGroup(true)} className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-primary/50 bg-primary-container/20 p-4 text-left"><span className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-on-primary"><span className="material-symbols-outlined">add</span></span><span><b className="block text-sm">Create a new group</b><small className="text-xs text-on-surface-variant">Start a community for your friends</small></span></button> : <form onSubmit={createGroup} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 space-y-2 shadow-sm">
+            {!showCreateGroup ? <button onClick={() => setShowCreateGroup(true)} className="flex w-full items-center gap-3 rounded-2xl border border-primary/30 bg-primary-container/35 p-4 text-left shadow-sm"><span className="grid h-11 w-11 place-items-center rounded-xl bg-primary text-on-primary shadow-sm"><span className="material-symbols-outlined">add</span></span><span><b className="block text-sm">Create a new group</b><small className="text-xs text-on-surface-variant">Start a community for your friends</small></span><span className="ml-auto material-symbols-outlined text-primary">arrow_forward</span></button> : <form onSubmit={createGroup} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 space-y-2 shadow-sm">
               <h3 className="font-headline text-sm font-extrabold text-on-surface">Create a group</h3>
               <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Group name" className="w-full rounded-xl border border-surface-container-highest bg-background px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" />
               <input value={groupDescription} onChange={(event) => setGroupDescription(event.target.value)} placeholder="Description (optional)" className="w-full rounded-xl border border-surface-container-highest bg-background px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" />

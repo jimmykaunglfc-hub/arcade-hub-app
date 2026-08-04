@@ -10,15 +10,15 @@ const escapeXml = (value: string) => value.replace(/[<>&'\"]/g, (character) => (
 
 function cardSvg(card: SocialShareCard) {
   const palette = {
-    lime: ["#ccff00", "#94b800"],
+    lime: ["#b7ff00", "#83b900"],
     violet: ["#b44cff", "#59238b"],
     blue: ["#32b8ed", "#176c9e"],
     gold: ["#ffcc3b", "#b56d00"],
   }[card.accent || "lime"];
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#080b17"/><stop offset="1" stop-color="#16223b"/></linearGradient><radialGradient id="glow"><stop stop-color="${palette[0]}" stop-opacity=".45"/><stop offset="1" stop-color="${palette[1]}" stop-opacity="0"/></radialGradient></defs>
-  <rect width="1200" height="630" rx="44" fill="url(#bg)"/><circle cx="1050" cy="80" r="300" fill="url(#glow)"/><path d="M0 540Q260 390 520 590T1200 400V630H0Z" fill="${palette[0]}" opacity=".09"/>
-  <rect x="64" y="56" width="72" height="72" rx="20" fill="#f7f7fb"/><path d="M91 77l27 27-12 12-27-27z" fill="#0c1120"/><path d="M87 102l12-12 19 19-12 12z" fill="${palette[0]}"/><text x="154" y="99" fill="#fff" font-family="Arial, sans-serif" font-weight="800" font-size="32">JOE YOKE</text>
+  <rect width="1200" height="630" rx="44" fill="url(#bg)"/><circle cx="1050" cy="80" r="300" fill="url(#glow)"/><path d="M0 540Q260 390 520 590T1200 400V630H0Z" fill="#b7ff00" opacity=".10"/>
+  <rect x="64" y="56" width="72" height="72" rx="20" fill="#f7f7fb"/><path d="M83 94l17-17 32 32-17 17z" fill="#111827"/><path d="M98 109l17-17 17 17-17 17z" fill="#b7ff00"/><text x="154" y="99" fill="#fff" font-family="Arial, sans-serif" font-weight="800" font-size="32">JOE YOKE</text>
   <text x="64" y="214" fill="${palette[0]}" font-family="Arial, sans-serif" font-weight="800" font-size="22" letter-spacing="4">${escapeXml(card.eyebrow.toUpperCase())}</text>
   <text x="64" y="306" fill="#fff" font-family="Arial, sans-serif" font-weight="800" font-size="68">${escapeXml(card.title)}</text>
   <text x="64" y="360" fill="#b8c3d7" font-family="Arial, sans-serif" font-size="30">${escapeXml(card.subtitle)}</text>
