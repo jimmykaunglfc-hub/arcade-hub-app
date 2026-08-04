@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ComponentType } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
@@ -54,6 +54,27 @@ const ShopTab = dynamic(() => import("../components/ShopTab"), { ssr: false, loa
 const SpinTab = dynamic(() => import("../components/SpinTab"), { ssr: false, loading: TabLoading });
 const ProfileTab = dynamic(() => import("../components/ProfileTab"), { ssr: false, loading: TabLoading });
 const NotificationsCenter = dynamic(() => import("../components/NotificationsCenter"), { ssr: false, loading: TabLoading });
+
+type ArenaGameProps = {
+  onClose?: () => void;
+  onResult?: (result: "Win" | "Loss" | "Draw") => void;
+};
+
+// Source handoffs for the new games are local-game engines. This adapter keeps
+// their UI isolated while making them enter through the same Joe Yoke arena flow.
+const withArenaLobby = (Game: ComponentType<{ onClose?: () => void }>) => {
+  return function ArenaGame({ onClose }: ArenaGameProps) {
+    return <Game onClose={onClose} />;
+  };
+};
+
+const WordBoxArenaGame = withArenaLobby(WordBoxGame);
+const SudokuArenaGame = withArenaLobby(SudokuGame);
+const LudoArenaGame = withArenaLobby(LudoGame);
+const DominoesArenaGame = withArenaLobby(DominoesGame);
+const Game2048ArenaGame = withArenaLobby(Game2048);
+const BigTwoArenaGame = withArenaLobby(BigTwoGame);
+const BlockPuzzleArenaGame = withArenaLobby(BlockPuzzleGame);
 
 export default function Home() {
   const { t } = useTranslation();
@@ -385,19 +406,19 @@ export default function Home() {
       ) : playingGame === "native://ping-pong" || playingGame === "native://table-tennis" ? (
         <CompetitiveGameLaunch gameKey="ping-pong" gameTitle="Ping Pong" Game={PingPong} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://wordbox" ? (
-        <WordBoxGame onClose={() => setPlayingGame(null)} />
+        <CompetitiveGameLaunch gameKey="wordbox" gameTitle="Wordbox" Game={WordBoxArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://sudoku" ? (
-        <SudokuGame onClose={() => setPlayingGame(null)} />
+        <CompetitiveGameLaunch gameKey="sudoku" gameTitle="Sudoku" Game={SudokuArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://ludo" ? (
-        <LudoGame onClose={() => setPlayingGame(null)} />
+        <CompetitiveGameLaunch gameKey="ludo" gameTitle="Ludo" Game={LudoArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://dominoes" ? (
-        <DominoesGame onClose={() => setPlayingGame(null)} />
+        <CompetitiveGameLaunch gameKey="dominoes" gameTitle="Dominoes" Game={DominoesArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://2048" ? (
-        <Game2048 onClose={() => setPlayingGame(null)} />
+        <CompetitiveGameLaunch gameKey="game-2048" gameTitle="2048" Game={Game2048ArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://big-two" ? (
-        <BigTwoGame onClose={() => setPlayingGame(null)} />
+        <CompetitiveGameLaunch gameKey="big-two" gameTitle="Big Two" Game={BigTwoArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://block-puzzle" ? (
-        <BlockPuzzleGame onClose={() => setPlayingGame(null)} />
+        <CompetitiveGameLaunch gameKey="block-puzzle" gameTitle="Block Puzzle" Game={BlockPuzzleArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame ? (
         <GamePlayer
           gameUrl={playingGame}
