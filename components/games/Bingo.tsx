@@ -1,24 +1,17 @@
 "use client";
 
-
 import React, { useState, useEffect, useCallback } from "react";
-
 
 interface BingoProps {
  onClose?: () => void;
  onResult?: (result: "Win" | "Loss" | "Draw") => void;
 }
 
-
 type BoardTile = {
  id: string;
  number: number | string;
  marked: boolean;
 };
-
-
-type GameMode = "friend" | "offline";
-
 
 const generateBingoCard = (): BoardTile[] => {
  const getColNumbers = (min: number, max: number) => {
@@ -27,17 +20,14 @@ const generateBingoCard = (): BoardTile[] => {
    return pool.slice(0, 5);
  };
 
-
  const b = getColNumbers(1, 15);
  const i = getColNumbers(16, 30);
  const n = getColNumbers(31, 45);
  const g = getColNumbers(46, 60);
  const o = getColNumbers(61, 75);
 
-
  const board: BoardTile[] = [];
  let idCounter = 0;
-
 
  for (let row = 0; row < 5; row++) {
    for (let col = 0; col < 5; col++) {
@@ -57,7 +47,6 @@ const generateBingoCard = (): BoardTile[] => {
  return board;
 };
 
-
 const countCompletedLines = (board: BoardTile[]): number => {
  let lines = 0;
  for (let r = 0; r < 5; r++) {
@@ -71,132 +60,109 @@ const countCompletedLines = (board: BoardTile[]): number => {
  return lines;
 };
 
-
 export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
  const [appState, setAppState] = useState<"menu" | "playing">("menu");
- const [gameMode, setGameMode] = useState<GameMode>("offline");
  const [board, setBoard] = useState<BoardTile[]>([]);
- const [miniBoard] = useState<BoardTile[]>(() => generateBingoCard());
+ const [computerBoard, setComputerBoard] = useState<BoardTile[]>(() =>
+   generateBingoCard()
+ );
  const [calledNumbers, setCalledNumbers] = useState<number[]>([]);
  const [completedLines, setCompletedLines] = useState<number>(0);
-
-
- // Friend Mode States
- const [roomCode, setRoomCode] = useState<string>("");
- const [friendOpponentLines, setFriendOpponentLines] = useState<number>(0);
-
+ const [computerLines, setComputerLines] = useState<number>(0);
 
  const [isGameOver, setIsGameOver] = useState<boolean>(false);
  const [hasWon, setHasWon] = useState<boolean>(false);
- const [isAutoCalling, setIsAutoCalling] = useState<boolean>(false);
- const resultReported = React.useRef(false);
+ const [showHowToPlay, setShowHowToPlay] = useState<boolean>(false);
+ const [isAutoCalling, setIsAutoCalling] = useState<boolean>(true);
+ const resultReportedRef = React.useRef(false);
 
  useEffect(() => {
-   if (!isGameOver || resultReported.current) return;
-   resultReported.current = true;
+   if (!isGameOver || resultReportedRef.current) return;
+   resultReportedRef.current = true;
    onResult?.(hasWon ? "Win" : "Loss");
  }, [hasWon, isGameOver, onResult]);
-
 
  // Call Next Ball
  const callNextNumber = useCallback(() => {
    if (calledNumbers.length >= 75 || isGameOver) return;
 
-
    const available = Array.from({ length: 75 }, (_, idx) => idx + 1).filter(
      (n) => !calledNumbers.includes(n)
    );
 
-
    if (available.length === 0) return;
 
-
    const next = available[Math.floor(Math.random() * available.length)];
-   const newCalledCount = calledNumbers.length + 1;
-
-
    setCalledNumbers((prev) => [next, ...prev]);
 
+   // The computer uses a real card and the exact same called number.
+   setComputerBoard((previousBoard) => {
+     const nextBoard = previousBoard.map((tile) =>
+       tile.number === next
+         ? { ...tile, marked: true }
+         : tile
+     );
+     const nextLines = countCompletedLines(nextBoard);
 
-   // Opponent Progression in Friend Mode
-   if (gameMode === "friend" && newCalledCount >= 4) {
-     const maxPossibleLines = Math.min(5, Math.floor(newCalledCount / 3.5));
+     setComputerLines(nextLines);
 
+     if (nextLines >= 5) {
+       setIsGameOver(true);
+       setHasWon(false);
+     }
 
-     setFriendOpponentLines((prev) => {
-       if (prev < maxPossibleLines && Math.random() < 0.25) {
-         const nextLines = prev + 1;
-         if (nextLines === 5 && !isGameOver) {
-           setIsGameOver(true);
-  setHasWon(false);
-  resultReported.current = false;
-         }
-         return nextLines;
-       }
-       return prev;
-     });
-   }
- }, [calledNumbers, isGameOver, gameMode]);
-
+     return nextBoard;
+   });
+ }, [calledNumbers, isGameOver]);
 
  // Start Game
- const startNewGame = (mode: GameMode) => {
-   setGameMode(mode);
+ const startNewGame = () => {
+   resultReportedRef.current = false;
    setBoard(generateBingoCard());
+   setComputerBoard(generateBingoCard());
    setCalledNumbers([]);
    setCompletedLines(0);
-   setFriendOpponentLines(0);
+   setComputerLines(0);
    setIsGameOver(false);
    setHasWon(false);
-
-
-   if (mode === "friend") {
-     setRoomCode(Math.floor(1000 + Math.random() * 9000).toString());
-     setIsAutoCalling(true);
-   } else {
-     setIsAutoCalling(false);
-   }
-
-
+   setIsAutoCalling(true);
    setAppState("playing");
  };
 
-
- // Auto Ball Timer (For Friend Mode)
+ // One shared caller automatically draws a ball every five seconds.
  useEffect(() => {
-   if (appState !== "playing" || isGameOver || !isAutoCalling) return;
-   const timer = setInterval(() => callNextNumber(), 3000);
+   if (
+     appState !== "playing" ||
+     isGameOver ||
+     showHowToPlay ||
+     !isAutoCalling
+   ) return;
+   const timer = setInterval(() => callNextNumber(), 5000);
    return () => clearInterval(timer);
- }, [appState, isGameOver, isAutoCalling, callNextNumber]);
-
+ }, [appState, isGameOver, showHowToPlay, isAutoCalling, callNextNumber]);
 
  // Handle Tile Click
  const handleTileClick = (index: number) => {
    if (isGameOver) return;
    const tile = board[index];
 
-
    // Must be a called number or FREE tile
    if (typeof tile.number === "number" && !calledNumbers.includes(tile.number)) {
      return;
    }
 
-
    const nextBoard = [...board];
    nextBoard[index].marked = !nextBoard[index].marked;
    setBoard(nextBoard);
 
-
    const lines = countCompletedLines(nextBoard);
    setCompletedLines(lines);
-
 
    if (lines >= 5 && !isGameOver) {
      setHasWon(true);
      setIsGameOver(true);
    }
  };
-
 
  const getBallLetter = (num: number | null) => {
    if (!num) return "";
@@ -206,7 +172,6 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
    if (num <= 60) return "G";
    return "O";
  };
-
 
  const getBallBg = (letter: string) => {
    switch (letter) {
@@ -218,6 +183,17 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
    }
  };
 
+ const getColumnTileBg = (column: number) => {
+   const columnStyles = [
+     "bg-gradient-to-b from-pink-100 to-pink-200 border-pink-300 text-pink-950",
+     "bg-gradient-to-b from-lime-100 to-lime-200 border-lime-300 text-lime-950",
+     "bg-gradient-to-b from-cyan-100 to-cyan-200 border-cyan-300 text-cyan-950",
+     "bg-gradient-to-b from-amber-100 to-amber-200 border-amber-300 text-amber-950",
+     "bg-gradient-to-b from-purple-100 to-purple-200 border-purple-300 text-purple-950",
+   ];
+
+   return columnStyles[column] ?? columnStyles[0];
+ };
 
  return (
    <div className="fixed inset-0 flex flex-col w-full h-full bg-[#0d1527] text-white font-sans overflow-y-auto z-[100] select-none">
@@ -234,32 +210,23 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
            </button>
          )}
 
-
          <div className="text-center mb-8">
            <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-amber-400 to-orange-500 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] mb-2 tracking-tight">
              BINGO SAFARI
            </h1>
            <p className="text-emerald-200 font-bold tracking-widest uppercase text-xs drop-shadow">
-             Select Match Mode
+             Player vs Computer
            </p>
          </div>
 
-
          <div className="flex flex-col gap-4 w-full max-w-xs">
            <button
-             onClick={() => startNewGame("friend")}
+             onClick={startNewGame}
              className="bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-slate-950 font-black py-4 rounded-2xl shadow-[0_5px_0_#b45309] hover:brightness-110 active:translate-y-1 active:shadow-none transition-all text-sm tracking-wider uppercase border-2 border-amber-200"
            >
-             👥 PLAY WITH FRIEND
+             🤖 PLAY VS COMPUTER
            </button>
 
-
-           <button
-             onClick={() => startNewGame("offline")}
-             className="bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-slate-950 font-black py-4 rounded-2xl shadow-[0_5px_0_#b45309] hover:brightness-110 active:translate-y-1 active:shadow-none transition-all text-sm tracking-wider uppercase border-2 border-amber-200"
-           >
-             🤖 PLAY OFFLINE
-           </button>
          </div>
        </div>
      ) : (
@@ -268,86 +235,122 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
         
          {/* Menu Back Button Row */}
          <div className="w-full px-4 flex items-center justify-between mb-3">
-           <button
-             onClick={() => setAppState("menu")}
-             className="flex items-center gap-1 text-slate-300 hover:text-amber-400 transition-colors bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 shadow-sm"
-           >
-             <span className="text-lg leading-none">‹</span>
-             <span className="text-xs font-black tracking-widest uppercase">Menu</span>
-           </button>
-
-
-           <span className="text-xs font-black text-amber-300 tracking-widest uppercase">
-             {gameMode === "friend" ? `👥 Code: ${roomCode}` : "🤖 Offline Mode"}
-           </span>
-
-
-           {gameMode === "friend" && (
+           <div className="flex w-20 justify-start">
              <button
-               onClick={() => setIsAutoCalling((prev) => !prev)}
-               className={`text-[10px] font-black tracking-wider px-2.5 py-1 rounded-lg border uppercase transition-colors ${
+               onClick={() => setAppState("menu")}
+               aria-label="Back to Bingo menu"
+               className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/80 text-slate-300 shadow-sm transition-colors hover:text-amber-400"
+             >
+               <svg
+                 aria-hidden="true"
+                 viewBox="0 0 24 24"
+                 fill="none"
+                 stroke="currentColor"
+                 strokeWidth="2.2"
+                 strokeLinecap="round"
+                 strokeLinejoin="round"
+                 className="h-4 w-4 shrink-0"
+               >
+                 <path d="M19 12H5" />
+                 <path d="m12 19-7-7 7-7" />
+               </svg>
+             </button>
+           </div>
+
+           <div className="flex items-center gap-1.5">
+             <button
+               type="button"
+               onClick={() => setIsAutoCalling((previous) => !previous)}
+               aria-pressed={isAutoCalling}
+               className={`rounded-xl border px-2 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
                  isAutoCalling
-                   ? "bg-emerald-500/20 border-emerald-400 text-emerald-300"
-                   : "bg-slate-800 border-slate-700 text-slate-400"
+                   ? "border-emerald-400 bg-emerald-500/20 text-emerald-300"
+                   : "border-slate-600 bg-slate-800 text-slate-400"
                }`}
              >
-               {isAutoCalling ? "Auto ON" : "Auto OFF"}
+               {isAutoCalling ? "Auto On" : "Auto Off"}
              </button>
-           )}
+
+             <button
+               type="button"
+               onClick={() => setShowHowToPlay(true)}
+               aria-label="How to play Bingo Safari"
+               className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00]/70 bg-[#ccff00]/10 text-[#ccff00] shadow-[0_0_14px_rgba(204,255,0,0.12)] transition-colors hover:bg-[#ccff00]/20"
+             >
+               <span
+                 aria-hidden="true"
+                 className="flex h-5 w-5 items-center justify-center rounded-full border border-[#ccff00] text-xs font-black leading-none text-[#ccff00]"
+               >
+                 ?
+               </span>
+             </button>
+           </div>
          </div>
 
-
-         {/* Ball Display & DRAW BALL Button Area */}
+         {/* Automatically called bingo balls */}
          <div className="w-full shrink-0 flex flex-col items-center justify-center gap-3 py-2">
-          
-           {/* Draw Ball Action Button */}
-           <button
-             onClick={callNextNumber}
-             className="bg-gradient-to-b from-amber-300 via-amber-400 to-amber-600 text-slate-950 font-black text-sm tracking-wider px-8 py-3 rounded-2xl shadow-[0_4px_12px_rgba(245,158,11,0.5)] border-2 border-amber-200 hover:brightness-110 active:scale-95 transition-all uppercase animate-pulse"
-           >
-             🎲 DRAW BALL 🎲
-           </button>
+           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
+             {isAutoCalling
+               ? "Balls are called every 5 seconds"
+               : "Automatic caller is paused"}
+           </p>
 
+           {!isAutoCalling && (
+             <button
+               type="button"
+               onClick={callNextNumber}
+               disabled={isGameOver || calledNumbers.length >= 75}
+               className="flex items-center gap-2 rounded-xl border-2 border-[#ccff00] bg-[#ccff00] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-slate-950 shadow-[0_0_20px_rgba(204,255,0,0.28)] transition-all hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+             >
+               <span aria-hidden="true" className="text-base">🎱</span>
+               Call Next Ball
+             </button>
+           )}
 
            {/* Rendered 3D Glossy Bingo Balls */}
-           <div className="flex items-center justify-center gap-3 min-h-[55px]">
+           <div className="flex min-h-[78px] items-center justify-center gap-3">
              {calledNumbers.length > 0 &&
-               calledNumbers.slice(0, 3).map((num, idx) => {
+               calledNumbers.slice(0, 5).map((num, idx) => {
                  const letter = getBallLetter(num);
                  return (
-                   <div
-                     key={idx}
-                     className={`w-12 h-12 rounded-full border-2 ${getBallBg(
-                       letter
-                     )} flex flex-col items-center justify-center font-black shadow-[0_6px_12px_rgba(0,0,0,0.6)] transform ${
-                       idx === 0 ? "scale-110 z-10" : "scale-90 opacity-80"
-                     } transition-all`}
-                   >
-                     <span className="text-[10px] leading-none text-white drop-shadow-sm">{letter}</span>
-                     <span className="text-base leading-none text-white drop-shadow-md">{num}</span>
+                   <div key={`${num}-${idx}`} className="flex flex-col items-center gap-1">
+                     {idx === 0 && (
+                       <span className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">
+                         Current Ball
+                       </span>
+                     )}
+                     <div
+                       className={`rounded-full border-2 ${getBallBg(
+                         letter
+                       )} flex flex-col items-center justify-center font-black shadow-[0_7px_16px_rgba(0,0,0,0.62)] transition-all ${
+                         idx === 0
+                           ? "h-16 w-16 border-4 ring-2 ring-white/70 ring-offset-2 ring-offset-[#0d1527]"
+                           : "h-11 w-11 opacity-65"
+                       }`}
+                     >
+                       <span className={`${idx === 0 ? "text-xs" : "text-[9px]"} leading-none text-white drop-shadow-sm`}>
+                         {letter}
+                       </span>
+                       <span className={`${idx === 0 ? "text-2xl" : "text-sm"} leading-none text-white drop-shadow-md`}>
+                         {num}
+                       </span>
+                     </div>
                    </div>
                  );
                })}
            </div>
          </div>
 
-
          {/* Lines & Status Bar */}
          <div className="w-full shrink-0 flex items-center justify-between px-6 py-1 max-w-sm mx-auto text-xs font-extrabold text-amber-300">
            <span>Your Lines: {completedLines} / 5</span>
-           {gameMode === "friend" ? (
-             <span className="text-rose-400">Friend: {friendOpponentLines} / 5</span>
-           ) : (
-             <span className="text-slate-300">Called: {calledNumbers.length} / 75</span>
-           )}
+           <span className="text-rose-400">Computer: {computerLines} / 5</span>
          </div>
-
 
          {/* Main Gameplay Area */}
          <div className="w-full flex items-center justify-center p-3 gap-3 max-w-2xl mx-auto">
           
-           {/* Left Side: Mini Friend Board Preview */}
-           {gameMode === "friend" && (
+           {/* Computer card preview */}
              <div className="hidden sm:flex flex-col items-center relative shrink-0">
                <div className="bg-[#4a2311] border-2 border-[#2d1408] rounded-lg p-1.5 w-24 shadow-2xl">
                  <div className="grid grid-cols-5 gap-0.5 text-[8px] font-black text-center mb-1">
@@ -358,11 +361,11 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
                    <span className="text-purple-400">O</span>
                  </div>
                  <div className="grid grid-cols-5 gap-0.5 aspect-square">
-                   {miniBoard.map((tile, idx) => (
+                   {computerBoard.map((tile, idx) => (
                      <div
                        key={idx}
                        className={`text-[8px] font-extrabold flex items-center justify-center rounded-sm ${
-                         idx === 12
+                         tile.marked
                            ? "bg-rose-600 text-white"
                            : "bg-[#fcedd0] text-slate-900"
                        }`}
@@ -374,8 +377,6 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
                </div>
                <div className="absolute right-[-10px] top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-l-8 border-l-rose-500 drop-shadow" />
              </div>
-           )}
-
 
            {/* Main Wooden Bingo Board */}
            <div className="bg-[#4a2311] border-4 border-[#2d1408] rounded-3xl p-3 shadow-[0_15px_30px_rgba(0,0,0,0.8)] w-full max-w-[360px]">
@@ -389,12 +390,10 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
                <div className="bg-gradient-to-b from-purple-500 to-purple-600 py-1.5 rounded-t-xl">O</div>
              </div>
 
-
              {/* 5x5 Grid */}
              <div className="grid grid-cols-5 gap-1.5 aspect-square">
                {board.map((tile, idx) => {
                  const isFree = tile.number === "FREE";
-
 
                  return (
                    <button
@@ -405,7 +404,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
                        ${
                          tile.marked
                            ? "bg-gradient-to-b from-rose-500 to-rose-700 border-rose-900 text-white scale-95 shadow-inner"
-                           : "bg-gradient-to-b from-[#fff6e5] to-[#f5e3be] border-[#d8be93] text-slate-900 hover:brightness-105 active:scale-95"
+                           : `${getColumnTileBg(idx % 5)} hover:brightness-105 active:scale-95`
                        }
                      `}
                    >
@@ -423,10 +422,8 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
                })}
              </div>
 
-
            </div>
          </div>
-
 
          {/* Game Over Modal */}
          {isGameOver && (
@@ -441,14 +438,13 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
                    Match Result
                  </span>
                  <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 drop-shadow">
-                   {hasWon ? "BINGO! YOU WIN!" : "FRIEND WINS BINGO!"}
+                   {hasWon ? "BINGO! YOU WIN!" : "COMPUTER WINS BINGO!"}
                  </h2>
                </div>
 
-
                <div className="flex flex-col gap-3 w-full pt-2">
                  <button
-                   onClick={() => startNewGame(gameMode)}
+                   onClick={startNewGame}
                    className="w-full bg-gradient-to-b from-amber-400 to-amber-600 text-slate-950 py-3.5 rounded-xl font-black text-sm tracking-wider uppercase transition-all shadow-lg active:scale-95"
                  >
                    Play Again
@@ -461,18 +457,89 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
                  </button>
                </div>
 
-
              </div>
            </div>
          )}
 
+       </div>
+     )}
 
+     {/* How to Play Modal */}
+     {showHowToPlay && (
+       <div className="fixed inset-0 z-[250] flex items-center justify-center bg-slate-950/85 p-5 backdrop-blur-md">
+         <div
+           role="dialog"
+           aria-modal="true"
+           aria-labelledby="bingo-how-to-play-title"
+           className="w-full max-w-sm rounded-3xl border-2 border-[#ccff00]/70 bg-gradient-to-b from-slate-900 to-[#0d1527] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.75)]"
+         >
+           <div className="mb-5 flex items-start justify-between gap-4">
+             <div className="flex items-center gap-3">
+               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#ccff00] bg-[#ccff00]/10 text-2xl font-black text-[#ccff00] shadow-[0_0_18px_rgba(204,255,0,0.22)]">
+                 ?
+               </div>
+               <div>
+                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ccff00]">
+                   Bingo Safari
+                 </p>
+                 <h2
+                   id="bingo-how-to-play-title"
+                   className="text-2xl font-black text-white"
+                 >
+                   How to Play
+                 </h2>
+               </div>
+             </div>
+
+             <button
+               type="button"
+               onClick={() => setShowHowToPlay(false)}
+               aria-label="Close how to play"
+               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-lg font-black text-slate-200 transition-colors hover:bg-slate-700"
+             >
+               ×
+             </button>
+           </div>
+
+           <div className="space-y-3">
+             {[
+               ["🎱", "Watch the caller", "When Auto is on, a new Bingo ball is called every 5 seconds."],
+               ["👆", "Mark your card", "Find the called number and tap its square. Uncalled numbers cannot be marked."],
+               ["⭐", "Use the free space", "The center FREE square starts marked and counts toward every crossing line."],
+               ["🏆", "Beat the computer", "Complete 5 rows, columns, or diagonals before the computer completes 5."],
+             ].map(([icon, title, description], index) => (
+               <div
+                 key={title}
+                 className="flex gap-3 rounded-2xl border border-slate-700/80 bg-slate-800/65 p-3"
+               >
+                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-950/70 text-lg">
+                   {icon}
+                 </div>
+                 <div>
+                   <p className="text-sm font-black text-amber-300">
+                     {index + 1}. {title}
+                   </p>
+                   <p className="mt-0.5 text-xs leading-5 text-slate-300">
+                     {description}
+                   </p>
+                 </div>
+               </div>
+             ))}
+           </div>
+
+           <button
+             type="button"
+             onClick={() => setShowHowToPlay(false)}
+             className="mt-5 w-full rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 py-3.5 text-sm font-black uppercase tracking-wider text-slate-950 shadow-lg transition-all active:scale-[0.98]"
+           >
+             Got It — Let&apos;s Play
+           </button>
+         </div>
        </div>
      )}
    </div>
  );
 };
-
 
 export default BingoGame;
 

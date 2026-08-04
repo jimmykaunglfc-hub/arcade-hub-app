@@ -34,6 +34,13 @@ const CupPong = dynamic(() => import("../components/games/CupPong"), { ssr: fals
 const FourInARow = dynamic(() => import("../components/games/FourInARow").then((mod) => mod.FourInARow), { ssr: false });
 const Bingo = dynamic(() => import("../components/games/Bingo").then((mod) => mod.BingoGame), { ssr: false });
 const PingPong = dynamic(() => import("../components/games/PingPong"), { ssr: false });
+const WordBoxGame = dynamic(() => import("../components/games/WordBoxGame"), { ssr: false });
+const SudokuGame = dynamic(() => import("../components/games/SudokuGame"), { ssr: false });
+const LudoGame = dynamic(() => import("../components/games/LudoGame"), { ssr: false });
+const DominoesGame = dynamic(() => import("../components/games/DominoesGame"), { ssr: false });
+const Game2048 = dynamic(() => import("../components/games/Game2048"), { ssr: false });
+const BigTwoGame = dynamic(() => import("../components/games/BigTwoGame"), { ssr: false });
+const BlockPuzzleGame = dynamic(() => import("../components/games/BlockPuzzleGame"), { ssr: false });
 import AuthView from "../components/AuthView";
 import { useTranslation } from "../lib/i18n";
 
@@ -377,6 +384,20 @@ export default function Home() {
         <CompetitiveGameLaunch gameKey="bingo" gameTitle="Bingo" Game={Bingo} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://ping-pong" || playingGame === "native://table-tennis" ? (
         <CompetitiveGameLaunch gameKey="ping-pong" gameTitle="Ping Pong" Game={PingPong} onClose={() => setPlayingGame(null)} />
+      ) : playingGame === "native://wordbox" ? (
+        <WordBoxGame onClose={() => setPlayingGame(null)} />
+      ) : playingGame === "native://sudoku" ? (
+        <SudokuGame onClose={() => setPlayingGame(null)} />
+      ) : playingGame === "native://ludo" ? (
+        <LudoGame onClose={() => setPlayingGame(null)} />
+      ) : playingGame === "native://dominoes" ? (
+        <DominoesGame onClose={() => setPlayingGame(null)} />
+      ) : playingGame === "native://2048" ? (
+        <Game2048 onClose={() => setPlayingGame(null)} />
+      ) : playingGame === "native://big-two" ? (
+        <BigTwoGame onClose={() => setPlayingGame(null)} />
+      ) : playingGame === "native://block-puzzle" ? (
+        <BlockPuzzleGame onClose={() => setPlayingGame(null)} />
       ) : playingGame ? (
         <GamePlayer
           gameUrl={playingGame}

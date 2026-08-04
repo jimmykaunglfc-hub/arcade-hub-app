@@ -1,22 +1,190 @@
 "use client";
 
-
 import React, { useState, useEffect, useRef } from "react";
-
 
 interface FourInARowProps {
  onClose?: () => void;
  onResult?: (result: "Win" | "Loss" | "Draw") => void;
 }
 
-
 type Player = 1 | 2; // 1 = You (Red), 2 = Opponent (Yellow)
 type Board = (Player | null)[][];
 
-
 const ROWS = 6;
 const COLS = 7;
+const PLAYER: Player = 1;
+const COMPUTER: Player = 2;
+const SEARCH_DEPTH = 6;
+const CENTER_FIRST_COLUMNS = [3, 2, 4, 1, 5, 0, 6];
 
+const getOpenRow = (board: Board, column: number) => {
+ for (let row = ROWS - 1; row >= 0; row -= 1) {
+   if (board[row][column] === null) return row;
+ }
+
+ return -1;
+};
+
+const getValidColumns = (board: Board) =>
+ CENTER_FIRST_COLUMNS.filter((column) => board[0][column] === null);
+
+const simulateMove = (board: Board, column: number, player: Player) => {
+ const row = getOpenRow(board, column);
+ if (row < 0) return null;
+
+ const nextBoard = board.map((boardRow) => [...boardRow]);
+ nextBoard[row][column] = player;
+ return nextBoard;
+};
+
+const hasFour = (board: Board, player: Player) => {
+ for (let row = 0; row < ROWS; row += 1) {
+   for (let column = 0; column < COLS; column += 1) {
+     if (board[row][column] !== player) continue;
+
+     const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+     for (const [rowStep, columnStep] of directions) {
+       let matches = 1;
+       for (let offset = 1; offset < 4; offset += 1) {
+         const nextRow = row + rowStep * offset;
+         const nextColumn = column + columnStep * offset;
+         if (
+           nextRow < 0 ||
+           nextRow >= ROWS ||
+           nextColumn < 0 ||
+           nextColumn >= COLS ||
+           board[nextRow][nextColumn] !== player
+         ) break;
+         matches += 1;
+       }
+       if (matches === 4) return true;
+     }
+   }
+ }
+
+ return false;
+};
+
+const scoreWindow = (window: (Player | null)[]) => {
+ const computerCount = window.filter((cell) => cell === COMPUTER).length;
+ const playerCount = window.filter((cell) => cell === PLAYER).length;
+ const emptyCount = window.filter((cell) => cell === null).length;
+ let score = 0;
+
+ if (computerCount === 4) score += 100000;
+ else if (computerCount === 3 && emptyCount === 1) score += 130;
+ else if (computerCount === 2 && emptyCount === 2) score += 18;
+
+ if (playerCount === 4) score -= 120000;
+ else if (playerCount === 3 && emptyCount === 1) score -= 160;
+ else if (playerCount === 2 && emptyCount === 2) score -= 20;
+
+ return score;
+};
+
+const evaluateBoard = (board: Board) => {
+ let score = 0;
+
+ for (let row = 0; row < ROWS; row += 1) {
+   if (board[row][3] === COMPUTER) score += 8;
+   if (board[row][3] === PLAYER) score -= 8;
+ }
+
+ for (let row = 0; row < ROWS; row += 1) {
+   for (let column = 0; column <= COLS - 4; column += 1) {
+     score += scoreWindow(board[row].slice(column, column + 4));
+   }
+ }
+
+ for (let column = 0; column < COLS; column += 1) {
+   for (let row = 0; row <= ROWS - 4; row += 1) {
+     score += scoreWindow(Array.from({ length: 4 }, (_, index) => board[row + index][column]));
+   }
+ }
+
+ for (let row = 0; row <= ROWS - 4; row += 1) {
+   for (let column = 0; column <= COLS - 4; column += 1) {
+     score += scoreWindow(Array.from({ length: 4 }, (_, index) => board[row + index][column + index]));
+   }
+ }
+
+ for (let row = 0; row <= ROWS - 4; row += 1) {
+   for (let column = 3; column < COLS; column += 1) {
+     score += scoreWindow(Array.from({ length: 4 }, (_, index) => board[row + index][column - index]));
+   }
+ }
+
+ return score;
+};
+
+const minimax = (
+ board: Board,
+ depth: number,
+ alphaValue: number,
+ betaValue: number,
+ maximizing: boolean
+): number => {
+ const validColumns = getValidColumns(board);
+
+ if (hasFour(board, COMPUTER)) return 1000000 + depth;
+ if (hasFour(board, PLAYER)) return -1000000 - depth;
+ if (validColumns.length === 0) return 0;
+ if (depth === 0) return evaluateBoard(board);
+
+ let alpha = alphaValue;
+ let beta = betaValue;
+
+ if (maximizing) {
+   let bestScore = -Infinity;
+   for (const column of validColumns) {
+     const child = simulateMove(board, column, COMPUTER);
+     if (!child) continue;
+     bestScore = Math.max(bestScore, minimax(child, depth - 1, alpha, beta, false));
+     alpha = Math.max(alpha, bestScore);
+     if (alpha >= beta) break;
+   }
+   return bestScore;
+ }
+
+ let bestScore = Infinity;
+ for (const column of validColumns) {
+   const child = simulateMove(board, column, PLAYER);
+   if (!child) continue;
+   bestScore = Math.min(bestScore, minimax(child, depth - 1, alpha, beta, true));
+   beta = Math.min(beta, bestScore);
+   if (alpha >= beta) break;
+ }
+ return bestScore;
+};
+
+const chooseComputerMove = (board: Board) => {
+ const validColumns = getValidColumns(board);
+
+ for (const column of validColumns) {
+   const nextBoard = simulateMove(board, column, COMPUTER);
+   if (nextBoard && hasFour(nextBoard, COMPUTER)) return column;
+ }
+
+ for (const column of validColumns) {
+   const nextBoard = simulateMove(board, column, PLAYER);
+   if (nextBoard && hasFour(nextBoard, PLAYER)) return column;
+ }
+
+ let bestColumn = validColumns[0] ?? 0;
+ let bestScore = -Infinity;
+
+ for (const column of validColumns) {
+   const nextBoard = simulateMove(board, column, COMPUTER);
+   if (!nextBoard) continue;
+   const score = minimax(nextBoard, SEARCH_DEPTH - 1, -Infinity, Infinity, false);
+   if (score > bestScore) {
+     bestScore = score;
+     bestColumn = column;
+   }
+ }
+
+ return bestColumn;
+};
 
 export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => {
  const [board, setBoard] = useState<Board>(() =>
@@ -26,18 +194,17 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
  const [hoveredCol, setHoveredCol] = useState<number | null>(null);
  const [winner, setWinner] = useState<Player | "Draw" | null>(null);
  const [winningCells, setWinningCells] = useState<[number, number][]>([]);
- const resultReported = useRef(false);
+ const [showHowToPlay, setShowHowToPlay] = useState(false);
+ const resultReportedRef = useRef(false);
 
  useEffect(() => {
-   if (!winner || resultReported.current) return;
-   resultReported.current = true;
+   if (!winner || resultReportedRef.current) return;
+   resultReportedRef.current = true;
    onResult?.(winner === "Draw" ? "Draw" : winner === 1 ? "Win" : "Loss");
- }, [winner, onResult]);
-
+ }, [onResult, winner]);
 
  // Reference to board for dynamic pixel calculation across touch & mouse
  const boardRef = useRef<HTMLDivElement>(null);
-
 
  const checkWin = (
    currentBoard: Board,
@@ -51,7 +218,6 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
      [[1, 1], [-1, -1]],  // Diagonal Right-Down / Left-Up
      [[1, -1], [-1, 1]],  // Diagonal Left-Down / Right-Up
    ];
-
 
    for (const d of directions) {
      const cells: [number, number][] = [[row, col]];
@@ -71,7 +237,6 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
    return null;
  };
 
-
  const executeMove = (colIndex: number, player: Player) => {
    let rowIndex = -1;
    for (let r = ROWS - 1; r >= 0; r--) {
@@ -81,14 +246,11 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
      }
    }
 
-
    if (rowIndex === -1) return false;
-
 
    const newBoard = board.map((row) => [...row]);
    newBoard[rowIndex][colIndex] = player;
    setBoard(newBoard);
-
 
    const winningLine = checkWin(newBoard, rowIndex, colIndex, player);
    if (winningLine) {
@@ -97,17 +259,14 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
      return true;
    }
 
-
    if (newBoard.every((row) => row.every((cell) => cell !== null))) {
      setWinner("Draw");
      return true;
    }
 
-
    setCurrentPlayer((prev) => (prev === 1 ? 2 : 1));
    return true;
  };
-
 
  // Helper to dynamically calculate column index from touch/pointer screen position
  const updateHoverFromPos = (clientX: number) => {
@@ -120,18 +279,15 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
    setHoveredCol(clampedCol);
  };
 
-
  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
    updateHoverFromPos(e.clientX);
  };
-
 
  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
    if (e.touches.length > 0) {
      updateHoverFromPos(e.touches[0].clientX);
    }
  };
-
 
  const handleBoardClick = (e: React.MouseEvent<HTMLDivElement>) => {
    if (winner || currentPlayer !== 1 || !boardRef.current) return;
@@ -142,73 +298,86 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
    executeMove(clickedCol, 1);
  };
 
-
- // Opponent AI Move
+ // Strong computer move: immediate tactics plus depth-six alpha-beta search.
  useEffect(() => {
-   if (currentPlayer === 2 && !winner) {
+   if (currentPlayer === 2 && !winner && !showHowToPlay) {
      const timer = setTimeout(() => {
-       const validCols = [];
-       for (let c = 0; c < COLS; c++) {
-         if (!board[0][c]) validCols.push(c);
+       const validColumns = getValidColumns(board);
+       if (validColumns.length > 0) {
+         executeMove(chooseComputerMove(board), COMPUTER);
        }
-
-
-       if (validCols.length > 0) {
-         const randomCol = validCols[Math.floor(Math.random() * validCols.length)];
-         executeMove(randomCol, 2);
-       }
-     }, 1000);
-
+     }, 650);
 
      return () => clearTimeout(timer);
    }
- }, [currentPlayer, winner, board]);
-
+ }, [currentPlayer, winner, board, showHowToPlay]);
 
  const resetGame = () => {
+   resultReportedRef.current = false;
    setBoard(Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
    setCurrentPlayer(1);
    setWinner(null);
    setWinningCells([]);
-  setHoveredCol(null);
-  resultReported.current = false;
+   setHoveredCol(null);
  };
-
 
  const isWinningCell = (r: number, c: number) =>
    winningCells.some(([winR, winC]) => winR === r && winC === c);
-
 
  return (
    <div className="fixed inset-0 flex flex-col items-center justify-start bg-[#258a8a] text-white font-sans p-4 pt-20 overflow-y-auto select-none z-[100] bg-[radial-gradient(#2ea4a4_1px,transparent_1px)] [background-size:16px_16px]">
     
      {/* Top Header Bar */}
-     <div className="w-full max-w-md flex items-center justify-between mb-4">
-       {onClose ? (
-         <button
-           onClick={onClose}
-           className="flex items-center gap-1 text-slate-100 hover:text-amber-300 text-xs font-black uppercase tracking-wider bg-black/30 px-3 py-1.5 rounded-xl border border-white/20 backdrop-blur-sm transition-colors"
-         >
-           ‹ EXIT
-         </button>
-       ) : (
-         <div />
-       )}
-
+     <div className="mb-4 grid w-full max-w-md grid-cols-[1fr_auto_1fr] items-center">
+       <div className="flex justify-start">
+         {onClose && (
+           <button
+             type="button"
+             onClick={onClose}
+             aria-label="Back to Arcade Hub"
+             className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/30 text-white backdrop-blur-sm transition-colors hover:text-amber-300"
+           >
+             <svg
+               aria-hidden="true"
+               viewBox="0 0 24 24"
+               fill="none"
+               stroke="currentColor"
+               strokeWidth="2.2"
+               strokeLinecap="round"
+               strokeLinejoin="round"
+               className="h-4 w-4"
+             >
+               <path d="M19 12H5" />
+               <path d="m12 19-7-7 7-7" />
+             </svg>
+           </button>
+         )}
+       </div>
 
        <h1 className="text-xl font-black text-amber-300 tracking-wider uppercase drop-shadow">
          4 IN A ROW
        </h1>
 
+       <div className="flex items-center justify-end gap-2">
+         <button
+           onClick={resetGame}
+           className="text-xs font-black uppercase tracking-wider bg-amber-400 hover:bg-amber-300 text-slate-950 px-3.5 py-1.5 rounded-xl border border-amber-200 shadow-sm transition-all active:scale-95"
+         >
+           RESET
+         </button>
 
-       <button
-         onClick={resetGame}
-         className="text-xs font-black uppercase tracking-wider bg-amber-400 hover:bg-amber-300 text-slate-950 px-3.5 py-1.5 rounded-xl border border-amber-200 shadow-sm transition-all active:scale-95"
-       >
-         RESET
-       </button>
+         <button
+           type="button"
+           onClick={() => setShowHowToPlay(true)}
+           aria-label="How to play Four in a Row"
+           className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00]/70 bg-[#ccff00]/10 text-[#ccff00] shadow-[0_0_14px_rgba(204,255,0,0.16)] transition-colors hover:bg-[#ccff00]/20"
+         >
+           <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#ccff00] text-xs font-black leading-none">
+             ?
+           </span>
+         </button>
+       </div>
      </div>
-
 
      {/* Turn Status Card Badge */}
      <div className="flex items-center justify-center gap-3 bg-white border-2 border-blue-400 p-2 px-5 rounded-2xl shadow-lg mb-4">
@@ -223,7 +392,6 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
            ? "PLAYER TURN"
            : "OPPONENT TURN"}
        </span>
-
 
        {/* 3D Disc Box beside turn text */}
        <div className="w-8 h-8 bg-[#1965e0] border-2 border-[#0e4cb8] rounded-xl flex items-center justify-center shadow-inner">
@@ -245,7 +413,6 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
        </div>
      </div>
 
-
      {/* Main Connect Four Board Container */}
      <div
        onMouseLeave={() => setHoveredCol(null)}
@@ -262,7 +429,6 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
            </div>
          ))}
        </div>
-
 
        {/* 6x7 Grid Box with Unified Pointer & Touch Events */}
        <div
@@ -304,9 +470,82 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
          )}
        </div>
 
-
      </div>
 
+     {/* HOW TO PLAY MODAL */}
+     {showHowToPlay && (
+       <div className="fixed inset-0 z-[250] flex items-center justify-center bg-slate-950/85 p-5 backdrop-blur-md">
+         <div
+           role="dialog"
+           aria-modal="true"
+           aria-labelledby="four-in-a-row-how-to-play-title"
+           className="max-h-[92%] w-full max-w-sm overflow-y-auto rounded-3xl border-2 border-[#ccff00]/70 bg-gradient-to-b from-slate-900 to-[#0d1527] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.75)]"
+         >
+           <div className="mb-5 flex items-start justify-between gap-4">
+             <div className="flex items-center gap-3">
+               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#ccff00] bg-[#ccff00]/10 text-2xl font-black text-[#ccff00] shadow-[0_0_18px_rgba(204,255,0,0.22)]">
+                 ?
+               </div>
+               <div>
+                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ccff00]">
+                   Four in a Row
+                 </p>
+                 <h2
+                   id="four-in-a-row-how-to-play-title"
+                   className="text-2xl font-black text-white"
+                 >
+                   How to Play
+                 </h2>
+               </div>
+             </div>
+
+             <button
+               type="button"
+               onClick={() => setShowHowToPlay(false)}
+               aria-label="Close how to play"
+               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-lg font-black text-slate-200 transition-colors hover:bg-slate-700"
+             >
+               ×
+             </button>
+           </div>
+
+           <div className="space-y-3">
+             {[
+               ["🔴", "You play red", "You always use the red discs and make the first move."],
+               ["👆", "Choose a column", "Tap any open column. Your disc falls into its lowest empty space."],
+               ["🤖", "Computer plays yellow", "After your move, the computer studies the board and drops a yellow disc."],
+               ["🏆", "Connect four", "Win by connecting 4 discs horizontally, vertically, or diagonally."],
+               ["🤝", "Avoid a draw", "If every space fills before either side connects four, the match is a draw."],
+             ].map(([icon, title, description], index) => (
+               <div
+                 key={title}
+                 className="flex gap-3 rounded-2xl border border-slate-700/80 bg-slate-800/65 p-3"
+               >
+                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-950/70 text-lg">
+                   {icon}
+                 </div>
+                 <div>
+                   <p className="text-sm font-black text-amber-300">
+                     {index + 1}. {title}
+                   </p>
+                   <p className="mt-0.5 text-xs leading-5 text-slate-300">
+                     {description}
+                   </p>
+                 </div>
+               </div>
+             ))}
+           </div>
+
+           <button
+             type="button"
+             onClick={() => setShowHowToPlay(false)}
+             className="mt-5 w-full rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 py-3.5 text-sm font-black uppercase tracking-wider text-slate-950 shadow-lg transition-all active:scale-[0.98]"
+           >
+             Got It — Let&apos;s Play
+           </button>
+         </div>
+       </div>
+     )}
 
      {/* WIN / GAME OVER POPUP MODAL */}
      {winner && (
@@ -329,7 +568,6 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
              </h2>
            </div>
 
-
            <div className="flex flex-col gap-3 w-full pt-2">
              <button
                onClick={resetGame}
@@ -347,16 +585,13 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
              )}
            </div>
 
-
          </div>
        </div>
      )}
 
-
    </div>
  );
 };
-
 
 export default FourInARow;
 

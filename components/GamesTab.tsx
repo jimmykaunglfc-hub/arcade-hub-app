@@ -28,6 +28,13 @@ const DEFAULT_GAMES = [
   { id: "four_in_a_row", title: "Four in a Row", category: "Strategy", entry_fee: 0, rating: "4.8", icon: "view_column" },
   { id: "bingo", title: "Bingo", category: "Arcade", entry_fee: 0, rating: "4.7", icon: "casino" },
   { id: "ping_pong", title: "Ping Pong", category: "Sports", entry_fee: 0, rating: "4.9", icon: "table_restaurant" },
+  { id: "wordbox", title: "Wordbox", category: "Puzzle", entry_fee: 0, rating: "New", icon: "spellcheck" },
+  { id: "sudoku", title: "Sudoku", category: "Puzzle", entry_fee: 0, rating: "New", icon: "apps" },
+  { id: "ludo", title: "Ludo", category: "Board", entry_fee: 0, rating: "New", icon: "casino" },
+  { id: "dominoes", title: "Dominoes", category: "Board", entry_fee: 0, rating: "New", icon: "view_module" },
+  { id: "game_2048", title: "2048", category: "Puzzle", entry_fee: 0, rating: "New", icon: "grid_view" },
+  { id: "big_two", title: "Big Two", category: "Card", entry_fee: 0, rating: "New", icon: "playing_cards" },
+  { id: "block_puzzle", title: "Block Puzzle", category: "Puzzle", entry_fee: 0, rating: "New", icon: "extension" },
 ];
 
 export default function GamesTab({ 
