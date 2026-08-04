@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 interface LudoGameProps { onClose?: () => void; onPlayAgain?: () => void; roomId?: string | null; }
@@ -128,6 +128,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
  const [isHost, setIsHost] = useState(false);
  const [botIndexes, setBotIndexes] = useState<number[]>([]);
+ const timeoutRequested = useRef<string | null>(null);
  const [tokens, setTokens] = useState<TokenState>(() => initialTokens());
  const [current, setCurrent] = useState<PlayerId>(0);
  const [dice, setDice] = useState<number | null>(null);
@@ -172,10 +173,17 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
      if (!seat || !match) return;
      const order = [seat, seat % 4 + 1, (seat + 1) % 4 + 1, (seat + 2) % 4 + 1];
      const raw = match.state?.tokens || [];
+     const namesBySeat = new Map<number, string>((room?.players || []).map((player: any) => [player.seat, player.name]));
+     const displayNames = order.map((number) => namesBySeat.get(number) || "Player");
+     setPlayerNames(displayNames);
      setTokens(Object.fromEntries(order.map((number, index) => [index, raw[number - 1] || [-1,-1,-1,-1]])) as TokenState);
-     setCurrent(Math.max(0, order.indexOf(match.current_seat)) as PlayerId);
+     const displayCurrent = Math.max(0, order.indexOf(match.current_seat)) as PlayerId;
+     setCurrent(displayCurrent);
      setDice(match.state?.dice ?? null);
      setTurnDeadline(match.turn_deadline || null);
+     if (match.status === "completed") setMessage(displayCurrent === 0 ? "Match complete." : `${displayNames[displayCurrent]} wins.`);
+     else if (match.state?.dice) setMessage(displayCurrent === 0 ? `You rolled ${match.state.dice}. Choose a token.` : `${displayNames[displayCurrent]} is choosing a token.`);
+     else setMessage(displayCurrent === 0 ? "Your turn. Roll the dice!" : `${displayNames[displayCurrent]}'s turn to roll.`);
      const winnerSeat = Number(match.state?.winner_seat || 0);
      setWinner(winnerSeat ? Math.max(0, order.indexOf(winnerSeat)) as PlayerId : null);
      setRoomReady(true);
@@ -186,10 +194,17 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
 
  useEffect(() => {
    if (!turnDeadline) return;
+   timeoutRequested.current = null;
    const update = () => {
      const left = Math.max(0, Math.ceil((new Date(turnDeadline).getTime() - Date.now()) / 1000));
      setSecondsLeft(left);
-     if (left === 0 && roomId) void supabase.rpc("ludo_timeout_turn", { p_room_id: roomId });
+     if (left === 0 && roomId && timeoutRequested.current !== turnDeadline) {
+       timeoutRequested.current = turnDeadline;
+       void supabase.rpc("ludo_timeout_turn", { p_room_id: roomId }).then(({ error }) => {
+         if (error) setMessage("Waiting for the server to advance the turn…");
+         else setTurnDeadline(null);
+       });
+     }
    };
    update(); const timer = window.setInterval(update, 500);
    return () => window.clearInterval(timer);
