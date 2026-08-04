@@ -463,7 +463,10 @@ export default function Home() {
         <main
           className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto no-scrollbar px-5 w-full z-10"
           style={{
-            paddingTop: activeTab === "Spin" || chatFullscreen || gameDetailsFullscreen ? "0" : "calc(100px + env(safe-area-inset-top))",
+            // Explore starts exactly at the 90px header boundary so its sticky
+            // category control touches the navbar instead of inheriting the
+            // generic 10px content gutter used by the other tabs.
+            paddingTop: activeTab === "Spin" || chatFullscreen || gameDetailsFullscreen ? "0" : activeTab === "Explore" ? "calc(90px + env(safe-area-inset-top))" : "calc(100px + env(safe-area-inset-top))",
             paddingBottom: "calc(100px + env(safe-area-inset-bottom))",
           }}
         >
