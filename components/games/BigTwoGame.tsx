@@ -102,12 +102,8 @@ function CardBack({ className = "" }: { className?: string }) {
 }
 
 export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
+ const [roomReady, setRoomReady] = useState(!roomId);
  const [playerNames, setPlayerNames] = useState(() => ["You", ...Array.from({ length: 3 }, () => getRandomBotOpponent().name)]);
- useEffect(() => { if (!roomId) return; void supabase.rpc("get_matchmaking_room", { p_room_id: roomId }).then(({ data }) => {
-   const humans = (data?.players || []).filter((p: any) => !p.is_bot).sort((a: any, b: any) => a.seat - b.seat).map((p: any) => p.name);
-   const bots = Array.from({ length: Math.max(0, 4 - humans.length) }, () => getRandomBotOpponent().name);
-   if (humans.length) setPlayerNames([...humans, ...bots].slice(0, 4));
- }); }, [roomId]);
  const [initialGame] = useState(dealGame);
  const [hands,setHands]=useState<Card[][]>(initialGame.hands);
  const [turn,setTurn]=useState(initialGame.starter);
@@ -119,7 +115,49 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
  const [message,setMessage]=useState(initialGame.starter===0?"You have 3♦. Lead the first trick.":`${playerNames[initialGame.starter]} has 3♦ and starts.`);
  const [showRules,setShowRules]=useState(false);
 
- const startGame=useCallback(()=>{ const deck=shuffledDeck(); const next=[0,1,2,3].map(i=>sortCards(deck.slice(i*13,(i+1)*13))); const starter=next.findIndex(hand=>hand.some(card=>card.rank===0&&card.suit===0)); setHands(next);setTurn(starter);setCurrentPlay(null);setSelected([]);setPasses(0);setOpening(true);setWinner(null);setMessage(starter===0?"You have 3♦. Lead the first trick.":`${playerNames[starter]} has 3♦ and starts.`); },[playerNames]);
+ useEffect(() => {
+   if (!roomId) return;
+   const loadRoom = async () => {
+     const [{ data: auth }, { data: room }, { data: state }] = await Promise.all([
+       supabase.auth.getUser(),
+       supabase.rpc("get_matchmaking_room", { p_room_id: roomId }),
+       supabase.from("big_two_match_state").select("state,current_seat,status").eq("room_id", roomId).maybeSingle(),
+     ]);
+     const seat = (room?.players || []).find((player: any) => player.user_id === auth.user?.id)?.seat;
+     if (!seat || !state || (state.status !== "playing" && state.status !== "completed")) return;
+     const { data: hand } = await supabase.from("big_two_player_hands").select("cards").eq("room_id", roomId).eq("seat", seat).maybeSingle();
+     if (!hand) return;
+     const bySeat = new Map<number, { name?: string }>((room.players || []).map((player: any) => [player.seat, player]));
+     const order = [seat, seat % 4 + 1, (seat + 1) % 4 + 1, (seat + 2) % 4 + 1];
+     setPlayerNames(order.map((number) => bySeat.get(number)?.name || getRandomBotOpponent().name));
+     const counts = state.state?.hand_counts || [13,13,13,13];
+     const ownCards = sortCards((hand.cards || []) as Card[]);
+     setHands(order.map((number, index) => index === 0 ? ownCards : Array.from({ length: counts[number - 1] || 0 }, (_, card) => ({ id: `back-${number}-${card}`, rank: 0, suit: 0 as Suit }))));
+     const tableCards = (state.state?.table_cards || []) as Card[];
+     const tableValue = tableCards.length ? evaluate(tableCards) : null;
+     const lastSeat = Number(state.state?.last_play_seat || 0);
+     const displayTurn = order.indexOf(state.current_seat);
+     const displayLastPlayer = order.indexOf(lastSeat);
+     setTurn(displayTurn >= 0 ? displayTurn : 0);
+     setCurrentPlay(tableValue && displayLastPlayer >= 0 ? { cards: tableCards, value: tableValue, player: displayLastPlayer } : null);
+     setPasses(Number(state.state?.passes || 0));
+     setOpening(tableCards.length === 0);
+     if (state.status === "completed") setWinner(displayLastPlayer >= 0 ? displayLastPlayer : null);
+     else setWinner(null);
+     setMessage(tableCards.length && tableValue && displayLastPlayer >= 0
+       ? `${order.map((number) => bySeat.get(number)?.name || "Player")[displayLastPlayer]} played ${tableValue.label}.`
+       : displayTurn === 0 ? "Your turn. Lead the new trick." : `${order.map((number) => bySeat.get(number)?.name || "Player")[displayTurn] || "Player"}'s turn.`);
+     setRoomReady(true);
+   };
+   void loadRoom();
+   const channel = supabase.channel(`big-two-${roomId}`).on("postgres_changes", { event: "*", schema: "public", table: "big_two_match_state", filter: `room_id=eq.${roomId}` }, loadRoom).on("postgres_changes", { event: "*", schema: "public", table: "big_two_player_hands", filter: `room_id=eq.${roomId}` }, loadRoom).subscribe();
+   // Polling remains as a reliable fallback when Supabase Realtime has not
+   // yet been enabled for these new tables in a production project.
+   const poll = window.setInterval(() => { void loadRoom(); }, 1500);
+   return () => { window.clearInterval(poll); void supabase.removeChannel(channel); };
+ }, [roomId]);
+
+ const startGame=useCallback(()=>{ if(roomId) return; const deck=shuffledDeck(); const next=[0,1,2,3].map(i=>sortCards(deck.slice(i*13,(i+1)*13))); const starter=next.findIndex(hand=>hand.some(card=>card.rank===0&&card.suit===0)); setHands(next);setTurn(starter);setCurrentPlay(null);setSelected([]);setPasses(0);setOpening(true);setWinner(null);setMessage(starter===0?"You have 3♦. Lead the first trick.":`${playerNames[starter]} has 3♦ and starts.`); },[playerNames,roomId]);
  const playCards=useCallback((player:number,cards:Card[],value:HandValue)=>{ const nextHands=hands.map(hand=>[...hand]); nextHands[player]=nextHands[player].filter(card=>!cards.some(played=>played.id===card.id)); setHands(nextHands);setSelected([]);setCurrentPlay({cards,value,player});setPasses(0);setOpening(false); if(nextHands[player].length===0){setWinner(player);setMessage(player===0?"You win!":`${playerNames[player]} wins!`);return;} setMessage(`${playerNames[player]} played ${value.label}.`);setTurn((player+1)%4); },[hands,playerNames]);
 
  const passTurn=useCallback((player:number)=>{ if(!currentPlay)return; const nextPasses=passes+1; if(nextPasses>=3){setPasses(0);setCurrentPlay(null);setTurn(currentPlay.player);setMessage(`${playerNames[currentPlay.player]} controls the new trick.`);}else{setPasses(nextPasses);setTurn((player+1)%4);setMessage(`${playerNames[player]} passed.`);} },[currentPlay,passes,playerNames]);
@@ -131,7 +169,9 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
  const selectedCards=useMemo(()=>hands[0].filter(card=>selected.includes(card.id)),[hands,selected]);
  const selectedValue=useMemo(()=>evaluate(selectedCards),[selectedCards]);
  const canPlay=turn===0&&!!selectedValue&&beats(selectedValue,currentPlay?.value??null)&&(!opening||selectedCards.some(card=>card.rank===0&&card.suit===0));
- const handlePlay=()=>{if(canPlay&&selectedValue)playCards(0,selectedCards,selectedValue);else setMessage(opening?"Your opening play must be valid and include 3♦.":"Select a valid hand that beats the table.");};
+ const handlePlay=()=>{if(!canPlay||!selectedValue){setMessage(opening?"Your opening play must be valid and include 3♦.":"Select a valid hand that beats the table.");return;} if(roomId){void supabase.rpc("big_two_play_cards", { p_room_id: roomId, p_cards: selectedCards }).then(({ error }) => { if(error) setMessage(error.message); else setSelected([]); });return;} playCards(0,selectedCards,selectedValue);};
+
+ if (roomId && !roomReady) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] p-6 text-center text-white"><p className="font-bold">Waiting for the shared Big Two deal…</p></div>;
 
  return <div className="absolute inset-x-0 bottom-20 top-0 flex min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#14532d_0%,#052e2b_48%,#020617_100%)] text-white select-none">
    <header className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-slate-950/55 px-3 py-2"><div>{onClose&&<button onClick={onClose} aria-label="Back to Arcade Hub" className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-slate-900"><span className="text-xl">←</span></button>}</div><div className="text-center"><h1 className="text-lg font-black text-amber-300">BIG TWO</h1><p className="text-[9px] font-black uppercase tracking-widest text-emerald-200/70">Classic · 4 Players</p></div><div className="flex justify-end gap-2"><button onClick={startGame} className="rounded-xl bg-amber-400 px-3 py-2 text-xs font-black text-slate-950">New</button><button onClick={()=>setShowRules(true)} aria-label="How to play Big Two" className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00] bg-slate-900 text-[#ccff00]"><span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#ccff00] text-xs font-black">?</span></button></div></header>
@@ -143,24 +183,24 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
          <p className={`mt-1 text-[9px] font-black uppercase ${turn===2?"text-amber-300":"text-emerald-100"}`}>{playerNames[2]} · {hands[2].length}</p>
        </div>
 
-       <div className={`absolute left-1 top-[27%] z-10 text-center ${turn===1?"drop-shadow-[0_0_8px_#fde047]":""}`}>
+       <div className={`absolute left-2 top-[27%] z-10 text-center ${turn===1?"drop-shadow-[0_0_8px_#fde047]":""}`}>
          <p className={`mb-1 text-[9px] font-black uppercase ${turn===1?"text-amber-300":"text-emerald-100"}`}>{playerNames[1]} · {hands[1].length}</p>
          <div className="flex flex-col -space-y-9">{hands[1].map(card=><CardBack key={card.id} className="rotate-90"/>)}</div>
        </div>
 
-       <div className={`absolute right-1 top-[27%] z-10 text-center ${turn===3?"drop-shadow-[0_0_8px_#fde047]":""}`}>
+       <div className={`absolute right-2 top-[27%] z-10 text-center ${turn===3?"drop-shadow-[0_0_8px_#fde047]":""}`}>
          <p className={`mb-1 text-[9px] font-black uppercase ${turn===3?"text-amber-300":"text-emerald-100"}`}>{playerNames[3]} · {hands[3].length}</p>
          <div className="flex flex-col -space-y-9">{hands[3].map(card=><CardBack key={card.id} className="rotate-90"/>)}</div>
        </div>
 
-       <section className="absolute left-16 right-16 top-[29%] flex min-h-40 flex-col items-center justify-center rounded-[1.75rem] border border-emerald-200/15 bg-emerald-950/25 p-2">
+       <section className="absolute left-24 right-24 top-[29%] flex min-h-40 flex-col items-center justify-center rounded-[1.75rem] border border-emerald-200/15 bg-emerald-950/25 p-2">
          <p className="mb-2 text-center text-[10px] font-black uppercase tracking-widest text-amber-200">{currentPlay?`${playerNames[currentPlay.player]} · ${currentPlay.value.label}`:"New trick — any valid combination"}</p>
          <div className="flex justify-center -space-x-4">{currentPlay?.cards.map(card=><PlayingCard key={card.id} card={card} small />)??<span className="text-5xl text-white/15">♠</span>}</div>
        </section>
 
        <div className="absolute bottom-[214px] left-16 right-16 rounded-full border border-white/10 bg-slate-950/55 px-3 py-2 text-center text-[10px] font-bold text-slate-100 shadow-lg">{message}</div>
 
-       <button onClick={()=>passTurn(0)} disabled={turn!==0||!currentPlay||winner!==null} className="absolute bottom-[148px] left-4 z-30 flex h-14 w-14 items-center justify-center rounded-full border-2 border-amber-200 bg-gradient-to-b from-amber-300 to-amber-500 text-xs font-black text-amber-950 shadow-[0_6px_0_#9a5c00] active:translate-y-1 disabled:opacity-30">PASS</button>
+       <button onClick={()=>{if(roomId){void supabase.rpc("big_two_pass",{p_room_id:roomId}).then(({error})=>{if(error)setMessage(error.message);});}else passTurn(0);}} disabled={turn!==0||!currentPlay||winner!==null} className="absolute bottom-[148px] left-4 z-30 flex h-14 w-14 items-center justify-center rounded-full border-2 border-amber-200 bg-gradient-to-b from-amber-300 to-amber-500 text-xs font-black text-amber-950 shadow-[0_6px_0_#9a5c00] active:translate-y-1 disabled:opacity-30">PASS</button>
        <button onClick={handlePlay} disabled={turn!==0||winner!==null} className={`absolute bottom-[148px] right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full border-2 text-xs font-black shadow-[0_6px_0_#14532d] active:translate-y-1 disabled:opacity-35 ${canPlay?"border-lime-200 bg-[#ccff00] text-slate-950":"border-slate-400 bg-slate-600 text-slate-200"}`}>PLAY</button>
 
        <div className={`absolute bottom-0 left-0 right-0 z-20 ${turn===0?"drop-shadow-[0_0_8px_rgba(253,224,71,.5)]":""}`}>
