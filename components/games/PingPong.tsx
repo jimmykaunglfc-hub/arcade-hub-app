@@ -17,11 +17,17 @@ import {
   calculateRacketTilt,
   calculateSwipeSpin,
   calculateSwipeSteering,
+  createPhysicsRally,
   dampRacketTilt,
   predictBallAtZPlane,
   predictTableLanding,
+  registerPaddleReturn,
+  resolveTableBounce,
+  solveRallyLandingVelocity,
+  solveServeLandingVelocity,
   sweepSphereAgainstPaddle,
   sweepSphereAgainstNet,
+  type PhysicsRallyState,
 } from "@/lib/pingPongPhysics";
 
 /**
@@ -50,7 +56,8 @@ export interface PingPongProps {
    */
   preloadedMatchId?: string | null;
   opponent?: { name: string; isBot: boolean } | null;
-  /** Existing CompetitiveGameLaunch integration reports wallet/match results. */
+  /** Reports the completed competitive match back to Joe Yoke's wallet, XP,
+   * and match-history integration. */
   onResult?: (result: "Win" | "Loss" | "Draw") => void;
 }
 
@@ -70,6 +77,10 @@ interface BallState extends Vector3 {
   /** Prevents either paddle from touching a ball caught by the net. */
   netStopped: boolean;
   servePhase: "waiting" | "toss" | "flight" | null;
+  /** Latched horizontal aim while an official serve toss is in the air. */
+  serveAimX: number;
+  /** Non-zero after the point is final while the ball finishes moving. */
+  deadAt: number;
 }
 
 interface PaddleState extends Vector3 {
@@ -112,19 +123,6 @@ interface BallHitPayload {
   velocity: Vector3;
   hitterId: string;
   timestamp: number;
-}
-
-interface RallyState {
-  lastHitBy: Side;
-  requiredBounceSide: Side | null;
-  validBounce: boolean;
-  tableBouncesSinceHit: number;
-  lastBounceSide: Side | null;
-  consecutiveBounces: number;
-  isServe: boolean;
-  server: Side;
-  serveBounceCount: number;
-  serveTouchedNet: boolean;
 }
 
 interface TrailPoint extends Vector3 {
@@ -172,17 +170,17 @@ const RACKET_ASSET_LAYOUTS: Record<
   opponent: {
     center: {
       crop: [311, 196, 388, 648],
-      anchor: [0.5, 0.333],
+      anchor: [0.499, 0.326],
       renderScale: 1.35,
     },
     left: {
       crop: [428, 456, 564, 506],
-      anchor: [0.344, 0.409],
+      anchor: [0.367, 0.402],
       renderScale: 1,
     },
     right: {
       crop: [449, 456, 564, 506],
-      anchor: [0.62, 0.409],
+      anchor: [0.631, 0.402],
       renderScale: 1,
     },
   },
@@ -222,6 +220,11 @@ const NET_Z = 0;
 const NET_VISUAL_Z = NET_Z;
 const BALL_RADIUS = 0.02 * WORLD_SCALE;
 const GRAVITY = -5.8;
+const TABLE_RESTITUTION = 0.82;
+const DEAD_BALL_RESTITUTION = 0.68;
+const POINT_SETTLE_DELAY_MS = 2400;
+const GAME_SETTLE_DELAY_MS = 2850;
+const DEAD_BALL_MAX_LIFETIME_MS = 3200;
 const CAMERA_DEPTH_CURVE = 1.35;
 const NET_TAPE_THICKNESS = 0.035;
 /**
@@ -261,6 +264,9 @@ const createOpponentServeAim = () => {
   const magnitude = 0.35 + Math.random() * 0.6;
   return (Math.random() < 0.5 ? -1 : 1) * magnitude;
 };
+
+const createOpponentReturnAim = () =>
+  clamp((Math.random() * 2 - 1) * 1.08, -1.08, 1.08);
 
 /**
  * Pre-renders the large source PNGs into small normalized, fully opaque
@@ -326,19 +332,8 @@ const createServe = (server: Side, isDoubles = false): BallState => ({
   active: true,
   netStopped: false,
   servePhase: server === "local" ? "waiting" : "toss",
-});
-
-const createRally = (server: Side): RallyState => ({
-  lastHitBy: server,
-  requiredBounceSide: server,
-  validBounce: false,
-  tableBouncesSinceHit: 0,
-  lastBounceSide: null,
-  consecutiveBounces: 0,
-  isServe: true,
-  server,
-  serveBounceCount: 0,
-  serveTouchedNet: false,
+  serveAimX: 0,
+  deadAt: 0,
 });
 
 const toPlayerId = (side: Side): TableTennisPlayerId =>
@@ -410,6 +405,7 @@ export default function PingPong(props: PingPongProps) {
   const opponentRacketAssetsRef = useRef<RacketAssetSet | null>(null);
   const racketSpritesRef = useRef<Record<Side, RacketSpriteSet> | null>(null);
   const opponentServeAimRef = useRef(createOpponentServeAim());
+  const opponentReturnAimRef = useRef(createOpponentReturnAim());
   const draggingRef = useRef(false);
   const roundLockedRef = useRef(false);
   const serveTimerRef = useRef<number | null>(null);
@@ -424,6 +420,7 @@ export default function PingPong(props: PingPongProps) {
   const pointerSampleRef = useRef<{ x: number; at: number } | null>(null);
   const swingIntentRef = useRef<SwingIntent>({ value: 0, expiresAt: 0 });
   const lastPlayerSwipeAtRef = useRef(0);
+  const stalledBallSinceRef = useRef(0);
   const assistWindowsRef = useRef<Record<Side, AssistWindow | null>>({
     local: null,
     opponent: null,
@@ -480,7 +477,9 @@ export default function PingPong(props: PingPongProps) {
     local: { ...LOCAL_PADDLE_START },
     opponent: { ...OPPONENT_PADDLE_START },
   });
-  const rallyRef = useRef<RallyState>(createRally(initialServer));
+  const rallyRef = useRef<PhysicsRallyState>(
+    createPhysicsRally(initialServer)
+  );
   const trailsRef = useRef<Record<Side, TrailPoint[]>>({
     local: [],
     opponent: [],
@@ -623,12 +622,14 @@ export default function PingPong(props: PingPongProps) {
     (server: Side) => {
       const nextBall = createServe(server, isDoubles);
       ballRef.current = nextBall;
-      rallyRef.current = createRally(server);
+      rallyRef.current = createPhysicsRally(server);
       if (server === "opponent") {
         opponentServeAimRef.current = createOpponentServeAim();
       }
+      opponentReturnAimRef.current = createOpponentReturnAim();
       swingIntentRef.current = { value: 0, expiresAt: 0 };
       lastPlayerSwipeAtRef.current = 0;
+      stalledBallSinceRef.current = 0;
       assistWindowsRef.current = { local: null, opponent: null };
       racketDirectionRef.current = { local: "center", opponent: "center" };
       localPaddleTargetRef.current.swingX = 0;
@@ -649,7 +650,9 @@ export default function PingPong(props: PingPongProps) {
       if (roundLockedRef.current || gameWinnerRef.current) return;
 
       roundLockedRef.current = true;
-      ballRef.current.active = false;
+      // The point is final, but the rendered ball remains physical for a short
+      // dead-ball period instead of freezing at the scoring position.
+      ballRef.current.deadAt = performance.now();
       setStatus(reason);
 
       const pointResult = gameEngine.scorePoint(
@@ -689,7 +692,9 @@ export default function PingPong(props: PingPongProps) {
 
             resetRound(toSide(next.currentServer));
           },
-          pointResult.gameEnded ? 1450 : 950
+          pointResult.gameEnded
+            ? GAME_SETTLE_DELAY_MS
+            : POINT_SETTLE_DELAY_MS
         );
       }
     },
@@ -742,13 +747,18 @@ export default function PingPong(props: PingPongProps) {
           ball.servePhase === "waiting" &&
           rallyRef.current.server === "local"
         ) {
-          ball.servePhase = "flight";
-          ball.vx = signedStrength * 1.85;
-          ball.vy = -1.15;
-          ball.vz = -4.55;
-          ball.spin = signedStrength * 0.8;
+          // A swipe starts the regulation vertical toss. The selected aim is
+          // held until the ball descends and the virtual racket strikes it.
+          ball.servePhase = "toss";
+          ball.serveAimX = signedStrength;
+          ball.vx = 0;
+          ball.vy = 2.05;
+          ball.vz = 0;
+          ball.spin = 0;
           setStatus(
-            signedStrength < 0 ? "Serve aimed left" : "Serve aimed right"
+            signedStrength < 0
+              ? "Toss up — serve aimed left"
+              : "Toss up — serve aimed right"
           );
         }
       }
@@ -1589,9 +1599,15 @@ export default function PingPong(props: PingPongProps) {
     ) => {
       if (ball.servePhase === "toss" || ball.netStopped) return false;
 
+      // A stationary on-screen racket is only a visual ready position. Requiring
+      // a recent deliberate stroke prevents an untouched incoming ball from
+      // overlapping the generous mobile hitbox and becoming a false volley.
+      if (side === "local" && now - lastPlayerSwipeAtRef.current > 650) {
+        return false;
+      }
+
       const movingTowardPaddle = side === "local" ? ball.vz > 0 : ball.vz < 0;
-      const isReceiver =
-        rallyRef.current.lastHitBy !== side && rallyRef.current.validBounce;
+      const nextRally = registerPaddleReturn(rallyRef.current, side);
       const approachDirection: 1 | -1 = side === "local" ? 1 : -1;
       const radiusX = assisted ? 1.05 : 0.94;
       const radiusY = assisted ? 0.98 : 0.86;
@@ -1645,7 +1661,7 @@ export default function PingPong(props: PingPongProps) {
       // Volleys are illegal: a receiver may strike only after the ball has
       // bounced on their side. The paddle collision includes the paddle hand,
       // which is a legal striking surface under table-tennis rules.
-      if (!isReceiver) {
+      if (!nextRally) {
         scorePoint(
           oppositeSide(side),
           side === "local"
@@ -1655,13 +1671,24 @@ export default function PingPong(props: PingPongProps) {
         return true;
       }
 
-      const xOffset = contactX - contactPaddleX;
+      // The AI uses a buffered collision ellipse so fast mobile rallies stay
+      // playable. Once that buffered hit succeeds, move the visible opponent
+      // racket face to the actual swept impact point. Without this correction
+      // the collision is valid, but the artwork can remain almost one face
+      // radius away and make the ball appear to strike the handle.
+      let resolvedContactPaddleX = contactPaddleX;
+      if (side === "opponent") {
+        resolvedContactPaddleX = contactX;
+        paddle.x = resolvedContactPaddleX;
+        paddle.y = contactY;
+        paddle.vx = 0;
+        paddle.vy = 0;
+      }
+
+      const xOffset = contactX - resolvedContactPaddleX;
       ball.x = contactX;
       ball.y = contactY;
       ball.z = contactPaddleZ + (side === "local" ? -0.24 : 0.24);
-      ball.vz =
-        (side === "local" ? -1 : 1) *
-        Math.min(6.15, Math.max(4.55, Math.abs(ball.vz) * 1.1));
       const latchedLocalSwing =
         side === "local" && now < swingIntentRef.current.expiresAt
           ? swingIntentRef.current.value
@@ -1675,38 +1702,58 @@ export default function PingPong(props: PingPongProps) {
         effectiveTilt,
         paddle.vx
       );
-      let nextVelocityX = clamp(
-        ball.vx * 0.08 + swipeSteering * 1.2 + xOffset * 0.3,
-        -5.5,
-        5.5
-      );
-      if (Math.abs(latchedLocalSwing) >= 0.16) {
-        // A deliberate gesture owns the shot direction. Contact offset still
-        // affects power, but can no longer reverse a user's left/right swipe.
-        const minimumDirectionalSpeed =
-          1.4 + Math.abs(latchedLocalSwing) * 2.7;
-        nextVelocityX =
-          Math.sign(latchedLocalSwing) *
-          clamp(
-            Math.max(minimumDirectionalSpeed, Math.abs(nextVelocityX)),
-            minimumDirectionalSpeed,
-            5.5
-          );
-      }
-      ball.vx = nextVelocityX;
       ball.spin = calculateSwipeSpin(
         latchedLocalSwing,
         effectiveTilt,
         paddle.vx
       );
       ball.vy = clamp(
-        1.7 +
-          Math.abs(ball.vy) * 0.31 +
-          paddle.vy * 0.085 +
-          Math.abs(latchedLocalSwing) * 0.48,
-        1.45,
-        4.15
+        1.82 +
+          Math.abs(ball.vy) * 0.2 +
+          paddle.vy * 0.06 +
+          Math.abs(latchedLocalSwing) * 0.34,
+        1.65,
+        3.15
       );
+
+      // Aim at an in-bounds receiver-side landing point. Swipe direction
+      // selects the target; it no longer becomes an unbounded world velocity.
+      const deliberateLocalShot =
+        side === "local" && Math.abs(latchedLocalSwing) >= 0.16;
+      const targetLandingX =
+        side === "local"
+          ? deliberateLocalShot
+            ? Math.sign(latchedLocalSwing) *
+              (0.42 + Math.abs(latchedLocalSwing) * 0.68)
+            : clamp(
+                swipeSteering * 0.18 + xOffset * 0.22,
+                -0.82,
+                0.82
+              )
+          : opponentReturnAimRef.current;
+      const targetLandingZ = side === "local" ? -1.72 : 1.72;
+      const landingVelocity = solveRallyLandingVelocity(
+        ball,
+        clamp(targetLandingX, -1.18, 1.18),
+        targetLandingZ,
+        TABLE_HEIGHT,
+        BALL_RADIUS,
+        GRAVITY
+      );
+      if (landingVelocity) {
+        ball.vx = clamp(landingVelocity.vx, -3.4, 3.4);
+        ball.vz = clamp(
+          landingVelocity.vz,
+          side === "local" ? -6.2 : 3.8,
+          side === "local" ? -3.8 : 6.2
+        );
+      } else {
+        ball.vx = clamp(swipeSteering * 0.55, -2.4, 2.4);
+        ball.vz = side === "local" ? -4.7 : 4.7;
+      }
+      if (side === "opponent") {
+        opponentReturnAimRef.current = createOpponentReturnAim();
+      }
 
       if (side === "local") {
         // Keep the matching directional artwork visible through follow-through
@@ -1715,18 +1762,7 @@ export default function PingPong(props: PingPongProps) {
       }
       assistWindowsRef.current[side] = null;
 
-      rallyRef.current = {
-        lastHitBy: side,
-        requiredBounceSide: oppositeSide(side),
-        validBounce: false,
-        tableBouncesSinceHit: 0,
-        lastBounceSide: null,
-        consecutiveBounces: 0,
-        isServe: false,
-        server: rallyRef.current.server,
-        serveBounceCount: 0,
-        serveTouchedNet: false,
-      };
+      rallyRef.current = nextRally;
 
       trailsRef.current[side].push({ ...paddle, createdAt: now });
       setStatus(side === "local" ? "Clean return!" : "Opponent returns");
@@ -1742,9 +1778,73 @@ export default function PingPong(props: PingPongProps) {
       return true;
     };
 
+    const updateDeadBall = (deltaSeconds: number, now: number) => {
+      const ball = ballRef.current;
+      const previousPosition: Vector3 = {
+        x: ball.x,
+        y: ball.y,
+        z: ball.z,
+      };
+
+      const spinStep = applySideSpin(ball.vx, ball.spin, deltaSeconds);
+      ball.vx = spinStep.vx;
+      ball.spin = spinStep.spin;
+      ball.vy += GRAVITY * deltaSeconds;
+      ball.x += ball.vx * deltaSeconds;
+      ball.y += ball.vy * deltaSeconds;
+      ball.z += ball.vz * deltaSeconds;
+
+      // A dead ball may still catch the net. Absorb most forward energy while
+      // allowing gravity to finish the visible motion naturally.
+      const netImpact = sweepSphereAgainstNet(previousPosition, ball, {
+        z: NET_Z,
+        halfWidth: TABLE_HALF_WIDTH,
+        height: NET_HEIGHT,
+        tableHeight: TABLE_HEIGHT,
+        ballRadius: BALL_RADIUS,
+      });
+      if (netImpact) {
+        ball.x = netImpact.x;
+        ball.y = netImpact.y;
+        ball.z = NET_Z +
+          netImpact.approachSide * (BALL_RADIUS + 0.008);
+        ball.vx *= 0.55;
+        ball.vz *= -0.12;
+        ball.vy = Math.min(ball.vy * 0.35, -0.2);
+        ball.spin *= 0.45;
+      }
+
+      const overTable =
+        Math.abs(ball.x) <= TABLE_HALF_WIDTH &&
+        Math.abs(ball.z) <= TABLE_HALF_LENGTH;
+      if (overTable && ball.y - BALL_RADIUS <= TABLE_HEIGHT && ball.vy < 0) {
+        ball.y = TABLE_HEIGHT + BALL_RADIUS;
+        ball.vy = Math.abs(ball.vy) * DEAD_BALL_RESTITUTION;
+        ball.vx *= 0.985;
+        ball.vz *= 0.988;
+        ball.spin *= 0.74;
+
+        if (ball.vy < 0.16) ball.vy = 0;
+      }
+
+      if (
+        ball.y < -1.8 ||
+        (ball.deadAt > 0 && now - ball.deadAt >= DEAD_BALL_MAX_LIFETIME_MS)
+      ) {
+        ball.active = false;
+      }
+    };
+
     const updatePhysics = (deltaSeconds: number, now: number) => {
       const ball = ballRef.current;
-      if (!ball.active || roundLockedRef.current || gameWinnerRef.current) {
+      if (!ball.active) {
+        return;
+      }
+      if (roundLockedRef.current) {
+        updateDeadBall(deltaSeconds, now);
+        return;
+      }
+      if (gameWinnerRef.current) {
         return;
       }
 
@@ -1953,17 +2053,38 @@ export default function PingPong(props: PingPongProps) {
       if (ball.servePhase === "toss" && ball.vy < 0 && ball.y <= 0.57) {
         const server = rallyRef.current.server;
         ball.servePhase = "flight";
-        ball.vz = server === "local" ? -4.55 : 4.45;
-        ball.vx = isDoubles
-          ? server === "local"
-            ? -1.15
-            : 1.15
-          : server === "local"
-          ? 0.3
-          : opponentServeAimRef.current;
-        ball.vy = -1.15;
+        ball.vy = -1.6;
+        const aim =
+          server === "local" ? ball.serveAimX : opponentServeAimRef.current;
+        if (server === "opponent") {
+          // Serving is an authored strike rather than a swept collision, so
+          // explicitly put the red racket's face center behind the descending
+          // ball at the instant of contact.
+          const opponentPaddle = paddlesRef.current.opponent;
+          opponentPaddle.x = ball.x;
+          opponentPaddle.y = ball.y;
+          opponentPaddle.vx = 0;
+          opponentPaddle.vy = 0;
+        }
         ball.spin =
-          server === "local" ? 0.2 : opponentServeAimRef.current * 0.72;
+          server === "local" ? ball.serveAimX * 0.32 : aim * 0.28;
+        const targetSecondBounceX = isDoubles
+          ? server === "local"
+            ? -0.68
+            : 0.68
+          : clamp(aim * 1.02, -1.08, 1.08);
+        const targetSecondBounceZ = server === "local" ? -1.78 : 1.78;
+        const serveVelocity = solveServeLandingVelocity(
+          ball,
+          targetSecondBounceX,
+          targetSecondBounceZ,
+          TABLE_HEIGHT,
+          BALL_RADIUS,
+          GRAVITY,
+          TABLE_RESTITUTION
+        );
+        ball.vx = serveVelocity?.vx ?? aim * 0.72;
+        ball.vz = serveVelocity?.vz ?? (server === "local" ? -3.85 : 3.85);
         setStatus(server === "local" ? "Your serve" : "Opponent serves");
       }
 
@@ -1979,6 +2100,39 @@ export default function PingPong(props: PingPongProps) {
       ball.x += ball.vx * deltaSeconds;
       ball.y += ball.vy * deltaSeconds;
       ball.z += ball.vz * deltaSeconds;
+
+      const finiteBallState = [
+        ball.x,
+        ball.y,
+        ball.z,
+        ball.vx,
+        ball.vy,
+        ball.vz,
+        ball.spin,
+      ].every(Number.isFinite);
+      if (!finiteBallState) {
+        scorePoint(
+          oppositeSide(rallyRef.current.lastHitBy),
+          "Invalid ball state — rally recovered"
+        );
+        return;
+      }
+
+      const currentBallSpeed = Math.hypot(ball.vx, ball.vy, ball.vz);
+      // The waiting-serve branch returned above, so any stationary ball here
+      // is an unintended physics stall.
+      if (currentBallSpeed < 0.08) {
+        stalledBallSinceRef.current ||= now;
+        if (now - stalledBallSinceRef.current > 650) {
+          scorePoint(
+            oppositeSide(rallyRef.current.lastHitBy),
+            "Stalled ball — rally recovered"
+          );
+          return;
+        }
+      } else {
+        stalledBallSinceRef.current = 0;
+      }
 
       const netImpact = ball.netStopped
         ? null
@@ -2078,95 +2232,72 @@ export default function PingPong(props: PingPongProps) {
       if (overTable && ball.y - BALL_RADIUS <= TABLE_HEIGHT && ball.vy < 0) {
         ball.y = TABLE_HEIGHT + BALL_RADIUS;
         if (ball.netStopped) {
-          ball.vx = 0;
-          ball.vy = 0;
+          // Preserve a small natural table rebound after the fault is called.
+          ball.vx *= 0.4;
+          ball.vy = Math.max(Math.abs(ball.vy) * 0.45, 0.34);
           ball.vz = 0;
+          ball.netStopped = false;
           scorePoint(
             oppositeSide(rallyRef.current.lastHitBy),
             "Net fault — ball stopped"
           );
           return;
         }
-        ball.vy = Math.abs(ball.vy) * 0.82;
+        ball.vy = Math.abs(ball.vy) * TABLE_RESTITUTION;
         ball.vx *= 0.992;
         ball.vz *= 0.994;
         ball.spin *= 0.86;
 
         const bounceSide: Side = ball.z >= NET_Z ? "local" : "opponent";
-        const rally = rallyRef.current;
-        rally.tableBouncesSinceHit += 1;
-        if (rally.lastBounceSide === bounceSide) {
-          rally.consecutiveBounces += 1;
-        } else {
-          rally.lastBounceSide = bounceSide;
-          rally.consecutiveBounces = 1;
-        }
+        const previousRally = rallyRef.current;
+        const bounceResult = resolveTableBounce(previousRally, bounceSide, {
+          isDoubles,
+          ballX: ball.x,
+        });
+        rallyRef.current = bounceResult.rally;
 
-        if (rally.consecutiveBounces >= 2) {
-          scorePoint(
-            oppositeSide(bounceSide),
-            bounceSide === "local"
-              ? "Double bounce — opponent scores"
-              : "Double bounce — you score"
-          );
+        if (bounceResult.kind === "POINT") {
+          const reason =
+            bounceResult.reason === "DOUBLE_BOUNCE"
+              ? bounceSide === "local"
+                ? "Double bounce — opponent scores"
+                : "Double bounce — you score"
+              : bounceResult.reason === "BAD_DOUBLES_COURT"
+              ? "Doubles serve missed the right court"
+              : bounceResult.reason === "WRONG_SIDE"
+              ? "Shot bounced on the hitter's side"
+              : "Illegal serve — wrong table bounce";
+          scorePoint(bounceResult.winner, reason);
           return;
         }
 
-        if (rally.isServe) {
-          if (rally.requiredBounceSide !== bounceSide) {
-            scorePoint(
-              oppositeSide(rally.server),
-              "Illegal serve — wrong first bounce"
-            );
-            return;
+        if (bounceResult.kind === "LET") {
+          roundLockedRef.current = true;
+          ball.deadAt = now;
+          setStatus("Let serve — replay");
+          if (serveTimerRef.current !== null) {
+            window.clearTimeout(serveTimerRef.current);
           }
+          const server = bounceResult.rally.server;
+          serveTimerRef.current = window.setTimeout(() => {
+            resetRound(server);
+          }, 1350);
+          return;
+        }
 
-          if (isDoubles) {
-            // Right court to right court; the center line counts as in.
-            const onRightCourt =
-              bounceSide === "local" ? ball.x >= 0 : ball.x <= 0;
-            if (!onRightCourt) {
-              scorePoint(
-                oppositeSide(rally.server),
-                "Doubles serve missed the right court"
-              );
-              return;
-            }
-          }
-
-          rally.serveBounceCount += 1;
-          if (rally.serveBounceCount === 1) {
-            rally.requiredBounceSide = oppositeSide(rally.server);
-            rally.validBounce = false;
-            setStatus("Serve bounced on server side");
-          } else {
-            if (rally.serveTouchedNet) {
-              roundLockedRef.current = true;
-              ball.active = false;
-              setStatus("Let serve — replay");
-              if (serveTimerRef.current !== null) {
-                window.clearTimeout(serveTimerRef.current);
-              }
-              const server = rally.server;
-              serveTimerRef.current = window.setTimeout(() => {
-                resetRound(server);
-              }, 700);
-              return;
-            }
-
-            rally.isServe = false;
-            rally.requiredBounceSide = null;
-            rally.validBounce = true;
-            ball.servePhase = null;
-            setStatus(
-              bounceSide === "local"
-                ? "Valid serve — return it!"
-                : "Valid serve"
-            );
-          }
-        } else if (rally.requiredBounceSide === bounceSide) {
-          rally.validBounce = true;
-          rally.requiredBounceSide = null;
+        if (bounceResult.rally.phase === "SERVE_RECEIVER_BOUNCE") {
+          setStatus("Serve bounced on server side");
+        } else if (
+          previousRally.isServe &&
+          bounceResult.rally.phase === "RALLY_RETURN"
+        ) {
+          ball.servePhase = null;
+          setStatus(
+            bounceSide === "local"
+              ? "Valid serve — return it!"
+              : "Valid serve"
+          );
+        } else if (bounceResult.rally.phase === "RALLY_RETURN") {
           setStatus(
             bounceSide === "local" ? "Your bounce — return it!" : "Valid shot"
           );
@@ -2176,7 +2307,7 @@ export default function PingPong(props: PingPongProps) {
       // Resolve the table first. If a ball reaches the tabletop and racket in
       // the same physics step, the bounce must make the return legal before
       // paddle contact is evaluated.
-      tryPaddleCollision(
+      const localHit = tryPaddleCollision(
         "local",
         previousPosition,
         ball,
@@ -2185,7 +2316,9 @@ export default function PingPong(props: PingPongProps) {
         now,
         localAssistActive
       );
-      tryPaddleCollision(
+      if (localHit || roundLockedRef.current) return;
+
+      const opponentHit = tryPaddleCollision(
         "opponent",
         previousPosition,
         ball,
@@ -2197,6 +2330,7 @@ export default function PingPong(props: PingPongProps) {
             now < assistWindowsRef.current.opponent!.expiresAt
         )
       );
+      if (opponentHit || roundLockedRef.current) return;
 
       const outsidePlayVolume =
         Math.abs(ball.x) > TABLE_HALF_WIDTH + 1.0 ||

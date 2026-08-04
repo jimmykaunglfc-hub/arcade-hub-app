@@ -55,6 +55,221 @@ export interface PredictedTrajectoryPoint extends PhysicsVector3 {
   time: number;
 }
 
+export interface LandingVelocitySolution {
+  vx: number;
+  vz: number;
+  time: number;
+}
+
+export type PhysicsSide = "local" | "opponent";
+
+/**
+ * An explicit rally phase prevents the renderer and the rules engine from
+ * disagreeing about whether the next legal event is a bounce or a return.
+ */
+export type RallyPhase =
+  | "SERVE_SERVER_BOUNCE"
+  | "SERVE_RECEIVER_BOUNCE"
+  | "RALLY_RECEIVER_BOUNCE"
+  | "RALLY_RETURN";
+
+export interface PhysicsRallyState {
+  lastHitBy: PhysicsSide;
+  requiredBounceSide: PhysicsSide | null;
+  validBounce: boolean;
+  tableBouncesSinceHit: number;
+  lastBounceSide: PhysicsSide | null;
+  consecutiveBounces: number;
+  isServe: boolean;
+  server: PhysicsSide;
+  serveBounceCount: number;
+  serveTouchedNet: boolean;
+  phase: RallyPhase;
+}
+
+export type TableBounceResolution =
+  | { kind: "CONTINUE"; rally: PhysicsRallyState }
+  | { kind: "LET"; rally: PhysicsRallyState }
+  | {
+      kind: "POINT";
+      rally: PhysicsRallyState;
+      winner: PhysicsSide;
+      reason:
+        | "DOUBLE_BOUNCE"
+        | "BAD_SERVICE"
+        | "WRONG_SIDE"
+        | "BAD_DOUBLES_COURT";
+    };
+
+const oppositePhysicsSide = (side: PhysicsSide): PhysicsSide =>
+  side === "local" ? "opponent" : "local";
+
+export function createPhysicsRally(
+  server: PhysicsSide
+): PhysicsRallyState {
+  return {
+    lastHitBy: server,
+    requiredBounceSide: server,
+    validBounce: false,
+    tableBouncesSinceHit: 0,
+    lastBounceSide: null,
+    consecutiveBounces: 0,
+    isServe: true,
+    server,
+    serveBounceCount: 0,
+    serveTouchedNet: false,
+    phase: "SERVE_SERVER_BOUNCE",
+  };
+}
+
+/**
+ * Records a legal racket return. A return is legal only after exactly one
+ * bounce on the receiver's side; hitting sooner is a volley fault.
+ */
+export function registerPaddleReturn(
+  rally: PhysicsRallyState,
+  hitter: PhysicsSide
+): PhysicsRallyState | null {
+  if (
+    rally.phase !== "RALLY_RETURN" ||
+    !rally.validBounce ||
+    rally.lastHitBy === hitter
+  ) {
+    return null;
+  }
+
+  return {
+    lastHitBy: hitter,
+    requiredBounceSide: oppositePhysicsSide(hitter),
+    validBounce: false,
+    tableBouncesSinceHit: 0,
+    lastBounceSide: null,
+    consecutiveBounces: 0,
+    isServe: false,
+    server: rally.server,
+    serveBounceCount: 0,
+    serveTouchedNet: false,
+    phase: "RALLY_RECEIVER_BOUNCE",
+  };
+}
+
+/**
+ * Applies the observable ITTF/PongFit bounce rules as one atomic transition.
+ * This is intentionally pure so a fast physics substep cannot partially
+ * mutate rally state and leave the ball active but impossible to return.
+ */
+export function resolveTableBounce(
+  current: PhysicsRallyState,
+  bounceSide: PhysicsSide,
+  options: { isDoubles: boolean; ballX: number }
+): TableBounceResolution {
+  const rally: PhysicsRallyState = {
+    ...current,
+    tableBouncesSinceHit: current.tableBouncesSinceHit + 1,
+    lastBounceSide: bounceSide,
+    consecutiveBounces:
+      current.lastBounceSide === bounceSide
+        ? current.consecutiveBounces + 1
+        : 1,
+  };
+
+  if (rally.consecutiveBounces >= 2) {
+    return {
+      kind: "POINT",
+      rally,
+      winner: oppositePhysicsSide(bounceSide),
+      reason: "DOUBLE_BOUNCE",
+    };
+  }
+
+  if (rally.phase === "SERVE_SERVER_BOUNCE") {
+    if (bounceSide !== rally.server) {
+      return {
+        kind: "POINT",
+        rally,
+        winner: oppositePhysicsSide(rally.server),
+        reason: "BAD_SERVICE",
+      };
+    }
+    if (
+      options.isDoubles &&
+      (bounceSide === "local" ? options.ballX < 0 : options.ballX > 0)
+    ) {
+      return {
+        kind: "POINT",
+        rally,
+        winner: oppositePhysicsSide(rally.server),
+        reason: "BAD_DOUBLES_COURT",
+      };
+    }
+    return {
+      kind: "CONTINUE",
+      rally: {
+        ...rally,
+        requiredBounceSide: oppositePhysicsSide(rally.server),
+        serveBounceCount: 1,
+        phase: "SERVE_RECEIVER_BOUNCE",
+      },
+    };
+  }
+
+  if (rally.phase === "SERVE_RECEIVER_BOUNCE") {
+    if (bounceSide !== oppositePhysicsSide(rally.server)) {
+      return {
+        kind: "POINT",
+        rally,
+        winner: oppositePhysicsSide(rally.server),
+        reason: "BAD_SERVICE",
+      };
+    }
+    if (
+      options.isDoubles &&
+      (bounceSide === "local" ? options.ballX < 0 : options.ballX > 0)
+    ) {
+      return {
+        kind: "POINT",
+        rally,
+        winner: oppositePhysicsSide(rally.server),
+        reason: "BAD_DOUBLES_COURT",
+      };
+    }
+
+    const completedServe: PhysicsRallyState = {
+      ...rally,
+      isServe: false,
+      requiredBounceSide: null,
+      validBounce: true,
+      serveBounceCount: 2,
+      phase: "RALLY_RETURN",
+    };
+    return rally.serveTouchedNet
+      ? { kind: "LET", rally: completedServe }
+      : { kind: "CONTINUE", rally: completedServe };
+  }
+
+  if (
+    rally.phase !== "RALLY_RECEIVER_BOUNCE" ||
+    bounceSide !== oppositePhysicsSide(rally.lastHitBy)
+  ) {
+    return {
+      kind: "POINT",
+      rally,
+      winner: oppositePhysicsSide(rally.lastHitBy),
+      reason: "WRONG_SIDE",
+    };
+  }
+
+  return {
+    kind: "CONTINUE",
+    rally: {
+      ...rally,
+      requiredBounceSide: null,
+      validBounce: true,
+      phase: "RALLY_RETURN",
+    },
+  };
+}
+
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
@@ -161,6 +376,71 @@ export function predictTableLanding(
     y: tableHeight + ballRadius,
     z: ball.z + ball.vz * time,
     time,
+  };
+}
+
+/**
+ * Solves horizontal velocity from a desired tabletop landing point. Raw swipe
+ * speed must not be used as world velocity: on a phone that routinely sends a
+ * valid-looking shot several table widths out of bounds.
+ */
+export function solveRallyLandingVelocity(
+  ball: BallisticState,
+  targetX: number,
+  targetZ: number,
+  tableHeight: number,
+  ballRadius: number,
+  gravity: number
+): LandingVelocitySolution | null {
+  const landing = predictTableLanding(
+    ball,
+    tableHeight,
+    ballRadius,
+    gravity
+  );
+  if (!landing || landing.time <= 0.001) return null;
+
+  const curveOffset = 0.5 * ball.spin * 0.18 * landing.time * landing.time;
+  return {
+    vx: (targetX - ball.x - curveOffset) / landing.time,
+    vz: (targetZ - ball.z) / landing.time,
+    time: landing.time,
+  };
+}
+
+/**
+ * Solves a legal serve through its server-side and receiver-side bounces.
+ * Horizontal speed is chosen so the second bounce stays in front of the
+ * receiver's paddle instead of landing behind it.
+ */
+export function solveServeLandingVelocity(
+  ball: BallisticState,
+  targetSecondBounceX: number,
+  targetSecondBounceZ: number,
+  tableHeight: number,
+  ballRadius: number,
+  gravity: number,
+  tableRestitution: number
+): LandingVelocitySolution | null {
+  const firstBounce = predictTableLanding(
+    ball,
+    tableHeight,
+    ballRadius,
+    gravity
+  );
+  if (!firstBounce || firstBounce.time <= 0.001 || gravity >= 0) return null;
+
+  const impactVelocityY = ball.vy + gravity * firstBounce.time;
+  const reboundVelocityY = Math.abs(impactVelocityY) * tableRestitution;
+  const secondBounceFlightTime = (2 * reboundVelocityY) / Math.abs(gravity);
+  const totalTime = firstBounce.time + secondBounceFlightTime;
+  if (!Number.isFinite(totalTime) || totalTime <= 0.001) return null;
+
+  const curveOffset = 0.5 * ball.spin * 0.18 * totalTime * totalTime;
+  return {
+    vx: (targetSecondBounceX - ball.x - curveOffset) / totalTime,
+    vz: (targetSecondBounceZ - ball.z) / totalTime,
+    time: totalTime,
   };
 }
 
