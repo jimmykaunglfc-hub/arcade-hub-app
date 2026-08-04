@@ -71,16 +71,10 @@ grant execute on function public.set_matchmaking_seat_ready(uuid, boolean) to au
 
 create or replace function public.fill_expired_four_player_bots(p_room_id uuid)
 returns jsonb language plpgsql security definer set search_path=public as $$
-declare v_room public.matchmaking_rooms; v_humans integer; v_seat integer; v_bot_names text[] := array['Maya','Leo','Nina','Kai']; v_index integer:=1;
+declare v_room public.matchmaking_rooms; v_humans integer; v_seat integer; v_bot_names text[] := array['ShadowBlade_99','LunaTick','BlazeRunner','NovaStrike']; v_index integer:=1;
 begin
  select * into v_room from public.matchmaking_rooms where id=p_room_id for update;
  if v_room.id is null or v_room.max_players<>4 or v_room.expires_at>now() or v_room.status<>'waiting' then return jsonb_build_object('filled',false); end if;
- -- Monopoly's money, movement, and turn ownership are server-backed. Do not
- -- create anonymous bot seats until their server turn executor exists: a
- -- client-only bot would otherwise create an unowned active-player turn.
- if v_room.game_key='monopoly' then
-   return jsonb_build_object('filled',false,'reason','Monopoly requires four human players');
- end if;
  select count(*) filter(where not is_bot) into v_humans from public.matchmaking_room_players where room_id=p_room_id and left_at is null;
  if v_humans<2 then return jsonb_build_object('filled',false,'reason','waiting for at least two players'); end if;
  for v_seat in 1..4 loop
@@ -165,6 +159,20 @@ begin
 end; $$;
 grant execute on function public.settle_monopoly_room(uuid, uuid) to authenticated;
 
+-- Define the canonical board table before lifecycle functions reference it.
+-- The later `create table if not exists` keeps this migration compatible with
+-- projects where an earlier draft already created the table.
+create table if not exists public.monopoly_match_state (
+  room_id uuid primary key references public.matchmaking_rooms(id) on delete cascade,
+  state jsonb not null,
+  active_player_id uuid references auth.users(id),
+  turn_deadline timestamptz not null default now() + interval '60 seconds',
+  version integer not null default 1,
+  status text not null default 'playing' check (status in ('playing','completed','abandoned')),
+  updated_at timestamptz not null default now()
+);
+alter table public.monopoly_match_state drop constraint if exists monopoly_match_state_active_player_id_fkey;
+
 create or replace function public.leave_monopoly_room(p_room_id uuid)
 returns jsonb language plpgsql security definer set search_path=public as $$
 declare v_state jsonb; v_active uuid; v_next uuid; v_remaining integer; v_winner uuid;
@@ -241,6 +249,7 @@ create table if not exists public.monopoly_turn_rolls (
   created_at timestamptz not null default now(),
   primary key(room_id,state_version)
 );
+alter table public.monopoly_turn_rolls drop constraint if exists monopoly_turn_rolls_player_id_fkey;
 alter table public.monopoly_turn_rolls enable row level security;
 drop policy if exists "monopoly room members can read dice" on public.monopoly_turn_rolls;
 create policy "monopoly room members can read dice" on public.monopoly_turn_rolls for select to authenticated using (
@@ -264,40 +273,51 @@ create policy "monopoly room members can read events" on public.monopoly_match_e
 
 create or replace function public.roll_monopoly_dice(p_room_id uuid, p_expected_version integer)
 returns jsonb language plpgsql security definer set search_path=public as $$
-declare v_version integer; v_active uuid; v_roll public.monopoly_turn_rolls;
+declare v_version integer; v_active uuid; v_host uuid; v_roll public.monopoly_turn_rolls;
 begin
  select version,active_player_id into v_version,v_active from public.monopoly_match_state where room_id=p_room_id and status='playing' for update;
+ select host_id into v_host from public.matchmaking_rooms where id=p_room_id;
  if v_version is null then raise exception 'Monopoly board is not initialized'; end if;
- if v_active is distinct from auth.uid() then raise exception 'It is not your Monopoly turn'; end if;
+ if v_active is distinct from auth.uid() and not (v_host=auth.uid() and v_active::text like '00000000-0000-4000-8000-%') then raise exception 'It is not your Monopoly turn'; end if;
  if v_version<>p_expected_version then raise exception 'The board changed; please wait for sync'; end if;
  select * into v_roll from public.monopoly_turn_rolls where room_id=p_room_id and state_version=v_version;
  if v_roll.room_id is null then
    insert into public.monopoly_turn_rolls(room_id,state_version,player_id,die_one,die_two)
-   values(p_room_id,v_version,auth.uid(),floor(random()*6)::smallint+1,floor(random()*6)::smallint+1)
+   values(p_room_id,v_version,v_active,floor(random()*6)::smallint+1,floor(random()*6)::smallint+1)
    returning * into v_roll;
  end if;
- if v_roll.player_id is distinct from auth.uid() then raise exception 'A roll already exists for this turn'; end if;
+ if v_roll.player_id is distinct from v_active then raise exception 'A roll already exists for this turn'; end if;
  return jsonb_build_object('die_one',v_roll.die_one,'die_two',v_roll.die_two,'version',v_version);
 end; $$;
 grant execute on function public.roll_monopoly_dice(uuid,integer) to authenticated;
 
-create or replace function public.update_monopoly_match_state(p_room_id uuid, p_state jsonb, p_expected_version integer, p_next_active_player_id uuid, p_completed boolean default false)
+drop function if exists public.update_monopoly_match_state(uuid,jsonb,integer,uuid,boolean);
+create or replace function public.update_monopoly_match_state(p_room_id uuid, p_state jsonb, p_expected_version integer, p_next_active_player_id uuid, p_completed boolean default false, p_action text default 'state_sync')
 returns jsonb language plpgsql security definer set search_path=public as $$
-declare v_version integer; v_active uuid; v_roll jsonb; v_deadline timestamptz;
+declare v_version integer; v_active uuid; v_host uuid; v_roll jsonb; v_deadline timestamptz; v_previous jsonb; v_previous_roster jsonb; v_next_roster jsonb;
 begin
- select version,active_player_id into v_version,v_active from public.monopoly_match_state where room_id=p_room_id and status='playing' for update;
+ select version,active_player_id,state into v_version,v_active,v_previous from public.monopoly_match_state where room_id=p_room_id and status='playing' for update;
+ select host_id into v_host from public.matchmaking_rooms where id=p_room_id;
  if v_version is null then raise exception 'Monopoly board is not initialized'; end if;
- if v_active is distinct from auth.uid() then raise exception 'It is not your Monopoly turn'; end if;
+ if p_action not in ('state_sync','roll','purchase','skip_purchase','resolve_landing','build','sell_building','mortgage','redeem','propose_trade','confirm_trade','upgrade','open_auction','award_auction','timeout') then raise exception 'Unsupported Monopoly command'; end if;
+ if v_active is distinct from auth.uid() and not (v_host=auth.uid() and v_active::text like '00000000-0000-4000-8000-%') then raise exception 'It is not your Monopoly turn'; end if;
  if v_version<>p_expected_version then raise exception 'The board changed; please wait for sync'; end if;
+ if jsonb_typeof(p_state->'players')<>'array' or jsonb_array_length(p_state->'players')<>4 then raise exception 'A Monopoly board must contain exactly four players'; end if;
+ select jsonb_agg(player->>'id' order by position) into v_previous_roster from jsonb_array_elements(v_previous->'players') with ordinality x(player,position);
+ select jsonb_agg(player->>'id' order by position) into v_next_roster from jsonb_array_elements(p_state->'players') with ordinality x(player,position);
+ if v_previous_roster is distinct from v_next_roster then raise exception 'The Monopoly room roster cannot be changed during a match'; end if;
+ if (p_state->>'activePlayerId') is distinct from p_next_active_player_id::text then raise exception 'The submitted active player does not match the requested turn'; end if;
+ if not exists(select 1 from jsonb_array_elements(p_state->'players') p where p->>'id'=p_next_active_player_id::text and coalesce((p->>'bankrupt')::boolean,false)=false) and not p_completed then raise exception 'The next Monopoly player is not eligible'; end if;
+ if exists(select 1 from jsonb_array_elements(p_state->'players') p where coalesce((p->>'cash')::numeric,0)<0 or coalesce((p->>'position')::integer,-1) not between 0 and 39) then raise exception 'Invalid Monopoly player balance or board position'; end if;
  if coalesce((p_state->>'hasRolled')::boolean,false) then
-   select jsonb_build_array(die_one,die_two) into v_roll from public.monopoly_turn_rolls where room_id=p_room_id and player_id=auth.uid() and state_version<=v_version order by state_version desc limit 1;
+   select jsonb_build_array(die_one,die_two) into v_roll from public.monopoly_turn_rolls where room_id=p_room_id and player_id=v_active and state_version<=v_version order by state_version desc limit 1;
    if v_roll is null or p_state->'dice' is distinct from v_roll then raise exception 'Monopoly dice do not match the server-issued roll'; end if;
  end if;
  update public.monopoly_match_state set state=p_state,active_player_id=p_next_active_player_id,version=version+1,turn_deadline=now()+interval '60 seconds',status=case when p_completed then 'completed' else 'playing' end,updated_at=now() where room_id=p_room_id returning turn_deadline into v_deadline;
- insert into public.monopoly_match_events(room_id,state_version,actor_id,action,summary) values(p_room_id,v_version+1,auth.uid(),case when p_completed then 'match_completed' when coalesce((p_state->>'hasRolled')::boolean,false) then 'turn_action' else 'turn_transition' end,coalesce(p_state->'actionLog'->>'title','Monopoly state updated'));
+ insert into public.monopoly_match_events(room_id,state_version,actor_id,action,summary) values(p_room_id,v_version+1,auth.uid(),case when p_completed then 'match_completed' else p_action end,coalesce(p_state->'actionLog'->>'title','Monopoly state updated'));
  return jsonb_build_object('version',v_version+1,'turn_deadline',v_deadline);
 end; $$;
-grant execute on function public.update_monopoly_match_state(uuid,jsonb,integer,uuid,boolean) to authenticated;
+grant execute on function public.update_monopoly_match_state(uuid,jsonb,integer,uuid,boolean,text) to authenticated;
 
 create or replace function public.advance_monopoly_timeout(p_room_id uuid)
 returns jsonb language plpgsql security definer set search_path=public as $$

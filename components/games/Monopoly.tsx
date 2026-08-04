@@ -35,6 +35,10 @@ interface MonopolyProps {
   roomId?: string | null;
 }
 
+const MONOPOLY_BOT_ID_PREFIX = "00000000-0000-4000-8000-";
+const getMonopolyBotId = (seat: number) => `${MONOPOLY_BOT_ID_PREFIX}${String(seat).padStart(12, "0")}`;
+const isMonopolyBotId = (id: string | null | undefined) => Boolean(id?.startsWith(MONOPOLY_BOT_ID_PREFIX));
+
 type SpaceKind = "property" | "station" | "utility" | "chance" | "chest" | "tax" | "go" | "parking" | "jail" | "go-to-jail";
 type TokenKind = "car" | "trophy" | "robot" | "diamond";
 type TransportType = "airport" | "railway" | "bus-terminal" | "port";
@@ -806,9 +810,11 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   const [roomReady, setRoomReady] = useState(!roomId);
   const [serverVersion, setServerVersion] = useState<number | null>(null);
   const [serverTurnDeadline, setServerTurnDeadline] = useState<string | null>(null);
+  const [isRoomHost, setIsRoomHost] = useState(false);
   const activeServerPlayerRef = useRef<string | null>(null);
   const publishingRef = useRef(false);
   const lastPublishedStateRef = useRef<string | null>(null);
+  const pendingCommandRef = useRef("state_sync");
   const turnEpochRef = useRef(0);
   const goBonusToastTimerRef = useRef<number | undefined>(undefined);
   const alertResolutionRef = useRef(false);
@@ -821,6 +827,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
         supabase.from("monopoly_match_state").select("state,active_player_id,version,status,turn_deadline").eq("room_id", roomId).maybeSingle(),
         supabase.from("monopoly_match_escrow").select("match_currency").eq("room_id", roomId).eq("user_id", userId).maybeSingle(),
       ]);
+      setIsRoomHost(room?.host_id === userId);
       if (existing?.state) {
         setGameState(existing.state as GameState);
         lastPublishedStateRef.current = JSON.stringify(existing.state);
@@ -834,7 +841,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       const seeded = createGameState(4);
       seeded.players = seeded.players.map((player, index) => ({
         ...player,
-        id: room.players[index]?.user_id || player.id,
+        id: room.players[index]?.is_bot ? getMonopolyBotId(Number(room.players[index]?.seat || index + 1)) : room.players[index]?.user_id || player.id,
         username: room.players[index]?.name || player.username,
         cash: currencyValue,
       }));
@@ -870,7 +877,8 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
 
   useEffect(() => {
     const serialized = JSON.stringify(gameState);
-    if (!roomId || !userId || serverVersion === null || publishingRef.current || activeServerPlayerRef.current !== userId || lastPublishedStateRef.current === serialized) return;
+    const activeIsHostBot = isRoomHost && isMonopolyBotId(activeServerPlayerRef.current);
+    if (!roomId || !userId || serverVersion === null || publishingRef.current || (!activeIsHostBot && activeServerPlayerRef.current !== userId) || lastPublishedStateRef.current === serialized) return;
     publishingRef.current = true;
     void supabase.rpc("update_monopoly_match_state", {
       p_room_id: roomId,
@@ -878,6 +886,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       p_expected_version: serverVersion,
       p_next_active_player_id: gameState.activePlayerId,
       p_completed: Boolean(gameState.winnerId),
+      p_action: pendingCommandRef.current,
     }).then(({ data, error }) => {
       publishingRef.current = false;
       if (!error) {
@@ -885,13 +894,15 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
         setServerVersion(Number(data?.version || serverVersion + 1));
         setServerTurnDeadline(data?.turn_deadline ?? null);
         activeServerPlayerRef.current = gameState.activePlayerId;
+        pendingCommandRef.current = "state_sync";
       }
     });
-  }, [gameState, roomId, serverVersion, userId]);
+  }, [gameState, isRoomHost, roomId, serverVersion, userId]);
 
   const activePlayer = gameState.players.find((player) => player.id === gameState.activePlayerId) ?? gameState.players[0];
   const isMyTurn = !roomId || gameState.activePlayerId === userId;
   const winner = gameState.winnerId ? gameState.players.find((player) => player.id === gameState.winnerId) : null;
+  const markCommand = (command: string) => { pendingCommandRef.current = command; };
 
   const playersBySpace = useMemo(() => {
     const result = new Map<string, Player[]>();
@@ -1072,6 +1083,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       if (error || !data) return;
       dice = [Number(data.die_one), Number(data.die_two)];
     }
+    markCommand("roll");
     const dieTotal = dice[0] + dice[1];
     const rollingPlayer = activePlayer;
     const turnEpoch = turnEpochRef.current;
@@ -1090,6 +1102,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleBuy = () => {
+    markCommand("purchase");
     registerPlayerActivity();
     setGameState((current) => {
       const settled = commitPendingTransactions(current);
@@ -1105,6 +1118,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleSkip = () => {
+    markCommand("skip_purchase");
     registerPlayerActivity();
     setGameState((current) => {
       const settled = commitPendingTransactions(current);
@@ -1117,6 +1131,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   const handleDismissAlert = () => {
     if (alertResolutionRef.current) return;
     alertResolutionRef.current = true;
+    markCommand("resolve_landing");
     registerPlayerActivity();
     setGameState((current) => {
       const landedKind = current.alert?.spaceId ? getSpace(current.alert.spaceId).kind : null;
@@ -1148,6 +1163,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleBuildProperty = (spaceId: string) => {
+    markCommand("build");
     registerPlayerActivity();
     setGameState((current) => {
       const owner = current.players.find((player) => player.id === current.activePlayerId);
@@ -1162,6 +1178,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleSellBuilding = (spaceId: string, mode: "single" | "hotel" | "clear") => {
+    markCommand("sell_building");
     registerPlayerActivity();
     setGameState((current) => {
       const owner = current.players.find((player) => player.id === current.activePlayerId);
@@ -1181,6 +1198,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleMortgageProperty = (spaceId: string) => {
+    markCommand("mortgage");
     registerPlayerActivity();
     setGameState((current) => {
       const owner = current.players.find((player) => player.id === current.activePlayerId);
@@ -1193,6 +1211,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleRedeemMortgage = (spaceId: string) => {
+    markCommand("redeem");
     registerPlayerActivity();
     setGameState((current) => {
       const owner = current.players.find((player) => player.id === current.activePlayerId);
@@ -1215,6 +1234,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleProposeTrade = () => {
+    markCommand("propose_trade");
     registerPlayerActivity();
     setGameState((current) => {
       const panel = current.actionPanel;
@@ -1227,6 +1247,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleConfirmTrade = () => {
+    markCommand("confirm_trade");
     registerPlayerActivity();
     setGameState((current) => {
       const panel = current.actionPanel;
@@ -1259,6 +1280,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleUpgrade = () => {
+    markCommand("upgrade");
     registerPlayerActivity();
     setGameState((current) => {
       const settled = commitPendingTransactions(current);
@@ -1278,6 +1300,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleSell = () => {
+    markCommand("open_auction");
     registerPlayerActivity();
     setGameState((current) => {
       const settled = commitPendingTransactions(current);
@@ -1295,6 +1318,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleAwardAuction = () => {
+    markCommand("award_auction");
     registerPlayerActivity();
     setGameState((current) => {
       const auction = current.auction;
@@ -1327,6 +1351,19 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       return { ...current, alert: { kind: "inspect", title: `${space.label} · LEVEL ${level}`, message: `Owned by ${owner.username}. Current rent is ${currency.format(getPropertyRent(space, level, hasCompleteColorSet(owner, space)))}.`, spaceId } };
     });
   };
+
+  // The room host executes only deterministic bot turns. Bot seats carry
+  // stable server UUIDs, so their dice, board changes, timeout and audit trail
+  // travel through the exact same room/version path as human turns.
+  useEffect(() => {
+    if (!roomId || !isRoomHost || !isMonopolyBotId(activePlayer.id) || gameState.winnerId || isRolling || isMoving) return;
+    const timer = window.setTimeout(() => {
+      if (gameState.alert) handleDismissAlert();
+      else if (gameState.pendingPurchaseId) handleBuy();
+      else if (!gameState.hasRolled && !gameState.actionPanel) void handleRoll();
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [activePlayer.id, gameState, handleBuy, handleDismissAlert, handleRoll, isMoving, isRolling, isRoomHost, roomId]);
 
   useEffect(() => {
     if (roomId) return;
