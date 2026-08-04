@@ -136,7 +136,7 @@ begin
     if exists (select 1 from public.big_two_player_hands h, jsonb_array_elements(h.cards) c where h.room_id=p_room_id and h.seat=v_seat and (c->>'rank')::integer=0 and (c->>'suit')::integer=0) then v_starter := v_seat; end if;
   end loop;
   insert into public.big_two_match_state(room_id,state,current_seat,turn_deadline,status)
-  values(p_room_id, jsonb_build_object('hand_counts', jsonb_build_array(13,13,13,13), 'table_cards', '[]'::jsonb, 'passes', 0, 'last_play_seat', null), v_starter, now() + make_interval(secs => greatest(10, least(p_turn_seconds,90))), 'playing')
+  values(p_room_id, jsonb_build_object('hand_counts', jsonb_build_array(13,13,13,13), 'table_cards', '[]'::jsonb, 'passes', 0, 'opening_required', true, 'free_lead', false, 'one_card_called_seat', null, 'last_play_seat', null), v_starter, now() + make_interval(secs => greatest(10, least(p_turn_seconds,90))), 'playing')
   on conflict(room_id) do update set state=excluded.state,current_seat=excluded.current_seat,turn_deadline=excluded.turn_deadline,status='playing',updated_at=now();
   update public.matchmaking_rooms set status='playing' where id=p_room_id;
   return jsonb_build_object('room_id',p_room_id,'starter_seat',v_starter);
@@ -156,7 +156,9 @@ begin
   v_passes := coalesce((v_state->>'passes')::integer,0) + 1;
   if v_passes >= 3 then
     v_next := coalesce((v_state->>'last_play_seat')::integer, v_current);
-    v_state := jsonb_set(jsonb_set(jsonb_set(v_state,'{passes}','0'::jsonb),'{table_cards}','[]'::jsonb),'{last_play_seat}','null'::jsonb);
+    -- Preserve the final winning cards on the table for the players to see.
+    -- `free_lead` removes the requirement to beat them for the next trick.
+    v_state := jsonb_set(jsonb_set(v_state,'{passes}','0'::jsonb),'{free_lead}','true'::jsonb);
     update public.big_two_match_state set current_seat=v_next, turn_deadline=now()+interval '30 seconds', state=v_state,updated_at=now() where room_id=p_room_id;
     return jsonb_build_object('current_seat',v_next,'passes',0,'new_trick',true);
   end if;
@@ -165,6 +167,18 @@ begin
   return jsonb_build_object('current_seat',v_next,'passes',v_passes,'new_trick',false);
 end; $$;
 grant execute on function public.big_two_pass(uuid) to authenticated;
+
+create or replace function public.big_two_call_one(p_room_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_seat integer; v_cards jsonb;
+begin
+  select p.seat into v_seat from public.matchmaking_room_players p where p.room_id=p_room_id and p.user_id=auth.uid() and p.left_at is null;
+  select cards into v_cards from public.big_two_player_hands where room_id=p_room_id and seat=v_seat for update;
+  if v_seat is null or jsonb_array_length(coalesce(v_cards, '[]'::jsonb)) <> 1 then raise exception 'You can call 1 card only when one card remains'; end if;
+  update public.big_two_match_state set state=jsonb_set(state,'{one_card_called_seat}',to_jsonb(v_seat)), updated_at=now() where room_id=p_room_id and status='playing';
+  return jsonb_build_object('seat',v_seat,'called',true);
+end; $$;
+grant execute on function public.big_two_call_one(uuid) to authenticated;
 
 create or replace function public.big_two_play_cards(p_room_id uuid, p_cards jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -176,15 +190,18 @@ begin
   select state,current_seat into v_state,v_current from public.big_two_match_state where room_id=p_room_id and status='playing' for update;
   if v_seat is null or v_seat <> v_current then raise exception 'It is not your turn'; end if;
   v_table_count := jsonb_array_length(coalesce(v_state->'table_cards', '[]'::jsonb));
-  if v_table_count > 0 and v_table_count <> jsonb_array_length(p_cards) then raise exception 'Your play must match the table card count'; end if;
-  if v_table_count = 0 and exists (select 1 from public.big_two_player_hands h where h.room_id=p_room_id and h.seat=v_seat and h.cards @> '[{"id":"0-0"}]'::jsonb)
+  if v_table_count > 0 and not coalesce((v_state->>'free_lead')::boolean, false) and v_table_count <> jsonb_array_length(p_cards) then raise exception 'Your play must match the table card count'; end if;
+  if coalesce((v_state->>'opening_required')::boolean, false) and exists (select 1 from public.big_two_player_hands h where h.room_id=p_room_id and h.seat=v_seat and h.cards @> '[{"id":"0-0"}]'::jsonb)
      and not p_cards @> '[{"id":"0-0"}]'::jsonb then raise exception 'The opening play must include 3 of diamonds'; end if;
   select cards into v_hand from public.big_two_player_hands where room_id=p_room_id and seat=v_seat for update;
   if (select count(*) from jsonb_array_elements(p_cards) wanted where not exists (select 1 from jsonb_array_elements(v_hand) owned where owned->>'id'=wanted->>'id')) > 0 then raise exception 'Card is not in your hand'; end if;
   select coalesce(jsonb_agg(card),'[]'::jsonb) into v_remaining from jsonb_array_elements(v_hand) card where not exists (select 1 from jsonb_array_elements(p_cards) played where played->>'id'=card->>'id');
   v_count := jsonb_array_length(v_remaining); v_next := (v_current % 4) + 1;
   update public.big_two_player_hands set cards=v_remaining,updated_at=now() where room_id=p_room_id and seat=v_seat;
-  update public.big_two_match_state set state=jsonb_set(jsonb_set(jsonb_set(jsonb_set(v_state,'{table_cards}',p_cards),'{passes}','0'::jsonb),'{last_play_seat}',to_jsonb(v_seat)),array['hand_counts',(v_seat-1)::text],to_jsonb(v_count)), current_seat=v_next, turn_deadline=now()+interval '30 seconds', status=case when v_count=0 then 'completed' else 'playing' end,updated_at=now() where room_id=p_room_id;
+  if v_count = 0 and coalesce((v_state->>'one_card_called_seat')::integer, 0) <> v_seat then
+    v_state := jsonb_set(v_state, '{winner_seat}', to_jsonb((v_seat % 4) + 1));
+  end if;
+  update public.big_two_match_state set state=jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(v_state,'{one_card_called_seat}','null'::jsonb),'{table_cards}',p_cards),'{passes}','0'::jsonb),'{opening_required}','false'::jsonb),'{free_lead}','false'::jsonb),'{last_play_seat}',to_jsonb(v_seat)),array['hand_counts',(v_seat-1)::text],to_jsonb(v_count)), current_seat=v_next, turn_deadline=now()+interval '30 seconds', status=case when v_count=0 then 'completed' else 'playing' end,updated_at=now() where room_id=p_room_id;
   return jsonb_build_object('current_seat',v_next,'hand_count',v_count,'completed',v_count=0);
 end; $$;
 grant execute on function public.big_two_play_cards(uuid, jsonb) to authenticated;

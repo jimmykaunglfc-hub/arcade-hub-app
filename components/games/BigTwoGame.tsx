@@ -111,9 +111,21 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
  const [selected,setSelected]=useState<string[]>([]);
  const [passes,setPasses]=useState(0);
  const [opening,setOpening]=useState(true);
+ const [freeLead, setFreeLead] = useState(false);
+ const [oneCardCalled, setOneCardCalled] = useState(false);
+ const [turnDeadline, setTurnDeadline] = useState<string | null>(null);
+ const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
  const [winner,setWinner]=useState<number|null>(null);
  const [message,setMessage]=useState(initialGame.starter===0?"You have 3♦. Lead the first trick.":`${playerNames[initialGame.starter]} has 3♦ and starts.`);
  const [showRules,setShowRules]=useState(false);
+
+ useEffect(() => {
+   if (!turnDeadline) { setSecondsLeft(null); return; }
+   const update = () => setSecondsLeft(Math.max(0, Math.ceil((new Date(turnDeadline).getTime() - Date.now()) / 1000)));
+   update();
+   const timer = window.setInterval(update, 250);
+   return () => window.clearInterval(timer);
+ }, [turnDeadline]);
 
  useEffect(() => {
    if (!roomId) return;
@@ -121,7 +133,7 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
      const [{ data: auth }, { data: room }, { data: state }] = await Promise.all([
        supabase.auth.getUser(),
        supabase.rpc("get_matchmaking_room", { p_room_id: roomId }),
-       supabase.from("big_two_match_state").select("state,current_seat,status").eq("room_id", roomId).maybeSingle(),
+       supabase.from("big_two_match_state").select("state,current_seat,status,turn_deadline").eq("room_id", roomId).maybeSingle(),
      ]);
      const seat = (room?.players || []).find((player: any) => player.user_id === auth.user?.id)?.seat;
      if (!seat || !state || (state.status !== "playing" && state.status !== "completed")) return;
@@ -140,13 +152,18 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
      const displayLastPlayer = order.indexOf(lastSeat);
      setTurn(displayTurn >= 0 ? displayTurn : 0);
      setCurrentPlay(tableValue && displayLastPlayer >= 0 ? { cards: tableCards, value: tableValue, player: displayLastPlayer } : null);
+     setFreeLead(Boolean(state.state?.free_lead));
+     setOneCardCalled(Number(state.state?.one_card_called_seat || 0) === seat);
      setPasses(Number(state.state?.passes || 0));
-     setOpening(tableCards.length === 0);
-     if (state.status === "completed") setWinner(displayLastPlayer >= 0 ? displayLastPlayer : null);
+     setOpening(Boolean(state.state?.opening_required));
+     setTurnDeadline(state.turn_deadline || null);
+     const winnerSeat = Number(state.state?.winner_seat || lastSeat);
+     const displayWinner = order.indexOf(winnerSeat);
+     if (state.status === "completed") setWinner(displayWinner >= 0 ? displayWinner : null);
      else setWinner(null);
      setMessage(tableCards.length && tableValue && displayLastPlayer >= 0
        ? `${order.map((number) => bySeat.get(number)?.name || "Player")[displayLastPlayer]} played ${tableValue.label}.`
-       : displayTurn === 0 ? "Your turn. Lead the new trick." : `${order.map((number) => bySeat.get(number)?.name || "Player")[displayTurn] || "Player"}'s turn.`);
+       : displayTurn === 0 ? (state.state?.opening_required ? "Your opening play must include 3♦." : "Your turn. Lead the new trick.") : `${order.map((number) => bySeat.get(number)?.name || "Player")[displayTurn] || "Player"}'s turn.`);
      setRoomReady(true);
    };
    void loadRoom();
@@ -158,9 +175,9 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
  }, [roomId]);
 
  const startGame=useCallback(()=>{ if(roomId) return; const deck=shuffledDeck(); const next=[0,1,2,3].map(i=>sortCards(deck.slice(i*13,(i+1)*13))); const starter=next.findIndex(hand=>hand.some(card=>card.rank===0&&card.suit===0)); setHands(next);setTurn(starter);setCurrentPlay(null);setSelected([]);setPasses(0);setOpening(true);setWinner(null);setMessage(starter===0?"You have 3♦. Lead the first trick.":`${playerNames[starter]} has 3♦ and starts.`); },[playerNames,roomId]);
- const playCards=useCallback((player:number,cards:Card[],value:HandValue)=>{ const nextHands=hands.map(hand=>[...hand]); nextHands[player]=nextHands[player].filter(card=>!cards.some(played=>played.id===card.id)); setHands(nextHands);setSelected([]);setCurrentPlay({cards,value,player});setPasses(0);setOpening(false); if(nextHands[player].length===0){setWinner(player);setMessage(player===0?"You win!":`${playerNames[player]} wins!`);return;} setMessage(`${playerNames[player]} played ${value.label}.`);setTurn((player+1)%4); },[hands,playerNames]);
+ const playCards=useCallback((player:number,cards:Card[],value:HandValue)=>{ const nextHands=hands.map(hand=>[...hand]); nextHands[player]=nextHands[player].filter(card=>!cards.some(played=>played.id===card.id)); setHands(nextHands);setSelected([]);setCurrentPlay({cards,value,player});setPasses(0);setOpening(false);setFreeLead(false);setOneCardCalled(false); if(nextHands[player].length===0){setWinner(player);setMessage(player===0?"You win!":`${playerNames[player]} wins!`);return;} setMessage(`${playerNames[player]} played ${value.label}.`);setTurn((player+1)%4); },[hands,playerNames]);
 
- const passTurn=useCallback((player:number)=>{ if(!currentPlay)return; const nextPasses=passes+1; if(nextPasses>=3){setPasses(0);setCurrentPlay(null);setTurn(currentPlay.player);setMessage(`${playerNames[currentPlay.player]} controls the new trick.`);}else{setPasses(nextPasses);setTurn((player+1)%4);setMessage(`${playerNames[player]} passed.`);} },[currentPlay,passes,playerNames]);
+ const passTurn=useCallback((player:number)=>{ if(!currentPlay)return; const nextPasses=passes+1; if(nextPasses>=3){setPasses(0);setFreeLead(true);setTurn(currentPlay.player);setMessage(`${playerNames[currentPlay.player]} controls the new trick.`);}else{setPasses(nextPasses);setTurn((player+1)%4);setMessage(`${playerNames[player]} passed.`);} },[currentPlay,passes,playerNames]);
 
  // Room-backed matches must never run local AI. A remote move is applied only
  // after it is accepted by the shared match state; otherwise clients diverge.
@@ -168,7 +185,7 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
 
  const selectedCards=useMemo(()=>hands[0].filter(card=>selected.includes(card.id)),[hands,selected]);
  const selectedValue=useMemo(()=>evaluate(selectedCards),[selectedCards]);
- const canPlay=turn===0&&!!selectedValue&&beats(selectedValue,currentPlay?.value??null)&&(!opening||selectedCards.some(card=>card.rank===0&&card.suit===0));
+ const canPlay=turn===0&&!!selectedValue&&beats(selectedValue,freeLead?null:currentPlay?.value??null)&&(!opening||selectedCards.some(card=>card.rank===0&&card.suit===0));
  const handlePlay=()=>{if(!canPlay||!selectedValue){setMessage(opening?"Your opening play must be valid and include 3♦.":"Select a valid hand that beats the table.");return;} if(roomId){void supabase.rpc("big_two_play_cards", { p_room_id: roomId, p_cards: selectedCards }).then(({ error }) => { if(error) setMessage(error.message); else setSelected([]); });return;} playCards(0,selectedCards,selectedValue);};
 
  if (roomId && !roomReady) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] p-6 text-center text-white"><p className="font-bold">Waiting for the shared Big Two deal…</p></div>;
@@ -193,15 +210,17 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
          <div className="flex flex-col -space-y-9">{hands[3].map(card=><CardBack key={card.id} className="rotate-90"/>)}</div>
        </div>
 
+       {secondsLeft !== null && <div className={`absolute left-1/2 top-[22%] z-20 -translate-x-1/2 rounded-full border px-4 py-1 text-sm font-black ${turn===0 ? "border-amber-200 bg-amber-300 text-emerald-950" : "border-white/20 bg-slate-950/70 text-amber-200"}`}>⏱ {secondsLeft}s</div>}
        <section className="absolute left-24 right-24 top-[29%] flex min-h-40 flex-col items-center justify-center rounded-[1.75rem] border border-emerald-200/15 bg-emerald-950/25 p-2">
-         <p className="mb-2 text-center text-[10px] font-black uppercase tracking-widest text-amber-200">{currentPlay?`${playerNames[currentPlay.player]} · ${currentPlay.value.label}`:"New trick — any valid combination"}</p>
+         <p className="mb-2 text-center text-[10px] font-black uppercase tracking-widest text-amber-200">{currentPlay ? `${playerNames[currentPlay.player]} · ${currentPlay.value.label}${freeLead ? " · Free lead" : ""}` : "New trick — any valid combination"}</p>
          <div className="flex justify-center -space-x-4">{currentPlay?.cards.map(card=><PlayingCard key={card.id} card={card} small />)??<span className="text-5xl text-white/15">♠</span>}</div>
        </section>
 
        <div className="absolute bottom-[214px] left-16 right-16 rounded-full border border-white/10 bg-slate-950/55 px-3 py-2 text-center text-[10px] font-bold text-slate-100 shadow-lg">{message}</div>
 
-       <button onClick={()=>{if(roomId){void supabase.rpc("big_two_pass",{p_room_id:roomId}).then(({error})=>{if(error)setMessage(error.message);});}else passTurn(0);}} disabled={turn!==0||!currentPlay||winner!==null} className="absolute bottom-[148px] left-4 z-30 flex h-14 w-14 items-center justify-center rounded-full border-2 border-amber-200 bg-gradient-to-b from-amber-300 to-amber-500 text-xs font-black text-amber-950 shadow-[0_6px_0_#9a5c00] active:translate-y-1 disabled:opacity-30">PASS</button>
+       <button onClick={()=>{if(roomId){void supabase.rpc("big_two_pass",{p_room_id:roomId}).then(({error})=>{if(error)setMessage(error.message);});}else passTurn(0);}} disabled={turn!==0||!currentPlay||freeLead||winner!==null} className="absolute bottom-[148px] left-4 z-30 flex h-14 w-14 items-center justify-center rounded-full border-2 border-amber-200 bg-gradient-to-b from-amber-300 to-amber-500 text-xs font-black text-amber-950 shadow-[0_6px_0_#9a5c00] active:translate-y-1 disabled:opacity-30">PASS</button>
        <button onClick={handlePlay} disabled={turn!==0||winner!==null} className={`absolute bottom-[148px] right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full border-2 text-xs font-black shadow-[0_6px_0_#14532d] active:translate-y-1 disabled:opacity-35 ${canPlay?"border-lime-200 bg-[#ccff00] text-slate-950":"border-slate-400 bg-slate-600 text-slate-200"}`}>PLAY</button>
+       {hands[0].length === 1 && !oneCardCalled && winner===null && <button onClick={()=>{if(roomId){void supabase.rpc("big_two_call_one",{p_room_id:roomId}).then(({error})=>{if(error)setMessage(error.message);});}else setOneCardCalled(true);}} className="absolute bottom-[148px] left-1/2 z-30 -translate-x-1/2 rounded-full border border-red-200 bg-red-600 px-3 py-2 text-[10px] font-black text-white shadow-lg">CALL 1 CARD</button>}
 
        <div className={`absolute bottom-0 left-0 right-0 z-20 ${turn===0?"drop-shadow-[0_0_8px_rgba(253,224,71,.5)]":""}`}>
          <div className="flex items-center justify-between px-4"><span className={`text-[10px] font-black uppercase ${turn===0?"text-amber-300":"text-cyan-200"}`}>Your hand · {hands[0].length}</span><span className="text-[9px] text-emerald-100">{selectedValue?.label??"Tap cards to select"}</span></div>
