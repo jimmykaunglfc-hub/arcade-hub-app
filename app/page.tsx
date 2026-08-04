@@ -86,6 +86,15 @@ function BigTwoFourPlayerArena({ onClose }: { onClose: () => void }) {
   return <BigTwoGame onClose={onClose} onPlayAgain={() => setRoomId(null)} roomId={roomId} />;
 }
 
+function LudoFourPlayerArena({ onClose }: { onClose: () => void }) {
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
+  if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Ludo matchmaking.</div>;
+  if (!roomId) return <FourPlayerMatchLobby gameKey="ludo" gameName="Ludo" userId={userId} onStart={setRoomId} onCancel={onClose} />;
+  return <LudoGame onClose={onClose} onPlayAgain={() => setRoomId(null)} roomId={roomId} />;
+}
+
 export default function Home() {
   const { t } = useTranslation();
   const [session, setSession] = useState<any>(null);
@@ -420,7 +429,7 @@ export default function Home() {
       ) : playingGame === "native://sudoku" ? (
         <CompetitiveGameLaunch gameKey="sudoku" gameTitle="Sudoku" Game={SudokuArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://ludo" ? (
-        <CompetitiveGameLaunch gameKey="ludo" gameTitle="Ludo" Game={LudoArenaGame} onClose={() => setPlayingGame(null)} />
+        <LudoFourPlayerArena onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://dominoes" ? (
         <CompetitiveGameLaunch gameKey="dominoes" gameTitle="Dominoes" Game={DominoesArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://2048" ? (

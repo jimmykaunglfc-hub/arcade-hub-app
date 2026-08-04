@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
-interface LudoGameProps { onClose?: () => void; }
+interface LudoGameProps { onClose?: () => void; onPlayAgain?: () => void; roomId?: string | null; }
 type PlayerId = 0 | 1 | 2 | 3;
 type Point = [number, number];
 type TokenState = Record<PlayerId, number[]>;
@@ -120,7 +121,13 @@ function PawnIcon() {
  );
 }
 
-export default function LudoGame({ onClose }: LudoGameProps) {
+export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps) {
+ const [playerNames, setPlayerNames] = useState<string[]>(PLAYERS.map((player) => player.name));
+ const [roomReady, setRoomReady] = useState(!roomId);
+ const [turnDeadline, setTurnDeadline] = useState<string | null>(null);
+ const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+ const [isHost, setIsHost] = useState(false);
+ const [botIndexes, setBotIndexes] = useState<number[]>([]);
  const [tokens, setTokens] = useState<TokenState>(() => initialTokens());
  const [current, setCurrent] = useState<PlayerId>(0);
  const [dice, setDice] = useState<number | null>(null);
@@ -128,6 +135,65 @@ export default function LudoGame({ onClose }: LudoGameProps) {
  const [winner, setWinner] = useState<PlayerId | null>(null);
  const [message, setMessage] = useState("Your turn. Roll the dice!");
  const [showRules, setShowRules] = useState(false);
+
+ useEffect(() => {
+   if (!roomId) return;
+   void (async () => {
+     const [{ data: auth }, { data: room }] = await Promise.all([supabase.auth.getUser(), supabase.rpc("get_matchmaking_room", { p_room_id: roomId })]);
+     const seat = (room?.players || []).find((player: any) => player.user_id === auth.user?.id)?.seat;
+     if (!seat) return;
+     const roster = new Map<number, string>((room.players || []).map((player: any) => [player.seat, player.name]));
+     const order = [seat, seat % 4 + 1, (seat + 1) % 4 + 1, (seat + 2) % 4 + 1];
+     setIsHost(room?.host_id === auth.user?.id);
+     const bySeat = new Map<number, any>((room?.players || []).map((player: any) => [player.seat, player]));
+     setBotIndexes(order.flatMap((number, index) => bySeat.get(number)?.is_bot ? [index] : []));
+     setPlayerNames(order.map((number) => roster.get(number) || "Player"));
+   })();
+ }, [roomId]);
+
+ useEffect(() => {
+   if (!roomId || !isHost || !botIndexes.includes(current) || winner !== null || rolling) return;
+   const timer = window.setTimeout(() => {
+     if (dice === null) { void supabase.rpc("ludo_roll", { p_room_id: roomId }); return; }
+     const piece = movableTokens(tokens[current], dice)[0];
+     if (piece !== undefined) void supabase.rpc("ludo_move", { p_room_id: roomId, p_piece: piece });
+   }, 700);
+   return () => window.clearTimeout(timer);
+ }, [botIndexes, current, dice, isHost, rolling, roomId, tokens, winner]);
+
+ useEffect(() => {
+   if (!roomId) return;
+   const load = async () => {
+     const [{ data: auth }, { data: room }, { data: match }] = await Promise.all([
+       supabase.auth.getUser(), supabase.rpc("get_matchmaking_room", { p_room_id: roomId }),
+       supabase.from("ludo_match_state").select("state,current_seat,status,turn_deadline").eq("room_id", roomId).maybeSingle(),
+     ]);
+     const seat = (room?.players || []).find((player: any) => player.user_id === auth.user?.id)?.seat;
+     if (!seat || !match) return;
+     const order = [seat, seat % 4 + 1, (seat + 1) % 4 + 1, (seat + 2) % 4 + 1];
+     const raw = match.state?.tokens || [];
+     setTokens(Object.fromEntries(order.map((number, index) => [index, raw[number - 1] || [-1,-1,-1,-1]])) as TokenState);
+     setCurrent(Math.max(0, order.indexOf(match.current_seat)) as PlayerId);
+     setDice(match.state?.dice ?? null);
+     setTurnDeadline(match.turn_deadline || null);
+     const winnerSeat = Number(match.state?.winner_seat || 0);
+     setWinner(winnerSeat ? Math.max(0, order.indexOf(winnerSeat)) as PlayerId : null);
+     setRoomReady(true);
+   };
+   void load(); const poll = window.setInterval(() => { void load(); }, 1200);
+   return () => window.clearInterval(poll);
+ }, [roomId]);
+
+ useEffect(() => {
+   if (!turnDeadline) return;
+   const update = () => {
+     const left = Math.max(0, Math.ceil((new Date(turnDeadline).getTime() - Date.now()) / 1000));
+     setSecondsLeft(left);
+     if (left === 0 && roomId) void supabase.rpc("ludo_timeout_turn", { p_room_id: roomId });
+   };
+   update(); const timer = window.setInterval(update, 500);
+   return () => window.clearInterval(timer);
+ }, [roomId, turnDeadline]);
 
  const available = useMemo(
    () => dice === null ? [] : movableTokens(tokens[current], dice),
@@ -152,6 +218,7 @@ export default function LudoGame({ onClose }: LudoGameProps) {
  }, []);
 
  const movePiece = useCallback((player: PlayerId, pieceIndex: number, roll: number) => {
+   if (roomId) { void supabase.rpc("ludo_move", { p_room_id: roomId, p_piece: pieceIndex }).then(({ error }) => { if (error) setMessage(error.message); }); return; }
    const oldProgress = tokens[player][pieceIndex];
    const newProgress = oldProgress === -1 ? 0 : oldProgress + roll;
    const nextState: TokenState = {
@@ -178,9 +245,10 @@ export default function LudoGame({ onClose }: LudoGameProps) {
    }
    setMessage(captured ? `${PLAYERS[player].name} captured a piece!` : `${PLAYERS[player].name} moved ${roll}.`);
    window.setTimeout(() => finishTurn(player, roll, captured), 450);
- }, [finishTurn, tokens]);
+ }, [finishTurn, roomId, tokens]);
 
  const rollDice = useCallback((player: PlayerId) => {
+   if (roomId) { if (player === 0) void supabase.rpc("ludo_roll", { p_room_id: roomId }).then(({ error }) => { if (error) setMessage(error.message); }); return; }
    if (rolling || winner !== null || dice !== null) return;
    setRolling(true); setMessage(`${PLAYERS[player].name} is rolling...`);
    window.setTimeout(() => {
@@ -195,16 +263,16 @@ export default function LudoGame({ onClose }: LudoGameProps) {
        setMessage(player === 0 ? `You rolled ${roll}. Choose a piece.` : `${PLAYERS[player].name} rolled ${roll}.`);
      }
    }, 450);
- }, [dice, finishTurn, rolling, tokens, winner]);
+ }, [dice, finishTurn, rolling, roomId, tokens, winner]);
 
  useEffect(() => {
-   if (current === 0 || winner !== null || rolling || dice !== null) return;
+   if (roomId || current === 0 || winner !== null || rolling || dice !== null) return;
    const timer = window.setTimeout(() => rollDice(current), 650);
    return () => window.clearTimeout(timer);
- }, [current, dice, rollDice, rolling, winner]);
+ }, [current, dice, rollDice, rolling, roomId, winner]);
 
  useEffect(() => {
-   if (current === 0 || winner !== null || dice === null || rolling) return;
+   if (roomId || current === 0 || winner !== null || dice === null || rolling) return;
    const moves = movableTokens(tokens[current], dice);
    if (moves.length === 0) return;
    const choice = [...moves].sort((a, b) => {
@@ -217,7 +285,9 @@ export default function LudoGame({ onClose }: LudoGameProps) {
    })[0];
    const timer = window.setTimeout(() => movePiece(current, choice, dice), 650);
    return () => window.clearTimeout(timer);
- }, [current, dice, movePiece, rolling, tokens, winner]);
+ }, [current, dice, movePiece, rolling, roomId, tokens, winner]);
+
+ if (roomId && !roomReady) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Loading shared Ludo board…</div>;
 
  const piecesAt = (row: number, col: number) => {
    const found: { player: PlayerId; piece: number }[] = [];
@@ -282,11 +352,12 @@ export default function LudoGame({ onClose }: LudoGameProps) {
              ["--tw-ring-color" as string]: `${player.color}55`,
            }}
          >
-           <span className="line-clamp-2 block w-full break-words text-[clamp(6px,1.65vw,8px)] font-black uppercase leading-[1.05]" style={{ color: player.light }}>{player.name}</span>
+           <span className="line-clamp-2 block w-full break-words text-[clamp(6px,1.65vw,8px)] font-black uppercase leading-[1.05]" style={{ color: player.light }}>{playerNames[index]}</span>
            <span className="text-xs font-black">{tokens[index as PlayerId].filter((v) => v === 58).length}/4</span>
          </div>
        ))}
      </div>
+     {secondsLeft !== null && <div className="mx-auto mt-2 rounded-full bg-slate-950/70 px-4 py-1 text-xs font-black text-amber-300">⏱ {secondsLeft}s {current === 0 ? "· Your turn" : "· Opponent turn"}</div>}
 
      <main className="ludo-board-stage flex min-h-0 flex-1 items-center justify-center overflow-hidden py-3">
        <div className="ludo-board grid shrink-0 grid-cols-[repeat(15,minmax(0,1fr))] grid-rows-[repeat(15,minmax(0,1fr))] overflow-hidden rounded-[1.1rem] border-[7px] border-white bg-white shadow-[0_7px_0_#171717,0_20px_42px_rgba(0,0,0,0.52)] ring-2 ring-black/20">
@@ -465,7 +536,7 @@ export default function LudoGame({ onClose }: LudoGameProps) {
 
      {winner !== null && (
        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-6 backdrop-blur-sm">
-         <div className="w-full max-w-sm rounded-3xl bg-white p-7 text-center text-slate-950 shadow-2xl"><div className="text-6xl">🏆</div><h2 className="mt-3 text-3xl font-black">{winner === 0 ? "You Win!" : `${PLAYERS[winner].name} Wins!`}</h2><button onClick={reset} className="mt-6 w-full rounded-2xl bg-emerald-500 py-3 font-black text-white">Play Again</button></div>
+         <div className="w-full max-w-sm rounded-3xl bg-white p-7 text-center text-slate-950 shadow-2xl"><div className="text-6xl">🏆</div><h2 className="mt-3 text-3xl font-black">{winner === 0 ? "You Win!" : `${playerNames[winner]} Wins!`}</h2><p className="mt-2 text-sm text-slate-500">The shared Ludo match is complete.</p><button onClick={onPlayAgain ?? reset} className="mt-6 w-full rounded-2xl bg-emerald-500 py-3 font-black text-white">Play Again</button><button onClick={onClose} className="mt-3 w-full rounded-2xl border border-slate-300 py-3 font-black text-slate-700">Exit to Arcade</button></div>
        </div>
      )}
 
@@ -567,5 +638,3 @@ export default function LudoGame({ onClose }: LudoGameProps) {
    </div>
  );
 }
-
-

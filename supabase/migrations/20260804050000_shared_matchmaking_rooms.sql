@@ -69,6 +69,24 @@ $$;
 
 grant execute on function public.set_matchmaking_seat_ready(uuid, boolean) to authenticated;
 
+create or replace function public.fill_expired_four_player_bots(p_room_id uuid)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare v_room public.matchmaking_rooms; v_humans integer; v_seat integer; v_bot_names text[] := array['Maya','Leo','Nina','Kai']; v_index integer:=1;
+begin
+ select * into v_room from public.matchmaking_rooms where id=p_room_id for update;
+ if v_room.id is null or v_room.max_players<>4 or v_room.expires_at>now() or v_room.status<>'waiting' then return jsonb_build_object('filled',false); end if;
+ select count(*) filter(where not is_bot) into v_humans from public.matchmaking_room_players where room_id=p_room_id and left_at is null;
+ if v_humans<2 then return jsonb_build_object('filled',false,'reason','waiting for at least two players'); end if;
+ for v_seat in 1..4 loop
+   if not exists(select 1 from public.matchmaking_room_players where room_id=p_room_id and seat=v_seat and left_at is null) then
+     insert into public.matchmaking_room_players(room_id,seat,display_name,is_bot,ready) values(p_room_id,v_seat,v_bot_names[v_index],true,true); v_index:=v_index+1;
+   end if;
+ end loop;
+ if not exists(select 1 from public.matchmaking_room_players where room_id=p_room_id and not is_bot and not ready and left_at is null) then update public.matchmaking_rooms set status='starting' where id=p_room_id; end if;
+ return jsonb_build_object('filled',true);
+end; $$;
+grant execute on function public.fill_expired_four_player_bots(uuid) to authenticated;
+
 -- Authoritative game state is kept separately from the lobby roster. Clients
 -- subscribe to this row and submit moves through RPCs; they never decide turns.
 create table if not exists public.big_two_match_state (
@@ -142,6 +160,125 @@ begin
   return jsonb_build_object('room_id',p_room_id,'starter_seat',v_starter);
 end; $$;
 grant execute on function public.big_two_deal_room(uuid, integer) to authenticated;
+
+-- Shared four-player room handoff for games such as Ludo that own their
+-- game-specific board state. It has the same four human / all-ready contract
+-- as Big Two, without dealing Big Two cards.
+create table if not exists public.ludo_match_state (
+  room_id uuid primary key references public.matchmaking_rooms(id) on delete cascade,
+  state jsonb not null, current_seat smallint not null default 1,
+  turn_deadline timestamptz, status text not null default 'waiting', updated_at timestamptz not null default now()
+);
+create or replace function public.start_four_player_room(p_room_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_host uuid; v_count integer; v_status text;
+begin
+  select host_id, status into v_host, v_status from public.matchmaking_rooms where id=p_room_id for update;
+  select count(*) into v_count from public.matchmaking_room_players where room_id=p_room_id and left_at is null;
+  if v_host is distinct from auth.uid() or v_count <> 4 or v_status <> 'starting' then raise exception 'Only the host may start a ready four-player room'; end if;
+  update public.matchmaking_rooms set status='playing' where id=p_room_id;
+  if (select game_key from public.matchmaking_rooms where id=p_room_id) = 'ludo' then
+    insert into public.ludo_match_state(room_id,state,current_seat,turn_deadline,status)
+    values (p_room_id, jsonb_build_object('tokens', jsonb_build_array(jsonb_build_array(-1,-1,-1,-1),jsonb_build_array(-1,-1,-1,-1),jsonb_build_array(-1,-1,-1,-1),jsonb_build_array(-1,-1,-1,-1)), 'dice', null, 'winner_seat', null), 1, now()+interval '30 seconds', 'playing')
+    on conflict(room_id) do update set state=excluded.state,current_seat=1,turn_deadline=excluded.turn_deadline,status='playing',updated_at=now();
+  end if;
+  return jsonb_build_object('room_id',p_room_id,'started',true);
+end; $$;
+grant execute on function public.start_four_player_room(uuid) to authenticated;
+
+create table if not exists public.ludo_match_state (
+  room_id uuid primary key references public.matchmaking_rooms(id) on delete cascade,
+  state jsonb not null, current_seat smallint not null default 1,
+  turn_deadline timestamptz, status text not null default 'waiting', updated_at timestamptz not null default now()
+);
+alter table public.ludo_match_state enable row level security;
+drop policy if exists "ludo members can read state" on public.ludo_match_state;
+create policy "ludo members can read state" on public.ludo_match_state for select to authenticated using (exists (select 1 from public.matchmaking_room_players p where p.room_id=ludo_match_state.room_id and p.user_id=auth.uid() and p.left_at is null));
+
+create or replace function public.ludo_roll(p_room_id uuid)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare v_seat integer; v_current integer; v_state jsonb; v_roll integer; v_can_move boolean := false; v_progress integer; v_host uuid; v_current_bot boolean;
+begin
+ select p.seat into v_seat from public.matchmaking_room_players p where p.room_id=p_room_id and p.user_id=auth.uid() and p.left_at is null;
+ select host_id into v_host from public.matchmaking_rooms where id=p_room_id;
+ select state,current_seat into v_state,v_current from public.ludo_match_state where room_id=p_room_id and status='playing' for update;
+ select is_bot into v_current_bot from public.matchmaking_room_players where room_id=p_room_id and seat=v_current;
+ if v_seat is null or (v_seat<>v_current and not (v_current_bot and v_host=auth.uid())) then raise exception 'It is not your turn'; end if;
+ if v_state->>'dice' is not null then raise exception 'Choose a token first'; end if;
+ v_roll := floor(random()*6)::integer+1;
+ select exists(select 1 from jsonb_array_elements_text(v_state->'tokens'->(v_seat-1)) x(value) where (x.value)::integer=-1 and v_roll=6 or (x.value)::integer>=0 and (x.value)::integer+v_roll<=58) into v_can_move;
+ if not v_can_move then
+   update public.ludo_match_state set current_seat=(v_current%4)+1,turn_deadline=now()+interval '30 seconds',updated_at=now() where room_id=p_room_id;
+   return jsonb_build_object('roll',v_roll,'moved',false);
+ end if;
+ update public.ludo_match_state set state=jsonb_set(v_state,'{dice}',to_jsonb(v_roll)),turn_deadline=now()+interval '30 seconds',updated_at=now() where room_id=p_room_id;
+ return jsonb_build_object('roll',v_roll,'moved',true);
+end; $$;
+grant execute on function public.ludo_roll(uuid) to authenticated;
+
+create table if not exists public.ludo_match_results (
+  room_id uuid primary key references public.matchmaking_rooms(id) on delete cascade,
+  winner_seat smallint not null check (winner_seat between 1 and 4),
+  completed_at timestamptz not null default now()
+);
+alter table public.ludo_match_results enable row level security;
+drop policy if exists "ludo members can read results" on public.ludo_match_results;
+create policy "ludo members can read results" on public.ludo_match_results for select to authenticated using (exists (select 1 from public.matchmaking_room_players p where p.room_id=ludo_match_results.room_id and p.user_id=auth.uid() and p.left_at is null));
+
+create or replace function public.ludo_move(p_room_id uuid, p_piece integer)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare v_seat integer; v_current integer; v_state jsonb; v_roll integer; v_old integer; v_new integer; v_global integer; v_opponent integer; v_index integer; v_value integer; v_capture boolean:=false; v_tokens jsonb; v_host uuid; v_current_bot boolean;
+begin
+ if p_piece not between 0 and 3 then raise exception 'Invalid token'; end if;
+ select p.seat into v_seat from public.matchmaking_room_players p where p.room_id=p_room_id and p.user_id=auth.uid() and p.left_at is null;
+ select host_id into v_host from public.matchmaking_rooms where id=p_room_id;
+ select state,current_seat into v_state,v_current from public.ludo_match_state where room_id=p_room_id and status='playing' for update;
+ select is_bot into v_current_bot from public.matchmaking_room_players where room_id=p_room_id and seat=v_current;
+ if v_seat is null or (v_seat<>v_current and not (v_current_bot and v_host=auth.uid())) then raise exception 'It is not your turn'; end if;
+ v_roll := (v_state->>'dice')::integer; if v_roll is null then raise exception 'Roll the dice first'; end if;
+ v_old := (v_state->'tokens'->(v_seat-1)->>p_piece)::integer;
+ if (v_old=-1 and v_roll<>6) or (v_old>=0 and v_old+v_roll>58) then raise exception 'That token cannot move'; end if;
+ v_new := case when v_old=-1 then 0 else v_old+v_roll end;
+ v_tokens := jsonb_set(v_state->'tokens', array[(v_seat-1)::text,p_piece::text], to_jsonb(v_new));
+ if v_new<52 and mod((array[39,0,13,26])[v_seat]+v_new,52) not in (0,8,13,21,26,34,39,47) then
+   v_global := mod((array[39,0,13,26])[v_seat]+v_new,52);
+   for v_opponent in 1..4 loop if v_opponent<>v_seat then for v_index in 0..3 loop
+     v_value := (v_tokens->(v_opponent-1)->>v_index)::integer;
+     if v_value>=0 and v_value<52 and mod((array[39,0,13,26])[v_opponent]+v_value,52)=v_global then v_tokens:=jsonb_set(v_tokens,array[(v_opponent-1)::text,v_index::text],'-1'::jsonb); v_capture:=true; end if;
+   end loop; end if; end loop;
+ end if;
+ v_state:=jsonb_set(jsonb_set(v_state,'{tokens}',v_tokens),'{dice}','null'::jsonb);
+  if not exists(select 1 from jsonb_array_elements_text(v_tokens->(v_seat-1)) x(value) where (x.value)::integer<>58) then v_state:=jsonb_set(v_state,'{winner_seat}',to_jsonb(v_seat)); end if;
+  update public.ludo_match_state set state=v_state,current_seat=case when v_new=58 and not exists(select 1 from jsonb_array_elements_text(v_tokens->(v_seat-1)) x(value) where (x.value)::integer<>58) then v_seat when v_roll=6 or v_capture then v_seat else (v_current%4)+1 end,turn_deadline=now()+interval '30 seconds',status=case when v_state->>'winner_seat' is not null then 'completed' else 'playing' end,updated_at=now() where room_id=p_room_id;
+  if v_state->>'winner_seat' is not null then
+    insert into public.ludo_match_results(room_id,winner_seat) values(p_room_id,v_seat) on conflict(room_id) do nothing;
+    -- Insert one immutable completed-match record per human player. The
+    -- existing match_history XP trigger awards 100 XP for a win and 25 XP for
+    -- a loss, keeping Ludo aligned with the global ranking/economy system.
+    insert into public.match_history(user_id,game_title,opponent_name,result,points_change,duration_seconds)
+    select p.user_id, 'Ludo', 'Ludo multiplayer', case when p.seat=v_seat then 'win' else 'loss' end, 0,
+      greatest(0, extract(epoch from now()-r.created_at)::integer)
+    from public.matchmaking_room_players p join public.matchmaking_rooms r on r.id=p.room_id
+    where p.room_id=p_room_id and p.user_id is not null and p.left_at is null;
+    update public.matchmaking_rooms set status='completed' where id=p_room_id;
+  end if;
+ return jsonb_build_object('moved',true,'capture',v_capture);
+end; $$;
+grant execute on function public.ludo_move(uuid, integer) to authenticated;
+
+-- Any connected client may ask the server to resolve an expired turn. The
+-- deadline check makes this safe to call from a lightweight client timer.
+create or replace function public.ludo_timeout_turn(p_room_id uuid)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare v_state jsonb; v_current integer; v_deadline timestamptz;
+begin
+ select state,current_seat,turn_deadline into v_state,v_current,v_deadline from public.ludo_match_state where room_id=p_room_id and status='playing' for update;
+ if v_current is null then raise exception 'Match not found'; end if;
+ if v_deadline > now() then return jsonb_build_object('advanced',false); end if;
+ update public.ludo_match_state set state=jsonb_set(v_state,'{dice}','null'::jsonb),current_seat=(v_current%4)+1,turn_deadline=now()+interval '30 seconds',updated_at=now() where room_id=p_room_id;
+ return jsonb_build_object('advanced',true,'current_seat',(v_current%4)+1);
+end; $$;
+grant execute on function public.ludo_timeout_turn(uuid) to authenticated;
 
 create or replace function public.big_two_pass(p_room_id uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
