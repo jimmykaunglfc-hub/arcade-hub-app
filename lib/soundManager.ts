@@ -5,6 +5,7 @@ class SoundEngine {
   private isMuted: boolean = false;
   private bgmAudio: HTMLAudioElement | null = null;
   private bgmSource: string | null = null;
+  private lastCarromSound = new Map<string, number>();
 
   constructor() {
     // AudioContext will be initialized on first user interaction
@@ -55,18 +56,60 @@ class SoundEngine {
     | "victory" 
     | "defeat" 
     | "beep"
+    | "carrom_hit"
+    | "carrom_cushion"
+    | "carrom_pocket"
   ) {
     if (this.isMuted) return;
     this.initContext();
     if (!this.ctx) return;
 
     const now = this.ctx.currentTime;
+    const throttle = type === "carrom_hit" ? 42 : type === "carrom_cushion" ? 55 : type === "carrom_pocket" ? 100 : 0;
+    if (throttle) {
+      const last = this.lastCarromSound.get(type) || 0;
+      const nowMs = performance.now();
+      if (nowMs - last < throttle) return;
+      this.lastCarromSound.set(type, nowMs);
+    }
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.connect(gain);
     gain.connect(this.ctx.destination);
 
     switch (type) {
+      case "carrom_hit": {
+        // A short, warm wooden-disc click: transient + low body resonance.
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(210, now + 0.065);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+        osc.start(now); osc.stop(now + 0.075);
+        const body = this.ctx.createOscillator(); const bodyGain = this.ctx.createGain();
+        body.type = "sine"; body.frequency.setValueAtTime(155, now);
+        bodyGain.gain.setValueAtTime(0.1, now); bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+        body.connect(bodyGain); bodyGain.connect(this.ctx.destination); body.start(now); body.stop(now + 0.115);
+        break;
+      }
+      case "carrom_cushion":
+        // Softer, lower knock for a disc rebounding from the board frame.
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(80, now + 0.09);
+        gain.gain.setValueAtTime(0.14, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc.start(now); osc.stop(now + 0.105);
+        break;
+      case "carrom_pocket": {
+        // Descending two-tone drop, distinct from a generic victory/capture.
+        [420, 245].forEach((frequency, index) => {
+          const drop = this.ctx!.createOscillator(); const dropGain = this.ctx!.createGain();
+          drop.type = "sine"; drop.frequency.setValueAtTime(frequency, now + index * 0.055);
+          dropGain.gain.setValueAtTime(0.14, now + index * 0.055); dropGain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.055 + 0.13);
+          drop.connect(dropGain); dropGain.connect(this.ctx!.destination); drop.start(now + index * 0.055); drop.stop(now + index * 0.055 + 0.14);
+        });
+        break;
+      }
       case "click":
         osc.type = "sine";
         osc.frequency.setValueAtTime(600, now);

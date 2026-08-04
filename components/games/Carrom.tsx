@@ -797,7 +797,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       if (c1.y - c1.radius < BOUND_MIN) { c1.y = BOUND_MIN + c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
       if (c1.y + c1.radius > BOUND_MAX) { c1.y = BOUND_MAX - c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
       if (hitWall && Math.hypot(c1.vx, c1.vy) > 2) {
-        soundEngine.playSFX("move");
+        soundEngine.playSFX("carrom_cushion");
       }
 
       const pockets = [
@@ -811,7 +811,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         const dist = Math.hypot(c1.x - p.x, c1.y - p.y);
         if (dist < POCKET_TRIGGER && !c1.falling) {
           c1.falling = true;
-          soundEngine.playSFX(c1.type === "striker" ? "defeat" : "capture");
+          soundEngine.playSFX(c1.type === "striker" ? "defeat" : "carrom_pocket");
         }
       }
 
@@ -845,7 +845,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           c2.vy += p * c1.mass * ny * RESTITUTION;
           
           if (Math.abs(p) > 1) {
-            soundEngine.playSFX("move");
+            soundEngine.playSFX("carrom_hit");
           }
         }
       }
