@@ -87,6 +87,9 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   const [groupStatus, setGroupStatus] = useState("");
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [activeChat, setActiveChat] = useState<Friend | null>(null);
+  const [activeGroup, setActiveGroup] = useState<ChatGroup | null>(null);
+  const [groupMessages, setGroupMessages] = useState<Array<{ id: string; content: string; created_at: string; sender_id: string; profiles?: { username?: string } | null }>>([]);
+  const [groupDraft, setGroupDraft] = useState("");
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   
   const [messages, setMessages] = useState<DirectMessage[]>([]);
@@ -503,6 +506,23 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   };
   const closeChat = () => { setActiveView("hub"); onChatOpenChange?.(false); };
 
+  useEffect(() => {
+    if (!activeGroup || !myUserId) return;
+    const loadGroupMessages = async () => {
+      const { data } = await supabase.from("chat_group_messages").select("id,content,created_at,sender_id,profiles(username)").eq("group_id", activeGroup.id).order("created_at").limit(100);
+      setGroupMessages((data || []) as typeof groupMessages);
+    };
+    void loadGroupMessages();
+    const channel = supabase.channel(`group-${activeGroup.id}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_group_messages", filter: `group_id=eq.${activeGroup.id}` }, () => void loadGroupMessages()).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [activeGroup, myUserId]);
+
+  const sendGroupMessage = async () => {
+    if (!activeGroup || !myUserId || !groupDraft.trim()) return;
+    const { error } = await supabase.from("chat_group_messages").insert({ group_id: activeGroup.id, sender_id: myUserId, content: groupDraft.trim() });
+    if (!error) setGroupDraft("");
+  };
+
   const formatTime = (isoString?: string) => {
     if (!isoString) return "";
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -511,6 +531,10 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   // ============================================================================
   // VIEW 1: CONVERSATION HUB DIAL FEED
   // ============================================================================
+  if (activeGroup) {
+    return <div className="fixed inset-0 z-[100002] flex flex-col bg-background text-on-surface" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}><header className="flex items-center gap-3 border-b border-surface-container-highest px-5 py-4"><button onClick={() => { setActiveGroup(null); onChatOpenChange?.(false); }} className="grid h-10 w-10 place-items-center rounded-full bg-surface-container-high"><span className="material-symbols-outlined">arrow_back</span></button><span className="grid h-10 w-10 place-items-center rounded-xl bg-primary-container text-primary"><span className="material-symbols-outlined">groups</span></span><span className="min-w-0"><b className="block truncate font-headline">{activeGroup.name}</b><small className="text-xs text-on-surface-variant">Group conversation</small></span></header><div className="flex-1 space-y-3 overflow-y-auto px-5 py-5">{groupMessages.length ? groupMessages.map((message) => <div key={message.id} className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${message.sender_id === myUserId ? "ml-auto bg-primary text-on-primary" : "bg-surface-container-high"}`}><b className="mb-1 block text-[10px] opacity-70">{message.sender_id === myUserId ? "You" : message.profiles?.username || "Member"}</b>{message.content}</div>) : <p className="pt-12 text-center text-sm text-on-surface-variant">No messages yet. Say hello to the group.</p>}</div><div className="flex gap-2 border-t border-surface-container-highest bg-background px-5 py-3"><input value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void sendGroupMessage(); }} placeholder="Message the community…" className="min-w-0 flex-1 rounded-xl bg-surface-container-high px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-primary"/><button onClick={() => void sendGroupMessage()} className="grid h-11 w-11 place-items-center rounded-xl bg-primary text-on-primary"><span className="material-symbols-outlined">send</span></button></div></div>;
+  }
+
   if (activeView === "hub") {
     return (
       <div className="w-full animate-fade-in text-on-surface flex flex-col gap-2 pb-6">
@@ -584,7 +608,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
               <div key={group.id} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex items-center gap-4 shadow-sm">
                 <div className="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-primary text-[24px]">grid_4x4</span></div>
                 <div className="flex-1 min-w-0"><h4 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">{group.name}</h4><p className="font-body text-[11px] text-on-surface-variant truncate mt-0.5">{group.description || "Community group"}</p></div>
-                {joinedGroupIds.includes(group.id) ? <span className="px-3 py-2 text-[10px] font-bold text-primary">Joined</span> : <button onClick={() => joinGroup(group.id)} className="px-4 py-2 bg-surface-container-high text-primary font-caps text-[10px] font-bold uppercase rounded-xl">Join</button>}
+                {joinedGroupIds.includes(group.id) ? <button onClick={() => { setActiveGroup(group); onChatOpenChange?.(true); }} className="rounded-xl bg-primary px-3 py-2 text-[10px] font-black text-on-primary">Open chat</button> : <button onClick={() => joinGroup(group.id)} className="px-4 py-2 bg-surface-container-high text-primary font-caps text-[10px] font-bold uppercase rounded-xl">Join</button>}
               </div>
             ))}
             {!networkLoading && groups.length === 0 && <p className="p-5 text-center text-xs text-on-surface-variant">No groups yet. Start the first one.</p>}

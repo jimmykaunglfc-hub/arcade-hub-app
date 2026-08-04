@@ -44,6 +44,9 @@ export default function LeaderboardPage() {
       });
   }, []);
 
+  const podium = players.slice(0, 3);
+  const remaining = players.slice(3);
+
   return <main className="h-[100dvh] overflow-hidden touch-pan-y bg-background px-4 text-on-background" style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(3.5rem, env(safe-area-inset-bottom))", overscrollBehaviorX: "none" }}>
     <div className="mx-auto flex h-full max-w-xl min-h-0 flex-col">
       <header className="shrink-0 border-b border-surface-container-highest bg-background pb-4">
@@ -53,19 +56,28 @@ export default function LeaderboardPage() {
         {shareMessage && <p className="mt-3 rounded-lg bg-primary-container px-3 py-2 text-xs font-bold text-on-primary-container">{shareMessage}</p>}
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4 no-scrollbar">
+      {podium.length > 0 && <section className="mb-4 grid grid-cols-2 gap-3">
+        {podium[0] && <PodiumCard player={podium[0]} rank={1} featured viewerId={viewerId} onView={setViewingProfileId} onShare={shareRank} />}
+        {podium.slice(1).map((player, index) => <PodiumCard key={player.id} player={player} rank={index + 2} viewerId={viewerId} onView={setViewingProfileId} onShare={shareRank} />)}
+      </section>}
       <div className="overflow-hidden rounded-[24px] border border-surface-container-highest bg-surface divide-y divide-surface-variant">
-        {players.map((player, index) => <div key={player.id} className={`flex items-center gap-3 p-3 ${player.id === viewerId ? "bg-primary-container ring-1 ring-inset ring-primary" : ""}`}>
+        {remaining.map((player, offset) => { const index = offset + 3; return <div key={player.id} className={`flex items-center gap-3 p-3 ${player.id === viewerId ? "bg-primary-container ring-1 ring-inset ring-primary" : ""}`}>
           <b className="w-8 text-center text-primary">#{index + 1}</b>
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-surface-container-highest bg-surface-container">
             <Image src={player.avatar_url || "/logo-dark.jpeg"} alt="" fill className="object-cover" unoptimized />
           </div>
           <div className="min-w-0 flex-1"><b className="block truncate text-sm">{player.username} {player.id === viewerId && <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[9px] text-on-primary">YOU</span>}</b><span className="text-xs text-on-surface-variant">Profile ranking</span></div>
           <div className="text-right"><b className="block text-sm">{Number(player.points || 0).toLocaleString()} PTS</b><div className="mt-1 flex items-center justify-end gap-2"><button onClick={() => setViewingProfileId(player.id)} className="text-[10px] font-bold text-primary">View profile</button>{player.id === viewerId && <button onClick={() => void shareRank(player, index + 1)} aria-label="Share my rank" className="grid h-6 w-6 place-items-center rounded-md text-primary hover:bg-primary-container"><span className="material-symbols-outlined text-base">share</span></button>}</div></div>
-        </div>)}
+        </div>})}
         {!players.length && <p className="p-8 text-center text-sm text-on-surface-variant">Loading leaderboard…</p>}
       </div>
       </div>
       {viewingProfileId && <PublicProfileCardModal userId={viewingProfileId} onClose={() => setViewingProfileId(null)} />}
     </div>
   </main>;
+}
+
+function PodiumCard({ player, rank, featured = false, viewerId, onView, onShare }: { player: Player; rank: number; featured?: boolean; viewerId: string | null; onView: (id: string) => void; onShare: (player: Player, rank: number) => Promise<void> }) {
+  const labels = ["", "1st place", "2nd place", "3rd place"];
+  return <div className={`${featured ? "col-span-2" : ""} rounded-[24px] border border-surface-container-highest bg-surface p-4 text-center shadow-sm ${player.id === viewerId ? "ring-1 ring-primary" : ""}`}><span className="inline-flex rounded-full bg-primary-container px-2 py-1 text-[10px] font-black uppercase text-primary">♕ {labels[rank]}</span><div className={`relative mx-auto mt-3 overflow-hidden rounded-full border-2 border-primary bg-surface-container ${featured ? "h-20 w-20" : "h-14 w-14"}`}><Image src={player.avatar_url || "/logo-dark.jpeg"} alt="" fill className="object-cover" unoptimized /></div><b className="mt-2 block truncate text-sm">{player.username}{player.id === viewerId && <span className="ml-1 text-[9px] text-primary">YOU</span>}</b><small className="block text-xs text-on-surface-variant">Profile ranking</small><b className="mt-2 inline-block rounded-lg bg-primary-container px-2 py-1 text-sm text-primary">{Number(player.points || 0).toLocaleString()} PTS</b><div className="mt-2 flex justify-center gap-2"><button onClick={() => onView(player.id)} className="text-[10px] font-bold text-primary">View profile</button>{player.id === viewerId && <button onClick={() => void onShare(player, rank)} aria-label="Share my rank" className="text-primary"><span className="material-symbols-outlined text-base">share</span></button>}</div></div>;
 }

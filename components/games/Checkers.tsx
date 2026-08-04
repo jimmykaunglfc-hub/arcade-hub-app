@@ -63,10 +63,11 @@ export default function Checkers({
               .in("id", cosmeticIds);
 
             if (storeData && storeData.length > 0) {
-              const boardItem = storeData.find((item: any) => {
-                const name = (item.name || "").toLowerCase();
-                return name.includes("board") || name.includes("checkers") || name.includes("royal");
-              }) || storeData[0];
+              // Never infer a Checkers board from a cosmetic name. A Carrom
+              // disc named “Royal” was being selected by that legacy fallback.
+              const boardItem = storeData.find((item: any) =>
+                item.cosmetic_type === "game_cosmetic" && item.game_target === "checkers"
+              );
 
               if (boardItem?.image_url) {
                 console.log("Equipped Board Loaded:", boardItem.image_url);

@@ -180,7 +180,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
           className="h-[52px]"
         >
         <div
-          className="fixed left-1/2 z-[100] grid w-[calc(100%-40px)] max-w-md -translate-x-1/2 grid-cols-2 gap-3 rounded-2xl border border-surface-container-highest bg-surface p-1.5 shadow-lg dark:border-white/5 dark:bg-[#18181b]"
+          className="fixed left-1/2 z-[100] grid w-[calc(100%-40px)] max-w-md -translate-x-1/2 grid-cols-2 gap-3 rounded-2xl border border-surface-container-highest bg-surface-container p-1.5 shadow-lg"
           style={{ top: "calc(90px + env(safe-area-inset-top))" }}
         >
           <button
