@@ -13,6 +13,7 @@ import GlobalNotificationListener from "../components/GlobalNotificationListener
 import CampaignSplash from "../components/CampaignSplash";
 import InAppBroadcastDialog from "../components/InAppBroadcastDialog";
 import CompetitiveGameLaunch from "../components/CompetitiveGameLaunch";
+import FourPlayerMatchLobby from "../components/FourPlayerMatchLobby";
 import JoeYokeLogo from "../components/JoeYokeLogo";
 import { soundEngine } from "../lib/soundManager";
 
@@ -75,6 +76,15 @@ const DominoesArenaGame = withArenaLobby(DominoesGame);
 const Game2048ArenaGame = withArenaLobby(Game2048);
 const BigTwoArenaGame = withArenaLobby(BigTwoGame);
 const BlockPuzzleArenaGame = withArenaLobby(BlockPuzzleGame);
+
+function BigTwoFourPlayerArena({ onClose }: { onClose: () => void }) {
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
+  if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Big Two matchmaking.</div>;
+  if (!roomId) return <FourPlayerMatchLobby gameKey="big-two" gameName="Big Two" userId={userId} onStart={setRoomId} onCancel={onClose} />;
+  return <BigTwoGame onClose={onClose} roomId={roomId} />;
+}
 
 export default function Home() {
   const { t } = useTranslation();
@@ -416,7 +426,7 @@ export default function Home() {
       ) : playingGame === "native://2048" ? (
         <Game2048 onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://big-two" ? (
-        <CompetitiveGameLaunch gameKey="big-two" gameTitle="Big Two" Game={BigTwoArenaGame} onClose={() => setPlayingGame(null)} />
+        <BigTwoFourPlayerArena onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://block-puzzle" ? (
         <CompetitiveGameLaunch gameKey="block-puzzle" gameTitle="Block Puzzle" Game={BlockPuzzleArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame ? (

@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { getRandomBotOpponent } from "@/lib/botUtils";
 
-interface BigTwoGameProps { onClose?: () => void; }
+interface BigTwoGameProps { onClose?: () => void; roomId?: string | null; }
 type Suit = 0 | 1 | 2 | 3;
 type Card = { id: string; rank: number; suit: Suit };
 type HandType = "single" | "pair" | "triple" | "straight" | "flush" | "full-house" | "four-kind" | "straight-flush";
@@ -12,7 +14,6 @@ type Play = { cards: Card[]; value: HandValue; player: number };
 const RANKS = ["3","4","5","6","7","8","9","10","J","Q","K","A","2"];
 const SUITS = ["♦","♣","♥","♠"];
 const SUIT_COLORS = ["text-rose-500","text-slate-800","text-rose-500","text-slate-800"];
-const PLAYER_NAMES = ["You", "Mia", "Kai", "Luna"];
 const STRAIGHTS = [
  [11,12,0,1,2], [12,0,1,2,3], [0,1,2,3,4], [1,2,3,4,5], [2,3,4,5,6],
  [3,4,5,6,7], [4,5,6,7,8], [5,6,7,8,9], [6,7,8,9,10], [7,8,9,10,11],
@@ -100,7 +101,13 @@ function CardBack({ className = "" }: { className?: string }) {
  return <span className={`block h-12 w-8 shrink-0 rounded-md border-2 border-white bg-rose-600 p-[2px] shadow-md ${className}`}><span className="block h-full w-full rounded-[3px] border border-white/70 bg-[repeating-linear-gradient(45deg,rgba(255,255,255,.85)_0_2px,transparent_2px_5px)]" /></span>;
 }
 
-export default function BigTwoGame({onClose}:BigTwoGameProps) {
+export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
+ const [playerNames, setPlayerNames] = useState(() => ["You", ...Array.from({ length: 3 }, () => getRandomBotOpponent().name)]);
+ useEffect(() => { if (!roomId) return; void supabase.rpc("get_matchmaking_room", { p_room_id: roomId }).then(({ data }) => {
+   const humans = (data?.players || []).filter((p: any) => !p.is_bot).sort((a: any, b: any) => a.seat - b.seat).map((p: any) => p.name);
+   const bots = Array.from({ length: Math.max(0, 4 - humans.length) }, () => getRandomBotOpponent().name);
+   if (humans.length) setPlayerNames([...humans, ...bots].slice(0, 4));
+ }); }, [roomId]);
  const [initialGame] = useState(dealGame);
  const [hands,setHands]=useState<Card[][]>(initialGame.hands);
  const [turn,setTurn]=useState(initialGame.starter);
@@ -109,13 +116,13 @@ export default function BigTwoGame({onClose}:BigTwoGameProps) {
  const [passes,setPasses]=useState(0);
  const [opening,setOpening]=useState(true);
  const [winner,setWinner]=useState<number|null>(null);
- const [message,setMessage]=useState(initialGame.starter===0?"You have 3♦. Lead the first trick.":`${PLAYER_NAMES[initialGame.starter]} has 3♦ and starts.`);
+ const [message,setMessage]=useState(initialGame.starter===0?"You have 3♦. Lead the first trick.":`${playerNames[initialGame.starter]} has 3♦ and starts.`);
  const [showRules,setShowRules]=useState(false);
 
- const startGame=useCallback(()=>{ const deck=shuffledDeck(); const next=[0,1,2,3].map(i=>sortCards(deck.slice(i*13,(i+1)*13))); const starter=next.findIndex(hand=>hand.some(card=>card.rank===0&&card.suit===0)); setHands(next);setTurn(starter);setCurrentPlay(null);setSelected([]);setPasses(0);setOpening(true);setWinner(null);setMessage(starter===0?"You have 3♦. Lead the first trick.":`${PLAYER_NAMES[starter]} has 3♦ and starts.`); },[]);
- const playCards=useCallback((player:number,cards:Card[],value:HandValue)=>{ const nextHands=hands.map(hand=>[...hand]); nextHands[player]=nextHands[player].filter(card=>!cards.some(played=>played.id===card.id)); setHands(nextHands);setSelected([]);setCurrentPlay({cards,value,player});setPasses(0);setOpening(false); if(nextHands[player].length===0){setWinner(player);setMessage(player===0?"You win!":`${PLAYER_NAMES[player]} wins!`);return;} setMessage(`${PLAYER_NAMES[player]} played ${value.label}.`);setTurn((player+1)%4); },[hands]);
+ const startGame=useCallback(()=>{ const deck=shuffledDeck(); const next=[0,1,2,3].map(i=>sortCards(deck.slice(i*13,(i+1)*13))); const starter=next.findIndex(hand=>hand.some(card=>card.rank===0&&card.suit===0)); setHands(next);setTurn(starter);setCurrentPlay(null);setSelected([]);setPasses(0);setOpening(true);setWinner(null);setMessage(starter===0?"You have 3♦. Lead the first trick.":`${playerNames[starter]} has 3♦ and starts.`); },[playerNames]);
+ const playCards=useCallback((player:number,cards:Card[],value:HandValue)=>{ const nextHands=hands.map(hand=>[...hand]); nextHands[player]=nextHands[player].filter(card=>!cards.some(played=>played.id===card.id)); setHands(nextHands);setSelected([]);setCurrentPlay({cards,value,player});setPasses(0);setOpening(false); if(nextHands[player].length===0){setWinner(player);setMessage(player===0?"You win!":`${playerNames[player]} wins!`);return;} setMessage(`${playerNames[player]} played ${value.label}.`);setTurn((player+1)%4); },[hands,playerNames]);
 
- const passTurn=useCallback((player:number)=>{ if(!currentPlay)return; const nextPasses=passes+1; if(nextPasses>=3){setPasses(0);setCurrentPlay(null);setTurn(currentPlay.player);setMessage(`${PLAYER_NAMES[currentPlay.player]} controls the new trick.`);}else{setPasses(nextPasses);setTurn((player+1)%4);setMessage(`${PLAYER_NAMES[player]} passed.`);} },[currentPlay,passes]);
+ const passTurn=useCallback((player:number)=>{ if(!currentPlay)return; const nextPasses=passes+1; if(nextPasses>=3){setPasses(0);setCurrentPlay(null);setTurn(currentPlay.player);setMessage(`${playerNames[currentPlay.player]} controls the new trick.`);}else{setPasses(nextPasses);setTurn((player+1)%4);setMessage(`${playerNames[player]} passed.`);} },[currentPlay,passes,playerNames]);
 
  useEffect(()=>{ if(turn===0||winner!==null||hands[turn].length===0)return; const timer=window.setTimeout(()=>{const plays=legalPlays(hands[turn],currentPlay?.value??null,opening); if(plays.length===0){passTurn(turn);return;} const choice=plays[0];playCards(turn,choice.cards,choice.value);},650);return()=>window.clearTimeout(timer);},[currentPlay,hands,opening,passTurn,playCards,turn,winner]);
 
@@ -131,21 +138,21 @@ export default function BigTwoGame({onClose}:BigTwoGameProps) {
      <div className="relative mx-auto h-full w-full max-w-md overflow-hidden rounded-[2.2rem] border-4 border-emerald-300/25 bg-[radial-gradient(ellipse_at_center,#087443_0%,#075b37_52%,#06452e_100%)] shadow-[inset_0_0_45px_rgba(0,0,0,.35),0_18px_35px_rgba(0,0,0,.45)]">
        <div className={`absolute left-1/2 top-2 z-10 -translate-x-1/2 text-center ${turn===2?"drop-shadow-[0_0_8px_#fde047]":""}`}>
          <div className="flex justify-center -space-x-5">{hands[2].map(card=><CardBack key={card.id}/>)}</div>
-         <p className={`mt-1 text-[9px] font-black uppercase ${turn===2?"text-amber-300":"text-emerald-100"}`}>{PLAYER_NAMES[2]} · {hands[2].length}</p>
+         <p className={`mt-1 text-[9px] font-black uppercase ${turn===2?"text-amber-300":"text-emerald-100"}`}>{playerNames[2]} · {hands[2].length}</p>
        </div>
 
        <div className={`absolute left-1 top-[27%] z-10 text-center ${turn===1?"drop-shadow-[0_0_8px_#fde047]":""}`}>
-         <p className={`mb-1 text-[9px] font-black uppercase ${turn===1?"text-amber-300":"text-emerald-100"}`}>{PLAYER_NAMES[1]} · {hands[1].length}</p>
+         <p className={`mb-1 text-[9px] font-black uppercase ${turn===1?"text-amber-300":"text-emerald-100"}`}>{playerNames[1]} · {hands[1].length}</p>
          <div className="flex flex-col -space-y-9">{hands[1].map(card=><CardBack key={card.id} className="rotate-90"/>)}</div>
        </div>
 
        <div className={`absolute right-1 top-[27%] z-10 text-center ${turn===3?"drop-shadow-[0_0_8px_#fde047]":""}`}>
-         <p className={`mb-1 text-[9px] font-black uppercase ${turn===3?"text-amber-300":"text-emerald-100"}`}>{PLAYER_NAMES[3]} · {hands[3].length}</p>
+         <p className={`mb-1 text-[9px] font-black uppercase ${turn===3?"text-amber-300":"text-emerald-100"}`}>{playerNames[3]} · {hands[3].length}</p>
          <div className="flex flex-col -space-y-9">{hands[3].map(card=><CardBack key={card.id} className="rotate-90"/>)}</div>
        </div>
 
        <section className="absolute left-16 right-16 top-[29%] flex min-h-40 flex-col items-center justify-center rounded-[1.75rem] border border-emerald-200/15 bg-emerald-950/25 p-2">
-         <p className="mb-2 text-center text-[10px] font-black uppercase tracking-widest text-amber-200">{currentPlay?`${PLAYER_NAMES[currentPlay.player]} · ${currentPlay.value.label}`:"New trick — any valid combination"}</p>
+         <p className="mb-2 text-center text-[10px] font-black uppercase tracking-widest text-amber-200">{currentPlay?`${playerNames[currentPlay.player]} · ${currentPlay.value.label}`:"New trick — any valid combination"}</p>
          <div className="flex justify-center -space-x-4">{currentPlay?.cards.map(card=><PlayingCard key={card.id} card={card} small />)??<span className="text-5xl text-white/15">♠</span>}</div>
        </section>
 
@@ -162,8 +169,6 @@ export default function BigTwoGame({onClose}:BigTwoGameProps) {
    </main>
 
    {showRules&&<div className="fixed inset-x-0 bottom-20 top-14 z-[250] flex items-center justify-center bg-slate-950/88 p-4 backdrop-blur-md"><div className="max-h-[92%] w-full max-w-md overflow-y-auto rounded-[2rem] border-2 border-[#ccff00] bg-slate-900 p-5"><div className="flex justify-between"><div><p className="text-[10px] font-black uppercase tracking-widest text-[#ccff00]">Classic Big Two</p><h2 className="text-2xl font-black">How to Play</h2></div><button onClick={()=>setShowRules(false)} className="h-10 w-10 rounded-full bg-slate-800 text-2xl">×</button></div><div className="mt-5 space-y-3">{[["🃏","Card order","3 is lowest and 2 is highest. Suits are ♦, ♣, ♥, ♠ from low to high."],["♦","Opening play","The player holding 3♦ starts and must include it in the first play."],["✋","Valid plays","Play a single, pair, triple, or five cards: straight, flush, full house, four of a kind plus one, or straight flush."],["⬆️","Beat the table","Match the number of cards. Five-card hands rank: straight, flush, full house, four of a kind, straight flush."],["⏭️","Pass and reset","You may pass. After all three opponents pass, the last player starts a new trick with any valid play."],["🏆","Empty your hand","The first player to play all 13 cards wins."]].map(([icon,title,text])=><div key={title} className="flex gap-3 rounded-2xl border border-slate-700 bg-slate-800 p-3"><span className="text-xl">{icon}</span><div><h3 className="font-black text-amber-300">{title}</h3><p className="text-xs leading-5 text-slate-300">{text}</p></div></div>)}</div><button onClick={()=>setShowRules(false)} className="mt-5 w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">Got It — Let&apos;s Play</button></div></div>}
-   {winner!==null&&<div className="absolute inset-0 z-[260] flex items-center justify-center bg-slate-950/85 p-5"><div className="w-full max-w-sm rounded-[2rem] border-2 border-amber-300 bg-slate-900 p-7 text-center"><div className="text-6xl">{winner===0?"🏆":"🤖"}</div><h2 className="mt-3 text-3xl font-black">{winner===0?"You Win!":`${PLAYER_NAMES[winner]} Wins`}</h2><button onClick={startGame} className="mt-6 w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">Play Again</button></div></div>}
+   {winner!==null&&<div className="absolute inset-0 z-[260] flex items-center justify-center bg-slate-950/85 p-5"><div className="w-full max-w-sm rounded-[2rem] border-2 border-amber-300 bg-slate-900 p-7 text-center"><div className="text-6xl">{winner===0?"🏆":"🤖"}</div><h2 className="mt-3 text-3xl font-black">{winner===0?"You Win!":`${playerNames[winner]} Wins`}</h2><button onClick={startGame} className="mt-6 w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">Play Again</button></div></div>}
  </div>;
 }
-
-
