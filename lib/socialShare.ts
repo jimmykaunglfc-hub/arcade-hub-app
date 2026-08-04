@@ -6,49 +6,92 @@ export type SocialShareCard = {
   accent?: "lime" | "violet" | "blue" | "gold";
 };
 
-const escapeXml = (value: string) => value.replace(/[<>&'\"]/g, (character) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[character] || character);
+const paletteFor = (accent: SocialShareCard["accent"]) => ({
+  lime: ["#b7ff00", "#83b900"],
+  violet: ["#b44cff", "#59238b"],
+  blue: ["#32b8ed", "#176c9e"],
+  gold: ["#ffcc3b", "#b56d00"],
+}[accent || "lime"]);
 
-function cardSvg(card: SocialShareCard, logoSrc: string) {
-  const palette = {
-    lime: ["#b7ff00", "#83b900"],
-    violet: ["#b44cff", "#59238b"],
-    blue: ["#32b8ed", "#176c9e"],
-    gold: ["#ffcc3b", "#b56d00"],
-  }[card.accent || "lime"];
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#080b17"/><stop offset="1" stop-color="#16223b"/></linearGradient><radialGradient id="glow"><stop stop-color="${palette[0]}" stop-opacity=".45"/><stop offset="1" stop-color="${palette[1]}" stop-opacity="0"/></radialGradient></defs>
-  <rect width="1200" height="630" rx="44" fill="url(#bg)"/><circle cx="1050" cy="80" r="300" fill="url(#glow)"/><path d="M0 540Q260 390 520 590T1200 400V630H0Z" fill="#b7ff00" opacity=".10"/>
-  <defs><clipPath id="logoClip"><rect x="64" y="56" width="72" height="72" rx="20"/></clipPath></defs><image href="${logoSrc}" x="64" y="56" width="72" height="72" preserveAspectRatio="xMidYMid slice" clip-path="url(#logoClip)"/><text x="154" y="99" fill="#fff" font-family="Arial, sans-serif" font-weight="800" font-size="32">JOE YOKE</text>
-  <text x="64" y="214" fill="${palette[0]}" font-family="Arial, sans-serif" font-weight="800" font-size="22" letter-spacing="4">${escapeXml(card.eyebrow.toUpperCase())}</text>
-  <text x="64" y="306" fill="#fff" font-family="Arial, sans-serif" font-weight="800" font-size="68">${escapeXml(card.title)}</text>
-  <text x="64" y="360" fill="#b8c3d7" font-family="Arial, sans-serif" font-size="30">${escapeXml(card.subtitle)}</text>
-  <rect x="64" y="430" width="590" height="116" rx="28" fill="#ffffff" fill-opacity=".08" stroke="#ffffff" stroke-opacity=".16"/><text x="98" y="476" fill="#aab6cb" font-family="Arial, sans-serif" font-weight="700" font-size="20" letter-spacing="2">ACHIEVEMENT</text><text x="98" y="522" fill="${palette[0]}" font-family="Arial, sans-serif" font-weight="800" font-size="36">${escapeXml(card.stat)}</text>
-  <text x="1135" y="580" text-anchor="end" fill="#aab6cb" font-family="Arial, sans-serif" font-size="18">Play. Compete. Connect.</text>
-  </svg>`;
+const roundedRect = (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => {
+  context.beginPath();
+  context.roundRect(x, y, width, height, radius);
+};
+
+async function loadProjectLogo() {
+  const response = await fetch("/logo-dark.jpeg");
+  if (!response.ok) throw new Error("Joe Yoke logo could not be loaded");
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  try {
+    const image = new Image();
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error("Joe Yoke logo could not be decoded"));
+      image.src = url;
+    });
+    return image;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
-async function projectLogoDataUrl() {
-  try {
-    const response = await fetch("/logo-dark.jpeg");
-    const blob = await response.blob();
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    // The project path is still valid when a network interceptor prevents an
-    // embedded data URL; this fallback is for display only.
-    return "/logo-dark.jpeg";
+function drawText(context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number) {
+  const words = text.split(" ");
+  let line = "";
+  let lineY = y;
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (context.measureText(next).width > maxWidth && line) {
+      context.fillText(line, x, lineY);
+      line = word;
+      lineY += 44;
+    } else line = next;
   }
+  context.fillText(line, x, lineY);
+}
+
+async function achievementPng(card: SocialShareCard) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1200;
+  canvas.height = 630;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("PNG sharing is not supported in this browser");
+  const [accent, shade] = paletteFor(card.accent);
+  const background = context.createLinearGradient(0, 0, 1200, 630);
+  background.addColorStop(0, "#070b16");
+  background.addColorStop(1, "#17243e");
+  context.fillStyle = background;
+  roundedRect(context, 0, 0, 1200, 630, 44);
+  context.fill();
+  const glow = context.createRadialGradient(1050, 70, 10, 1050, 70, 330);
+  glow.addColorStop(0, `${accent}90`);
+  glow.addColorStop(1, `${shade}00`);
+  context.fillStyle = glow;
+  context.fillRect(0, 0, 1200, 630);
+  context.fillStyle = "#b7ff001c";
+  context.beginPath(); context.moveTo(0, 540); context.quadraticCurveTo(260, 390, 520, 590); context.quadraticCurveTo(820, 720, 1200, 400); context.lineTo(1200, 630); context.lineTo(0, 630); context.fill();
+
+  const logo = await loadProjectLogo();
+  context.save();
+  roundedRect(context, 64, 56, 72, 72, 20); context.clip();
+  context.drawImage(logo, 64, 56, 72, 72);
+  context.restore();
+  context.fillStyle = "#ffffff"; context.font = "800 32px Arial, sans-serif"; context.fillText("JOE YOKE", 154, 99);
+  context.fillStyle = accent; context.font = "800 22px Arial, sans-serif"; context.letterSpacing = "4px"; context.fillText(card.eyebrow.toUpperCase(), 64, 214); context.letterSpacing = "0px";
+  context.fillStyle = "#ffffff"; context.font = "800 64px Arial, sans-serif"; drawText(context, card.title, 64, 306, 1000);
+  context.fillStyle = "#b8c3d7"; context.font = "30px Arial, sans-serif"; drawText(context, card.subtitle, 64, 402, 1000);
+  context.fillStyle = "#ffffff14"; roundedRect(context, 64, 470, 590, 106, 28); context.fill();
+  context.fillStyle = "#aab6cb"; context.font = "700 20px Arial, sans-serif"; context.fillText("ACHIEVEMENT", 98, 510);
+  context.fillStyle = accent; context.font = "800 34px Arial, sans-serif"; context.fillText(card.stat, 98, 554);
+  context.fillStyle = "#aab6cb"; context.font = "18px Arial, sans-serif"; context.textAlign = "right"; context.fillText("Play. Compete. Connect.", 1135, 580); context.textAlign = "left";
+  return await new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Could not create a PNG share card")), "image/png"));
 }
 
 export async function shareAchievement(card: SocialShareCard): Promise<"shared" | "downloaded" | "copied"> {
   const copy = `${card.title} — ${card.subtitle} ${card.stat} | Joe Yoke`;
-  const logoSrc = await projectLogoDataUrl();
-  const blob = new Blob([cardSvg(card, logoSrc)], { type: "image/svg+xml" });
-  const file = new File([blob], "joe-yoke-achievement.svg", { type: "image/svg+xml" });
+  const blob = await achievementPng(card);
+  const file = new File([blob], "joe-yoke-achievement.png", { type: "image/png" });
   const shareData: ShareData = { title: "Joe Yoke achievement", text: copy, files: [file] };
   try {
     if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
@@ -62,7 +105,7 @@ export async function shareAchievement(card: SocialShareCard): Promise<"shared" 
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "joe-yoke-achievement.svg";
+  anchor.download = "joe-yoke-achievement.png";
   anchor.click();
   URL.revokeObjectURL(url);
   return "downloaded";
