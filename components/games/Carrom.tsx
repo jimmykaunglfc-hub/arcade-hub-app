@@ -314,7 +314,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
     if (!result.success) {
       if (result.error === "INSUFFICIENT_POINTS") {
-        soundEngine.playSFX("defeat");
+        soundEngine.playSFX("carrom_foul");
         setShowNoPointsModal(true);
       }
       return false;
@@ -434,7 +434,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
   const handleTimeOut = () => {
     if (isMovingRef.current || winner) return;
-    soundEngine.playSFX("defeat");
+    soundEngine.playSFX("carrom_foul");
 
     if (playMode === "bot" && turn === 2) {
       setToast({ msg: `${localOpponent?.name || "Bot"} timed out! Auto shooting...`, type: 'foul' });
@@ -522,7 +522,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       isMovingRef.current = true;
       didIShootRef.current = true; 
       
-      soundEngine.playSFX("strike");
+      soundEngine.playSFX("carrom_strike");
       requestAnimationFrame(physicsLoop);
 
       if (Math.random() <= 0.25) {
@@ -619,7 +619,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         } else if (connectedPlayers < 2 && playModeRef.current === "online") {
           setToast({ msg: "Opponent Disconnected! You Win.", type: "success" });
           setWinner(myPlayerRoleRef.current);
-          soundEngine.playSFX("victory");
+          soundEngine.playSFX("carrom_win");
         }
       })
       .on('broadcast', { event: 'change_rules' }, (payload) => {
@@ -630,7 +630,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         const { vx, vy, startX } = payload.payload;
         const strikerObj = coinsRef.current.find(c => c.type === "striker");
         if (strikerObj) {
-          soundEngine.playSFX("strike");
+          soundEngine.playSFX("carrom_strike");
           strikerObj.x = startX;
           strikerObj.y = turnRef.current === 1 ? 840 : 160;
           strikerObj.vx = vx;
@@ -659,7 +659,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         setP1Slider(500); 
         setP2Slider(500);
         if (msg) setToast({ msg, type: msgType });
-        if (win) soundEngine.playSFX("victory");
+        if (win) soundEngine.playSFX("carrom_win");
         setRenderTrigger(prev => prev + 1);
       })
       .on('broadcast', { event: 'emoji' }, (payload) => {
@@ -811,7 +811,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         const dist = Math.hypot(c1.x - p.x, c1.y - p.y);
         if (dist < POCKET_TRIGGER && !c1.falling) {
           c1.falling = true;
-          soundEngine.playSFX(c1.type === "striker" ? "defeat" : "carrom_pocket");
+          soundEngine.playSFX(c1.type === "striker" ? "carrom_foul" : "carrom_pocket");
         }
       }
 
@@ -929,12 +929,12 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     if (fouled) {
       turnMsg = "Foul! Turn Lost.";
       msgType = "foul";
-      soundEngine.playSFX("defeat");
+      soundEngine.playSFX("carrom_foul");
       nextTurn = turnRef.current === 1 ? 2 : 1;
     } else if (validPocket) {
       turnMsg = "Good Shot! Extra Turn.";
       msgType = "success";
-      soundEngine.playSFX("capture");
+      soundEngine.playSFX("carrom_pocket");
       nextTurn = turnRef.current;
     } else {
       nextTurn = turnRef.current === 1 ? 2 : 1;
@@ -970,7 +970,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     }
 
     if (win) {
-      soundEngine.playSFX("victory");
+      soundEngine.playSFX("carrom_win");
     }
 
     if (turnMsg) setToast({ msg: turnMsg, type: msgType });
@@ -1060,7 +1060,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       strikerObj.vy = vy;
       isMovingRef.current = true;
       didIShootRef.current = true; 
-      soundEngine.playSFX("strike");
+      soundEngine.playSFX("carrom_strike");
       
       if (playMode === "online" && channelRef.current) {
         channelRef.current.send({

@@ -59,6 +59,9 @@ class SoundEngine {
     | "carrom_hit"
     | "carrom_cushion"
     | "carrom_pocket"
+    | "carrom_strike"
+    | "carrom_foul"
+    | "carrom_win"
   ) {
     if (this.isMuted) return;
     this.initContext();
@@ -92,6 +95,26 @@ class SoundEngine {
         body.connect(bodyGain); bodyGain.connect(this.ctx.destination); body.start(now); body.stop(now + 0.115);
         break;
       }
+      case "carrom_strike":
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(115, now); osc.frequency.exponentialRampToValueAtTime(62, now + 0.12);
+        gain.gain.setValueAtTime(0.32, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+        osc.start(now); osc.stop(now + 0.14);
+        break;
+      case "carrom_foul":
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(240, now); osc.frequency.exponentialRampToValueAtTime(115, now + 0.22);
+        gain.gain.setValueAtTime(0.16, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.23);
+        osc.start(now); osc.stop(now + 0.24);
+        break;
+      case "carrom_win":
+        [392, 494, 587].forEach((frequency, index) => {
+          const note = this.ctx!.createOscillator(); const noteGain = this.ctx!.createGain();
+          note.type = "triangle"; note.frequency.setValueAtTime(frequency, now + index * 0.09);
+          noteGain.gain.setValueAtTime(0.17, now + index * 0.09); noteGain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.09 + 0.2);
+          note.connect(noteGain); noteGain.connect(this.ctx!.destination); note.start(now + index * 0.09); note.stop(now + index * 0.09 + 0.21);
+        });
+        break;
       case "carrom_cushion":
         // Softer, lower knock for a disc rebounding from the board frame.
         osc.type = "sine";
