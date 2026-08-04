@@ -880,7 +880,12 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       p_completed: Boolean(gameState.winnerId),
     }).then(({ data, error }) => {
       publishingRef.current = false;
-      if (!error) { lastPublishedStateRef.current = serialized; setServerVersion(Number(data?.version || serverVersion + 1)); activeServerPlayerRef.current = gameState.activePlayerId; }
+      if (!error) {
+        lastPublishedStateRef.current = serialized;
+        setServerVersion(Number(data?.version || serverVersion + 1));
+        setServerTurnDeadline(data?.turn_deadline ?? null);
+        activeServerPlayerRef.current = gameState.activePlayerId;
+      }
     });
   }, [gameState, roomId, serverVersion, userId]);
 
@@ -938,9 +943,12 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   }, []);
 
   const registerPlayerActivity = useCallback(() => {
+    // Shared rooms use the database deadline. Updating a client-only warning
+    // here would create an extra board revision just before a server dice RPC.
+    if (roomId) return;
     setSecondsLeft(TURN_DURATION_SECONDS);
     setGameState((current) => current.turnWarning ? { ...current, turnWarning: false } : current);
-  }, []);
+  }, [roomId]);
 
   const resolveLanding = (current: GameState): GameState => {
     const mover = current.players.find((player) => player.id === current.activePlayerId);
@@ -1053,11 +1061,17 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     });
   };
 
-  const handleRoll = () => {
+  const handleRoll = async () => {
     if (isRolling || isMoving || gameState.hasRolled || gameState.pendingPurchaseId || gameState.alert || gameState.winnerId) return;
+    if (roomId && (!userId || serverVersion === null)) return;
     registerPlayerActivity();
 
-    const dice: [number, number] = [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1];
+    let dice: [number, number] = [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1];
+    if (roomId) {
+      const { data, error } = await supabase.rpc("roll_monopoly_dice", { p_room_id: roomId, p_expected_version: serverVersion });
+      if (error || !data) return;
+      dice = [Number(data.die_one), Number(data.die_two)];
+    }
     const dieTotal = dice[0] + dice[1];
     const rollingPlayer = activePlayer;
     const turnEpoch = turnEpochRef.current;
