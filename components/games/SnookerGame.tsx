@@ -122,6 +122,13 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const turnTrackingRef = useRef({ redsPotted: 0, colorsPotted: [] as string[], firstHitBallType: "" });
   const wasMovingRef = useRef(false);
   const didIShootRef = useRef(false);
+  const hasOpeningBreakOccurredRef = useRef(false);
+
+  const playCueShotSound = useCallback(() => {
+    const isOpeningBreak = !hasOpeningBreakOccurredRef.current;
+    hasOpeningBreakOccurredRef.current = true;
+    soundEngine.playSFX(isOpeningBreak ? "snooker_break" : "snooker_hit");
+  }, []);
 
   // Synchronized State Refs to eliminate closure bugs inside Engine Loop
   const currentTurnRef = useRef(currentTurn);
@@ -315,7 +322,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           setIsBallInHand(false);
           setIsMoving(true);
           didIShootRef.current = false;
-          soundEngine.playSFX("strike");
+          playCueShotSound();
         }
       })
       .on("broadcast", { event: "turn_sync" }, (payload) => {
@@ -468,7 +475,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     setIsBallInHand(false);
     setIsMoving(true);
     didIShootRef.current = true;
-    soundEngine.playSFX("strike");
+    playCueShotSound();
 
     if (Math.random() <= 0.25) {
       const reactionDelay = Math.floor(Math.random() * 1000) + 800;
@@ -479,7 +486,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id)), 2500);
       }, reactionDelay);
     }
-  }, [isMoving, pockets]);
+  }, [isMoving, pockets, playCueShotSound]);
 
   // -------------------------------------------------------------
   // ⏱️ 30-SECOND TURN TIMER SYSTEM
@@ -498,11 +505,11 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         cueBall.vy = Math.sin(aimAngle) * 8;
         setIsMoving(true);
         didIShootRef.current = true;
-        soundEngine.playSFX("strike");
+        playCueShotSound();
         setToast({ msg: "Time expired! Auto shot executed.", type: "foul" });
       }
     }
-  }, [isMoving, winner, playMode, executeBotShot, aimAngle, isBallInHand]);
+  }, [isMoving, winner, playMode, executeBotShot, aimAngle, isBallInHand, playCueShotSound]);
 
   useEffect(() => {
     if (playMode === "menu" || playMode === "searching" || playMode === "confirmed" || playMode === "host" || playMode === "join" || winner) return;
@@ -785,6 +792,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     balls.push({ id: idCounter++, x: tableWidth / 2, y: 50, vx: 0, vy: 0, type: "Black", scale: 1, isPotted: false });
 
     ballsRef.current = balls;
+    hasOpeningBreakOccurredRef.current = false;
     setScores({ player1: 0, player2: 0 });
     setCurrentTurn("player1");
     setGamePhase("REDS");
@@ -910,7 +918,8 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
               ball.x = p.x;
               ball.y = p.y;
 
-              soundEngine.playSFX(ball.isCue ? "defeat" : "capture");
+              // A scratch is still a physical pocket drop; the foul feedback is handled separately.
+              soundEngine.playSFX("snooker_pocket");
 
               if (ball.isCue) {
                 turnTrackingRef.current.firstHitBallType = "FOUL_SCRATCH";
@@ -988,7 +997,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
             hitWall = true;
           }
           if (hitWall && Math.hypot(ball.vx, ball.vy) > 2) {
-            soundEngine.playSFX("move");
+            soundEngine.playSFX("snooker_cushion");
           }
         });
 
@@ -1027,7 +1036,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
               b2.vx += impulse * Math.cos(angle);
               b2.vy += impulse * Math.sin(angle);
 
-              if (Math.abs(impulse) > 1) soundEngine.playSFX("move");
+              if (Math.abs(impulse) > 1) soundEngine.playSFX("snooker_hit");
             }
           }
         }
@@ -1380,7 +1389,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     setIsMoving(true);
     setUiPower(0);
     didIShootRef.current = true;
-    soundEngine.playSFX("strike");
+    playCueShotSound();
 
     if (playMode === "online" && channelRef.current) {
       channelRef.current.send({

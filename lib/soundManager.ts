@@ -23,6 +23,32 @@ class SoundEngine {
     }
   }
 
+  /** A tiny, original noise transient for physical impacts; no recorded samples are used. */
+  private playNoiseBurst(now: number, duration: number, volume: number, frequency: number) {
+    if (!this.ctx) return;
+    const frameCount = Math.max(1, Math.floor(this.ctx.sampleRate * duration));
+    const buffer = this.ctx.createBuffer(1, frameCount, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let index = 0; index < frameCount; index += 1) {
+      data[index] = (Math.random() * 2 - 1) * (1 - index / frameCount);
+    }
+
+    const source = this.ctx.createBufferSource();
+    const filter = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(frequency, now);
+    filter.Q.setValueAtTime(0.8, now);
+    gain.gain.setValueAtTime(volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    source.buffer = buffer;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+    source.start(now);
+    source.stop(now + duration);
+  }
+
   public toggleMute(): boolean {
     this.setMuted(!this.isMuted);
     return this.isMuted;
@@ -62,13 +88,17 @@ class SoundEngine {
     | "carrom_strike"
     | "carrom_foul"
     | "carrom_win"
+    | "snooker_break"
+    | "snooker_hit"
+    | "snooker_pocket"
+    | "snooker_cushion"
   ) {
     if (this.isMuted) return;
     this.initContext();
     if (!this.ctx) return;
 
     const now = this.ctx.currentTime;
-    const throttle = type === "carrom_hit" ? 42 : type === "carrom_cushion" ? 55 : type === "carrom_pocket" ? 100 : 0;
+    const throttle = type === "carrom_hit" || type === "snooker_hit" ? 42 : type === "carrom_cushion" || type === "snooker_cushion" ? 55 : type === "carrom_pocket" || type === "snooker_pocket" ? 100 : 0;
     if (throttle) {
       const last = this.lastCarromSound.get(type) || 0;
       const nowMs = performance.now();
@@ -115,6 +145,43 @@ class SoundEngine {
           note.connect(noteGain); noteGain.connect(this.ctx!.destination); note.start(now + index * 0.09); note.stop(now + index * 0.09 + 0.21);
         });
         break;
+      case "snooker_break": {
+        // Layered cue strike and clustered rack response; entirely synthesized.
+        this.playNoiseBurst(now, 0.075, 0.2, 1550);
+        [95, 148, 235, 318].forEach((frequency, index) => {
+          const rack = this.ctx!.createOscillator(); const rackGain = this.ctx!.createGain();
+          rack.type = index < 2 ? "triangle" : "sine";
+          rack.frequency.setValueAtTime(frequency, now + index * 0.012);
+          rack.frequency.exponentialRampToValueAtTime(Math.max(45, frequency * 0.58), now + index * 0.012 + 0.12);
+          rackGain.gain.setValueAtTime(index === 0 ? 0.27 : 0.13, now + index * 0.012); rackGain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.012 + 0.14);
+          rack.connect(rackGain); rackGain.connect(this.ctx!.destination); rack.start(now + index * 0.012); rack.stop(now + index * 0.012 + 0.15);
+        });
+        break;
+      }
+      case "snooker_hit":
+        this.playNoiseBurst(now, 0.025, 0.08, 2450);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(680, now); osc.frequency.exponentialRampToValueAtTime(270, now + 0.045);
+        gain.gain.setValueAtTime(0.105, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        osc.start(now); osc.stop(now + 0.055);
+        break;
+      case "snooker_cushion":
+        this.playNoiseBurst(now, 0.045, 0.07, 980);
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(210, now); osc.frequency.exponentialRampToValueAtTime(115, now + 0.075);
+        gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.start(now); osc.stop(now + 0.085);
+        break;
+      case "snooker_pocket": {
+        this.playNoiseBurst(now, 0.06, 0.1, 720);
+        [360, 190].forEach((frequency, index) => {
+          const drop = this.ctx!.createOscillator(); const dropGain = this.ctx!.createGain();
+          drop.type = "sine"; drop.frequency.setValueAtTime(frequency, now + index * 0.045);
+          dropGain.gain.setValueAtTime(0.12, now + index * 0.045); dropGain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.045 + 0.11);
+          drop.connect(dropGain); dropGain.connect(this.ctx!.destination); drop.start(now + index * 0.045); drop.stop(now + index * 0.045 + 0.12);
+        });
+        break;
+      }
       case "carrom_cushion":
         // Softer, lower knock for a disc rebounding from the board frame.
         osc.type = "sine";
