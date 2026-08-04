@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import PublicProfileCardModal from "@/components/PublicProfileCardModal";
 import { shareAchievement } from "@/lib/socialShare";
 
-type Player = { id: string; username: string; avatar_url: string | null; points: number; gems: number };
+type Player = { id: string; username: string; avatar_url: string | null; points: number; gems: number; card_background_url?: string | null; avatar_frame_url?: string | null };
 const LEADERBOARD_CACHE_KEY = "joeyoke_global_leaderboard_v1";
 
 const readCachedLeaderboard = (): Player[] => {
@@ -36,8 +36,10 @@ export default function LeaderboardPage() {
     document.documentElement.classList.toggle("dark", savedTheme !== "light");
     void supabase.auth.getUser().then(({ data }) => setViewerId(data.user?.id || null));
     void supabase.rpc("get_global_leaderboard")
-      .then(({ data }) => {
-        const nextPlayers = (data || []) as Player[];
+      .then(async ({ data }) => {
+        const basePlayers = (data || []) as Player[];
+        const cards = await Promise.all(basePlayers.map((player) => supabase.rpc("get_public_profile_card", { target_user_id: player.id }).maybeSingle()));
+        const nextPlayers = basePlayers.map((player, index) => { const card = cards[index]?.data as { card_background_url?: string | null; avatar_frame_url?: string | null } | null; return { ...player, card_background_url: card?.card_background_url || null, avatar_frame_url: card?.avatar_frame_url || null }; });
         if (!nextPlayers.length) return;
         setPlayers(nextPlayers);
         sessionStorage.setItem(LEADERBOARD_CACHE_KEY, JSON.stringify({ players: nextPlayers, savedAt: Date.now() }));
@@ -63,9 +65,7 @@ export default function LeaderboardPage() {
       <div className="overflow-hidden rounded-[24px] border border-surface-container-highest bg-surface divide-y divide-surface-variant">
         {remaining.map((player, offset) => { const index = offset + 3; return <div key={player.id} className={`flex items-center gap-3 p-3 ${player.id === viewerId ? "bg-primary-container ring-1 ring-inset ring-primary" : ""}`}>
           <b className="w-8 text-center text-primary">#{index + 1}</b>
-          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-surface-container-highest bg-surface-container">
-            <Image src={player.avatar_url || "/logo-dark.jpeg"} alt="" fill className="object-cover" unoptimized />
-          </div>
+          <Avatar player={player} size="h-12 w-12" />
           <div className="min-w-0 flex-1"><b className="block truncate text-sm">{player.username} {player.id === viewerId && <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[9px] text-on-primary">YOU</span>}</b><span className="text-xs text-on-surface-variant">Profile ranking</span></div>
           <div className="text-right"><b className="block text-sm">{Number(player.points || 0).toLocaleString()} PTS</b><div className="mt-1 flex items-center justify-end gap-2"><button onClick={() => setViewingProfileId(player.id)} className="text-[10px] font-bold text-primary">View profile</button>{player.id === viewerId && <button onClick={() => void shareRank(player, index + 1)} aria-label="Share my rank" className="grid h-6 w-6 place-items-center rounded-md text-primary hover:bg-primary-container"><span className="material-symbols-outlined text-base">share</span></button>}</div></div>
         </div>})}
@@ -77,7 +77,9 @@ export default function LeaderboardPage() {
   </main>;
 }
 
+function Avatar({ player, size }: { player: Player; size: string }) { return <div className={`relative shrink-0 ${size} overflow-visible rounded-full border-2 border-primary bg-surface-container`}><div className="absolute inset-1 overflow-hidden rounded-full"><Image src={player.avatar_url || "/logo-dark.jpeg"} alt="" fill className="object-cover" unoptimized /></div>{player.avatar_frame_url && <Image src={player.avatar_frame_url} alt="" fill className="pointer-events-none absolute inset-0 scale-[1.18] object-contain" unoptimized />}</div>; }
+
 function PodiumCard({ player, rank, featured = false, viewerId, onView, onShare }: { player: Player; rank: number; featured?: boolean; viewerId: string | null; onView: (id: string) => void; onShare: (player: Player, rank: number) => Promise<void> }) {
   const labels = ["", "1st place", "2nd place", "3rd place"];
-  return <div className={`${featured ? "col-span-2" : ""} rounded-[24px] border border-surface-container-highest bg-surface p-4 text-center shadow-sm ${player.id === viewerId ? "ring-1 ring-primary" : ""}`}><span className="inline-flex rounded-full bg-primary-container px-2 py-1 text-[10px] font-black uppercase text-primary">♕ {labels[rank]}</span><div className={`relative mx-auto mt-3 overflow-hidden rounded-full border-2 border-primary bg-surface-container ${featured ? "h-20 w-20" : "h-14 w-14"}`}><Image src={player.avatar_url || "/logo-dark.jpeg"} alt="" fill className="object-cover" unoptimized /></div><b className="mt-2 block truncate text-sm">{player.username}{player.id === viewerId && <span className="ml-1 text-[9px] text-primary">YOU</span>}</b><small className="block text-xs text-on-surface-variant">Profile ranking</small><b className="mt-2 inline-block rounded-lg bg-primary-container px-2 py-1 text-sm text-primary">{Number(player.points || 0).toLocaleString()} PTS</b><div className="mt-2 flex justify-center gap-2"><button onClick={() => onView(player.id)} className="text-[10px] font-bold text-primary">View profile</button>{player.id === viewerId && <button onClick={() => void onShare(player, rank)} aria-label="Share my rank" className="text-primary"><span className="material-symbols-outlined text-base">share</span></button>}</div></div>;
+  return <div className={`${featured ? "col-span-2" : ""} relative overflow-hidden rounded-[24px] border border-surface-container-highest bg-surface p-4 text-center shadow-sm ${player.id === viewerId ? "ring-1 ring-primary" : ""}`} style={featured && player.card_background_url ? { backgroundImage: `linear-gradient(rgb(10 15 25 / .42), rgb(10 15 25 / .62)), url(${player.card_background_url})`, backgroundPosition: "center", backgroundSize: "cover" } : undefined}><span className="relative inline-flex rounded-full bg-primary-container px-2 py-1 text-[10px] font-black uppercase text-primary">♕ {labels[rank]}</span><div className="relative mx-auto mt-3 w-max"><Avatar player={player} size={featured ? "h-20 w-20" : "h-14 w-14"} /></div><b className={`relative mt-2 block truncate text-sm ${featured && player.card_background_url ? "text-white" : ""}`}>{player.username}{player.id === viewerId && <span className="ml-1 text-[9px] text-primary">YOU</span>}</b><small className={`relative block text-xs ${featured && player.card_background_url ? "text-white/80" : "text-on-surface-variant"}`}>Profile ranking</small><b className="relative mt-2 inline-block rounded-lg bg-primary-container px-2 py-1 text-sm text-primary">{Number(player.points || 0).toLocaleString()} PTS</b><div className="relative mt-2 flex justify-center gap-2"><button onClick={() => onView(player.id)} className="text-[10px] font-bold text-primary">View profile</button>{player.id === viewerId && <button onClick={() => void onShare(player, rank)} aria-label="Share my rank" className="text-primary"><span className="material-symbols-outlined text-base">share</span></button>}</div></div>;
 }
