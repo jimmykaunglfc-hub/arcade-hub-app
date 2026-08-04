@@ -129,7 +129,8 @@ export default function SpinTab({ userId, onBack, onWalletUpdated }: { userId?: 
           <div className="relative h-full w-full overflow-hidden rounded-full transition-transform duration-[3500ms] [transition-timing-function:cubic-bezier(.12,.85,.2,1)]" style={{ background: wheelBackground, transform: `rotate(${rotation}deg)` }}>
             {slots.map((slot, index) => {
               const angle = 360 / slots.length;
-              return <div key={slot.id} className="absolute left-1/2 top-1/2 h-1/2 w-16 -translate-x-1/2 origin-bottom pt-3 text-center" style={{ transform: `rotate(${index * angle + angle / 2}deg)` }}><span className="block text-[9px] font-black leading-tight text-white drop-shadow-[0_1px_1px_rgba(0,0,0,.5)]">{slot.label}</span></div>;
+              const midpoint = index * angle + angle / 2;
+              return <div key={slot.id} className="absolute left-1/2 top-1/2 w-[76px] text-center" style={{ transform: `translate(-50%,-50%) rotate(${midpoint}deg) translateY(-82px) rotate(${-midpoint}deg)` }}><span className="block break-words text-[9px] font-black leading-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,.8)]">{slot.label || `${slot.value} ${slot.type === "gems" ? "GEMS" : "PTS"}`}</span></div>;
             })}
           </div>
         </div>

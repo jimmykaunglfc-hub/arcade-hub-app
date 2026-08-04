@@ -7,8 +7,8 @@ import { supabase } from "@/lib/supabaseClient";
 import PublicProfileCardModal from "@/components/PublicProfileCardModal";
 import { shareAchievement } from "@/lib/socialShare";
 
-type Player = { id: string; username: string; avatar_url: string | null; points: number; gems: number; card_background_url?: string | null; avatar_frame_url?: string | null };
-const LEADERBOARD_CACHE_KEY = "joeyoke_global_leaderboard_v1";
+type Player = { id: string; username: string; avatar_url: string | null; xp: number; gems: number; card_background_url?: string | null; avatar_frame_url?: string | null };
+const LEADERBOARD_CACHE_KEY = "joeyoke_global_leaderboard_xp_v1";
 
 const readCachedLeaderboard = (): Player[] => {
   if (typeof window === "undefined") return [];
@@ -26,7 +26,7 @@ export default function LeaderboardPage() {
   const [shareMessage, setShareMessage] = useState<string | null>(null);
 
   const shareRank = async (player: Player, rank: number) => {
-    const status = await shareAchievement({ eyebrow: "Global leaderboard", title: `Global Rank #${rank}`, subtitle: `${player.username} is climbing the Joe Yoke leaderboard`, stat: `${Number(player.points || 0).toLocaleString()} points`, accent: "gold" });
+    const status = await shareAchievement({ eyebrow: "Global leaderboard", title: `Global Rank #${rank}`, subtitle: `${player.username} is climbing the Joe Yoke leaderboard`, stat: `${Number(player.xp || 0).toLocaleString()} XP`, accent: "gold" });
     setShareMessage(status === "shared" ? "Rank card shared." : "Rank card downloaded and text copied.");
     window.setTimeout(() => setShareMessage(null), 3000);
   };
@@ -54,7 +54,7 @@ export default function LeaderboardPage() {
       <header className="shrink-0 border-b border-surface-container-highest bg-background pb-4">
         <button onClick={() => router.back()} className="mb-4 text-sm font-bold text-primary">← Back</button>
         <h1 className="font-headline text-3xl font-black">Global Leaderboard</h1>
-        <p className="mt-1 text-sm text-on-surface-variant">Top 50 players by points</p>
+        <p className="mt-1 text-sm text-on-surface-variant">Top 50 players by XP</p>
         {shareMessage && <p className="mt-3 rounded-lg bg-primary-container px-3 py-2 text-xs font-bold text-on-primary-container">{shareMessage}</p>}
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4 no-scrollbar">
@@ -67,7 +67,7 @@ export default function LeaderboardPage() {
           <b className="w-8 text-center text-primary">#{index + 1}</b>
           <Avatar player={player} size="h-12 w-12" />
           <div className="min-w-0 flex-1"><b className="block truncate text-sm">{player.username} {player.id === viewerId && <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[9px] text-on-primary">YOU</span>}</b><span className="text-xs text-on-surface-variant">Profile ranking</span></div>
-          <div className="text-right"><b className="block text-sm">{Number(player.points || 0).toLocaleString()} PTS</b><div className="mt-1 flex items-center justify-end gap-2"><button onClick={() => setViewingProfileId(player.id)} className="text-[10px] font-bold text-primary">View profile</button>{player.id === viewerId && <button onClick={() => void shareRank(player, index + 1)} aria-label="Share my rank" className="grid h-6 w-6 place-items-center rounded-md text-primary hover:bg-primary-container"><span className="material-symbols-outlined text-base">share</span></button>}</div></div>
+          <div className="text-right"><b className="block text-sm">{Number(player.xp || 0).toLocaleString()} XP</b><div className="mt-1 flex items-center justify-end gap-2"><button onClick={() => setViewingProfileId(player.id)} className="text-[10px] font-bold text-primary">View profile</button>{player.id === viewerId && <button onClick={() => void shareRank(player, index + 1)} aria-label="Share my rank" className="grid h-6 w-6 place-items-center rounded-md text-primary hover:bg-primary-container"><span className="material-symbols-outlined text-base">share</span></button>}</div></div>
         </div>})}
         {!players.length && <p className="p-8 text-center text-sm text-on-surface-variant">Loading leaderboard…</p>}
       </div>
@@ -81,5 +81,5 @@ function Avatar({ player, size }: { player: Player; size: string }) { return <di
 
 function PodiumCard({ player, rank, featured = false, viewerId, onView, onShare }: { player: Player; rank: number; featured?: boolean; viewerId: string | null; onView: (id: string) => void; onShare: (player: Player, rank: number) => Promise<void> }) {
   const labels = ["", "1st place", "2nd place", "3rd place"];
-  return <div className={`${featured ? "col-span-2" : ""} relative overflow-hidden rounded-[24px] border border-surface-container-highest bg-surface p-4 text-center shadow-sm ${player.id === viewerId ? "ring-1 ring-primary" : ""}`} style={featured && player.card_background_url ? { backgroundImage: `linear-gradient(rgb(10 15 25 / .42), rgb(10 15 25 / .62)), url(${player.card_background_url})`, backgroundPosition: "center", backgroundSize: "cover" } : undefined}><span className="relative inline-flex rounded-full bg-primary-container px-2 py-1 text-[10px] font-black uppercase text-primary">♕ {labels[rank]}</span><div className="relative mx-auto mt-3 w-max"><Avatar player={player} size={featured ? "h-20 w-20" : "h-14 w-14"} /></div><b className={`relative mt-2 block truncate text-sm ${featured && player.card_background_url ? "text-white" : ""}`}>{player.username}{player.id === viewerId && <span className="ml-1 text-[9px] text-primary">YOU</span>}</b><small className={`relative block text-xs ${featured && player.card_background_url ? "text-white/80" : "text-on-surface-variant"}`}>Profile ranking</small><b className="relative mt-2 inline-block rounded-lg bg-primary-container px-2 py-1 text-sm text-primary">{Number(player.points || 0).toLocaleString()} PTS</b><div className="relative mt-2 flex justify-center gap-2"><button onClick={() => onView(player.id)} className="text-[10px] font-bold text-primary">View profile</button>{player.id === viewerId && <button onClick={() => void onShare(player, rank)} aria-label="Share my rank" className="text-primary"><span className="material-symbols-outlined text-base">share</span></button>}</div></div>;
+  return <div className={`${featured ? "col-span-2" : ""} relative overflow-hidden rounded-[24px] border border-surface-container-highest bg-surface p-4 text-center shadow-sm ${player.id === viewerId ? "ring-1 ring-primary" : ""}`} style={featured && player.card_background_url ? { backgroundImage: `linear-gradient(rgb(10 15 25 / .42), rgb(10 15 25 / .62)), url(${player.card_background_url})`, backgroundPosition: "center", backgroundSize: "cover" } : undefined}><span className="relative inline-flex rounded-full bg-primary-container px-2 py-1 text-[10px] font-black uppercase text-primary">♕ {labels[rank]}</span><div className="relative mx-auto mt-3 w-max"><Avatar player={player} size={featured ? "h-20 w-20" : "h-14 w-14"} /></div><b className={`relative mt-2 block truncate text-sm ${featured && player.card_background_url ? "text-white" : ""}`}>{player.username}{player.id === viewerId && <span className="ml-1 text-[9px] text-primary">YOU</span>}</b><small className={`relative block text-xs ${featured && player.card_background_url ? "text-white/80" : "text-on-surface-variant"}`}>Profile ranking</small><b className="relative mt-2 inline-block rounded-lg bg-primary-container px-2 py-1 text-sm text-primary">{Number(player.xp || 0).toLocaleString()} XP</b><div className="relative mt-2 flex justify-center gap-2"><button onClick={() => onView(player.id)} className="text-[10px] font-bold text-primary">View profile</button>{player.id === viewerId && <button onClick={() => void onShare(player, rank)} aria-label="Share my rank" className="text-primary"><span className="material-symbols-outlined text-base">share</span></button>}</div></div>;
 }
