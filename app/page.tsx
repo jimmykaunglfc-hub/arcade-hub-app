@@ -406,7 +406,7 @@ export default function Home() {
       ) : playingGame === "native://ping-pong" || playingGame === "native://table-tennis" ? (
         <CompetitiveGameLaunch gameKey="ping-pong" gameTitle="Ping Pong" Game={PingPong} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://wordbox" ? (
-        <CompetitiveGameLaunch gameKey="wordbox" gameTitle="Wordbox" Game={WordBoxArenaGame} onClose={() => setPlayingGame(null)} />
+        <WordBoxGame onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://sudoku" ? (
         <CompetitiveGameLaunch gameKey="sudoku" gameTitle="Sudoku" Game={SudokuArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://ludo" ? (
@@ -414,7 +414,7 @@ export default function Home() {
       ) : playingGame === "native://dominoes" ? (
         <CompetitiveGameLaunch gameKey="dominoes" gameTitle="Dominoes" Game={DominoesArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://2048" ? (
-        <CompetitiveGameLaunch gameKey="game-2048" gameTitle="2048" Game={Game2048ArenaGame} onClose={() => setPlayingGame(null)} />
+        <Game2048 onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://big-two" ? (
         <CompetitiveGameLaunch gameKey="big-two" gameTitle="Big Two" Game={BigTwoArenaGame} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://block-puzzle" ? (
