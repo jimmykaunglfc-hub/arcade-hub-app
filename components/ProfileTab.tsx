@@ -61,11 +61,13 @@ type ProfileEditConfig = {
 interface ProfileTabProps {
   isDarkMode: boolean;
   onToggleTheme: () => void;
+  onPlayFavorite?: (title: string) => void;
 }
 
 export default function ProfileTab({
   isDarkMode,
   onToggleTheme,
+  onPlayFavorite,
 }: ProfileTabProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [fetchStatus, setFetchStatus] = useState<
@@ -813,7 +815,7 @@ export default function ProfileTab({
                     })}</div> : <p className="py-8 text-center text-sm text-on-surface-variant">No cosmetics purchased yet. Visit the Shop to unlock some.</p>}
                   </div>
                 )}
-                {modal === "favorites" && <div className="grid grid-cols-2 gap-3 p-5">{favoriteGames.length ? favoriteGames.map((game) => <div key={game.game_id} className="rounded-2xl border border-surface-container-highest bg-surface-container-high p-4"><span className="material-symbols-outlined text-primary">star</span><b className="mt-2 block truncate text-sm">{game.title}</b><small className="text-on-surface-variant">{game.category || "Arcade"}</small></div>) : <p className="col-span-2 py-10 text-center text-xs text-on-surface-variant">No saved games yet. Tap the star on a game detail page to add one.</p>}</div>}
+                {modal === "favorites" && <div className="grid grid-cols-2 gap-3 p-5">{favoriteGames.length ? favoriteGames.map((game) => <button key={game.game_id} onClick={() => onPlayFavorite?.(game.title)} className="rounded-2xl border border-surface-container-highest bg-surface-container-high p-4 text-left transition hover:border-primary active:scale-[.98]"><span className="material-symbols-outlined text-primary">star</span><b className="mt-2 block truncate text-sm">{game.title}</b><small className="block text-on-surface-variant">{game.category || "Arcade"}</small><span className="mt-3 inline-flex items-center gap-1 text-[10px] font-black text-primary"><span className="material-symbols-outlined text-sm">play_arrow</span>PLAY</span></button>) : <p className="col-span-2 py-10 text-center text-xs text-on-surface-variant">No saved games yet. Tap the star on a game detail page to add one.</p>}</div>}
                 {modal === "identity" && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">

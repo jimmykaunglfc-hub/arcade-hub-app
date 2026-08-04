@@ -60,7 +60,7 @@ export default function LeaderboardPage() {
             <Image src={player.avatar_url || "/logo-dark.jpeg"} alt="" fill className="object-cover" unoptimized />
           </div>
           <div className="min-w-0 flex-1"><b className="block truncate text-sm">{player.username} {player.id === viewerId && <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[9px] text-on-primary">YOU</span>}</b><span className="text-xs text-on-surface-variant">Profile ranking</span></div>
-          <div className="text-right"><b className="block text-sm">{Number(player.points || 0).toLocaleString()} PTS</b><div className="mt-1 flex items-center justify-end gap-2"><button onClick={() => setViewingProfileId(player.id)} className="text-[10px] font-bold text-primary">View profile</button>{player.id === viewerId && <button onClick={() => void shareRank(player, index + 1)} className="text-[10px] font-bold text-primary">Share rank</button>}</div></div>
+          <div className="text-right"><b className="block text-sm">{Number(player.points || 0).toLocaleString()} PTS</b><div className="mt-1 flex items-center justify-end gap-2"><button onClick={() => setViewingProfileId(player.id)} className="text-[10px] font-bold text-primary">View profile</button>{player.id === viewerId && <button onClick={() => void shareRank(player, index + 1)} aria-label="Share my rank" className="grid h-6 w-6 place-items-center rounded-md text-primary hover:bg-primary-container"><span className="material-symbols-outlined text-base">share</span></button>}</div></div>
         </div>)}
         {!players.length && <p className="p-8 text-center text-sm text-on-surface-variant">Loading leaderboard…</p>}
       </div>

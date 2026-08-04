@@ -100,6 +100,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [referralStats, setReferralStats] = useState({ invited: 0, earned: 0 });
   const [referralInvitees, setReferralInvitees] = useState<Array<{ username: string; network_id: string; created_at: string }>>([]);
+  const [referralBenefits, setReferralBenefits] = useState<Array<{ label: string; detail: string }>>([]);
   
   const [showGameSelector, setShowGameSelector] = useState(false);
   const [inviteStep, setInviteStep] = useState<"game" | "carrom_mode">("game");
@@ -119,8 +120,18 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
       supabase.from("chat_group_members").select("group_id").eq("user_id", id),
       supabase.from("direct_messages").select("sender_id").eq("receiver_id", id).is("read_at", null),
     ]);
-    const { data: referralData } = await supabase.rpc("get_my_referral_dashboard");
+    const [{ data: referralData }, { data: referralConfig }, { data: milestones }, { data: purchases }] = await Promise.all([
+      supabase.rpc("get_my_referral_dashboard"),
+      supabase.from("platform_config").select("referral_inviter_points, referral_inviter_gems").eq("id", 1).maybeSingle(),
+      supabase.from("referral_milestone_rules").select("invitee_target,reward_points,reward_gems").eq("is_active", true).order("invitee_target"),
+      supabase.from("referral_purchase_rules").select("minimum_purchase_amount,reward_points,reward_gems").eq("is_active", true).order("minimum_purchase_amount"),
+    ]);
     if (referralData) setReferralStats(Array.isArray(referralData) ? referralData[0] : referralData);
+    setReferralBenefits([
+      referralConfig ? { label: "Every successful invite", detail: `+${Number(referralConfig.referral_inviter_points || 0).toLocaleString()} points · +${Number(referralConfig.referral_inviter_gems || 0)} gems` } : null,
+      ...(milestones || []).map((rule: any) => ({ label: `${rule.invitee_target} invitee milestone`, detail: `+${Number(rule.reward_points || 0).toLocaleString()} points · +${Number(rule.reward_gems || 0)} gems` })),
+      ...(purchases || []).map((rule: any) => ({ label: `Invitee spends $${Number(rule.minimum_purchase_amount).toFixed(2)}+`, detail: `+${Number(rule.reward_points || 0).toLocaleString()} points · +${Number(rule.reward_gems || 0)} gems` })),
+    ].filter(Boolean) as Array<{ label: string; detail: string }>);
     const { data: invitees } = await supabase.rpc("get_my_referral_invitees");
     if (invitees) setReferralInvitees(invitees as Array<{ username: string; network_id: string; created_at: string }>);
     if (myProfile) setMyUsername(myProfile.network_id || myProfile.username);
@@ -618,7 +629,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   }
 
   if (activeView === "referral") {
-    return <div className="fixed inset-0 z-[100002] overflow-y-auto bg-background px-5 pb-8 pt-[calc(18px+env(safe-area-inset-top))] text-on-surface"><header className="flex items-center gap-3"><button onClick={() => { setActiveView("hub"); onChatOpenChange?.(false); }} className="grid h-10 w-10 place-items-center rounded-full"><span className="material-symbols-outlined">arrow_back</span></button><h1 className="font-headline text-lg font-black">Invite dashboard</h1></header><section className="mt-7 rounded-[28px] bg-gradient-to-br from-[#a9f500] to-emerald-500 p-6 text-black"><p className="text-xs font-bold">Your referral code</p><p className="mt-1 font-headline text-2xl font-black">{myUsername}</p><button onClick={handleCopyId} className="mt-4 rounded-xl bg-black px-4 py-2 text-xs font-black text-white">Copy code</button></section><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-surface-container-high p-5"><b className="text-3xl text-primary">{referralStats.invited}</b><p className="mt-1 text-xs text-on-surface-variant">Total invitees</p></div><div className="rounded-2xl bg-surface-container-high p-5"><b className="text-3xl text-primary">{referralStats.earned}</b><p className="mt-1 text-xs text-on-surface-variant">Points earned</p></div></div><h2 className="mt-7 font-headline text-base font-black">Invitee information</h2><div className="mt-3 space-y-3">{referralInvitees.length ? referralInvitees.map((invitee) => <div key={invitee.network_id} className="flex items-center gap-3 rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="grid h-10 w-10 place-items-center rounded-full bg-primary-container font-black text-primary">{invitee.username.slice(0,1)}</span><span className="min-w-0 flex-1"><b className="block text-sm">{invitee.username}</b><small className="text-xs text-on-surface-variant">{invitee.network_id} · Joined {new Date(invitee.created_at).toLocaleDateString()}</small></span><span className="rounded-full bg-primary-container px-2 py-1 text-[10px] font-bold text-primary">Active</span></div>) : <p className="rounded-2xl bg-surface p-5 text-center text-xs text-on-surface-variant">No invitees yet. Share your code to get started.</p>}</div></div>;
+    return <div className="fixed inset-0 z-[100002] overflow-y-auto bg-background px-5 pb-8 pt-[calc(18px+env(safe-area-inset-top))] text-on-surface"><header className="flex items-center gap-3"><button onClick={() => { setActiveView("hub"); onChatOpenChange?.(false); }} className="grid h-10 w-10 place-items-center rounded-full"><span className="material-symbols-outlined">arrow_back</span></button><h1 className="font-headline text-lg font-black">Invite dashboard</h1></header><section className="mt-7 rounded-[28px] bg-primary-container p-6"><p className="text-xs font-bold text-primary">REFERRAL PERFORMANCE</p><h2 className="mt-2 font-headline text-2xl font-black">Your invite summary</h2><p className="mt-2 text-xs text-on-surface-variant">Track invitees and see the rewards available in the current program.</p></section><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-surface-container-high p-5"><b className="text-3xl text-primary">{referralStats.invited}</b><p className="mt-1 text-xs text-on-surface-variant">Total invitees</p></div><div className="rounded-2xl bg-surface-container-high p-5"><b className="text-3xl text-primary">{referralStats.earned}</b><p className="mt-1 text-xs text-on-surface-variant">Points earned</p></div></div><h2 className="mt-7 font-headline text-base font-black">Available benefits</h2><div className="mt-3 space-y-2">{referralBenefits.length ? referralBenefits.map((benefit) => <div key={benefit.label} className="rounded-xl border border-surface-container-highest bg-surface p-3"><b className="block text-xs">{benefit.label}</b><small className="text-primary">{benefit.detail}</small></div>) : <p className="rounded-xl bg-surface p-4 text-xs text-on-surface-variant">Rewards will appear when the referral program is configured.</p>}</div><h2 className="mt-7 font-headline text-base font-black">Invitee information</h2><div className="mt-3 space-y-3">{referralInvitees.length ? referralInvitees.map((invitee) => <div key={invitee.network_id} className="flex items-center gap-3 rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="grid h-10 w-10 place-items-center rounded-full bg-primary-container font-black text-primary">{invitee.username.slice(0,1)}</span><span className="min-w-0 flex-1"><b className="block text-sm">{invitee.username}</b><small className="text-xs text-on-surface-variant">{invitee.network_id} · Joined {new Date(invitee.created_at).toLocaleDateString()}</small></span><span className="rounded-full bg-primary-container px-2 py-1 text-[10px] font-bold text-primary">Active</span></div>) : <p className="rounded-2xl bg-surface p-5 text-center text-xs text-on-surface-variant">No invitees yet. Share your code to get started.</p>}</div></div>;
   }
 
   // ============================================================================
@@ -767,9 +778,9 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
           </button>
           
           <div className="flex min-w-0 items-center gap-2">
-            <div className="relative h-10 w-10 shrink-0 rounded-full bg-surface-container-high">
-              <Image src={activeChat?.avatar_url || ""} alt="User" fill className="object-cover" unoptimized />
-              {activeChat?.avatar_frame_url && <Image src={activeChat.avatar_frame_url} alt="" fill className="pointer-events-none scale-[1.2] object-contain" unoptimized />}
+            <div className="relative h-10 w-10 shrink-0 overflow-visible rounded-full bg-surface-container-high">
+              <div className="absolute inset-1 overflow-hidden rounded-full"><Image src={activeChat?.avatar_url || "/logo-dark.jpeg"} alt="User" fill className="object-cover" unoptimized /></div>
+              {activeChat?.avatar_frame_url && <Image src={activeChat.avatar_frame_url} alt="" fill className="pointer-events-none absolute inset-0 scale-[1.2] object-contain" unoptimized />}
             </div>
             <div className="min-w-0">
               <h3 className="truncate font-headline text-sm font-bold text-on-surface leading-tight">{activeChat?.username}</h3>

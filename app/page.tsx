@@ -519,6 +519,10 @@ export default function Home() {
                 <ProfileTab
                   isDarkMode={isDarkMode}
                   onToggleTheme={toggleTheme}
+                  onPlayFavorite={(title) => {
+                    const slug = title.toLowerCase().replace(/'/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+                    setPlayingGame(`native://${slug}`);
+                  }}
                 />
               )}
             </>
