@@ -122,6 +122,9 @@ create or replace function public.join_four_player_queue(p_game_key text, p_name
 returns uuid language plpgsql security definer set search_path = public as $$
 declare v_room uuid; v_seat smallint; v_code text;
 begin
+  -- Serialize joins for each game. Without this lock, four simultaneous first
+  -- searches can each observe an empty queue and create separate rooms.
+  perform pg_advisory_xact_lock(hashtext(lower(p_game_key)));
   select r.id into v_room from public.matchmaking_rooms r
   where r.game_key = lower(p_game_key) and r.max_players = 4 and r.status = 'waiting' and r.expires_at > now()
     and (select count(*) from public.matchmaking_room_players p where p.room_id = r.id and p.left_at is null) < 4
