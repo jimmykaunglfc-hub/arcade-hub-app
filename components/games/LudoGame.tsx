@@ -128,6 +128,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
  const [isHost, setIsHost] = useState(false);
  const [botIndexes, setBotIndexes] = useState<number[]>([]);
+ const [mySeatIndex, setMySeatIndex] = useState(0);
  const timeoutRequested = useRef<string | null>(null);
  const [tokens, setTokens] = useState<TokenState>(() => initialTokens());
  const [current, setCurrent] = useState<PlayerId>(0);
@@ -144,11 +145,11 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
      const seat = (room?.players || []).find((player: any) => player.user_id === auth.user?.id)?.seat;
      if (!seat) return;
      const roster = new Map<number, string>((room.players || []).map((player: any) => [player.seat, player.name]));
-     const order = [seat, seat % 4 + 1, (seat + 1) % 4 + 1, (seat + 2) % 4 + 1];
      setIsHost(room?.host_id === auth.user?.id);
      const bySeat = new Map<number, any>((room?.players || []).map((player: any) => [player.seat, player]));
-     setBotIndexes(order.flatMap((number, index) => bySeat.get(number)?.is_bot ? [index] : []));
-     setPlayerNames(order.map((number) => roster.get(number) || "Player"));
+     setMySeatIndex(seat - 1);
+     setBotIndexes([1,2,3,4].flatMap((number, index) => bySeat.get(number)?.is_bot ? [index] : []));
+     setPlayerNames([1,2,3,4].map((number) => roster.get(number) || "Player"));
    })();
  }, [roomId]);
 
@@ -171,21 +172,21 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
      ]);
      const seat = (room?.players || []).find((player: any) => player.user_id === auth.user?.id)?.seat;
      if (!seat || !match) return;
-     const order = [seat, seat % 4 + 1, (seat + 1) % 4 + 1, (seat + 2) % 4 + 1];
      const raw = match.state?.tokens || [];
      const namesBySeat = new Map<number, string>((room?.players || []).map((player: any) => [player.seat, player.name]));
-     const displayNames = order.map((number) => namesBySeat.get(number) || "Player");
+     const displayNames = [1,2,3,4].map((number) => namesBySeat.get(number) || "Player");
      setPlayerNames(displayNames);
-     setTokens(Object.fromEntries(order.map((number, index) => [index, raw[number - 1] || [-1,-1,-1,-1]])) as TokenState);
-     const displayCurrent = Math.max(0, order.indexOf(match.current_seat)) as PlayerId;
+     setMySeatIndex(seat - 1);
+     setTokens(Object.fromEntries([0,1,2,3].map((index) => [index, raw[index] || [-1,-1,-1,-1]])) as TokenState);
+     const displayCurrent = (match.current_seat - 1) as PlayerId;
      setCurrent(displayCurrent);
      setDice(match.state?.dice ?? null);
      setTurnDeadline(match.turn_deadline || null);
-     if (match.status === "completed") setMessage(displayCurrent === 0 ? "Match complete." : `${displayNames[displayCurrent]} wins.`);
-     else if (match.state?.dice) setMessage(displayCurrent === 0 ? `You rolled ${match.state.dice}. Choose a token.` : `${displayNames[displayCurrent]} is choosing a token.`);
-     else setMessage(displayCurrent === 0 ? "Your turn. Roll the dice!" : `${displayNames[displayCurrent]}'s turn to roll.`);
+     if (match.status === "completed") setMessage(displayCurrent === seat - 1 ? "Match complete." : `${displayNames[displayCurrent]} wins.`);
+     else if (match.state?.dice) setMessage(displayCurrent === seat - 1 ? `You rolled ${match.state.dice}. Choose a token.` : `${displayNames[displayCurrent]} is choosing a token.`);
+     else setMessage(displayCurrent === seat - 1 ? "Your turn. Roll the dice!" : `${displayNames[displayCurrent]}'s turn to roll.`);
      const winnerSeat = Number(match.state?.winner_seat || 0);
-     setWinner(winnerSeat ? Math.max(0, order.indexOf(winnerSeat)) as PlayerId : null);
+     setWinner(winnerSeat ? (winnerSeat - 1) as PlayerId : null);
      setRoomReady(true);
    };
    void load(); const poll = window.setInterval(() => { void load(); }, 1200);
@@ -263,7 +264,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
  }, [finishTurn, roomId, tokens]);
 
  const rollDice = useCallback((player: PlayerId) => {
-   if (roomId) { if (player === 0) void supabase.rpc("ludo_roll", { p_room_id: roomId }).then(({ error }) => { if (error) setMessage(error.message); }); return; }
+   if (roomId) { if (player === mySeatIndex) void supabase.rpc("ludo_roll", { p_room_id: roomId }).then(({ error }) => { if (error) setMessage(error.message); }); return; }
    if (rolling || winner !== null || dice !== null) return;
    setRolling(true); setMessage(`${PLAYERS[player].name} is rolling...`);
    window.setTimeout(() => {
@@ -278,7 +279,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
        setMessage(player === 0 ? `You rolled ${roll}. Choose a piece.` : `${PLAYERS[player].name} rolled ${roll}.`);
      }
    }, 450);
- }, [dice, finishTurn, rolling, roomId, tokens, winner]);
+ }, [dice, finishTurn, mySeatIndex, rolling, roomId, tokens, winner]);
 
  useEffect(() => {
    if (roomId || current === 0 || winner !== null || rolling || dice !== null) return;
@@ -372,7 +373,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
          </div>
        ))}
      </div>
-     {secondsLeft !== null && <div className="mx-auto mt-2 rounded-full bg-slate-950/70 px-4 py-1 text-xs font-black text-amber-300">⏱ {secondsLeft}s {current === 0 ? "· Your turn" : "· Opponent turn"}</div>}
+     {secondsLeft !== null && <div className="mx-auto mt-2 rounded-full bg-slate-950/70 px-4 py-1 text-xs font-black text-amber-300">⏱ {secondsLeft}s {current === mySeatIndex ? "· Your turn" : `· ${playerNames[current] || "Opponent"}'s turn`}</div>}
 
      <main className="ludo-board-stage flex min-h-0 flex-1 items-center justify-center overflow-hidden py-3">
        <div className="ludo-board grid shrink-0 grid-cols-[repeat(15,minmax(0,1fr))] grid-rows-[repeat(15,minmax(0,1fr))] overflow-hidden rounded-[1.1rem] border-[7px] border-white bg-white shadow-[0_7px_0_#171717,0_20px_42px_rgba(0,0,0,0.52)] ring-2 ring-black/20">
@@ -472,13 +473,13 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
                )}
                <div className="relative z-10 flex flex-wrap items-center justify-center gap-[1px]">
                  {pieces.map(({ player, piece }) => {
-                   const clickable = player === 0 && current === 0 && dice !== null && available.includes(piece);
+                   const clickable = player === mySeatIndex && current === mySeatIndex && dice !== null && available.includes(piece);
                    return (
                      <button
                        key={`${player}-${piece}`}
                        aria-label={`${PLAYERS[player].name} pawn ${piece + 1}`}
                        disabled={!clickable}
-                       onClick={() => dice !== null && movePiece(0, piece, dice)}
+                       onClick={() => dice !== null && movePiece(mySeatIndex as PlayerId, piece, dice)}
                        className={`ludo-pawn ${tokens[player][piece] === -1 ? "ludo-pawn-home" : ""} ${pieces.length > 1 ? "ludo-pawn-stacked" : ""} ${clickable ? "ludo-pawn-playable" : ""}`}
                        style={{ color: PLAYERS[player].color }}
                      >
@@ -496,10 +497,10 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
      <section className="mx-auto flex w-full max-w-md shrink-0 items-center gap-3 rounded-3xl border border-white/10 bg-[#202020] p-3 shadow-xl">
        <button
          type="button"
-         disabled={current !== 0 || rolling || dice !== null || winner !== null}
-         onClick={() => rollDice(0)}
+         disabled={current !== mySeatIndex || rolling || dice !== null || winner !== null}
+         onClick={() => rollDice(mySeatIndex as PlayerId)}
          aria-label="Roll dice"
-         className={`relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-amber-300/70 bg-amber-400/10 shadow-[0_8px_18px_rgba(0,0,0,0.4)] transition active:translate-y-1 ${current !== 0 || winner !== null ? "opacity-45" : "opacity-100"} ${rolling ? "ring-4 ring-amber-300/40" : current === 0 && dice === null && winner === null ? "animate-pulse" : ""}`}
+         className={`relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-amber-300/70 bg-amber-400/10 shadow-[0_8px_18px_rgba(0,0,0,0.4)] transition active:translate-y-1 ${current !== mySeatIndex || winner !== null ? "opacity-45" : "opacity-100"} ${rolling ? "ring-4 ring-amber-300/40" : current === mySeatIndex && dice === null && winner === null ? "animate-pulse" : ""}`}
        >
          <RealDice value={dice ?? 6} rolling={rolling} />
        </button>
@@ -551,7 +552,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
 
      {winner !== null && (
        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-6 backdrop-blur-sm">
-         <div className="w-full max-w-sm rounded-3xl bg-white p-7 text-center text-slate-950 shadow-2xl"><div className="text-6xl">🏆</div><h2 className="mt-3 text-3xl font-black">{winner === 0 ? "You Win!" : `${playerNames[winner]} Wins!`}</h2><p className="mt-2 text-sm text-slate-500">The shared Ludo match is complete.</p><button onClick={onPlayAgain ?? reset} className="mt-6 w-full rounded-2xl bg-emerald-500 py-3 font-black text-white">Play Again</button><button onClick={onClose} className="mt-3 w-full rounded-2xl border border-slate-300 py-3 font-black text-slate-700">Exit to Arcade</button></div>
+         <div className="w-full max-w-sm rounded-3xl bg-white p-7 text-center text-slate-950 shadow-2xl"><div className="text-6xl">🏆</div><h2 className="mt-3 text-3xl font-black">{winner === mySeatIndex ? "You Win!" : `${playerNames[winner]} Wins!`}</h2><p className="mt-2 text-sm text-slate-500">The shared Ludo match is complete.</p><button onClick={onPlayAgain ?? reset} className="mt-6 w-full rounded-2xl bg-emerald-500 py-3 font-black text-white">Play Again</button><button onClick={onClose} className="mt-3 w-full rounded-2xl border border-slate-300 py-3 font-black text-slate-700">Exit to Arcade</button></div>
        </div>
      )}
 
