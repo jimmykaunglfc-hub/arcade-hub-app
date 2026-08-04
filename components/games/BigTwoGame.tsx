@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { getRandomBotOpponent } from "@/lib/botUtils";
 
-interface BigTwoGameProps { onClose?: () => void; roomId?: string | null; }
+interface BigTwoGameProps { onClose?: () => void; onPlayAgain?: () => void; roomId?: string | null; }
 type Suit = 0 | 1 | 2 | 3;
 type Card = { id: string; rank: number; suit: Suit };
 type HandType = "single" | "pair" | "triple" | "straight" | "flush" | "full-house" | "four-kind" | "straight-flush";
@@ -101,7 +101,7 @@ function CardBack({ className = "" }: { className?: string }) {
  return <span className={`block h-12 w-8 shrink-0 rounded-md border-2 border-white bg-rose-600 p-[2px] shadow-md ${className}`}><span className="block h-full w-full rounded-[3px] border border-white/70 bg-[repeating-linear-gradient(45deg,rgba(255,255,255,.85)_0_2px,transparent_2px_5px)]" /></span>;
 }
 
-export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
+export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProps) {
  const [roomReady, setRoomReady] = useState(!roomId);
  const [playerNames, setPlayerNames] = useState(() => ["You", ...Array.from({ length: 3 }, () => getRandomBotOpponent().name)]);
  const [initialGame] = useState(dealGame);
@@ -157,7 +157,9 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
      setPasses(Number(state.state?.passes || 0));
      setOpening(Boolean(state.state?.opening_required));
      setTurnDeadline(state.turn_deadline || null);
-     const winnerSeat = Number(state.state?.winner_seat || lastSeat);
+     // A player can always identify their own win from their private hand;
+     // this avoids any seat-order/render timing ambiguity in the public state.
+     const winnerSeat = ownCards.length === 0 ? seat : Number(state.state?.winner_seat || lastSeat);
      const displayWinner = order.indexOf(winnerSeat);
      if (state.status === "completed") setWinner(displayWinner >= 0 ? displayWinner : null);
      else setWinner(null);
@@ -220,7 +222,8 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
 
        <button onClick={()=>{if(roomId){void supabase.rpc("big_two_pass",{p_room_id:roomId}).then(({error})=>{if(error)setMessage(error.message);});}else passTurn(0);}} disabled={turn!==0||!currentPlay||freeLead||winner!==null} className="absolute bottom-[148px] left-4 z-30 flex h-14 w-14 items-center justify-center rounded-full border-2 border-amber-200 bg-gradient-to-b from-amber-300 to-amber-500 text-xs font-black text-amber-950 shadow-[0_6px_0_#9a5c00] active:translate-y-1 disabled:opacity-30">PASS</button>
        <button onClick={handlePlay} disabled={turn!==0||winner!==null} className={`absolute bottom-[148px] right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full border-2 text-xs font-black shadow-[0_6px_0_#14532d] active:translate-y-1 disabled:opacity-35 ${canPlay?"border-lime-200 bg-[#ccff00] text-slate-950":"border-slate-400 bg-slate-600 text-slate-200"}`}>PLAY</button>
-       {hands[0].length === 1 && !oneCardCalled && winner===null && <button onClick={()=>{if(roomId){void supabase.rpc("big_two_call_one",{p_room_id:roomId}).then(({error})=>{if(error)setMessage(error.message);});}else setOneCardCalled(true);}} className="absolute bottom-[148px] left-1/2 z-30 -translate-x-1/2 rounded-full border border-red-200 bg-red-600 px-3 py-2 text-[10px] font-black text-white shadow-lg">CALL 1 CARD</button>}
+       {hands[0].length === 1 && !oneCardCalled && winner===null && <button onClick={()=>{setOneCardCalled(true);setMessage("You called 1 Card!");if(roomId){void supabase.rpc("big_two_call_one",{p_room_id:roomId}).then(({error})=>{if(error){setOneCardCalled(false);setMessage(error.message);}});}}} className="absolute bottom-[148px] left-1/2 z-30 -translate-x-1/2 rounded-full border border-red-200 bg-red-600 px-3 py-2 text-[10px] font-black text-white shadow-lg">CALL 1 CARD</button>}
+       {hands[0].length === 1 && oneCardCalled && winner===null && <div className="absolute bottom-[154px] left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-lime-200 bg-lime-400 px-3 py-2 text-[10px] font-black text-slate-950 shadow-lg">✓ 1 CARD CALLED</div>}
 
        <div className={`absolute bottom-0 left-0 right-0 z-20 ${turn===0?"drop-shadow-[0_0_8px_rgba(253,224,71,.5)]":""}`}>
          <div className="flex items-center justify-between px-4"><span className={`text-[10px] font-black uppercase ${turn===0?"text-amber-300":"text-cyan-200"}`}>Your hand · {hands[0].length}</span><span className="text-[9px] text-emerald-100">{selectedValue?.label??"Tap cards to select"}</span></div>
@@ -230,6 +233,6 @@ export default function BigTwoGame({onClose, roomId}:BigTwoGameProps) {
    </main>
 
    {showRules&&<div className="fixed inset-x-0 bottom-20 top-14 z-[250] flex items-center justify-center bg-slate-950/88 p-4 backdrop-blur-md"><div className="max-h-[92%] w-full max-w-md overflow-y-auto rounded-[2rem] border-2 border-[#ccff00] bg-slate-900 p-5"><div className="flex justify-between"><div><p className="text-[10px] font-black uppercase tracking-widest text-[#ccff00]">Classic Big Two</p><h2 className="text-2xl font-black">How to Play</h2></div><button onClick={()=>setShowRules(false)} className="h-10 w-10 rounded-full bg-slate-800 text-2xl">×</button></div><div className="mt-5 space-y-3">{[["🃏","Card order","3 is lowest and 2 is highest. Suits are ♦, ♣, ♥, ♠ from low to high."],["♦","Opening play","The player holding 3♦ starts and must include it in the first play."],["✋","Valid plays","Play a single, pair, triple, or five cards: straight, flush, full house, four of a kind plus one, or straight flush."],["⬆️","Beat the table","Match the number of cards. Five-card hands rank: straight, flush, full house, four of a kind, straight flush."],["⏭️","Pass and reset","You may pass. After all three opponents pass, the last player starts a new trick with any valid play."],["🏆","Empty your hand","The first player to play all 13 cards wins."]].map(([icon,title,text])=><div key={title} className="flex gap-3 rounded-2xl border border-slate-700 bg-slate-800 p-3"><span className="text-xl">{icon}</span><div><h3 className="font-black text-amber-300">{title}</h3><p className="text-xs leading-5 text-slate-300">{text}</p></div></div>)}</div><button onClick={()=>setShowRules(false)} className="mt-5 w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">Got It — Let&apos;s Play</button></div></div>}
-   {winner!==null&&<div className="absolute inset-0 z-[260] flex items-center justify-center bg-slate-950/85 p-5 backdrop-blur-sm"><div className="w-full max-w-sm overflow-hidden rounded-[2rem] border-2 border-amber-300 bg-slate-900 text-center shadow-2xl"><div className="bg-[radial-gradient(circle_at_center,#fbbf24_0%,#92400e_45%,#111827_78%)] px-7 pb-6 pt-8"><div className="text-7xl drop-shadow-xl">{winner===0?"🏆":"🎮"}</div><p className="mt-3 text-xs font-black uppercase tracking-[.25em] text-amber-100">Big Two complete</p><h2 className="mt-2 text-3xl font-black text-white">{winner===0?"You Win!":`${playerNames[winner]} Wins`}</h2><p className="mt-2 text-sm text-amber-100/90">{winner===0?"Excellent play — you cleared your hand first.":"The match has ended. Ready for another round?"}</p></div><div className="space-y-3 p-5">{!roomId&&<button onClick={startGame} className="w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">Play Again</button>}<button onClick={onClose} className="w-full rounded-2xl border border-slate-600 bg-slate-800 py-3 font-black text-white">Exit to Arcade</button></div></div></div>}
+   {winner!==null&&<div className="absolute inset-0 z-[260] flex items-center justify-center bg-slate-950/85 p-5 backdrop-blur-sm"><div className="w-full max-w-sm overflow-hidden rounded-[2rem] border-2 border-amber-300 bg-slate-900 text-center shadow-2xl"><div className="bg-[radial-gradient(circle_at_center,#fbbf24_0%,#92400e_45%,#111827_78%)] px-7 pb-6 pt-8"><div className="text-7xl drop-shadow-xl">{winner===0?"🏆":"🎮"}</div><p className="mt-3 text-xs font-black uppercase tracking-[.25em] text-amber-100">Big Two complete</p><h2 className="mt-2 text-3xl font-black text-white">{winner===0?"You Win!":`${playerNames[winner]} Wins`}</h2><p className="mt-2 text-sm text-amber-100/90">{winner===0?"Excellent play — you cleared your hand first.":"The match has ended. Ready for another round?"}</p></div><div className="space-y-3 p-5"><button onClick={onPlayAgain ?? startGame} className="w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">Play Again</button><button onClick={onClose} className="w-full rounded-2xl border border-slate-600 bg-slate-800 py-3 font-black text-white">Exit to Arcade</button></div></div></div>}
  </div>;
 }

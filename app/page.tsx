@@ -83,7 +83,7 @@ function BigTwoFourPlayerArena({ onClose }: { onClose: () => void }) {
   useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
   if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Big Two matchmaking.</div>;
   if (!roomId) return <FourPlayerMatchLobby gameKey="big-two" gameName="Big Two" userId={userId} onStart={setRoomId} onCancel={onClose} />;
-  return <BigTwoGame onClose={onClose} roomId={roomId} />;
+  return <BigTwoGame onClose={onClose} onPlayAgain={() => setRoomId(null)} roomId={roomId} />;
 }
 
 export default function Home() {

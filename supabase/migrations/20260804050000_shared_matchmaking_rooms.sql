@@ -170,11 +170,14 @@ grant execute on function public.big_two_pass(uuid) to authenticated;
 
 create or replace function public.big_two_call_one(p_room_id uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare v_seat integer; v_cards jsonb;
+declare v_seat integer; v_cards jsonb; v_called integer;
 begin
   select p.seat into v_seat from public.matchmaking_room_players p where p.room_id=p_room_id and p.user_id=auth.uid() and p.left_at is null;
   select cards into v_cards from public.big_two_player_hands where room_id=p_room_id and seat=v_seat for update;
   if v_seat is null or jsonb_array_length(coalesce(v_cards, '[]'::jsonb)) <> 1 then raise exception 'You can call 1 card only when one card remains'; end if;
+  select coalesce((state->>'one_card_called_seat')::integer, 0) into v_called from public.big_two_match_state where room_id=p_room_id for update;
+  if v_called = v_seat then return jsonb_build_object('seat',v_seat,'called',true,'already_called',true); end if;
+  if v_called <> 0 then raise exception 'A 1 Card call is already active'; end if;
   update public.big_two_match_state set state=jsonb_set(state,'{one_card_called_seat}',to_jsonb(v_seat)), updated_at=now() where room_id=p_room_id and status='playing';
   return jsonb_build_object('seat',v_seat,'called',true);
 end; $$;
