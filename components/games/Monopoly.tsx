@@ -373,7 +373,10 @@ function commitPendingTransactions(current: GameState): GameState {
     if (transaction.kind === "bank-fee") {
       const player = players.find((item) => item.id === transaction.playerId);
       if (!player) return;
-      players = players.map((item) => item.id !== player.id ? item : player.cash < transaction.amount && transaction.bankruptIfInsufficient ? { ...item, cash: 0, ownedSpaceIds: [], propertyLevels: {}, mortgagedSpaceIds: [], bankrupt: true } : { ...item, cash: Math.max(0, item.cash - transaction.amount) });
+      // Zero cash is recoverable: titles remain available to sell, mortgage or
+      // trade instead of automatically eliminating the player and freezing
+      // the room.
+      players = players.map((item) => item.id !== player.id ? item : { ...item, cash: Math.max(0, item.cash - transaction.amount) });
       return;
     }
 
@@ -382,8 +385,8 @@ function commitPendingTransactions(current: GameState): GameState {
     if (!payer || !recipient) return;
     if (payer.cash < transaction.amount) {
       players = players.map((player) => {
-        if (player.id === payer.id) return { ...player, cash: 0, ownedSpaceIds: [], propertyLevels: {}, mortgagedSpaceIds: [], bankrupt: true };
-        if (player.id === recipient.id) return { ...player, ownedSpaceIds: [...player.ownedSpaceIds, ...payer.ownedSpaceIds], propertyLevels: { ...player.propertyLevels, ...payer.propertyLevels }, mortgagedSpaceIds: [...player.mortgagedSpaceIds, ...payer.mortgagedSpaceIds] };
+        if (player.id === payer.id) return { ...player, cash: 0 };
+        if (player.id === recipient.id) return { ...player, cash: player.cash + payer.cash };
         return player;
       });
     } else {
@@ -828,6 +831,11 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     keepRoomAlive();
     const timer = window.setInterval(keepRoomAlive, 10_000);
     return () => window.clearInterval(timer);
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!roomId || typeof window === "undefined") return;
+    window.sessionStorage.setItem("joeyoke_active_monopoly_room", roomId);
   }, [roomId]);
 
   useEffect(() => {
@@ -1400,6 +1408,19 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     return () => window.clearTimeout(timer);
   }, [gameState.winnerId, phase, secondsLeft]);
 
+  // Jail is a single skipped turn. The player does not need to roll to leave;
+  // the shared state advances after a short, visible notice.
+  useEffect(() => {
+    if (gameState.winnerId || !activePlayer.inJail || gameState.hasRolled || isMoving || isRolling) return;
+    const timer = window.setTimeout(() => {
+      markCommand("timeout");
+      setGameState((current) => current.activePlayerId === activePlayer.id && current.players.find((player) => player.id === activePlayer.id)?.inJail
+        ? { ...current, players: current.players.map((player) => player.id === activePlayer.id ? { ...player, inJail: false, jailAttempts: 0 } : player), autoPassPlayerId: activePlayer.id, actionLog: { title: `${activePlayer.username} serves a Jail turn`, highlight: "TURN SKIPPED" } }
+        : current);
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [activePlayer.id, activePlayer.inJail, activePlayer.username, gameState.hasRolled, gameState.winnerId, isMoving, isRolling]);
+
   useEffect(() => {
     const playerId = gameState.autoPassPlayerId;
     if (!playerId || gameState.winnerId) return;
@@ -1417,9 +1438,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     // A Monopoly entry is held in room escrow. Leaving an active shared match
     // must mark the seat as departed, but must never refund the stake before
     // the server settles the eventual winner.
-    if (roomId && userId && !gameState.winnerId) {
-      void supabase.rpc("leave_monopoly_room", { p_room_id: roomId });
-    }
+    // Closing the view is reconnectable; do not immediately bankrupt a player.
     if (onBack) onBack();
     else if (onClose) onClose();
     else window.location.assign("/");

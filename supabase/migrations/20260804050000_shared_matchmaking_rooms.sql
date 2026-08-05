@@ -65,7 +65,8 @@ begin
   end if;
   for v_name in
     select seat::text from public.matchmaking_room_players
-    where room_id=p_room_id and not is_bot and last_seen_at < now()-interval '30 seconds'
+    where room_id=p_room_id and not is_bot
+      and last_seen_at < now() - case when v_room.game_key='monopoly' then interval '60 seconds' else interval '30 seconds' end
     for update
   loop
     update public.matchmaking_room_players
@@ -98,7 +99,10 @@ begin
   -- Readiness only moves a full human roster to the pre-game state. The host
   -- deals exactly once through big_two_deal_room(), which is the sole path to
   -- `playing` and prevents each device from creating a different deck.
-  if v_humans = 4 and v_unready = 0 then
+  -- A full human roster starts normally. A timed-out four-player room may
+  -- instead contain one or more ready bot seats; it starts as soon as its
+  -- remaining human seat explicitly enters.
+  if (v_humans = 4 or exists(select 1 from public.matchmaking_rooms r where r.id=p_room_id and r.max_players=4 and (select count(*) from public.matchmaking_room_players p where p.room_id=p_room_id and p.left_at is null)=4)) and v_unready = 0 then
     update public.matchmaking_rooms set status = 'starting' where id = p_room_id and status = 'waiting';
   end if;
 
@@ -666,8 +670,11 @@ returns jsonb language plpgsql security definer set search_path=public as $$
 declare v_state jsonb; v_current integer; v_deadline timestamptz; v_bot boolean; v_hand jsonb; v_card jsonb; v_remaining jsonb; v_next integer;
 begin
  select state,current_seat,turn_deadline into v_state,v_current,v_deadline from public.big_two_match_state where room_id=p_room_id and status='playing' for update;
- if v_current is null or v_deadline>now() then return jsonb_build_object('advanced',false); end if;
+ if v_current is null then return jsonb_build_object('advanced',false); end if;
  select is_bot into v_bot from public.matchmaking_room_players where room_id=p_room_id and seat=v_current and left_at is null;
+ -- Bots play as soon as their seat is reached. Human seats retain the full
+ -- 30-second countdown before a timeout may advance them.
+ if v_deadline>now() and not coalesce(v_bot,false) then return jsonb_build_object('advanced',false); end if;
  if not coalesce(v_bot,false) then
    update public.big_two_match_state set current_seat=(v_current%4)+1,turn_deadline=now()+interval '30 seconds',updated_at=now() where room_id=p_room_id;
    return jsonb_build_object('advanced',true,'timed_out_human',true);
@@ -678,7 +685,14 @@ begin
    select card into v_card from jsonb_array_elements(v_hand) card order by (card->>'rank')::integer,(card->>'suit')::integer limit 1;
  end if;
  if v_card is null then
-   update public.big_two_match_state set current_seat=(v_current%4)+1,turn_deadline=now()+interval '30 seconds',updated_at=now() where room_id=p_room_id;
+   v_state:=jsonb_set(v_state,'{passes}',to_jsonb(coalesce((v_state->>'passes')::integer,0)+1));
+   if (v_state->>'passes')::integer >= 3 then
+     v_state:=jsonb_set(jsonb_set(v_state,'{passes}','0'::jsonb),'{free_lead}','true'::jsonb);
+     v_next:=coalesce((v_state->>'last_play_seat')::integer,v_current);
+   else
+     v_next:=(v_current%4)+1;
+   end if;
+   update public.big_two_match_state set state=v_state,current_seat=v_next,turn_deadline=now()+interval '30 seconds',updated_at=now() where room_id=p_room_id;
    return jsonb_build_object('advanced',true,'bot_passed',true);
  end if;
  select coalesce(jsonb_agg(card),'[]'::jsonb) into v_remaining from jsonb_array_elements(v_hand) card where card->>'id'<>v_card->>'id';

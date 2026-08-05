@@ -817,8 +817,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     setTargetedColor("Red");
     setColorSeqIndex(0);
     setWinner(null);
-    setIsBallInHand(true);
-    cueBallPlacedRef.current = false;
+    // The opening cue ball begins at a legal spot so the table and rack are
+    // always visible. Ball-in-hand remains available after a scratch.
+    setIsBallInHand(false);
+    cueBallPlacedRef.current = true;
     setUiPower(0);
     setAimAngle(-Math.PI / 2);
     setSpinOffset({ x: 0, y: 0 });
@@ -931,7 +933,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           pockets.forEach((p) => {
             // A ball must reach the pocket throat, not merely brush the rail
             // beside it. This prevents the previous "magnet pocket" effect.
-            if (Math.hypot(ball.x - p.x, ball.y - p.y) < ballRadius * 1.75) {
+            if (Math.hypot(ball.x - p.x, ball.y - p.y) < ballRadius * 2.15) {
               ball.isPotted = true;
               ball.vx = 0;
               ball.vy = 0;

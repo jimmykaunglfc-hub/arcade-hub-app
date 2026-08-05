@@ -760,7 +760,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           if (ball.isPotted) return;
           pockets.forEach((p) => {
             // Require the ball centre to enter the actual pocket throat.
-            if (Math.hypot(ball.x - p.x, ball.y - p.y) < BALL_RADIUS * 1.65) {
+            if (Math.hypot(ball.x - p.x, ball.y - p.y) < BALL_RADIUS * 2.1) {
               ball.isPotted = true;
               ball.vx = 0;
               ball.vy = 0;

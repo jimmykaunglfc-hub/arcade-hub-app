@@ -100,6 +100,16 @@ function MonopolyFourPlayerArena({ onClose }: { onClose: () => void }) {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
+  useEffect(() => {
+    if (!userId || roomId || typeof window === "undefined") return;
+    const savedRoomId = window.sessionStorage.getItem("joeyoke_active_monopoly_room");
+    if (!savedRoomId) return;
+    void supabase.rpc("get_matchmaking_room", { p_room_id: savedRoomId }).then(({ data }) => {
+      const isStillAPlayer = Boolean(data?.players?.some((player: { user_id?: string | null }) => player.user_id === userId));
+      if (data?.status === "playing" && isStillAPlayer) setRoomId(savedRoomId);
+      else window.sessionStorage.removeItem("joeyoke_active_monopoly_room");
+    });
+  }, [roomId, userId]);
   if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Monopoly matchmaking.</div>;
   if (!roomId) return <FourPlayerMatchLobby gameKey="monopoly" gameName="Monopoly" userId={userId} onStart={setRoomId} onCancel={onClose} />;
   return <MonopolyGame userId={userId} roomId={roomId} onClose={onClose} />;
