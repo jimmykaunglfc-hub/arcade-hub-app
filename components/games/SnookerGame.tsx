@@ -104,10 +104,9 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const [isMoving, setIsMoving] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
 
-  // The opening rack is always ready to play. Ball-in-hand is only entered
-  // after a scratch; starting in it left a black, empty-looking placement
-  // screen on slower mobile devices before the canvas could paint the table.
-  const [isBallInHand, setIsBallInHand] = useState(false);
+  // Opening setup: the table/rack is visible immediately, while the player
+  // places only the cue ball inside the D-zone before the first shot.
+  const [isBallInHand, setIsBallInHand] = useState(true);
   // The opening cue ball is draggable inside the D.  Keeping this separate
   // from the visual state prevents a pointer-up outside the D from silently
   // ending placement and leaving the player with an unusable opening shot.
@@ -820,10 +819,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     setTargetedColor("Red");
     setColorSeqIndex(0);
     setWinner(null);
-    // The opening cue ball begins at a legal spot so the table and rack are
-    // always visible. Ball-in-hand remains available after a scratch.
-    setIsBallInHand(false);
-    cueBallPlacedRef.current = true;
+    // Keep the complete rack visible while the white is being positioned.
+    // Only a scratch returns to this same ball-in-hand state later.
+    setIsBallInHand(true);
+    cueBallPlacedRef.current = false;
     setUiPower(0);
     setAimAngle(-Math.PI / 2);
     setSpinOffset({ x: 0, y: 0 });
@@ -1278,7 +1277,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
     engineLoop();
     return () => cancelAnimationFrame(animId);
-  }, [aimAngle, uiPower, isBallInHand, baulkLineY, isCyberTable, pockets]);
+  // The canvas does not exist during matchmaking/menu. Including playMode
+  // restarts this loop when the actual table is mounted, instead of leaving a
+  // CSS-colored but otherwise blank canvas on the opening screen.
+  }, [aimAngle, uiPower, isBallInHand, baulkLineY, isCyberTable, pockets, playMode]);
 
   const handleCanvasInteraction = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (isMoving) return;
