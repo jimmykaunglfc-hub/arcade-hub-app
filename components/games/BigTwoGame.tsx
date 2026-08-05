@@ -116,6 +116,8 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
  const [turnDeadline, setTurnDeadline] = useState<string | null>(null);
  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
  const [winner,setWinner]=useState<number|null>(null);
+ const [winnerName,setWinnerName]=useState<string | null>(null);
+ const [viewerWon,setViewerWon]=useState(false);
  const [message,setMessage]=useState(initialGame.starter===0?"You have 3♦. Lead the first trick.":`${playerNames[initialGame.starter]} has 3♦ and starts.`);
  const [showRules,setShowRules]=useState(false);
 
@@ -184,12 +186,18 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
     // `winner_seat` is authoritative and is written with the final play.  Do
     // not infer a win from the local hand: an older local snapshot can be
     // empty while another player has already completed the shared match.
-    const configuredWinnerSeat = Number(state.state?.winner_seat || 0);
-    const emptyHandSeat = counts.findIndex((count: unknown) => Number(count) === 0) + 1;
-    const winnerSeat = configuredWinnerSeat || emptyHandSeat;
+    const winnerSeat = Number(state.state?.winner_seat || 0);
      const displayWinner = order.indexOf(winnerSeat);
-     if (state.status === "completed") setWinner(displayWinner >= 0 ? displayWinner : null);
-     else setWinner(null);
+     const winningPlayer = (room.players || []).find((player: any) => player.seat === winnerSeat);
+     if (state.status === "completed" && winningPlayer) {
+       setWinner(displayWinner >= 0 ? displayWinner : -1);
+       setWinnerName(winningPlayer.name || "Player");
+       setViewerWon(winningPlayer.user_id === auth.user?.id);
+     } else {
+       setWinner(null);
+       setWinnerName(null);
+       setViewerWon(false);
+     }
      setMessage(tableCards.length && tableValue && displayLastPlayer >= 0
        ? `${order.map((number) => bySeat.get(number)?.name || "Player")[displayLastPlayer]} played ${tableValue.label}.`
        : displayTurn === 0 ? (state.state?.opening_required ? "Your opening play must include 3♦." : "Your turn. Lead the new trick.") : `${order.map((number) => bySeat.get(number)?.name || "Player")[displayTurn] || "Player"}'s turn.`);
@@ -260,6 +268,6 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
    </main>
 
    {showRules&&<div className="fixed inset-x-0 bottom-20 top-14 z-[250] flex items-center justify-center bg-slate-950/88 p-4 backdrop-blur-md"><div className="max-h-[92%] w-full max-w-md overflow-y-auto rounded-[2rem] border-2 border-[#ccff00] bg-slate-900 p-5"><div className="flex justify-between"><div><p className="text-[10px] font-black uppercase tracking-widest text-[#ccff00]">Classic Big Two</p><h2 className="text-2xl font-black">How to Play</h2></div><button onClick={()=>setShowRules(false)} className="h-10 w-10 rounded-full bg-slate-800 text-2xl">×</button></div><div className="mt-5 space-y-3">{[["🃏","Card order","3 is lowest and 2 is highest. Suits are ♦, ♣, ♥, ♠ from low to high."],["♦","Opening play","The player holding 3♦ starts and must include it in the first play."],["✋","Valid plays","Play a single, pair, triple, or five cards: straight, flush, full house, four of a kind plus one, or straight flush."],["⬆️","Beat the table","Match the number of cards. Five-card hands rank: straight, flush, full house, four of a kind, straight flush."],["⏭️","Pass and reset","You may pass. After all three opponents pass, the last player starts a new trick with any valid play."],["🏆","Empty your hand","The first player to play all 13 cards wins."]].map(([icon,title,text])=><div key={title} className="flex gap-3 rounded-2xl border border-slate-700 bg-slate-800 p-3"><span className="text-xl">{icon}</span><div><h3 className="font-black text-amber-300">{title}</h3><p className="text-xs leading-5 text-slate-300">{text}</p></div></div>)}</div><button onClick={()=>setShowRules(false)} className="mt-5 w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">Got It — Let&apos;s Play</button></div></div>}
-   {winner!==null&&<div className="absolute inset-0 z-[260] flex items-center justify-center bg-slate-950/85 p-5 backdrop-blur-sm"><div className="w-full max-w-sm overflow-hidden rounded-[2rem] border-2 border-amber-300 bg-slate-900 text-center shadow-2xl"><div className="bg-[radial-gradient(circle_at_center,#fbbf24_0%,#92400e_45%,#111827_78%)] px-7 pb-6 pt-8"><div className="text-7xl drop-shadow-xl">{winner===0?"🏆":"🎮"}</div><p className="mt-3 text-xs font-black uppercase tracking-[.25em] text-amber-100">Big Two complete</p><h2 className="mt-2 text-3xl font-black text-white">{winner===0?"You Win!":`${playerNames[winner]} Wins`}</h2><p className="mt-2 text-sm text-amber-100/90">{winner===0?"Excellent play — you cleared your hand first.":"The match has ended. Ready for another round?"}</p></div><div className="space-y-3 p-5"><button onClick={onPlayAgain ?? startGame} className="w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">Play Again</button><button onClick={onClose} className="w-full rounded-2xl border border-slate-600 bg-slate-800 py-3 font-black text-white">Exit to Arcade</button></div></div></div>}
+   {winner!==null&&<div className="absolute inset-0 z-[260] flex items-center justify-center bg-slate-950/85 p-5 backdrop-blur-sm"><div className="w-full max-w-sm overflow-hidden rounded-[2rem] border-2 border-amber-300 bg-slate-900 text-center shadow-2xl"><div className="bg-[radial-gradient(circle_at_center,#fbbf24_0%,#92400e_45%,#111827_78%)] px-7 pb-6 pt-8"><div className="text-7xl drop-shadow-xl">{viewerWon || (!roomId && winner===0)?"🏆":"🎮"}</div><p className="mt-3 text-xs font-black uppercase tracking-[.25em] text-amber-100">Big Two complete</p><h2 className="mt-2 text-3xl font-black text-white">{viewerWon || (!roomId && winner===0)?"You Win!":`${winnerName || playerNames[winner] || "Player"} Wins`}</h2><p className="mt-2 text-sm text-amber-100/90">{viewerWon || (!roomId && winner===0)?"Excellent play — you cleared your hand first.":"The match has ended. Ready for another round?"}</p></div><div className="space-y-3 p-5"><button onClick={onPlayAgain ?? startGame} className="w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">Play Again</button><button onClick={onClose} className="w-full rounded-2xl border border-slate-600 bg-slate-800 py-3 font-black text-white">Exit to Arcade</button></div></div></div>}
  </div>;
 }
