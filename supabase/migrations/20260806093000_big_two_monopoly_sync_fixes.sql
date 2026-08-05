@@ -44,6 +44,11 @@ begin
   order by case when position > coalesce((select position from jsonb_array_elements(v_state->'players') with ordinality y(player,position) where y.player->>'id'=v_state->>'activePlayerId' limit 1),0) then 0 else 1 end, position
   limit 1;
   if v_next is null then raise exception 'No eligible Monopoly player remains'; end if;
+  -- Jail is one skipped turn. Resolve it here, on the server, so it works even
+  -- if the jailed player's client has been backgrounded or disconnected.
+  if exists(select 1 from jsonb_array_elements(v_state->'players') player where player->>'id'=v_state->>'activePlayerId' and coalesce((player->>'inJail')::boolean,false)) then
+    v_state:=jsonb_set(v_state,'{players}',(select jsonb_agg(case when player->>'id'=v_state->>'activePlayerId' then jsonb_set(jsonb_set(player,'{inJail}','false'::jsonb),'{jailAttempts}','0'::jsonb) else player end order by position) from jsonb_array_elements(v_state->'players') with ordinality x(player,position)));
+  end if;
   -- A timeout must be a complete turn transition.  Leaving transient dice,
   -- purchase, alert or movement state behind is what previously disabled the
   -- next player's dice.
@@ -116,3 +121,44 @@ begin
   if coalesce(v_starter_is_bot,false) then perform public.big_two_timeout_turn(p_room_id); end if;
   return jsonb_build_object('room_id',p_room_id,'starter_seat',v_starter);
 end; $$;
+
+-- Trade settlement is recipient-authorized on the server.  A proposer cannot
+-- accept their own request, and cash-only requests are not valid trades.
+create or replace function public.accept_monopoly_trade(p_room_id uuid, p_expected_version integer)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare v_state jsonb; v_version integer; v_trade jsonb; v_proposer jsonb; v_recipient jsonb; v_players jsonb;
+  v_proposer_id text; v_recipient_id text; v_offered integer; v_requested integer; v_offer_property text; v_request_property text;
+  v_offer_jail boolean; v_request_jail boolean; v_proposer_owned jsonb; v_recipient_owned jsonb;
+begin
+  select state,version into v_state,v_version from public.monopoly_match_state where room_id=p_room_id and status='playing' for update;
+  if v_state is null or v_version<>p_expected_version then raise exception 'The board changed; please wait for sync'; end if;
+  v_trade:=v_state#>'{actionPanel,trade}';
+  if v_trade is null or not coalesce((v_trade->>'awaitingConfirmation')::boolean,false) then raise exception 'There is no trade awaiting confirmation'; end if;
+  v_proposer_id:=v_trade->>'proposerId'; v_recipient_id:=v_trade->>'recipientId';
+  if auth.uid()::text is distinct from v_recipient_id or v_proposer_id=v_recipient_id then raise exception 'Only the selected recipient may accept this trade'; end if;
+  v_offered:=greatest(0,coalesce((v_trade->>'offeredCash')::integer,0)); v_requested:=greatest(0,coalesce((v_trade->>'requestedCash')::integer,0));
+  v_offer_property:=nullif(v_trade->>'offeredPropertyId',''); v_request_property:=nullif(v_trade->>'requestedPropertyId','');
+  v_offer_jail:=coalesce((v_trade->>'offeredJailFreeCard')::boolean,false); v_request_jail:=coalesce((v_trade->>'requestedJailFreeCard')::boolean,false);
+  if v_offer_property is null and v_request_property is null and not v_offer_jail and not v_request_jail then raise exception 'A trade must include a title or Jail-Free card'; end if;
+  select player into v_proposer from jsonb_array_elements(v_state->'players') player where player->>'id'=v_proposer_id;
+  select player into v_recipient from jsonb_array_elements(v_state->'players') player where player->>'id'=v_recipient_id;
+  if v_proposer is null or v_recipient is null or coalesce((v_proposer->>'bankrupt')::boolean,false) or coalesce((v_recipient->>'bankrupt')::boolean,false) then raise exception 'Trade participant is unavailable'; end if;
+  if v_offered>(v_proposer->>'cash')::integer or v_requested>(v_recipient->>'cash')::integer then raise exception 'Trade cash is no longer available'; end if;
+  if v_offer_property is not null and (not (coalesce(v_proposer->'ownedSpaceIds','[]'::jsonb) ? v_offer_property) or coalesce((v_proposer->'propertyLevels'->>v_offer_property)::integer,0)<>0 or coalesce(v_proposer->'mortgagedSpaceIds','[]'::jsonb) ? v_offer_property) then raise exception 'Offered title is not transferable'; end if;
+  if v_request_property is not null and (not (coalesce(v_recipient->'ownedSpaceIds','[]'::jsonb) ? v_request_property) or coalesce((v_recipient->'propertyLevels'->>v_request_property)::integer,0)<>0 or coalesce(v_recipient->'mortgagedSpaceIds','[]'::jsonb) ? v_request_property) then raise exception 'Requested title is not transferable'; end if;
+  if v_offer_jail and coalesce((v_proposer->>'jailFreeCards')::integer,0)<1 then raise exception 'Offered Jail-Free card is unavailable'; end if;
+  if v_request_jail and coalesce((v_recipient->>'jailFreeCards')::integer,0)<1 then raise exception 'Requested Jail-Free card is unavailable'; end if;
+  select coalesce(jsonb_agg(value),'[]'::jsonb) into v_proposer_owned from jsonb_array_elements_text(coalesce(v_proposer->'ownedSpaceIds','[]'::jsonb)) value where value is distinct from v_offer_property;
+  if v_request_property is not null then v_proposer_owned:=v_proposer_owned||jsonb_build_array(v_request_property); end if;
+  select coalesce(jsonb_agg(value),'[]'::jsonb) into v_recipient_owned from jsonb_array_elements_text(coalesce(v_recipient->'ownedSpaceIds','[]'::jsonb)) value where value is distinct from v_request_property;
+  if v_offer_property is not null then v_recipient_owned:=v_recipient_owned||jsonb_build_array(v_offer_property); end if;
+  v_proposer:=jsonb_set(jsonb_set(jsonb_set(v_proposer,'{cash}',to_jsonb((v_proposer->>'cash')::integer-v_offered+v_requested)),'{ownedSpaceIds}',v_proposer_owned),'{jailFreeCards}',to_jsonb(coalesce((v_proposer->>'jailFreeCards')::integer,0)-case when v_offer_jail then 1 else 0 end+case when v_request_jail then 1 else 0 end));
+  v_recipient:=jsonb_set(jsonb_set(jsonb_set(v_recipient,'{cash}',to_jsonb((v_recipient->>'cash')::integer+v_offered-v_requested)),'{ownedSpaceIds}',v_recipient_owned),'{jailFreeCards}',to_jsonb(coalesce((v_recipient->>'jailFreeCards')::integer,0)+case when v_offer_jail then 1 else 0 end-case when v_request_jail then 1 else 0 end));
+  if v_offer_property is not null then v_proposer:=jsonb_set(v_proposer,'{propertyLevels}',coalesce(v_proposer->'propertyLevels','{}'::jsonb)-v_offer_property); v_recipient:=jsonb_set(v_recipient,'{propertyLevels}',coalesce(v_recipient->'propertyLevels','{}'::jsonb)||jsonb_build_object(v_offer_property,0)); end if;
+  if v_request_property is not null then v_recipient:=jsonb_set(v_recipient,'{propertyLevels}',coalesce(v_recipient->'propertyLevels','{}'::jsonb)-v_request_property); v_proposer:=jsonb_set(v_proposer,'{propertyLevels}',coalesce(v_proposer->'propertyLevels','{}'::jsonb)||jsonb_build_object(v_request_property,0)); end if;
+  select jsonb_agg(case when player->>'id'=v_proposer_id then v_proposer when player->>'id'=v_recipient_id then v_recipient else player end order by position) into v_players from jsonb_array_elements(v_state->'players') with ordinality x(player,position);
+  v_state:=jsonb_set(jsonb_set(jsonb_set(v_state,'{players}',v_players),'{actionPanel}','null'::jsonb),'{actionLog}',jsonb_build_object('title','Trade confirmed','highlight','RECIPIENT APPROVED THE TERMS'));
+  update public.monopoly_match_state set state=v_state,version=version+1,updated_at=now() where room_id=p_room_id;
+  return jsonb_build_object('accepted',true,'version',v_version+1);
+end; $$;
+grant execute on function public.accept_monopoly_trade(uuid,integer) to authenticated;

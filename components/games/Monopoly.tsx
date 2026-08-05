@@ -603,7 +603,7 @@ function TurnWarningBanner() {
   return <div role="status" className="pointer-events-none absolute left-1/2 top-[21%] z-50 w-[88%] -translate-x-1/2 rounded-lg border border-[#ffca5b]/80 bg-[#2b1608]/95 px-[4%] py-[2%] text-center shadow-[0_0_20px_rgba(255,166,42,.34),inset_0_1px_0_rgba(255,255,255,.18)]"><p className="text-[clamp(6px,1.35cqw,9px)] font-black leading-snug text-[#ffe6a0]">WARNING: 40s reached. Turn auto-passes at 1 min.</p></div>;
 }
 
-function CityStage({ actionLog, dice, isRolling, canRoll, showStartBanner, activePlayer, alert, auction, actionPanel, secondsLeft, turnWarning, players, onRoll, onBuy, onSkip, onUpgrade, onSell, onAwardAuction, onDismiss, onBuild, onSellBuilding, onMortgage, onRedeem, onUpdateTrade, onProposeTrade, onConfirmTrade, onCloseActionPanel }: { actionLog: ActionLog; dice: [number, number]; isRolling: boolean; canRoll: boolean; showStartBanner: boolean; activePlayer: Player; alert: GameAlert | null; auction: AuctionState | null; actionPanel: ActionPanel | null; secondsLeft: number; turnWarning: boolean; players: Player[]; onRoll: () => void; onBuy: () => void; onSkip: () => void; onUpgrade: () => void; onSell: () => void; onAwardAuction: () => void; onDismiss: () => void; onBuild: (spaceId: string) => void; onSellBuilding: (spaceId: string, mode: "single" | "hotel" | "clear") => void; onMortgage: (spaceId: string) => void; onRedeem: (spaceId: string) => void; onUpdateTrade: (update: Partial<TradeDraft>) => void; onProposeTrade: () => void; onConfirmTrade: () => void; onCloseActionPanel: () => void }) {
+function CityStage({ actionLog, dice, isRolling, canRoll, showStartBanner, activePlayer, alert, auction, actionPanel, secondsLeft, turnWarning, players, viewerId, onRoll, onBuy, onSkip, onUpgrade, onSell, onAwardAuction, onDismiss, onBuild, onSellBuilding, onMortgage, onRedeem, onUpdateTrade, onProposeTrade, onConfirmTrade, onCloseActionPanel }: { actionLog: ActionLog; dice: [number, number]; isRolling: boolean; canRoll: boolean; showStartBanner: boolean; activePlayer: Player; alert: GameAlert | null; auction: AuctionState | null; actionPanel: ActionPanel | null; secondsLeft: number; turnWarning: boolean; players: Player[]; viewerId?: string; onRoll: () => void; onBuy: () => void; onSkip: () => void; onUpgrade: () => void; onSell: () => void; onAwardAuction: () => void; onDismiss: () => void; onBuild: (spaceId: string) => void; onSellBuilding: (spaceId: string, mode: "single" | "hotel" | "clear") => void; onMortgage: (spaceId: string) => void; onRedeem: (spaceId: string) => void; onUpdateTrade: (update: Partial<TradeDraft>) => void; onProposeTrade: () => void; onConfirmTrade: () => void; onCloseActionPanel: () => void }) {
   const timerLabel = secondsLeft === TURN_DURATION_SECONDS ? "01:00" : `00:${String(secondsLeft).padStart(2, "0")}`;
 
   return (
@@ -637,7 +637,7 @@ function CityStage({ actionLog, dice, isRolling, canRoll, showStartBanner, activ
       <div className="absolute bottom-[5%] z-30 max-w-[83%] rounded-md border border-[#72cfff]/35 bg-[#06111ed9] px-[5%] py-[2%] text-center shadow-[inset_0_1px_0_rgba(255,255,255,.1)]"><p className="truncate text-[clamp(4px,1.1vw,7px)] font-black uppercase tracking-[.16em] text-[#7ecfff]">{actionLog.title}</p><p className="mt-[3%] truncate text-[clamp(5px,1.35vw,9px)] font-black text-white">{actionLog.highlight}</p></div>
 
       {alert && <ActionModal alert={alert} auction={auction} players={players} onBuy={onBuy} onSkip={onSkip} onUpgrade={onUpgrade} onSell={onSell} onAwardAuction={onAwardAuction} onDismiss={onDismiss} />}
-      {actionPanel && <ActionPanelModal panel={actionPanel} activePlayer={activePlayer} players={players} onBuild={onBuild} onSellBuilding={onSellBuilding} onMortgage={onMortgage} onRedeem={onRedeem} onUpdateTrade={onUpdateTrade} onProposeTrade={onProposeTrade} onConfirmTrade={onConfirmTrade} onClose={onCloseActionPanel} />}
+      {actionPanel && <ActionPanelModal panel={actionPanel} activePlayer={activePlayer} players={players} viewerId={viewerId} onBuild={onBuild} onSellBuilding={onSellBuilding} onMortgage={onMortgage} onRedeem={onRedeem} onUpdateTrade={onUpdateTrade} onProposeTrade={onProposeTrade} onConfirmTrade={onConfirmTrade} onClose={onCloseActionPanel} />}
       {turnWarning && <TurnWarningBanner />}
 
     </section>
@@ -734,7 +734,7 @@ function ActionControlBar({ disabled, sellDisabled, onOpen }: { disabled: boolea
   );
 }
 
-function ActionPanelModal({ panel, activePlayer, players, onBuild, onSellBuilding, onMortgage, onRedeem, onUpdateTrade, onProposeTrade, onConfirmTrade, onClose }: { panel: ActionPanel; activePlayer: Player; players: Player[]; onBuild: (spaceId: string) => void; onSellBuilding: (spaceId: string, mode: "single" | "hotel" | "clear") => void; onMortgage: (spaceId: string) => void; onRedeem: (spaceId: string) => void; onUpdateTrade: (update: Partial<TradeDraft>) => void; onProposeTrade: () => void; onConfirmTrade: () => void; onClose: () => void }) {
+function ActionPanelModal({ panel, activePlayer, players, viewerId, onBuild, onSellBuilding, onMortgage, onRedeem, onUpdateTrade, onProposeTrade, onConfirmTrade, onClose }: { panel: ActionPanel; activePlayer: Player; players: Player[]; viewerId?: string; onBuild: (spaceId: string) => void; onSellBuilding: (spaceId: string, mode: "single" | "hotel" | "clear") => void; onMortgage: (spaceId: string) => void; onRedeem: (spaceId: string) => void; onUpdateTrade: (update: Partial<TradeDraft>) => void; onProposeTrade: () => void; onConfirmTrade: () => void; onClose: () => void }) {
   const ownedProperties = activePlayer.ownedSpaceIds.map(getSpace).filter((space) => space.kind === "property");
   const trade = panel.trade;
   const recipient = trade ? players.find((player) => player.id === trade.recipientId) : undefined;
@@ -750,7 +750,7 @@ function ActionPanelModal({ panel, activePlayer, players, onBuild, onSellBuildin
         {panel.kind === "sell" && <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto pr-0.5">{ownedProperties.filter((space) => getPropertyLevel(activePlayer, space.id) > 0).map((space) => { const level = getPropertyLevel(activePlayer, space.id); const eligible = canSellEvenly(activePlayer, space); const refund = Math.round(getUpgradeCost(space, level) * 0.5); const clearRefund = Math.round(Array.from({ length: MAX_PROPERTY_LEVEL }, (_, index) => getUpgradeCost(space, index + 1)).reduce((total, cost) => total + cost, 0) * 0.5); return <div key={space.id} className="rounded-md border border-white/10 bg-white/5 px-1.5 py-1 text-left"><div className="flex items-center justify-between gap-1"><span className="truncate text-[clamp(5px,1.1vw,7px)] font-black text-white">{space.label} · {level === MAX_PROPERTY_LEVEL ? "HOTEL" : `H${level}`}</span><span className="text-[clamp(4px,.85vw,6px)] font-bold text-[#ffd38c]">50% REFUND</span></div>{level === MAX_PROPERTY_LEVEL ? <div className="mt-1 grid grid-cols-2 gap-1"><button type="button" disabled={!eligible} onClick={() => onSellBuilding(space.id, "hotel")} className="rounded bg-[#ffb46e] px-1 py-1 text-[clamp(4px,.85vw,6px)] font-black text-[#2b1103] disabled:opacity-35">HOTEL → 4H +{currency.format(refund)}</button><button type="button" disabled={!eligible} onClick={() => onSellBuilding(space.id, "clear")} className="rounded border border-[#ffb46e]/60 px-1 py-1 text-[clamp(4px,.85vw,6px)] font-black text-[#ffe0bf] disabled:opacity-35">CLEAR +{currency.format(clearRefund)}</button></div> : <button type="button" disabled={!eligible} onClick={() => onSellBuilding(space.id, "single")} className="mt-1 rounded bg-[#ffb46e] px-1.5 py-1 text-[clamp(5px,1vw,7px)] font-black text-[#2b1103] disabled:opacity-35">SELL 1 HOUSE +{currency.format(refund)}</button>}</div>; })}{!ownedProperties.some((space) => getPropertyLevel(activePlayer, space.id) > 0) && <p className="pt-4 text-[8px] font-bold text-slate-300">No houses or hotels to sell.</p>}</div>}
         {panel.kind === "mortgage" && <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto pr-0.5">{ownedProperties.map((space) => { const blocked = activePlayer.mortgagedSpaceIds.includes(space.id) || hasAnyBuildingsInColorSet(activePlayer, space); return <div key={space.id} className="flex items-center justify-between gap-1 rounded-md border border-white/10 bg-white/5 px-1.5 py-1 text-left"><span><span className="block text-[clamp(5px,1.1vw,7px)] font-black text-white">{space.label}</span><span className="block text-[clamp(4px,.85vw,6px)] font-bold text-slate-300">{activePlayer.mortgagedSpaceIds.includes(space.id) ? "Already mortgaged" : hasAnyBuildingsInColorSet(activePlayer, space) ? "Sell all color-set buildings first" : `Receive ${currency.format(getMortgageValue(space))}`}</span></span><button type="button" disabled={blocked} onClick={() => onMortgage(space.id)} className="rounded bg-[#78b4e8] px-1.5 py-1 text-[clamp(5px,1vw,7px)] font-black text-[#061525] disabled:opacity-35">MORTGAGE</button></div>; })}</div>}
         {panel.kind === "redeem" && <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto pr-0.5">{ownedProperties.filter((space) => activePlayer.mortgagedSpaceIds.includes(space.id)).map((space) => { const redeemCost = Math.ceil(getMortgageValue(space) * 1.1); return <div key={space.id} className="flex items-center justify-between gap-1 rounded-md border border-white/10 bg-white/5 px-1.5 py-1 text-left"><span><span className="block text-[clamp(5px,1.1vw,7px)] font-black text-white">{space.label}</span><span className="block text-[clamp(4px,.85vw,6px)] font-bold text-slate-300">Principal + 10% = {currency.format(redeemCost)}</span></span><button type="button" disabled={activePlayer.cash < redeemCost} onClick={() => onRedeem(space.id)} className="rounded bg-[#8ce37b] px-1.5 py-1 text-[clamp(5px,1vw,7px)] font-black text-[#102307] disabled:opacity-35">REDEEM</button></div>; })}{!ownedProperties.some((space) => activePlayer.mortgagedSpaceIds.includes(space.id)) && <p className="pt-4 text-[8px] font-bold text-slate-300">No mortgaged properties.</p>}</div>}
-        {panel.kind === "trade" && trade && <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-0.5 text-left">{trade.awaitingConfirmation ? <div className="rounded-lg border border-[#ffe36b]/55 bg-[#241c08]/70 p-2 text-center"><p className="text-[8px] font-black text-[#ffe36b]">WAITING FOR {recipient?.username.toUpperCase()} TO CONFIRM</p><p className="mt-1 text-[7px] text-white">Cash: {currency.format(trade.offeredCash)} offered / {currency.format(trade.requestedCash)} requested</p><div className="mt-2 grid grid-cols-2 gap-1"><button type="button" onClick={onConfirmTrade} className="rounded bg-[#8ce37b] py-1 text-[7px] font-black text-[#102307]">ACCEPT</button><button type="button" onClick={onClose} className="rounded border border-white/25 py-1 text-[7px] font-black text-white">DECLINE</button></div></div> : <><p className="text-[6px] font-black uppercase text-[#80d8ff]">Choose opponent</p><div className="mt-1 flex gap-1 overflow-x-auto pb-1">{players.filter((player) => player.id !== activePlayer.id && !player.bankrupt).map((player) => <button type="button" key={player.id} onClick={() => onUpdateTrade({ recipientId: player.id, requestedPropertyId: null })} className={`shrink-0 rounded border px-1.5 py-1 text-[6px] font-black ${player.id === trade.recipientId ? "border-white bg-white/15" : "border-white/15"}`} style={{ color: player.color }}>{player.username}</button>)}</div><div className="mt-1 grid grid-cols-2 gap-1 text-[6px]"><div className="rounded border border-white/10 bg-white/5 p-1"><p className="font-black text-[#9ee5ff]">YOU OFFER CASH</p><div className="mt-1 flex items-center justify-between"><button type="button" onClick={() => onUpdateTrade({ offeredCash: Math.max(0, trade.offeredCash - 50) })}>−</button><span className="font-black text-white">{currency.format(trade.offeredCash)}</span><button type="button" onClick={() => onUpdateTrade({ offeredCash: Math.min(activePlayer.cash, trade.offeredCash + 50) })}>+</button></div></div><div className="rounded border border-white/10 bg-white/5 p-1"><p className="font-black text-[#ffd38c]">YOU REQUEST CASH</p><div className="mt-1 flex items-center justify-between"><button type="button" onClick={() => onUpdateTrade({ requestedCash: Math.max(0, trade.requestedCash - 50) })}>−</button><span className="font-black text-white">{currency.format(trade.requestedCash)}</span><button type="button" onClick={() => onUpdateTrade({ requestedCash: Math.min(recipient?.cash ?? 0, trade.requestedCash + 50) })}>+</button></div></div></div><div className="mt-1 grid grid-cols-2 gap-1 text-[6px]"><label className="rounded border border-white/10 bg-white/5 p-1"><span className="block font-black text-[#9ee5ff]">OFFER TITLE</span><select value={trade.offeredPropertyId ?? ""} onChange={(event) => onUpdateTrade({ offeredPropertyId: event.target.value || null })} className="mt-1 w-full bg-transparent text-white"><option value="">None</option>{offerableProperties.map((space) => <option key={space.id} value={space.id}>{space.label}</option>)}</select></label><label className="rounded border border-white/10 bg-white/5 p-1"><span className="block font-black text-[#ffd38c]">REQUEST TITLE</span><select value={trade.requestedPropertyId ?? ""} onChange={(event) => onUpdateTrade({ requestedPropertyId: event.target.value || null })} className="mt-1 w-full bg-transparent text-white"><option value="">None</option>{requestedProperties.map((space) => <option key={space.id} value={space.id}>{space.label}</option>)}</select></label></div><div className="mt-1 grid grid-cols-2 gap-1 text-[6px]"><button type="button" onClick={() => onUpdateTrade({ offeredJailFreeCard: !trade.offeredJailFreeCard })} disabled={activePlayer.jailFreeCards < 1} className={`rounded border p-1 font-black ${trade.offeredJailFreeCard ? "border-[#80d8ff] bg-[#0e3951]" : "border-white/15"}`}>OFFER JAIL-FREE</button><button type="button" onClick={() => onUpdateTrade({ requestedJailFreeCard: !trade.requestedJailFreeCard })} disabled={(recipient?.jailFreeCards ?? 0) < 1} className={`rounded border p-1 font-black ${trade.requestedJailFreeCard ? "border-[#ffd38c] bg-[#4d2d0d]" : "border-white/15"}`}>REQUEST JAIL-FREE</button></div><button type="button" onClick={onProposeTrade} className="mt-2 w-full rounded bg-[#74c8f5] py-1.5 text-[7px] font-black text-[#071826]">PROPOSE TRADE</button></>}</div>}
+        {panel.kind === "trade" && trade && <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-0.5 text-left">{trade.awaitingConfirmation ? <div className="rounded-lg border border-[#ffe36b]/55 bg-[#241c08]/70 p-2 text-center"><p className="text-[8px] font-black text-[#ffe36b]">WAITING FOR {recipient?.username.toUpperCase()} TO CONFIRM</p><p className="mt-1 text-[7px] text-white">Cash: {currency.format(trade.offeredCash)} offered / {currency.format(trade.requestedCash)} requested</p><div className="mt-2 grid grid-cols-2 gap-1">{viewerId === trade.recipientId ? <button type="button" onClick={onConfirmTrade} className="rounded bg-[#8ce37b] py-1 text-[7px] font-black text-[#102307]">ACCEPT</button> : <span className="rounded bg-white/10 py-1 text-[7px] font-black text-slate-400">AWAITING RECIPIENT</span>}<button type="button" onClick={onClose} className="rounded border border-white/25 py-1 text-[7px] font-black text-white">DECLINE</button></div></div> : <><p className="text-[6px] font-black uppercase text-[#80d8ff]">Choose opponent</p><div className="mt-1 flex gap-1 overflow-x-auto pb-1">{players.filter((player) => player.id !== activePlayer.id && !player.bankrupt).map((player) => <button type="button" key={player.id} onClick={() => onUpdateTrade({ recipientId: player.id, requestedPropertyId: null })} className={`shrink-0 rounded border px-1.5 py-1 text-[6px] font-black ${player.id === trade.recipientId ? "border-white bg-white/15" : "border-white/15"}`} style={{ color: player.color }}>{player.username}</button>)}</div><div className="mt-1 grid grid-cols-2 gap-1 text-[6px]"><div className="rounded border border-white/10 bg-white/5 p-1"><p className="font-black text-[#9ee5ff]">YOU OFFER CASH</p><div className="mt-1 flex items-center justify-between"><button type="button" onClick={() => onUpdateTrade({ offeredCash: Math.max(0, trade.offeredCash - 50) })}>−</button><span className="font-black text-white">{currency.format(trade.offeredCash)}</span><button type="button" onClick={() => onUpdateTrade({ offeredCash: Math.min(activePlayer.cash, trade.offeredCash + 50) })}>+</button></div></div><div className="rounded border border-white/10 bg-white/5 p-1"><p className="font-black text-[#ffd38c]">YOU REQUEST CASH</p><div className="mt-1 flex items-center justify-between"><button type="button" onClick={() => onUpdateTrade({ requestedCash: Math.max(0, trade.requestedCash - 50) })}>−</button><span className="font-black text-white">{currency.format(trade.requestedCash)}</span><button type="button" onClick={() => onUpdateTrade({ requestedCash: Math.min(recipient?.cash ?? 0, trade.requestedCash + 50) })}>+</button></div></div></div><p className="mt-1 text-center text-[6px] font-bold text-[#ffd38c]">A trade must include a title or Jail-Free card; cash-only requests are blocked.</p><div className="mt-1 grid grid-cols-2 gap-1 text-[6px]"><label className="rounded border border-white/10 bg-white/5 p-1"><span className="block font-black text-[#9ee5ff]">OFFER TITLE</span><select value={trade.offeredPropertyId ?? ""} onChange={(event) => onUpdateTrade({ offeredPropertyId: event.target.value || null })} className="mt-1 w-full bg-transparent text-white"><option value="">None</option>{offerableProperties.map((space) => <option key={space.id} value={space.id}>{space.label}</option>)}</select></label><label className="rounded border border-white/10 bg-white/5 p-1"><span className="block font-black text-[#ffd38c]">REQUEST TITLE</span><select value={trade.requestedPropertyId ?? ""} onChange={(event) => onUpdateTrade({ requestedPropertyId: event.target.value || null })} className="mt-1 w-full bg-transparent text-white"><option value="">None</option>{requestedProperties.map((space) => <option key={space.id} value={space.id}>{space.label}</option>)}</select></label></div><div className="mt-1 grid grid-cols-2 gap-1 text-[6px]"><button type="button" onClick={() => onUpdateTrade({ offeredJailFreeCard: !trade.offeredJailFreeCard })} disabled={activePlayer.jailFreeCards < 1} className={`rounded border p-1 font-black ${trade.offeredJailFreeCard ? "border-[#80d8ff] bg-[#0e3951]" : "border-white/15"}`}>OFFER JAIL-FREE</button><button type="button" onClick={() => onUpdateTrade({ requestedJailFreeCard: !trade.requestedJailFreeCard })} disabled={(recipient?.jailFreeCards ?? 0) < 1} className={`rounded border p-1 font-black ${trade.requestedJailFreeCard ? "border-[#ffd38c] bg-[#4d2d0d]" : "border-white/15"}`}>REQUEST JAIL-FREE</button></div><button type="button" onClick={onProposeTrade} className="mt-2 w-full rounded bg-[#74c8f5] py-1.5 text-[7px] font-black text-[#071826]">PROPOSE TRADE</button></>}</div>}
       </section>
     </div>
   );
@@ -1107,7 +1107,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleRoll = async () => {
-    if (isRolling || isMoving || gameState.hasRolled || gameState.pendingPurchaseId || gameState.alert || gameState.winnerId) return;
+    if (!isMyTurn || isRolling || isMoving || gameState.hasRolled || gameState.pendingPurchaseId || gameState.alert || gameState.winnerId) return;
     if (roomId && (!userId || serverVersion === null)) return;
     registerPlayerActivity();
 
@@ -1143,6 +1143,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleBuy = () => {
+    if (!isMyTurn) return;
     markCommand("purchase");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1159,6 +1160,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleSkip = () => {
+    if (!isMyTurn) return;
     markCommand("skip_purchase");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1170,6 +1172,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleDismissAlert = () => {
+    if (!isMyTurn) return;
     if (alertResolutionRef.current) return;
     alertResolutionRef.current = true;
     markCommand("resolve_landing");
@@ -1184,6 +1187,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleOpenActionPanel = (kind: BoardActionKind) => {
+    if (!isMyTurn) return;
     registerPlayerActivity();
     setGameState((current) => {
       const active = current.players.find((player) => player.id === current.activePlayerId);
@@ -1196,6 +1200,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleCloseActionPanel = () => {
+    if (!isMyTurn) return;
     registerPlayerActivity();
     setGameState((current) => {
       const cancelledSell = current.actionPanel?.kind === "sell";
@@ -1204,6 +1209,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleBuildProperty = (spaceId: string) => {
+    if (!isMyTurn) return;
     markCommand("build");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1219,6 +1225,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleSellBuilding = (spaceId: string, mode: "single" | "hotel" | "clear") => {
+    if (!isMyTurn) return;
     markCommand("sell_building");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1239,6 +1246,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleMortgageProperty = (spaceId: string) => {
+    if (!isMyTurn) return;
     markCommand("mortgage");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1252,6 +1260,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleRedeemMortgage = (spaceId: string) => {
+    if (!isMyTurn) return;
     markCommand("redeem");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1265,6 +1274,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleUpdateTrade = (update: Partial<TradeDraft>) => {
+    if (!isMyTurn) return;
     registerPlayerActivity();
     setGameState((current) => {
       const panel = current.actionPanel;
@@ -1275,6 +1285,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleProposeTrade = () => {
+    if (!isMyTurn) return;
     markCommand("propose_trade");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1282,12 +1293,19 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       const trade = panel?.trade;
       const proposer = trade ? current.players.find((player) => player.id === trade.proposerId) : null;
       const recipient = trade ? current.players.find((player) => player.id === trade.recipientId) : null;
-      if (!panel || panel.kind !== "trade" || !trade || !proposer || !recipient || trade.offeredCash > proposer.cash || trade.requestedCash > recipient.cash) return { ...current, actionLog: { title: "TRADE BLOCKED", highlight: "CHECK AVAILABLE CASH" } };
+      const includesTransferAsset = Boolean(trade?.offeredPropertyId || trade?.requestedPropertyId || trade?.offeredJailFreeCard || trade?.requestedJailFreeCard);
+      if (!panel || panel.kind !== "trade" || !trade || !proposer || !recipient || !includesTransferAsset || trade.offeredCash > proposer.cash || trade.requestedCash > recipient.cash) return { ...current, actionLog: { title: "TRADE BLOCKED", highlight: "INCLUDE A TITLE OR JAIL-FREE CARD" } };
       return { ...current, actionPanel: { ...panel, trade: { ...trade, awaitingConfirmation: true } }, actionLog: { title: `${proposer.username} proposed a trade`, highlight: `WAITING FOR ${recipient.username.toUpperCase()}` } };
     });
   };
 
   const handleConfirmTrade = () => {
+    const proposedTrade = gameState.actionPanel?.trade;
+    if (roomId) {
+      if (!proposedTrade || userId !== proposedTrade.recipientId || serverVersionRef.current === null) return;
+      void supabase.rpc("accept_monopoly_trade", { p_room_id: roomId, p_expected_version: serverVersionRef.current });
+      return;
+    }
     markCommand("confirm_trade");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1297,7 +1315,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       const recipient = trade ? current.players.find((player) => player.id === trade.recipientId) : null;
       const offeredSpace = trade?.offeredPropertyId ? getSpace(trade.offeredPropertyId) : null;
       const requestedSpace = trade?.requestedPropertyId ? getSpace(trade.requestedPropertyId) : null;
-      const valid = panel?.kind === "trade" && trade?.awaitingConfirmation && proposer && recipient && trade.offeredCash <= proposer.cash && trade.requestedCash <= recipient.cash && (!offeredSpace || proposer.ownedSpaceIds.includes(offeredSpace.id) && getPropertyLevel(proposer, offeredSpace.id) === 0 && !proposer.mortgagedSpaceIds.includes(offeredSpace.id)) && (!requestedSpace || recipient.ownedSpaceIds.includes(requestedSpace.id) && getPropertyLevel(recipient, requestedSpace.id) === 0 && !recipient.mortgagedSpaceIds.includes(requestedSpace.id)) && (!trade.offeredJailFreeCard || proposer.jailFreeCards > 0) && (!trade.requestedJailFreeCard || recipient.jailFreeCards > 0);
+      const valid = panel?.kind === "trade" && trade?.awaitingConfirmation && proposer && recipient && Boolean(trade.offeredPropertyId || trade.requestedPropertyId || trade.offeredJailFreeCard || trade.requestedJailFreeCard) && trade.offeredCash <= proposer.cash && trade.requestedCash <= recipient.cash && (!offeredSpace || proposer.ownedSpaceIds.includes(offeredSpace.id) && getPropertyLevel(proposer, offeredSpace.id) === 0 && !proposer.mortgagedSpaceIds.includes(offeredSpace.id)) && (!requestedSpace || recipient.ownedSpaceIds.includes(requestedSpace.id) && getPropertyLevel(recipient, requestedSpace.id) === 0 && !recipient.mortgagedSpaceIds.includes(requestedSpace.id)) && (!trade.offeredJailFreeCard || proposer.jailFreeCards > 0) && (!trade.requestedJailFreeCard || recipient.jailFreeCards > 0);
       if (!valid || !trade || !proposer || !recipient) return { ...current, actionPanel: null, actionLog: { title: "TRADE DECLINED", highlight: "TERMS ARE NO LONGER VALID" } };
       const players = current.players.map((player) => {
         if (player.id === proposer.id) {
@@ -1321,6 +1339,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleUpgrade = () => {
+    if (!isMyTurn) return;
     markCommand("upgrade");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1341,6 +1360,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleSell = () => {
+    if (!isMyTurn) return;
     markCommand("open_auction");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1359,6 +1379,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleAwardAuction = () => {
+    if (!isMyTurn) return;
     markCommand("award_auction");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1502,7 +1523,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
               <section aria-label="Southeast Asia Monopoly board" className="relative z-10 mx-auto grid h-[min(100cqh,100cqw)] w-[min(100cqh,100cqw)] max-h-full max-w-full overflow-hidden rounded-xl border-2 border-[#0a1016] bg-[#e8e4d6] shadow-[0_4px_0_#020407,0_10px_0_#1d2d39,0_23px_30px_rgba(0,0,0,.64),inset_0_0_0_2px_rgba(255,255,255,.62)]" style={{ gridTemplateColumns: "1.14fr repeat(7,minmax(0,1fr)) 1.14fr", gridTemplateRows: "1.14fr repeat(7,minmax(0,1fr)) 1.14fr" }}>
                 <div className="col-span-9 row-start-1 grid min-h-0 grid-cols-9">{topTileIds.map((id) => <BoardTile key={id} colorBandEdge="bottom" space={getSpace(id)} tokens={playersBySpace.get(id) ?? []} owner={ownersBySpace.get(id)} mortgaged={mortgagedSpaceIds.has(id)} activePlayerId={gameState.activePlayerId} onInspect={handleInspectProperty} />)}</div>
                 <div className="col-start-1 row-start-2 row-span-7 grid min-h-0 grid-rows-7">{leftTileIds.map((id) => <BoardTile key={id} colorBandEdge="right" space={getSpace(id)} tokens={playersBySpace.get(id) ?? []} owner={ownersBySpace.get(id)} mortgaged={mortgagedSpaceIds.has(id)} activePlayerId={gameState.activePlayerId} onInspect={handleInspectProperty} />)}</div>
-                <CityStage actionLog={gameState.actionLog} dice={gameState.dice} isRolling={isRolling} canRoll={isMyTurn && !isRolling && !isMoving && !gameState.hasRolled && !gameState.pendingPurchaseId && !gameState.alert && !gameState.actionPanel && !gameState.winnerId} showStartBanner={!gameState.hasJourneyStarted} activePlayer={activePlayer} alert={gameState.alert} auction={gameState.auction} actionPanel={gameState.actionPanel} secondsLeft={secondsLeft} turnWarning={gameState.turnWarning} players={gameState.players} onRoll={handleRoll} onBuy={handleBuy} onSkip={handleSkip} onUpgrade={handleUpgrade} onSell={handleSell} onAwardAuction={handleAwardAuction} onDismiss={handleDismissAlert} onBuild={handleBuildProperty} onSellBuilding={handleSellBuilding} onMortgage={handleMortgageProperty} onRedeem={handleRedeemMortgage} onUpdateTrade={handleUpdateTrade} onProposeTrade={handleProposeTrade} onConfirmTrade={handleConfirmTrade} onCloseActionPanel={handleCloseActionPanel} />
+                <CityStage actionLog={gameState.actionLog} dice={gameState.dice} isRolling={isRolling} canRoll={isMyTurn && !isRolling && !isMoving && !gameState.hasRolled && !gameState.pendingPurchaseId && !gameState.alert && !gameState.actionPanel && !gameState.winnerId} showStartBanner={!gameState.hasJourneyStarted} activePlayer={activePlayer} alert={gameState.alert} auction={gameState.auction} actionPanel={gameState.actionPanel} secondsLeft={secondsLeft} turnWarning={gameState.turnWarning} players={gameState.players} viewerId={userId} onRoll={handleRoll} onBuy={handleBuy} onSkip={handleSkip} onUpgrade={handleUpgrade} onSell={handleSell} onAwardAuction={handleAwardAuction} onDismiss={handleDismissAlert} onBuild={handleBuildProperty} onSellBuilding={handleSellBuilding} onMortgage={handleMortgageProperty} onRedeem={handleRedeemMortgage} onUpdateTrade={handleUpdateTrade} onProposeTrade={handleProposeTrade} onConfirmTrade={handleConfirmTrade} onCloseActionPanel={handleCloseActionPanel} />
                 <div className="col-start-9 row-start-2 row-span-7 grid min-h-0 grid-rows-7">{rightTileIds.map((id) => <BoardTile key={id} colorBandEdge="left" space={getSpace(id)} tokens={playersBySpace.get(id) ?? []} owner={ownersBySpace.get(id)} mortgaged={mortgagedSpaceIds.has(id)} activePlayerId={gameState.activePlayerId} onInspect={handleInspectProperty} />)}</div>
                 <div className="col-span-9 row-start-9 grid min-h-0 grid-cols-9">{bottomTileIds.map((id) => <BoardTile key={id} colorBandEdge="top" space={getSpace(id)} tokens={playersBySpace.get(id) ?? []} owner={ownersBySpace.get(id)} mortgaged={mortgagedSpaceIds.has(id)} activePlayerId={gameState.activePlayerId} onInspect={handleInspectProperty} />)}</div>
               </section>
