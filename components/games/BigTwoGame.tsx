@@ -131,7 +131,7 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
 
  useEffect(() => {
    if (!roomId) return;
-   const timer = window.setInterval(() => { void supabase.rpc("big_two_timeout_turn", { p_room_id: roomId }); }, 1000);
+   const timer = window.setInterval(() => { void supabase.rpc("resolve_big_two_bot_turns", { p_room_id: roomId }); }, 1000);
    return () => window.clearInterval(timer);
  }, [roomId]);
 
@@ -161,7 +161,7 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
      // every client may safely nudge it as soon as it observes a bot turn.
      const currentSeatPlayer = (room?.players || []).find((player: any) => player.seat === state.current_seat);
      if (state.status === "playing" && currentSeatPlayer?.is_bot) {
-       void supabase.rpc("big_two_timeout_turn", { p_room_id: roomId });
+       void supabase.rpc("resolve_big_two_bot_turns", { p_room_id: roomId });
      }
      const { data: hand } = await supabase.from("big_two_player_hands").select("cards").eq("room_id", roomId).eq("seat", seat).maybeSingle();
      if (!hand) return;
