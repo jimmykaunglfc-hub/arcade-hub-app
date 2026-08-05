@@ -154,6 +154,13 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
      ]);
      const seat = (room?.players || []).find((player: any) => player.user_id === auth.user?.id)?.seat;
      if (!seat || !state || (state.status !== "playing" && state.status !== "completed")) return;
+     // A bot opening seat must never depend on a particular human device
+     // staying on the game screen. The RPC is row-locked and idempotent, so
+     // every client may safely nudge it as soon as it observes a bot turn.
+     const currentSeatPlayer = (room?.players || []).find((player: any) => player.seat === state.current_seat);
+     if (state.status === "playing" && currentSeatPlayer?.is_bot) {
+       void supabase.rpc("big_two_timeout_turn", { p_room_id: roomId });
+     }
      const { data: hand } = await supabase.from("big_two_player_hands").select("cards").eq("room_id", roomId).eq("seat", seat).maybeSingle();
      if (!hand) return;
      const bySeat = new Map<number, { name?: string }>((room.players || []).map((player: any) => [player.seat, player]));

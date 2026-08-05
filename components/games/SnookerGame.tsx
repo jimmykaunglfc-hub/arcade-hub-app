@@ -104,7 +104,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const [isMoving, setIsMoving] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
 
-  const [isBallInHand, setIsBallInHand] = useState(true);
+  // The opening rack is always ready to play. Ball-in-hand is only entered
+  // after a scratch; starting in it left a black, empty-looking placement
+  // screen on slower mobile devices before the canvas could paint the table.
+  const [isBallInHand, setIsBallInHand] = useState(false);
   // The opening cue ball is draggable inside the D.  Keeping this separate
   // from the visual state prevents a pointer-up outside the D from silently
   // ending placement and leaving the player with an unusable opening shot.
@@ -829,10 +832,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   }, [baulkLineY, tableHeight, tableWidth]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      initBalls();
-    }, 0);
-    return () => clearTimeout(timer);
+    initBalls();
   }, [initBalls]);
 
   // Spin Canvas Modal Interaction
@@ -1998,7 +1998,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                     // touches deliberately keep the placement guide visible.
                     if (isBallInHand && cueBallPlacedRef.current) setIsBallInHand(false);
                   }}
-                  className="w-full h-full shadow-2xl rounded-xl border-2 border-white/10 bg-[#09090b] cursor-crosshair touch-none"
+                  className="w-full h-full shadow-2xl rounded-xl border-2 border-white/10 bg-[#084420] cursor-crosshair touch-none"
                 />
                 {isBallInHand && (
                   <div className="absolute bottom-6 bg-[#CCFF00] text-black font-black text-[7px] md:text-[10px] uppercase px-3 py-1 rounded-full pointer-events-none tracking-widest animate-pulse shadow-lg z-20">
