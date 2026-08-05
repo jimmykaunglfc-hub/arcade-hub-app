@@ -129,6 +129,23 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
 
  useEffect(() => {
    if (!roomId) return;
+   const timer = window.setInterval(() => { void supabase.rpc("big_two_timeout_turn", { p_room_id: roomId }); }, 1000);
+   return () => window.clearInterval(timer);
+ }, [roomId]);
+
+ useEffect(() => {
+   if (!roomId) return;
+   const keepRoomAlive = () => {
+     void supabase.rpc("heartbeat_matchmaking_room", { p_room_id: roomId });
+     void supabase.rpc("replace_expired_four_player_seats", { p_room_id: roomId });
+   };
+   keepRoomAlive();
+   const timer = window.setInterval(keepRoomAlive, 10_000);
+   return () => window.clearInterval(timer);
+ }, [roomId]);
+
+ useEffect(() => {
+   if (!roomId) return;
    const loadRoom = async () => {
      const [{ data: auth }, { data: room }, { data: state }] = await Promise.all([
        supabase.auth.getUser(),

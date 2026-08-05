@@ -457,7 +457,7 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
 
  return (
    <div
-     className="absolute inset-0 flex min-h-0 flex-col overflow-hidden bg-gradient-to-b from-violet-700 via-indigo-800 to-slate-950 p-3 text-white select-none"
+     className="fixed inset-0 flex min-h-0 flex-col overflow-hidden overscroll-none bg-gradient-to-b from-violet-700 via-indigo-800 to-slate-950 p-3 text-white select-none touch-none"
      style={{
        paddingBottom:
          "calc(env(safe-area-inset-bottom) + 160px)",
@@ -583,5 +583,4 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
    </div>
  );
 }
-
 

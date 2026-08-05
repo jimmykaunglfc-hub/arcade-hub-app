@@ -820,6 +820,17 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   const alertResolutionRef = useRef(false);
 
   useEffect(() => {
+    if (!roomId) return;
+    const keepRoomAlive = () => {
+      void supabase.rpc("heartbeat_matchmaking_room", { p_room_id: roomId });
+      void supabase.rpc("replace_expired_four_player_seats", { p_room_id: roomId });
+    };
+    keepRoomAlive();
+    const timer = window.setInterval(keepRoomAlive, 10_000);
+    return () => window.clearInterval(timer);
+  }, [roomId]);
+
+  useEffect(() => {
     if (!roomId || !userId) return;
     const load = async () => {
       const [{ data: room }, { data: existing }, { data: escrow }] = await Promise.all([
@@ -829,7 +840,13 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       ]);
       setIsRoomHost(room?.host_id === userId);
       if (existing?.state) {
-        setGameState(existing.state as GameState);
+        // Do not overwrite an in-progress local dice animation with the last
+        // persisted snapshot.  That was the source of tokens jumping backward
+        // and purchase prompts disappearing before a player could act.
+        const isNewServerRevision = serverVersion === null || existing.version !== serverVersion;
+        if (isNewServerRevision && !isRolling && !isMoving && !publishingRef.current) {
+          setGameState(existing.state as GameState);
+        }
         lastPublishedStateRef.current = JSON.stringify(existing.state);
         activeServerPlayerRef.current = existing.active_player_id;
         setServerVersion(existing.version);
@@ -851,7 +868,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     };
     void load(); const timer = window.setInterval(() => { void load(); }, 1200);
     return () => window.clearInterval(timer);
-  }, [roomId, userId]);
+  }, [isMoving, isRolling, roomId, serverVersion, userId]);
 
   useEffect(() => {
     if (!roomId) return;

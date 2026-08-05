@@ -28,6 +28,7 @@ create table if not exists public.matchmaking_room_players (
 -- `create table if not exists` does not evolve a table created by an earlier
 -- partial run, so keep the migration rerunnable.
 alter table public.matchmaking_room_players add column if not exists ready boolean not null default false;
+alter table public.matchmaking_room_players add column if not exists last_seen_at timestamptz not null default now();
 
 alter table public.matchmaking_rooms enable row level security;
 alter table public.matchmaking_room_players enable row level security;
@@ -38,6 +39,44 @@ create policy "matchmaking room members can read rosters" on public.matchmaking_
 
 create index if not exists matchmaking_rooms_queue_idx on public.matchmaking_rooms(game_key, status, expires_at);
 create index if not exists matchmaking_room_players_room_idx on public.matchmaking_room_players(room_id, seat);
+create index if not exists matchmaking_room_players_presence_idx on public.matchmaking_room_players(room_id, last_seen_at);
+
+-- Presence is deliberately room-level, so every four-player game uses the
+-- same reconnect window. A background client heartbeat keeps an active seat
+-- alive; after 30 seconds of silence an abandoned four-player seat becomes a
+-- normal Joe Yoke bot without changing seat order or game state.
+create or replace function public.heartbeat_matchmaking_room(p_room_id uuid)
+returns jsonb language plpgsql security definer set search_path=public as $$
+begin
+  update public.matchmaking_room_players
+  set connected_at=now(), last_seen_at=now(), left_at=null
+  where room_id=p_room_id and user_id=auth.uid();
+  return jsonb_build_object('ok',found);
+end; $$;
+grant execute on function public.heartbeat_matchmaking_room(uuid) to authenticated;
+
+create or replace function public.replace_expired_four_player_seats(p_room_id uuid)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare v_room public.matchmaking_rooms; v_replaced integer := 0; v_name text;
+begin
+  select * into v_room from public.matchmaking_rooms where id=p_room_id for update;
+  if v_room.id is null or v_room.max_players<>4 or v_room.status<>'playing' then
+    return jsonb_build_object('replaced',0);
+  end if;
+  for v_name in
+    select seat::text from public.matchmaking_room_players
+    where room_id=p_room_id and not is_bot and last_seen_at < now()-interval '30 seconds'
+    for update
+  loop
+    update public.matchmaking_room_players
+    set user_id=null, display_name='ReconnectBot_' || v_name, avatar_url=null,
+        is_bot=true, ready=true, connected_at=now(), last_seen_at=now(), left_at=null
+    where room_id=p_room_id and seat=v_name::smallint;
+    v_replaced:=v_replaced+1;
+  end loop;
+  return jsonb_build_object('replaced',v_replaced);
+end; $$;
+grant execute on function public.replace_expired_four_player_seats(uuid) to authenticated;
 
 -- A seat becomes ready only when its owner explicitly enters the match. The
 -- game client may start only after the room reaches `playing` status.
@@ -76,7 +115,7 @@ begin
  select * into v_room from public.matchmaking_rooms where id=p_room_id for update;
  if v_room.id is null or v_room.max_players<>4 or v_room.expires_at>now() or v_room.status<>'waiting' then return jsonb_build_object('filled',false); end if;
  select count(*) filter(where not is_bot) into v_humans from public.matchmaking_room_players where room_id=p_room_id and left_at is null;
- if v_humans<2 then return jsonb_build_object('filled',false,'reason','waiting for at least two players'); end if;
+ if v_humans<1 then return jsonb_build_object('filled',false,'reason','waiting for a player'); end if;
  for v_seat in 1..4 loop
    if not exists(select 1 from public.matchmaking_room_players where room_id=p_room_id and seat=v_seat and left_at is null) then
      insert into public.matchmaking_room_players(room_id,seat,display_name,is_bot,ready) values(p_room_id,v_seat,v_bot_names[v_index],true,true); v_index:=v_index+1;
@@ -618,6 +657,38 @@ begin
   return jsonb_build_object('current_seat',v_next,'hand_count',v_count,'completed',v_count=0);
 end; $$;
 grant execute on function public.big_two_play_cards(uuid, jsonb) to authenticated;
+
+-- Resolve an expired Big Two turn.  If the current seat is a bot it can open
+-- with 3♦ (or lead its lowest remaining card); human turns simply advance on
+-- timeout so a disconnected player can never freeze the room.
+create or replace function public.big_two_timeout_turn(p_room_id uuid)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare v_state jsonb; v_current integer; v_deadline timestamptz; v_bot boolean; v_hand jsonb; v_card jsonb; v_remaining jsonb; v_next integer;
+begin
+ select state,current_seat,turn_deadline into v_state,v_current,v_deadline from public.big_two_match_state where room_id=p_room_id and status='playing' for update;
+ if v_current is null or v_deadline>now() then return jsonb_build_object('advanced',false); end if;
+ select is_bot into v_bot from public.matchmaking_room_players where room_id=p_room_id and seat=v_current and left_at is null;
+ if not coalesce(v_bot,false) then
+   update public.big_two_match_state set current_seat=(v_current%4)+1,turn_deadline=now()+interval '30 seconds',updated_at=now() where room_id=p_room_id;
+   return jsonb_build_object('advanced',true,'timed_out_human',true);
+ end if;
+ select cards into v_hand from public.big_two_player_hands where room_id=p_room_id and seat=v_current for update;
+ select card into v_card from jsonb_array_elements(v_hand) card where card->>'id'='0-0' limit 1;
+ if v_card is null and (coalesce((v_state->>'free_lead')::boolean,false) or jsonb_array_length(coalesce(v_state->'table_cards','[]'::jsonb))=0) then
+   select card into v_card from jsonb_array_elements(v_hand) card order by (card->>'rank')::integer,(card->>'suit')::integer limit 1;
+ end if;
+ if v_card is null then
+   update public.big_two_match_state set current_seat=(v_current%4)+1,turn_deadline=now()+interval '30 seconds',updated_at=now() where room_id=p_room_id;
+   return jsonb_build_object('advanced',true,'bot_passed',true);
+ end if;
+ select coalesce(jsonb_agg(card),'[]'::jsonb) into v_remaining from jsonb_array_elements(v_hand) card where card->>'id'<>v_card->>'id';
+ v_next:=(v_current%4)+1;
+ update public.big_two_player_hands set cards=v_remaining,updated_at=now() where room_id=p_room_id and seat=v_current;
+ v_state:=jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(jsonb_set(v_state,'{table_cards}',jsonb_build_array(v_card)),'{last_play_seat}',to_jsonb(v_current)),'{passes}','0'::jsonb),'{opening_required}','false'::jsonb),'{free_lead}','false'::jsonb),array['hand_counts',(v_current-1)::text],to_jsonb(jsonb_array_length(v_remaining)));
+ update public.big_two_match_state set state=v_state,current_seat=v_next,turn_deadline=now()+interval '30 seconds',status=case when jsonb_array_length(v_remaining)=0 then 'completed' else 'playing' end,updated_at=now() where room_id=p_room_id;
+ return jsonb_build_object('advanced',true,'bot_played',v_card);
+end; $$;
+grant execute on function public.big_two_timeout_turn(uuid) to authenticated;
 
 -- Read model used by the lobby UI for four stable seats, names, avatars and
 -- ready indicators. Realtime subscriptions on these tables update all clients.

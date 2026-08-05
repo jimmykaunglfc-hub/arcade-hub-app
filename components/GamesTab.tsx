@@ -65,7 +65,7 @@ export default function GamesTab({
       .replace(/'/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
-    return `native://${slug}`;
+    return `native://${slug === "word-box" ? "wordbox" : slug}`;
   };
   // Catalog titles can differ only by punctuation (for example, “8 Ball Pool”
   // vs “8-Ball Pool”). Treat these as the same native game when merging the

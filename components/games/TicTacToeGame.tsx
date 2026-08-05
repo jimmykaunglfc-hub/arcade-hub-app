@@ -6,6 +6,7 @@ import { soundEngine } from "../../lib/soundManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 import MatchmakingModal from "../MatchmakingModal";
+import { useTwoPlayerForfeit } from "../../lib/useTwoPlayerForfeit";
 
 // 🛍️ NEW: Live Database Cosmetic Hook
 import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
@@ -73,10 +74,21 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   const [gameMode, setGameMode] = useState<GameMode>("pvp");
   const [board, setBoard] = useState<BoardState>(Array(9).fill(null));
   const [turn, setTurn] = useState<Player>("X");
+  const [roundStarter, setRoundStarter] = useState<Player>("X");
   const [winner, setWinner] = useState<Player | "draw" | null>(null);
   const [winningLine, setWinningLine] = useState<number[] | null>(null);
   const [scores, setScores] = useState({ X: 0, O: 0, ties: 0 });
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);
+
+  const reconnectSeconds = useTwoPlayerForfeit({
+    enabled: view === "play" && Boolean(matchId) && !localOpponent?.isBot && !winner,
+    opponentConnected,
+    onForfeit: () => {
+      setWinner(myPlayerSymbol);
+      setWinningLine(null);
+      showToast("Opponent did not reconnect. You win by forfeit.");
+    },
+  });
 
   // 🎭 REACTIONS
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; role: number }[]>([]);
@@ -477,7 +489,8 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     setWinningLine(null);
     setWinner(null);
     setBoard(Array(9).fill(null));
-    setTurn("X");
+    setTurn(roundStarter);
+    setRoundStarter((starter) => starter === "X" ? "O" : "X");
     if (forcedOpponent) setLocalOpponent(forcedOpponent);
     setView("play");
   };
@@ -487,14 +500,16 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     setWinningLine(null);
     setWinner(null);
     setBoard(Array(9).fill(null));
-    setTurn("X");
+    const nextStarter = roundStarter;
+    setTurn(nextStarter);
+    setRoundStarter((starter) => starter === "X" ? "O" : "X");
     if (channel && matchId && !localOpponent?.isBot) {
       channel.send({
         type: "broadcast",
         event: "board_update",
         payload: {
           board: Array(9).fill(null),
-          turn: "X",
+          turn: nextStarter,
           winner: null,
           winningLine: null,
           scores: scores,

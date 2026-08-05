@@ -6,6 +6,7 @@ import { soundEngine } from "../../lib/soundManager";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 import MatchmakingModal from "../MatchmakingModal";
 import GameEngagementMenu from "../GameEngagementMenu";
+import { useTwoPlayerForfeit } from "../../lib/useTwoPlayerForfeit";
 
 // 🛍️ NEW: Live Database Cosmetic Hook
 import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
@@ -123,6 +124,16 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   const [pendingWild, setPendingWild] = useState<Card | null>(null);
   const [winnerTeam, setWinnerTeam] = useState<number | null>(null);
   const [winnerPlayer, setWinnerPlayer] = useState<PlayerConfig | null>(null);
+
+  useTwoPlayerForfeit({
+    enabled: view === "play" && Boolean(matchId) && !localOpponent?.isBot && winnerTeam === null,
+    opponentConnected,
+    onForfeit: () => {
+      setWinnerTeam(myRole);
+      setWinnerPlayer((current) => current ?? { id: myRole, name: "You", avatar: "😎", isBot: false, team: myRole, position: "bottom" });
+      setStatusMsg("Opponent did not reconnect — you win by forfeit.");
+    },
+  });
 
   const [isProcessingTurn, setIsProcessingTurn] = useState<boolean>(false);
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);

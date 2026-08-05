@@ -29,6 +29,8 @@ import {
   sweepSphereAgainstNet,
   type PhysicsRallyState,
 } from "@/lib/pingPongPhysics";
+import { supabase } from "@/lib/supabaseClient";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 /**
  * A player shape that accepts both the camelCase fields used by this component
@@ -420,6 +422,10 @@ export default function PingPong(props: PingPongProps) {
   const pointerSampleRef = useRef<{ x: number; at: number } | null>(null);
   const swingIntentRef = useRef<SwingIntent>({ value: 0, expiresAt: 0 });
   const lastPlayerSwipeAtRef = useRef(0);
+  const networkChannelRef = useRef<RealtimeChannel | null>(null);
+  const networkIdentityRef = useRef<string | null>(null);
+  const opponentSeenRef = useRef(false);
+  const disconnectForfeitRef = useRef<number | null>(null);
   const stalledBallSinceRef = useRef(0);
   const assistWindowsRef = useRef<Record<Side, AssistWindow | null>>({
     local: null,
@@ -471,6 +477,10 @@ export default function PingPong(props: PingPongProps) {
     emoji: string;
     id: number;
   } | null>(null);
+  const [opponentConnected, setOpponentConnected] = useState(false);
+  const isNetworkMatch = Boolean(
+    matchId && matchId !== "local-ping-pong" && !matchId.startsWith("bot_") && !opponent?.isBot
+  );
 
   const ballRef = useRef<BallState>({ ...initialBall });
   const paddlesRef = useRef<PaddlePositions>({
@@ -554,20 +564,15 @@ export default function PingPong(props: PingPongProps) {
     };
   }, []);
 
-  /**
-   * MULTIPLAYER HOOK 1
-   * Replace this body with a Supabase broadcast or backendEngine call.
-   * A 20 Hz throttle is already applied by the pointer handler.
-   */
+  // Realtime input channel. The existing physics stays local-authoritative for
+  // the host; remote paddle/ball snapshots keep the second device in sync.
+  // This replaces the handoff source's placeholder extension points.
   const broadcastPaddlePosition = useCallback(
     (position: PaddleState) => {
-      void matchId;
-      void currentUserId;
-      void position;
-      // Example:
-      // channel.send({ type: "broadcast", event: "ping_pong_paddle", payload: position });
+      if (!isNetworkMatch || !networkChannelRef.current) return;
+      void networkChannelRef.current.send({ type: "broadcast", event: "ping_pong_paddle", payload: position });
     },
-    [currentUserId, matchId]
+    [isNetworkMatch]
   );
 
   /**
@@ -576,13 +581,10 @@ export default function PingPong(props: PingPongProps) {
    */
   const broadcastBallHit = useCallback(
     (payload: BallHitPayload) => {
-      void matchId;
-      void payload;
-      // Example:
-      // JoeYokeEngine.pushTelemetryEvent(currentUserId, "ping_pong_hit", payload);
-      // channel.send({ type: "broadcast", event: "ping_pong_ball_hit", payload });
+      if (!isNetworkMatch || !networkChannelRef.current) return;
+      void networkChannelRef.current.send({ type: "broadcast", event: "ping_pong_ball_hit", payload });
     },
-    [matchId]
+    [isNetworkMatch]
   );
 
   /**
@@ -611,12 +613,56 @@ export default function PingPong(props: PingPongProps) {
   );
 
   useEffect(() => {
-    // Wire the receiver here when your realtime transport is ready:
-    // const unsubscribe = subscribeToMatch(matchId, onReceiveOpponentMove);
-    // return unsubscribe;
-    void matchId;
-    void onReceiveOpponentMove;
-  }, [matchId, onReceiveOpponentMove]);
+    if (!isNetworkMatch) return;
+    let alive = true;
+    const connect = async () => {
+      const { data } = await supabase.auth.getUser();
+      const identity = data.user?.id ?? currentUserId;
+      if (!alive) return;
+      networkIdentityRef.current = identity;
+      const channel = supabase.channel(`ping-pong-match-${matchId}`, {
+        config: { broadcast: { self: false }, presence: { key: identity } },
+      });
+      networkChannelRef.current = channel;
+      channel
+        .on("broadcast", { event: "ping_pong_paddle" }, ({ payload }) => onReceiveOpponentMove(payload as Vector3 & { tilt?: number; swingX?: number }))
+        .on("broadcast", { event: "ping_pong_ball_hit" }, ({ payload }) => {
+          const hit = payload as BallHitPayload;
+          ballRef.current = { ...ballRef.current, x: hit.position.x, y: hit.position.y, z: hit.position.z, vx: hit.velocity.x, vy: hit.velocity.y, vz: hit.velocity.z, active: true };
+        })
+        .on("presence", { event: "sync" }, () => {
+          const connected = Object.keys(channel.presenceState()).length > 1;
+          setOpponentConnected(connected);
+          if (connected) {
+            opponentSeenRef.current = true;
+            if (disconnectForfeitRef.current) window.clearTimeout(disconnectForfeitRef.current);
+            disconnectForfeitRef.current = null;
+          } else if (opponentSeenRef.current && !disconnectForfeitRef.current) {
+            disconnectForfeitRef.current = window.setTimeout(() => {
+              setStatus("Opponent disconnected — you win by forfeit");
+              setGameWinner("local");
+              gameWinnerRef.current = "local";
+              onResult?.("Win");
+              disconnectForfeitRef.current = null;
+            }, 30_000);
+          }
+        })
+        .subscribe(async (status) => {
+          if (status === "SUBSCRIBED") await channel.track({ online_at: new Date().toISOString() });
+        });
+    };
+    void connect();
+    return () => {
+      alive = false;
+      if (disconnectForfeitRef.current) window.clearTimeout(disconnectForfeitRef.current);
+      disconnectForfeitRef.current = null;
+      if (networkChannelRef.current) {
+        void networkChannelRef.current.untrack();
+        void supabase.removeChannel(networkChannelRef.current);
+      }
+      networkChannelRef.current = null;
+    };
+  }, [currentUserId, isNetworkMatch, matchId, onReceiveOpponentMove, onResult]);
 
   const resetRound = useCallback(
     (server: Side) => {

@@ -6,6 +6,7 @@ import { soundEngine } from "../../lib/soundManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 import MatchmakingModal from "../MatchmakingModal";
+import { useTwoPlayerForfeit } from "../../lib/useTwoPlayerForfeit";
 
 const EMPTY = 0, P1 = 1, P2 = 2, P1_KING = 3, P2_KING = 4;
 const TURN_TIME_LIMIT = 30; // 30-second turn limit
@@ -116,6 +117,7 @@ export default function Checkers({
   const [copied, setCopied] = useState(false); 
   
   const [myUserId, setMyUserId] = useState<string | null>(null);
+  const [opponentConnected, setOpponentConnected] = useState(false);
   const [myPlayerRole, setMyPlayerRole] = useState<number>(P1);
   const [board, setBoard] = useState<number[][]>(INITIAL_BOARD);
   const [turn, setTurn] = useState<number>(P1);
@@ -128,6 +130,12 @@ export default function Checkers({
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
   const [winner, setWinner] = useState<number | null>(null);
+
+  useTwoPlayerForfeit({
+    enabled: playMode === "online" && Boolean(matchId) && winner === null,
+    opponentConnected,
+    onForfeit: () => setWinner(myPlayerRole),
+  });
 
   // Live Emojis
   const [floatingEmojis, setFloatingEmojis] = useState<{id: number, emoji: string, role: number}[]>([]);
@@ -353,7 +361,10 @@ export default function Checkers({
     if (!matchId) return;
 
     const channel = supabase.channel(`match_${matchId}`, {
-      config: { broadcast: { self: true } }
+      config: { broadcast: { self: true }, presence: { key: myUserId || `checkers-${myPlayerRole}` } }
+    })
+    .on('presence', { event: 'sync' }, () => {
+      setOpponentConnected(Object.keys(channel.presenceState()).length > 1);
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'checkers_matches', filter: `id=eq.${matchId}` }, (payload) => {
       const newData = payload.new;
@@ -388,9 +399,11 @@ export default function Checkers({
         setFloatingEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id));
       }, 2500);
     })
-    .subscribe();
+    .subscribe(async (status) => {
+      if (status === "SUBSCRIBED") await channel.track({ online_at: new Date().toISOString(), role: myPlayerRole });
+    });
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { channel.untrack(); supabase.removeChannel(channel); };
   }, [matchId, playMode, turn, p1Captures, p2Captures, myPlayerRole]);
 
   // 🤖 LOCAL BOT ENGINE

@@ -7,6 +7,7 @@ import { soundEngine } from "../../lib/soundManager";
 import { getRandomBotOpponent } from "../../lib/botUtils";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
 import MatchmakingModal from "../MatchmakingModal";
+import { useTwoPlayerForfeit } from "../../lib/useTwoPlayerForfeit";
 
 // 🛍️ NEW: Live Database Cosmetic Hook
 import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
@@ -269,6 +270,14 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
   const [opponentConnected, setOpponentConnected] = useState(false);
+
+  useTwoPlayerForfeit({
+    enabled: view === "play" && Boolean(matchId) && !localOpponent?.isBot && !opponent?.isBot && !gameOver.isOver,
+    opponentConnected,
+    onForfeit: () => {
+      setGameOver({ isOver: true, winner: playerColor === "white" ? "White" : "Black", reason: "by opponent disconnect" });
+    },
+  });
 
   // 🎭 REACTIONS
   const [myReaction, setMyReaction] = useState<string | null>(null);

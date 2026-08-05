@@ -167,6 +167,8 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myPlayerRole, setMyPlayerRole] = useState<1 | 2>(1);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const opponentSeenRef = useRef(false);
+  const disconnectForfeitTimerRef = useRef<number | null>(null);
 
   const [currentTurn, setCurrentTurn] = useState<"player1" | "player2">("player1");
   const [playerGroups, setPlayerGroups] = useState<{ player1: "Open" | "Solids" | "Stripes"; player2: "Open" | "Solids" | "Stripes" }>({
@@ -355,15 +357,24 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         const state = channel.presenceState();
         const connectedPlayers = Object.keys(state).length;
 
+        if (connectedPlayers === 2) {
+          opponentSeenRef.current = true;
+          if (disconnectForfeitTimerRef.current) window.clearTimeout(disconnectForfeitTimerRef.current);
+          disconnectForfeitTimerRef.current = null;
+        }
         if (connectedPlayers === 2 && playMode === "host") {
           setPlayMode("online");
           setToast({ msg: "Opponent joined the Arena!", type: "success" });
         } else if (connectedPlayers === 2 && playMode === "join") {
           setPlayMode("online");
           setToast({ msg: "Connected to Host Matrix!", type: "success" });
-        } else if (connectedPlayers < 2 && playMode === "online") {
-          setToast({ msg: "Opponent Disconnected! You Win.", type: "success" });
-          setWinner(myPlayerRole === 1 ? "Player 1" : "Player 2");
+        } else if (connectedPlayers < 2 && playMode === "online" && opponentSeenRef.current && !disconnectForfeitTimerRef.current) {
+          setToast({ msg: "Opponent reconnecting — 30 seconds remaining.", type: "info" });
+          disconnectForfeitTimerRef.current = window.setTimeout(() => {
+            setToast({ msg: "Opponent did not reconnect. You win by forfeit.", type: "success" });
+            setWinner(myPlayerRole === 1 ? "Player 1" : "Player 2");
+            disconnectForfeitTimerRef.current = null;
+          }, 30_000);
         }
       })
       .on("broadcast", { event: "shot_fired" }, (payload) => {
@@ -405,6 +416,8 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     });
 
     return () => {
+      if (disconnectForfeitTimerRef.current) window.clearTimeout(disconnectForfeitTimerRef.current);
+      disconnectForfeitTimerRef.current = null;
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
@@ -746,7 +759,8 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         balls.forEach((ball) => {
           if (ball.isPotted) return;
           pockets.forEach((p) => {
-            if (Math.hypot(ball.x - p.x, ball.y - p.y) < BALL_RADIUS * 2.8) {
+            // Require the ball centre to enter the actual pocket throat.
+            if (Math.hypot(ball.x - p.x, ball.y - p.y) < BALL_RADIUS * 1.65) {
               ball.isPotted = true;
               ball.vx = 0;
               ball.vy = 0;

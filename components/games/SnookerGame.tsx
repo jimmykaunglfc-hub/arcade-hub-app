@@ -84,6 +84,8 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myPlayerRole, setMyPlayerRole] = useState<1 | 2>(1);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const opponentSeenRef = useRef(false);
+  const disconnectForfeitTimerRef = useRef<number | null>(null);
 
   // 🎮 GAME STATES
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -103,6 +105,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const [winner, setWinner] = useState<string | null>(null);
 
   const [isBallInHand, setIsBallInHand] = useState(true);
+  // The opening cue ball is draggable inside the D.  Keeping this separate
+  // from the visual state prevents a pointer-up outside the D from silently
+  // ending placement and leaving the player with an unusable opening shot.
+  const cueBallPlacedRef = useRef(false);
   const [aimAngle, setAimAngle] = useState(-Math.PI / 2);
   const [uiPower, setUiPower] = useState(0);
 
@@ -297,16 +303,25 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         const state = channel.presenceState();
         const connectedPlayers = Object.keys(state).length;
 
+        if (connectedPlayers === 2) {
+          opponentSeenRef.current = true;
+          if (disconnectForfeitTimerRef.current) window.clearTimeout(disconnectForfeitTimerRef.current);
+          disconnectForfeitTimerRef.current = null;
+        }
         if (connectedPlayers === 2 && playMode === "host") {
           setPlayMode("online");
           setToast({ msg: "Opponent joined the Arena!", type: "success" });
         } else if (connectedPlayers === 2 && playMode === "join") {
           setPlayMode("online");
           setToast({ msg: "Connected to Host Matrix!", type: "success" });
-        } else if (connectedPlayers < 2 && playMode === "online") {
-          setToast({ msg: "Opponent Disconnected! You Win.", type: "success" });
-          setWinner(myPlayerRole === 1 ? "Player 1" : "Player 2");
-          soundEngine.playSFX("victory");
+        } else if (connectedPlayers < 2 && playMode === "online" && opponentSeenRef.current && !disconnectForfeitTimerRef.current) {
+          setToast({ msg: "Opponent reconnecting — 30 seconds remaining.", type: "info" });
+          disconnectForfeitTimerRef.current = window.setTimeout(() => {
+            setToast({ msg: "Opponent did not reconnect. You win by forfeit.", type: "success" });
+            setWinner(myPlayerRole === 1 ? "Player 1" : "Player 2");
+            soundEngine.playSFX("victory");
+            disconnectForfeitTimerRef.current = null;
+          }, 30_000);
         }
       })
       .on("broadcast", { event: "shot_fired" }, (payload) => {
@@ -351,6 +366,8 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     });
 
     return () => {
+      if (disconnectForfeitTimerRef.current) window.clearTimeout(disconnectForfeitTimerRef.current);
+      disconnectForfeitTimerRef.current = null;
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
@@ -801,6 +818,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     setColorSeqIndex(0);
     setWinner(null);
     setIsBallInHand(true);
+    cueBallPlacedRef.current = false;
     setUiPower(0);
     setAimAngle(-Math.PI / 2);
     setSpinOffset({ x: 0, y: 0 });
@@ -911,7 +929,9 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         balls.forEach((ball) => {
           if (ball.isPotted) return;
           pockets.forEach((p) => {
-            if (Math.hypot(ball.x - p.x, ball.y - p.y) < ballRadius * 3.2) {
+            // A ball must reach the pocket throat, not merely brush the rail
+            // beside it. This prevents the previous "magnet pocket" effect.
+            if (Math.hypot(ball.x - p.x, ball.y - p.y) < ballRadius * 1.75) {
               ball.isPotted = true;
               ball.vx = 0;
               ball.vy = 0;
@@ -1291,10 +1311,12 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         if (!isOverlapping) {
           cueBall.x = clickX;
           cueBall.y = clickY;
+          cueBallPlacedRef.current = true;
         } else if (overlapBall) {
           const angle = Math.atan2(clickY - (overlapBall as Ball).y, clickX - (overlapBall as Ball).x);
           cueBall.x = (overlapBall as Ball).x + Math.cos(angle) * (ballRadius * 2);
           cueBall.y = (overlapBall as Ball).y + Math.sin(angle) * (ballRadius * 2);
+          cueBallPlacedRef.current = true;
         }
       }
     } else {
@@ -1970,7 +1992,9 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                   onPointerDown={handleCanvasInteraction}
                   onPointerMove={handleCanvasInteraction}
                   onPointerUp={() => {
-                    if (isBallInHand) setIsBallInHand(false);
+                    // A valid tap/drag inside the D commits placement.  Invalid
+                    // touches deliberately keep the placement guide visible.
+                    if (isBallInHand && cueBallPlacedRef.current) setIsBallInHand(false);
                   }}
                   className="w-full h-full shadow-2xl rounded-xl border-2 border-white/10 bg-[#09090b] cursor-crosshair touch-none"
                 />

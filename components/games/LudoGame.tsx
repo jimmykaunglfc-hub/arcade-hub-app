@@ -124,6 +124,17 @@ function PawnIcon() {
 export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps) {
  const [playerNames, setPlayerNames] = useState<string[]>(PLAYERS.map((player) => player.name));
  const [roomReady, setRoomReady] = useState(!roomId);
+
+ useEffect(() => {
+   if (!roomId) return;
+   const keepRoomAlive = () => {
+     void supabase.rpc("heartbeat_matchmaking_room", { p_room_id: roomId });
+     void supabase.rpc("replace_expired_four_player_seats", { p_room_id: roomId });
+   };
+   keepRoomAlive();
+   const timer = window.setInterval(keepRoomAlive, 10_000);
+   return () => window.clearInterval(timer);
+ }, [roomId]);
  const [turnDeadline, setTurnDeadline] = useState<string | null>(null);
  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
  const [isHost, setIsHost] = useState(false);

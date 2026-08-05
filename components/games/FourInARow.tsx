@@ -418,6 +418,11 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
        onMouseLeave={() => setHoveredCol(null)}
        className="relative bg-[#1965e0] border-4 border-[#0e4cb8] rounded-[2.5rem] p-3 shadow-[0_20px_40px_rgba(0,0,0,0.6)] w-full max-w-[360px] sm:max-w-[400px] touch-none"
      >
+       {winner && winner !== "Draw" && (
+         <div className="absolute inset-x-5 top-3 z-30 rounded-xl border-2 border-white bg-slate-950/90 px-3 py-2 text-center text-xs font-black uppercase tracking-[0.18em] text-white shadow-[0_0_22px_rgba(255,255,255,0.6)]">
+           {winner === PLAYER ? "Winning four — red" : "Winning four — yellow"}
+         </div>
+       )}
       
        {/* White Arrow Pointer Header */}
        <div className="grid grid-cols-7 gap-1.5 mb-1.5 px-1 relative h-6 items-center">
@@ -594,4 +599,3 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
 };
 
 export default FourInARow;
-

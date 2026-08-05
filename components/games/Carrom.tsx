@@ -209,6 +209,8 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myPlayerRole, setMyPlayerRole] = useState<1 | 2>(1);
+  const opponentSeenRef = useRef(false);
+  const disconnectForfeitTimerRef = useRef<number | null>(null);
   const [turn, setTurn] = useState<1 | 2>(1);
   const [turnNonce, setTurnNonce] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);
@@ -594,6 +596,11 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         const state = channel.presenceState();
         const connectedPlayers = Object.keys(state).length;
 
+        if (connectedPlayers === 2) {
+          opponentSeenRef.current = true;
+          if (disconnectForfeitTimerRef.current) window.clearTimeout(disconnectForfeitTimerRef.current);
+          disconnectForfeitTimerRef.current = null;
+        }
         if (connectedPlayers === 2 && playModeRef.current === "host") {
           setPlayMode("online");
           setToast({ msg: "Opponent joined the Arena!", type: "success" });
@@ -616,10 +623,14 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         } else if (connectedPlayers === 2 && playModeRef.current === "join") {
           setPlayMode("online");
           setToast({ msg: "Connected to Host Matrix!", type: "success" });
-        } else if (connectedPlayers < 2 && playModeRef.current === "online") {
-          setToast({ msg: "Opponent Disconnected! You Win.", type: "success" });
-          setWinner(myPlayerRoleRef.current);
-          soundEngine.playSFX("carrom_win");
+        } else if (connectedPlayers < 2 && playModeRef.current === "online" && opponentSeenRef.current && !disconnectForfeitTimerRef.current) {
+          setToast({ msg: "Opponent reconnecting — 30 seconds remaining.", type: "info" });
+          disconnectForfeitTimerRef.current = window.setTimeout(() => {
+            setToast({ msg: "Opponent did not reconnect. You win by forfeit.", type: "success" });
+            setWinner(myPlayerRoleRef.current);
+            soundEngine.playSFX("carrom_win");
+            disconnectForfeitTimerRef.current = null;
+          }, 30_000);
         }
       })
       .on('broadcast', { event: 'change_rules' }, (payload) => {
@@ -676,6 +687,8 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     });
 
     return () => { 
+      if (disconnectForfeitTimerRef.current) window.clearTimeout(disconnectForfeitTimerRef.current);
+      disconnectForfeitTimerRef.current = null;
       supabase.removeChannel(channel); 
       channelRef.current = null;
     };
