@@ -815,12 +815,18 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   const [serverTurnDeadline, setServerTurnDeadline] = useState<string | null>(null);
   const [isRoomHost, setIsRoomHost] = useState(false);
   const activeServerPlayerRef = useRef<string | null>(null);
+  const serverVersionRef = useRef<number | null>(null);
+  const isRollingRef = useRef(false);
+  const isMovingRef = useRef(false);
   const publishingRef = useRef(false);
   const lastPublishedStateRef = useRef<string | null>(null);
   const pendingCommandRef = useRef("state_sync");
   const turnEpochRef = useRef(0);
   const goBonusToastTimerRef = useRef<number | undefined>(undefined);
   const alertResolutionRef = useRef(false);
+
+  useEffect(() => { isRollingRef.current = isRolling; }, [isRolling]);
+  useEffect(() => { isMovingRef.current = isMoving; }, [isMoving]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -851,12 +857,13 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
         // Do not overwrite an in-progress local dice animation with the last
         // persisted snapshot.  That was the source of tokens jumping backward
         // and purchase prompts disappearing before a player could act.
-        const isNewServerRevision = serverVersion === null || existing.version !== serverVersion;
-        if (isNewServerRevision && !isRolling && !isMoving && !publishingRef.current) {
+        const isNewServerRevision = serverVersionRef.current === null || existing.version !== serverVersionRef.current;
+        if (isNewServerRevision && !isRollingRef.current && !isMovingRef.current && !publishingRef.current) {
           setGameState(existing.state as GameState);
         }
         lastPublishedStateRef.current = JSON.stringify(existing.state);
         activeServerPlayerRef.current = existing.active_player_id;
+        serverVersionRef.current = existing.version;
         setServerVersion(existing.version);
         setServerTurnDeadline(existing.turn_deadline);
         setPhase("playing"); setRoomReady(true); return;
@@ -872,11 +879,11 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       }));
       seeded.activePlayerId = seeded.players[0].id;
       const { error } = await supabase.rpc("initialize_monopoly_match", { p_room_id: roomId, p_state: seeded, p_active_player_id: seeded.activePlayerId });
-      if (!error) { setGameState(seeded); lastPublishedStateRef.current = JSON.stringify(seeded); activeServerPlayerRef.current = seeded.activePlayerId; setServerVersion(1); setPhase("playing"); setRoomReady(true); }
+      if (!error) { setGameState(seeded); lastPublishedStateRef.current = JSON.stringify(seeded); activeServerPlayerRef.current = seeded.activePlayerId; serverVersionRef.current = 1; setServerVersion(1); setPhase("playing"); setRoomReady(true); }
     };
     void load(); const timer = window.setInterval(() => { void load(); }, 1200);
     return () => window.clearInterval(timer);
-  }, [isMoving, isRolling, roomId, serverVersion, userId]);
+  }, [roomId, userId]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -908,7 +915,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     void supabase.rpc("update_monopoly_match_state", {
       p_room_id: roomId,
       p_state: gameState,
-      p_expected_version: serverVersion,
+      p_expected_version: serverVersionRef.current,
       p_next_active_player_id: gameState.activePlayerId,
       p_completed: Boolean(gameState.winnerId),
       p_action: pendingCommandRef.current,
@@ -916,7 +923,9 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       publishingRef.current = false;
       if (!error) {
         lastPublishedStateRef.current = serialized;
-        setServerVersion(Number(data?.version || serverVersion + 1));
+        const nextVersion = Number(data?.version || (serverVersionRef.current || 0) + 1);
+        serverVersionRef.current = nextVersion;
+        setServerVersion(nextVersion);
         setServerTurnDeadline(data?.turn_deadline ?? null);
         activeServerPlayerRef.current = gameState.activePlayerId;
         pendingCommandRef.current = "state_sync";
@@ -1104,8 +1113,15 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
 
     let dice: [number, number] = [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1];
     if (roomId) {
-      const { data, error } = await supabase.rpc("roll_monopoly_dice", { p_room_id: roomId, p_expected_version: serverVersion });
-      if (error || !data) return;
+      const { data, error } = await supabase.rpc("roll_monopoly_dice", { p_room_id: roomId, p_expected_version: serverVersionRef.current });
+      if (error || !data) {
+        // A timeout or another player's completed action can arrive between a
+        // rendered frame and a tap.  Keep the board usable and make the next
+        // authoritative poll replace the stale snapshot instead of leaving a
+        // disabled dice button with no explanation.
+        setGameState((current) => ({ ...current, actionLog: { title: "Board updated", highlight: "WAITING FOR THE CURRENT TURN" } }));
+        return;
+      }
       dice = [Number(data.die_one), Number(data.die_two)];
     }
     markCommand("roll");
@@ -1450,7 +1466,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   }
 
   return (
-    <div className="h-[100dvh] min-h-[100svh] w-full overflow-hidden bg-[radial-gradient(circle_at_50%_33%,#173a58_0%,#07111c_52%,#02060b_100%)] font-sans text-white">
+    <div className="fixed inset-0 z-[100] h-[100dvh] min-h-[100svh] w-full overflow-hidden overscroll-none touch-none bg-[radial-gradient(circle_at_50%_33%,#173a58_0%,#07111c_52%,#02060b_100%)] font-sans text-white">
       <style jsx global>{`
         @keyframes monopoly-crystal-float { 0%,100% { transform: translateY(0) rotate(0deg) scale(1); } 50% { transform: translateY(-7px) rotate(3deg) scale(1.03); } }
         @keyframes monopoly-crystal-roll { 0% { transform: translateY(-3px) rotate(0deg) scale(1); } 42% { transform: translateY(-18px) rotate(240deg) scale(1.13); } 100% { transform: translateY(0) rotate(540deg) scale(1); } }

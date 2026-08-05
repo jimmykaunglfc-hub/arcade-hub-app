@@ -174,9 +174,12 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
      setPasses(Number(state.state?.passes || 0));
      setOpening(Boolean(state.state?.opening_required));
      setTurnDeadline(state.turn_deadline || null);
-     // A player can always identify their own win from their private hand;
-     // this avoids any seat-order/render timing ambiguity in the public state.
-     const winnerSeat = ownCards.length === 0 ? seat : Number(state.state?.winner_seat || lastSeat);
+    // `winner_seat` is authoritative and is written with the final play.  Do
+    // not infer a win from the local hand: an older local snapshot can be
+    // empty while another player has already completed the shared match.
+    const configuredWinnerSeat = Number(state.state?.winner_seat || 0);
+    const emptyHandSeat = counts.findIndex((count: unknown) => Number(count) === 0) + 1;
+    const winnerSeat = configuredWinnerSeat || emptyHandSeat;
      const displayWinner = order.indexOf(winnerSeat);
      if (state.status === "completed") setWinner(displayWinner >= 0 ? displayWinner : null);
      else setWinner(null);
@@ -209,7 +212,7 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
 
  if (roomId && !roomReady) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] p-6 text-center text-white"><p className="font-bold">Waiting for the shared Big Two deal…</p></div>;
 
- return <div className="absolute inset-x-0 bottom-20 top-0 flex min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#14532d_0%,#052e2b_48%,#020617_100%)] text-white select-none">
+ return <div className="fixed inset-0 z-[100] flex h-[100dvh] min-h-[100svh] min-h-0 flex-col overflow-hidden overscroll-none touch-none bg-[radial-gradient(circle_at_top,#14532d_0%,#052e2b_48%,#020617_100%)] text-white select-none">
    <header className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-slate-950/55 px-3 py-2"><div>{onClose&&<button onClick={onClose} aria-label="Back to Arcade Hub" className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-slate-900"><span className="text-xl">←</span></button>}</div><div className="text-center"><h1 className="text-lg font-black text-amber-300">BIG TWO</h1><p className="text-[9px] font-black uppercase tracking-widest text-emerald-200/70">Classic · 4 Players</p></div><div className="flex justify-end gap-2"><button onClick={startGame} className="rounded-xl bg-amber-400 px-3 py-2 text-xs font-black text-slate-950">New</button><button onClick={()=>setShowRules(true)} aria-label="How to play Big Two" className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00] bg-slate-900 text-[#ccff00]"><span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#ccff00] text-xs font-black">?</span></button></div></header>
 
    <main className="min-h-0 flex-1 p-2">

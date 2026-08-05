@@ -702,7 +702,7 @@ export default function Sudoku({
  };
 
  return (
-   <div className="absolute inset-x-0 bottom-20 top-0 flex min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top,#164e63_0%,#0f172a_48%,#020617_100%)] text-white select-none">
+  <div className="fixed inset-0 z-[100] flex min-h-0 flex-col overflow-hidden overscroll-none touch-none bg-[radial-gradient(circle_at_top,#164e63_0%,#0f172a_48%,#020617_100%)] text-white select-none">
      <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-white/10 bg-slate-950/65 px-3 py-2 shadow-lg backdrop-blur">
        <div className="justify-self-start">
          {onClose && (
@@ -1155,4 +1155,3 @@ export default function Sudoku({
    </div>
  );
 }
-

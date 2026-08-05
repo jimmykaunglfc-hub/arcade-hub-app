@@ -200,7 +200,12 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
  useEffect(() => {
    if (!winner || resultReportedRef.current) return;
    resultReportedRef.current = true;
-   onResult?.(winner === "Draw" ? "Draw" : winner === 1 ? "Win" : "Loss");
+   // Keep the winning discs and result modal visible before the arena shell
+   // receives its result callback and potentially navigates away.
+   const timer = window.setTimeout(() => {
+     onResult?.(winner === "Draw" ? "Draw" : winner === 1 ? "Win" : "Loss");
+   }, 2200);
+   return () => window.clearTimeout(timer);
  }, [onResult, winner]);
 
  // Reference to board for dynamic pixel calculation across touch & mouse
