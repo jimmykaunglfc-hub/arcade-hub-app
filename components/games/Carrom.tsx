@@ -233,6 +233,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   const [, setRenderTrigger] = useState(0);
   const isMovingRef = useRef(false);
   const didIShootRef = useRef(false); 
+  // A striker is immediately restored visually after it falls into a pocket.
+  // Keep its foul event separately so scoring still sees it at turn end.
+  const strikerPocketedThisTurnRef = useRef(false);
   
   const [p1Slider, setP1Slider] = useState(500);
   const [p2Slider, setP2Slider] = useState(500); 
@@ -824,6 +827,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         const dist = Math.hypot(c1.x - p.x, c1.y - p.y);
         if (dist < POCKET_TRIGGER && !c1.falling) {
           c1.falling = true;
+          if (c1.type === "striker") strikerPocketedThisTurnRef.current = true;
           soundEngine.playSFX(c1.type === "striker" ? "carrom_foul" : "carrom_pocket");
         }
       }
@@ -883,7 +887,8 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     const currentCoins = coinsRef.current;
     
     const pocketedThisTurn = currentCoins.filter(c => !c.active && prevCoins.find(p => p.id === c.id)?.active);
-    const strikerFoul = pocketedThisTurn.some(c => c.type === "striker");
+    const strikerFoul = strikerPocketedThisTurnRef.current || pocketedThisTurn.some(c => c.type === "striker");
+    strikerPocketedThisTurnRef.current = false;
     
     let newP1Score = p1ScoreRef.current; 
     let newP2Score = p2ScoreRef.current;
@@ -1156,19 +1161,23 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     const roleScore = role === 1 ? p1Score : p2Score;
     const roleColor = role === 1 ? p1Color : p2Color;
 
-    // Display Name Logic
-    let roleName = role === 1 ? "You" : "Player 2";
-    if (isBot) {
-      roleName = localOpponent?.name || opponent?.name || "Apex Bot";
-    } else if (playMode === "online") {
-      roleName = myPlayerRole === role ? "You" : (localOpponent?.name || "Opponent");
-    }
+    const nameForRole = (playerRole: 1 | 2) => {
+      if (playMode === "bot" && playerRole === 2) {
+        return localOpponent?.name || opponent?.name || "Apex Bot";
+      }
+      if (playMode === "online") {
+        return myPlayerRole === playerRole ? "You" : (localOpponent?.name || "Opponent");
+      }
+      return playerRole === 1 ? "Player 1" : "Player 2";
+    };
+    const roleName = nameForRole(role);
+    const activeRoleName = nameForRole(turn);
 
-    let turnText = `Player ${turn} Turn`;
-    if (playMode === "online" || playMode === "bot") {
-      if (isMyTurn) turnText = myPlayerRole === role ? "Your Shot" : `${roleName} Aiming`;
-      else turnText = myPlayerRole === role ? "Wait" : `${roleName} Aiming`;
-    }
+    // Both HUD panels read the same authoritative turn. This prevents the
+    // inactive opponent panel from incorrectly claiming that it is aiming.
+    const turnText = playMode === "online" || playMode === "bot"
+      ? turn === myPlayerRole ? "Your Shot" : `${activeRoleName} Aiming`
+      : `Player ${turn} Aiming`;
 
     let scoreDisplay = `${roleScore} PTS`;
     if (gameRuleMode === "classic") {
