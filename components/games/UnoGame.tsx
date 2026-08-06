@@ -790,7 +790,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   const isUserDrawRequired = currentPlayer === myRole && !playerHasPlayableCard && !isProcessingTurn;
 
   return (
-    <div className="fixed inset-0 bg-[#09090b] text-white flex flex-col font-sans overflow-hidden select-none z-[100]">
+    <div className="fixed inset-0 z-[100] flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden overscroll-none touch-none bg-[#09090b] font-sans text-white select-none">
       {/* FLOATING EMOJI LAYER */}
       {floatingEmojis.map((em) => (
         <div key={em.id} className={`absolute z-50 text-4xl animate-float-up pointer-events-none bottom-10 ${em.role === myRole ? 'right-10' : 'left-10'}`}>

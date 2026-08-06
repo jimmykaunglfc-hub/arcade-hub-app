@@ -166,6 +166,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myPlayerRole, setMyPlayerRole] = useState<1 | 2>(1);
+  const myPlayerRoleRef = useRef<1 | 2>(1);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const opponentSeenRef = useRef(false);
   const disconnectForfeitTimerRef = useRef<number | null>(null);
@@ -191,6 +192,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
   useEffect(() => { currentTurnRef.current = currentTurn; }, [currentTurn]);
   useEffect(() => { playerGroupsRef.current = playerGroups; }, [playerGroups]);
   useEffect(() => { playModeRef.current = playMode; }, [playMode]);
+  useEffect(() => { myPlayerRoleRef.current = myPlayerRole; }, [myPlayerRole]);
 
   const [isBallInHand, setIsBallInHand] = useState(false);
   const [showConfirmBtn, setShowConfirmBtn] = useState(false);
@@ -827,7 +829,10 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                 // The remote player animates the same shot for visual feedback,
                 // but only the shooter may turn a locally simulated pocket into
                 // a real scratch/ball-in-hand result.
-                const isAuthoritativeShot = playModeRef.current !== "online" || didIShootRef.current;
+                const localOwnsActiveTurn =
+                  (currentTurnRef.current === "player1" && myPlayerRoleRef.current === 1) ||
+                  (currentTurnRef.current === "player2" && myPlayerRoleRef.current === 2);
+                const isAuthoritativeShot = playModeRef.current !== "online" || localOwnsActiveTurn;
                 if (isAuthoritativeShot) turnTrackingRef.current.cueScratch = true;
                 setTimeout(() => {
                   ball.isPotted = false;
@@ -967,7 +972,10 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
       // The shooting player is the sole online rules authority. The other
       // device animates the shot and waits for the authoritative turn sync.
-      if (wasMovingRef.current && !dynamicMotion && (playModeRef.current !== "online" || didIShootRef.current)) {
+      const localOwnsActiveTurn =
+        (currentTurnRef.current === "player1" && myPlayerRoleRef.current === 1) ||
+        (currentTurnRef.current === "player2" && myPlayerRoleRef.current === 2);
+      if (wasMovingRef.current && !dynamicMotion && (playModeRef.current !== "online" || (localOwnsActiveTurn && didIShootRef.current))) {
         evaluateTurnEnd();
       }
       wasMovingRef.current = dynamicMotion;
