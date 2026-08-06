@@ -315,8 +315,10 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     triggerFoulAlert("🚨 TIME EXPIRED! TURN LOST");
     currentTurnRef.current = nextTurn;
     setCurrentTurn(nextTurn);
-    setIsBallInHand(true);
-    setShowConfirmBtn(true);
+    // A timeout loses the turn but does not fabricate a cue-ball foul or
+    // force the incoming player to reposition the white ball.
+    setIsBallInHand(false);
+    setShowConfirmBtn(false);
     setSpinOffset({ x: 0, y: 0 });
     setUiPower(0);
 
@@ -330,7 +332,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           groups: playerGroups,
           remainingSolids,
           remainingStripes,
-          ballInHand: true,
+          ballInHand: false,
           win: winner,
           foul: "🚨 TIME EXPIRED! TURN LOST"
         },
@@ -520,7 +522,10 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
       return;
     }
 
-    let isLegalHit = false;
+    // Physics can legitimately fail to record a first contact on a miss. A
+    // miss loses the turn below, but it is not evidence of an illegal target
+    // and must not create a false ball-in-hand foul.
+    let isLegalHit = tracking.firstHitNum === -1;
     const solidsBefore = ballsBeforeShotRef.current.solidsLeft;
     const stripesBefore = ballsBeforeShotRef.current.stripesLeft;
 
@@ -543,7 +548,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
       setIsBallInHand(true);
       setShowConfirmBtn(true);
       turnSwitched = true;
-    } else if (!isLegalHit) {
+    } else if (tracking.firstHitNum > 0 && !isLegalHit) {
       localFoulMsg = "🚨 FOUL - ILLEGAL TARGET HIT!";
       triggerFoulAlert(localFoulMsg);
       setIsBallInHand(true);
@@ -601,7 +606,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           groups: nextPlayerGroups,
           remainingSolids: solidsRemainingCurrent,
           remainingStripes: stripesRemainingCurrent,
-          ballInHand: scratch || !isLegalHit,
+          ballInHand: scratch || (tracking.firstHitNum > 0 && !isLegalHit),
           win: winner,
           foul: localFoulMsg
         },
