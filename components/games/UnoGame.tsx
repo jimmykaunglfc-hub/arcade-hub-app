@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
 import { processGameEntry, recordMatchResult } from "../../lib/matchManager";
@@ -86,7 +86,9 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
   const isBotMode = Boolean(opponent?.isBot || preloadedMatchId?.startsWith("bot_"));
 
-  const myRole = pendingMatch?.role || 1;
+  // Keep the assigned seat after the matchmaking confirmation is dismissed.
+  // Previously a direct join could fall back to Player 1 on both devices.
+  const [myRole, setMyRole] = useState<1 | 2>(1);
 
   const [view, setView] = useState<"menu" | "host" | "play" | "searching" | "confirmed">(
     isBotMode || preloadedMatchId ? "play" : "menu"
@@ -137,6 +139,13 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
   const [isProcessingTurn, setIsProcessingTurn] = useState<boolean>(false);
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);
+  const deckRef = useRef<Card[]>([]);
+  const discardPileRef = useRef<Card[]>([]);
+  const currentPlayerRef = useRef<number>(1);
+
+  useEffect(() => { deckRef.current = deck; }, [deck]);
+  useEffect(() => { discardPileRef.current = discardPile; }, [discardPile]);
+  useEffect(() => { currentPlayerRef.current = currentPlayer; }, [currentPlayer]);
 
   // 🎯 COMPONENT-LEVEL VICTORY CHECK
   const isUserVictory = winnerTeam !== null && winnerTeam === players.find(p => p.id === myRole)?.team;
@@ -201,8 +210,11 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
           setHands(state.hands);
           setDiscardPile(state.discardPile);
           setDeck(state.deck);
+          discardPileRef.current = state.discardPile;
+          deckRef.current = state.deck;
           setActiveColor(state.activeColor);
           setCurrentPlayer(state.currentPlayer);
+          currentPlayerRef.current = state.currentPlayer;
           setDirection(state.direction);
           setUnoCalled(state.unoCalled);
           setStatusMsg(state.statusMsg);
@@ -213,11 +225,17 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
       })
       .on("broadcast", { event: "player_action" }, (payload) => {
         if (myRole === 1) {
-          const { action, card, color, pId, count } = payload.payload;
+          const { action, card, color, pId } = payload.payload;
           if (action === "play") executePlay(card, pId, color);
           if (action === "draw") {
-            drawCardForPlayer(pId, count);
-            setCurrentPlayer(getNextPlayerId(pId, 1));
+            if (pId === currentPlayerRef.current) {
+              // A normal draw action is always exactly one card. Penalty draws
+              // are resolved only by the authoritative play action.
+              drawCardForPlayer(pId, 1);
+              const nextPlayer = getNextPlayerId(pId, 1);
+              currentPlayerRef.current = nextPlayer;
+              setCurrentPlayer(nextPlayer);
+            }
           }
           if (action === "uno") {
             setUnoCalled(prev => ({ ...prev, [pId]: true }));
@@ -256,20 +274,20 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     }
   }, [hands, discardPile, deck, activeColor, currentPlayer, direction, unoCalled, statusMsg, winnerTeam, winnerPlayer, isProcessingTurn, channel, myRole, view, localOpponent, opponentConnected]);
 
-  const startModeGame = useCallback((modeId: ModeId, forcedOpponent?: any) => {
+  const startModeGame = useCallback((modeId: ModeId, forcedOpponent?: any, assignedRole = myRole) => {
     soundEngine.playSFX("click");
     const opp = forcedOpponent || localOpponent;
-    const oppRole = myRole === 1 ? 2 : 1;
+    const oppRole = assignedRole === 1 ? 2 : 1;
     const isBot = opp?.isBot || (!pendingMatch && modeId === "quick");
 
     const config: PlayerConfig[] = [
-      { id: myRole, name: "You", avatar: "😎", isBot: false, team: myRole, position: "bottom" },
+      { id: assignedRole, name: "You", avatar: "😎", isBot: false, team: assignedRole, position: "bottom" },
       { id: oppRole, name: opp?.name || "Player 2", avatar: opp?.avatarIcon || "🤖", isBot: isBot, team: oppRole, position: "top" },
     ];
     setPlayers(config);
     setView("play");
 
-    if (myRole === 2 && !isBot) {
+    if (assignedRole === 2 && !isBot) {
       setStatusMsg("Waiting for Host...");
       return;
     }
@@ -293,8 +311,11 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     setUnoCalled(initialUnoCalls);
     setDiscardPile([firstCard]);
     setDeck(initialDeck);
+    discardPileRef.current = [firstCard];
+    deckRef.current = initialDeck;
     setActiveColor(firstCard.color);
     setCurrentPlayer(1);
+    currentPlayerRef.current = 1;
     setDirection(1);
     setWinnerTeam(null);
     setWinnerPlayer(null);
@@ -319,12 +340,20 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   };
   const hostMatch = async () => {
     soundEngine.playSFX("click");
-    if (await checkPointsAndDeduct()) { setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase()); setView("host"); }
+    if (await checkPointsAndDeduct()) {
+      setMyRole(1);
+      setMatchId(Math.random().toString(36).substring(2, 8).toUpperCase());
+      setView("host");
+    }
   };
   const joinMatch = async () => {
     if (joinInput.length < 4) return;
     soundEngine.playSFX("click");
-    if (await checkPointsAndDeduct()) { setMatchId(joinInput.trim().toUpperCase()); setView("play"); }
+    if (await checkPointsAndDeduct()) {
+      setMyRole(2);
+      setMatchId(joinInput.trim().toUpperCase());
+      setView("play");
+    }
   };
   const enterBotMatch = () => {
     soundEngine.playSFX("click");
@@ -335,8 +364,10 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   const enterConfirmedMatch = () => {
     soundEngine.playSFX("click");
     if (pendingMatch) {
+      const assignedRole = pendingMatch.role === 2 ? 2 : 1;
+      setMyRole(assignedRole);
       setMatchId(pendingMatch.matchId);
-      startModeGame("quick", localOpponent);
+      startModeGame("quick", localOpponent, assignedRole);
     } else enterBotMatch();
   };
 
@@ -371,21 +402,26 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     soundEngine.playSFX("card_flip");
     if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) window.navigator.vibrate(30);
     
-    let availableDeck = deck;
+    // Consume the shared deck reference immediately. State updates are async;
+    // using the render snapshot here was allowing rapid draws to reuse cards.
+    let availableDeck = [...deckRef.current];
     if (availableDeck.length < count) {
-      const topCard = discardPile[discardPile.length - 1];
-      const recycledDeck = [...discardPile.slice(0, -1)];
+      const topCard = discardPileRef.current[discardPileRef.current.length - 1];
+      const recycledDeck = [...discardPileRef.current.slice(0, -1)];
       for (let i = recycledDeck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [recycledDeck[i], recycledDeck[j]] = [recycledDeck[j], recycledDeck[i]];
       }
       availableDeck = [...availableDeck, ...recycledDeck];
       setDiscardPile(topCard ? [topCard] : []);
+      discardPileRef.current = topCard ? [topCard] : [];
     }
     const drawn = availableDeck.slice(0, count);
-    setDeck(availableDeck.slice(count));
+    const remainingDeck = availableDeck.slice(count);
+    deckRef.current = remainingDeck;
+    setDeck(remainingDeck);
     setHands(prev => ({ ...prev, [pId]: [...(prev[pId] || []), ...drawn] }));
-    if ((hands[pId]?.length || 0) + count > 1) setUnoCalled(prev => ({ ...prev, [pId]: false }));
+    setUnoCalled(prev => ({ ...prev, [pId]: false }));
   };
 
   const canPlayCard = (card: Card) => {
@@ -408,6 +444,14 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   };
 
   const executePlay = (card: Card, pId: number, chosenColor?: CardColor) => {
+    const ownedCards = hands[pId] || [];
+    // The Player 1 client is the match authority. Reject stale, duplicate or
+    // illegal network actions before they can mutate the deck/turn state.
+    if (pId !== currentPlayerRef.current || isProcessingTurn || winnerTeam !== null) return;
+    if (!ownedCards.some((owned) => owned.id === card.id) || !canPlayCard(card)) return;
+    // Official UNO rule: Wild Draw Four may be used only when the player has
+    // no card matching the active colour.
+    if (card.value === "wild4" && ownedCards.some((owned) => owned.id !== card.id && owned.color === activeColor)) return;
     setIsProcessingTurn(true);
     const pConfig = players.find(p => p.id === pId)!;
     const remainingAfterPlay = (hands[pId]?.length || 0) - 1;
@@ -437,7 +481,11 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     }
    
     setHands(prev => ({ ...prev, [pId]: prev[pId].filter(c => c.id !== card.id) }));
-    setDiscardPile(prev => [...prev, card]);
+    setDiscardPile(prev => {
+      const nextPile = [...prev, card];
+      discardPileRef.current = nextPile;
+      return nextPile;
+    });
     setActiveColor(chosenColor || card.color);
 
     if (remainingAfterPlay === 0) {
@@ -477,7 +525,11 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
       setStatusMsg(nextPlayerObj?.id === myRole ? "Your Turn!" : `${nextPlayerObj?.name} played card`);
     }
 
-    setTimeout(() => { setCurrentPlayer(nextPId); setIsProcessingTurn(false); }, 600);
+    setTimeout(() => {
+      currentPlayerRef.current = nextPId;
+      setCurrentPlayer(nextPId);
+      setIsProcessingTurn(false);
+    }, 600);
   };
 
   const handleCardPlay = (card: Card, color?: CardColor) => {
