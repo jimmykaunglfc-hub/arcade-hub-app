@@ -1318,7 +1318,6 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     const trade = panel?.trade;
     
     if (panel?.kind === "trade" && trade?.awaitingConfirmation && isMonopolyBotId(trade.recipientId)) {
-      // Only the proposer computes the bot's response to prevent duplicate state updates across clients
       if (roomId && userId !== trade.proposerId) return; 
 
       const timer = window.setTimeout(() => {
@@ -1336,7 +1335,8 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       }, 2000); // 2 seconds of "thinking"
       return () => window.clearTimeout(timer);
     }
-  }, [gameState.actionPanel, roomId, userId, handleConfirmTrade, handleDeclineTrade]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState.actionPanel?.trade?.awaitingConfirmation, roomId, userId]);
 
   const handleUpgrade = () => {
     if (!isMyTurn) return;
@@ -1424,19 +1424,18 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   // 🤖 BOT AI: Turn Actions (Roll, Buy, Build, End)
   useEffect(() => {
     if (!roomId || !isMonopolyBotId(activePlayer.id) || gameState.winnerId || isRolling || isMoving) return;
+    
     const timer = window.setTimeout(() => {
       if (gameState.alert) {
         handleDismissAlert();
       } else if (gameState.pendingPurchaseId) {
         handleBuy();
       } else if (!gameState.hasRolled && !gameState.actionPanel) {
-        // SMART BOT: Check if it can build houses before rolling
         let didBuild = false;
         const ownedProps = activePlayer.ownedSpaceIds.map(getSpace).filter((s) => s.kind === "property");
         for (const space of ownedProps) {
           if (canBuildEvenly(activePlayer, space)) {
             const cost = getUpgradeCost(space, getPropertyLevel(activePlayer, space.id) + 1);
-            // Bot keeps a safety buffer of $300 before spending on upgrades
             if (activePlayer.cash >= cost + 300) {
               handleBuildProperty(space.id);
               didBuild = true;
@@ -1450,9 +1449,11 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       } else if (gameState.hasRolled && !gameState.alert && !gameState.actionPanel) {
         handleEndTurn();
       }
-    }, 1200); // 1.2s delay makes the bot actions visible to humans
+    }, 1200); 
+    
     return () => window.clearTimeout(timer);
-  }, [activePlayer, gameState, handleBuy, handleDismissAlert, handleRoll, handleEndTurn, handleBuildProperty, isMoving, isRolling, roomId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlayer.id, gameState.alert, gameState.pendingPurchaseId, gameState.hasRolled, gameState.actionPanel, gameState.winnerId, isMoving, isRolling, roomId]);
 
   useEffect(() => {
     if (roomId) return;
@@ -1475,6 +1476,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   // Jail Rule: Single skipped turn, OR use card if owned
   useEffect(() => {
     if (gameState.winnerId || !activePlayer.inJail || gameState.hasRolled || isMoving || isRolling || !canDriveActiveTurn) return;
+    
     const timer = window.setTimeout(() => {
       if (activePlayer.jailFreeCards > 0) {
         markCommand("use_jail_card");
@@ -1490,7 +1492,9 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
           : current);
       }
     }, 700);
+    
     return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlayer.id, activePlayer.inJail, activePlayer.jailFreeCards, activePlayer.username, gameState.hasRolled, gameState.winnerId, isMoving, isRolling, canDriveActiveTurn]);
 
   useEffect(() => {

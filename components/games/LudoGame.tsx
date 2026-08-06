@@ -135,7 +135,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
    const timer = window.setInterval(keepRoomAlive, 10_000);
    return () => window.clearInterval(timer);
  }, [roomId]);
-
+ 
  const [turnDeadline, setTurnDeadline] = useState<string | null>(null);
  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
  const [isHost, setIsHost] = useState(false);
@@ -164,7 +164,6 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
      const left = Math.max(0, Math.ceil((new Date(turnDeadline).getTime() - Date.now()) / 1000));
      setSecondsLeft(left);
      
-     // Fire the timeout RPC the exact moment the timer hits 0
      if (left === 0 && roomId && timeoutRequested.current !== turnDeadline) {
        timeoutRequested.current = turnDeadline;
        void supabase.rpc("ludo_timeout_turn", { p_room_id: roomId }).then(({ error }) => {
@@ -174,19 +173,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
    };
    update(); const timer = window.setInterval(update, 250);
    return () => window.clearInterval(timer);
- }, [turnDeadline, roomId]);
-
- // 🤖 BOT RESOLUTION POLLING (For Online Play)
- useEffect(() => {
-   if (!roomId) return;
-   const handleServerTicks = () => {
-     void supabase.rpc("resolve_ludo_bot_turns", { p_room_id: roomId });
-   };
-   
-   handleServerTicks();
-   const timer = window.setInterval(handleServerTicks, 1500);
-   return () => window.clearInterval(timer);
- }, [roomId]);
+ }, [roomId, turnDeadline]);
 
  useEffect(() => {
    if (!roomId) return;
@@ -223,12 +210,6 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
      setDice(match.state?.dice ?? null);
      setTurnDeadline(match.turn_deadline || null);
      
-     // Trigger bot resolutions if sitting on a bot turn
-     const currentSeatPlayer = (room?.players || []).find((player: any) => player.seat === match.current_seat);
-     if (match.status === "playing" && currentSeatPlayer?.is_bot) {
-       void supabase.rpc("resolve_ludo_bot_turns", { p_room_id: roomId });
-     }
-
      if (match.status === "completed") setMessage(displayCurrent === seat - 1 ? "Match complete." : `${displayNames[displayCurrent]} wins.`);
      else if (match.state?.dice) setMessage(displayCurrent === seat - 1 ? `You rolled ${match.state.dice}. Choose a token.` : `${displayNames[displayCurrent]} is choosing a token.`);
      else setMessage(displayCurrent === seat - 1 ? "Your turn. Roll the dice!" : `${displayNames[displayCurrent]}'s turn to roll.`);
@@ -310,21 +291,22 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
    }, 450);
  }, [dice, finishTurn, mySeatIndex, rolling, roomId, tokens, winner]);
 
- // 🤖 SMART BOT AI BRAIN (LOCAL FALLBACK)
+ // 🤖 CLIENT-SIDE BOT DRIVER
+ // Automatically rolls and moves for bots if they are the current player
  useEffect(() => {
-   // If online, the server handles bot actions via resolve_ludo_bot_turns polling
-   if (roomId || !botIndexes.includes(current) || winner !== null || rolling) return;
+   if (!botIndexes.includes(current) || winner !== null || rolling) return;
    
    const timer = window.setTimeout(() => {
-     // Action 1: Roll the dice
+     // 1. Roll the dice
      if (dice === null) {
-       rollDice(current);
+       if (roomId) void supabase.rpc("ludo_roll", { p_room_id: roomId });
+       else rollDice(current);
        return;
      }
 
-     // Action 2: Evaluate and Move a piece intelligently
+     // 2. Select the smartest piece to move
      const moves = movableTokens(tokens[current], dice);
-     if (moves.length === 0) return; // Handled by finishTurn automatically
+     if (moves.length === 0) return; // Automatic finishTurn fallback
      
      const choice = [...moves].sort((a, b) => {
        const aTarget = tokens[current][a] === -1 ? 0 : tokens[current][a] + dice;
@@ -338,23 +320,26 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
        const aCapture = canCapture(aGlobal) ? 1 : 0;
        const bCapture = canCapture(bGlobal) ? 1 : 0;
        
-       // Priority 1: Captures opponent
+       // Move Priority 1: Capture an opponent's piece!
        if (aCapture !== bCapture) return bCapture - aCapture;
        
-       // Priority 2: Getting out of home
+       // Move Priority 2: Get a fresh piece out of the starting tray
        const aOut = tokens[current][a] === -1 ? 1 : 0;
        const bOut = tokens[current][b] === -1 ? 1 : 0;
        if (aOut !== bOut) return bOut - aOut;
        
-       // Priority 3: Farthest piece safely to the finish
+       // Move Priority 3: Push the piece that is furthest ahead
        return bTarget - aTarget;
      })[0];
 
-     movePiece(current, choice, dice);
-   }, 1000); // Wait 1s so humans can visually see the bot "think"
+     if (roomId) void supabase.rpc("ludo_move", { p_room_id: roomId, p_piece: choice });
+     else movePiece(current, choice, dice);
+
+   }, 1500); // 1.5 second "thinking" delay so humans can watch the game flow
 
    return () => window.clearTimeout(timer);
- }, [botIndexes, current, dice, rolling, roomId, tokens, winner, rollDice, movePiece]);
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [botIndexes, current, dice, rolling, roomId, tokens, winner]);
 
  if (roomId && !roomReady) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Loading shared Ludo board…</div>;
 
@@ -462,8 +447,8 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
            const isTrayAnchor = inHomeTray && (
              (row === 1 && col === 1) ||
              (row === 1 && col === 10) ||
-             (row === 10 && col === 10) ||
-             (row === 10 && col === 1)
+             (row === 10 && col === 1) ||
+             (row === 10 && col === 10)
            );
            const inCenter = row >= 6 && row <= 8 && col >= 6 && col <= 8;
            const centerColor = !inCenter

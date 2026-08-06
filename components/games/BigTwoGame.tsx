@@ -84,7 +84,6 @@ const legalPlays = (hand:Card[], previous:HandValue|null, mustContainThreeDiamon
 };
 
 // 🤖 SMART BOT AI BRAIN
-// Calculates intelligent moves by protecting 5-card hands, pairs, and triples.
 const getSmartBotPlay = (hand: Card[], previous: HandValue | null, mustContainThreeDiamond: boolean): Card[] | null => {
   const plays = legalPlays(hand, previous, mustContainThreeDiamond);
   if (plays.length === 0) return null;
@@ -97,12 +96,9 @@ const getSmartBotPlay = (hand: Card[], previous: HandValue | null, mustContainTh
     let penalty = 0;
     if (cards.length < 5) {
       cards.forEach(card => {
-        // Penalty for breaking a straight/flush/full house
         if (safe5CardIds.has(card.id)) penalty += 2000;
-        // Penalty for breaking pairs/triples
         const groupSize = counts[card.rank]?.length || 1;
         if (groupSize > cards.length) penalty += (groupSize - cards.length) * 500;
-        // Penalty for wasting high cards (J, Q, K, A, 2) on weak table cards
         if (previous && card.rank >= 8) penalty += card.rank * 50; 
       });
     }
@@ -112,15 +108,12 @@ const getSmartBotPlay = (hand: Card[], previous: HandValue | null, mustContainTh
   scoredPlays.sort((a, b) => a.score - b.score);
   const bestOption = scoredPlays[0];
 
-  // STRATEGIC PASSING: If forced to break a valuable 5-card hand or a high pair just to beat a weak card, PASS instead!
   if (previous && bestOption.penalty >= 2000 && hand.length > 5) return null;
   if (previous && bestOption.penalty >= 500 && hand.length > 3) return null;
 
-  // FREE LEAD TACTICS: Drop 5-card hands first, then pairs, then singles
   if (!previous) {
     const fives = scoredPlays.filter(p => p.cards.length === 5);
     if (fives.length > 0) return fives[0].cards;
-    
     const pairs = scoredPlays.filter(p => p.cards.length === 2 && p.penalty < 1000);
     if (pairs.length > 0) return pairs[0].cards;
   }
@@ -148,6 +141,7 @@ function CardBack({ className = "" }: { className?: string }) {
 
 export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProps) {
  const [roomReady, setRoomReady] = useState(!roomId);
+ const [botIndexes, setBotIndexes] = useState<number[]>([]);
  const [playerNames, setPlayerNames] = useState(() => ["You", ...Array.from({ length: 3 }, () => getRandomBotOpponent().name)]);
  const [initialGame] = useState(dealGame);
  const [hands,setHands]=useState<Card[][]>(initialGame.hands);
@@ -174,7 +168,6 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
    return () => document.removeEventListener("gesturestart", preventPinch);
  }, []);
 
- // ⏱️ TIMEOUT ENGINE: Aggressively skip stuck turns
  useEffect(() => {
    if (!turnDeadline) { setSecondsLeft(null); return; }
    timeoutRequested.current = null;
@@ -193,17 +186,6 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
    const timer = window.setInterval(update, 250);
    return () => window.clearInterval(timer);
  }, [turnDeadline, roomId]);
-
- // 🤖 BOT RESOLUTION POLLING
- useEffect(() => {
-   if (!roomId) return;
-   const handleServerTicks = () => {
-     void supabase.rpc("resolve_big_two_bot_turns", { p_room_id: roomId });
-   };
-   handleServerTicks();
-   const timer = window.setInterval(handleServerTicks, 1500);
-   return () => window.clearInterval(timer);
- }, [roomId]);
 
  useEffect(() => {
    if (!roomId) return;
@@ -230,10 +212,14 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
      const { data: hand } = await supabase.from("big_two_player_hands").select("cards").eq("room_id", roomId).eq("seat", seat).maybeSingle();
      if (!hand) return;
      
-     const bySeat = new Map<number, { name?: string }>((room.players || []).map((player: any) => [player.seat, player]));
+     const bySeat = new Map<number, { name?: string, is_bot?: boolean }>((room.players || []).map((player: any) => [player.seat, player]));
      const order = [seat, seat % 4 + 1, (seat + 1) % 4 + 1, (seat + 2) % 4 + 1];
      setPlayerNames(order.map((number) => bySeat.get(number)?.name || getRandomBotOpponent().name));
      
+     const bots: number[] = [];
+     order.forEach((s, idx) => { if (bySeat.get(s)?.is_bot) bots.push(idx); });
+     setBotIndexes(bots);
+
      const counts = state.state?.hand_counts || [13,13,13,13];
      const ownCards = sortCards((hand.cards || []) as Card[]);
      setHands(order.map((number, index) => index === 0 ? ownCards : Array.from({ length: counts[number - 1] || 0 }, (_, card) => ({ id: `back-${number}-${card}`, rank: 0, suit: 0 as Suit }))));
@@ -284,20 +270,33 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
 
  const passTurn=useCallback((player:number)=>{ if(!currentPlay)return; const nextPasses=passes+1; if(nextPasses>=3){setPasses(0);setFreeLead(true);setTurn(currentPlay.player);setMessage(`${playerNames[currentPlay.player]} controls the new trick.`);}else{setPasses(nextPasses);setTurn((player+1)%4);setMessage(`${playerNames[player]} passed.`);} },[currentPlay,passes,playerNames]);
 
- // LOCAL OFFLINE BOT ENGINE (Wired to the Smart AI Brain)
- useEffect(()=>{ 
-   if(roomId || turn===0||winner!==null||hands[turn].length===0) return; 
-   const timer=window.setTimeout(() => {
+ // 🎯 THE FIX: CLIENT-SIDE BOT DRIVER
+ // We now calculate the bot's moves on the client so we don't rely on missing backend RPC AI!
+ useEffect(() => {
+   if (winner !== null || hands[turn].length === 0) return;
+   
+   const isBot = roomId ? botIndexes.includes(turn) : turn !== 0;
+   if (!isBot) return;
+
+   const timer = window.setTimeout(() => {
      const smartCards = getSmartBotPlay(hands[turn], currentPlay?.value ?? null, opening);
-     if(!smartCards) {
-       passTurn(turn);
+     
+     if (!smartCards) {
+       if (roomId) void supabase.rpc("big_two_pass", { p_room_id: roomId });
+       else passTurn(turn);
      } else {
-       const val = evaluate(smartCards)!;
-       playCards(turn, smartCards, val);
+       if (roomId) {
+         void supabase.rpc("big_two_play_cards", { p_room_id: roomId, p_cards: smartCards });
+       } else {
+         const val = evaluate(smartCards)!;
+         playCards(turn, smartCards, val);
+       }
      }
-   }, 1200); // 1.2s delay for visual pacing
-   return()=>window.clearTimeout(timer);
- }, [currentPlay, hands, opening, passTurn, playCards, roomId, turn, winner]);
+   }, 1500); // Wait 1.5s so human players can see the "thinking" process before the move fires
+
+   return () => window.clearTimeout(timer);
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [currentPlay, hands, opening, roomId, turn, winner, botIndexes]);
 
  const selectedCards=useMemo(()=>hands[0].filter(card=>selected.includes(card.id)),[hands,selected]);
  const selectedValue=useMemo(()=>evaluate(selectedCards),[selectedCards]);
