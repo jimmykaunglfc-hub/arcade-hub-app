@@ -371,18 +371,19 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     soundEngine.playSFX("card_flip");
     if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) window.navigator.vibrate(30);
     
-    if (deck.length < count) {
-      const newDeck = [...discardPile.slice(0, discardPile.length - 1)];
-      for (let i = newDeck.length - 1; i > 0; i--) {
+    let availableDeck = deck;
+    if (availableDeck.length < count) {
+      const topCard = discardPile[discardPile.length - 1];
+      const recycledDeck = [...discardPile.slice(0, -1)];
+      for (let i = recycledDeck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
+        [recycledDeck[i], recycledDeck[j]] = [recycledDeck[j], recycledDeck[i]];
       }
-      setDeck(newDeck);
-      setDiscardPile([discardPile[discardPile.length - 1]]);
-      return;
+      availableDeck = [...availableDeck, ...recycledDeck];
+      setDiscardPile(topCard ? [topCard] : []);
     }
-    const drawn = deck.slice(0, count);
-    setDeck(prev => prev.slice(count));
+    const drawn = availableDeck.slice(0, count);
+    setDeck(availableDeck.slice(count));
     setHands(prev => ({ ...prev, [pId]: [...(prev[pId] || []), ...drawn] }));
     if ((hands[pId]?.length || 0) + count > 1) setUnoCalled(prev => ({ ...prev, [pId]: false }));
   };

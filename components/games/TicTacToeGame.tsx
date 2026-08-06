@@ -916,7 +916,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
         <div className="grid grid-cols-3 gap-3 w-full text-center">
           <div className="bg-[#18181b] p-3 rounded-2xl border border-white/5 flex flex-col items-center">
             <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest mb-1">
-              {matchId ? (myPlayerSymbol === "X" ? "You (X)" : "Opponent (X)") : "Player X"}
+              {matchId ? (myPlayerSymbol === "X" ? "You (X)" : `${localOpponent?.name || "Opponent"} (X)`) : "Player 1 (X)"}
             </span>
             <span className="text-2xl font-black text-cyan-400">{scores.X}</span>
           </div>
@@ -928,7 +928,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
 
           <div className="bg-[#18181b] p-3 rounded-2xl border border-white/5 flex flex-col items-center">
             <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest mb-1">
-              {isBotOpponent ? (localOpponent?.name || "Bot (O)") : matchId ? (myPlayerSymbol === "O" ? "You (O)" : "Opponent (O)") : "Player O"}
+              {isBotOpponent ? (localOpponent?.name || "Bot (O)") : matchId ? (myPlayerSymbol === "O" ? "You (O)" : `${localOpponent?.name || "Opponent"} (O)`) : "Player 2 (O)"}
             </span>
             <span className="text-2xl font-black text-rose-400">{scores.O}</span>
           </div>
@@ -946,7 +946,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
               </div>
 
               <span className="text-xs font-bold tracking-widest uppercase text-neutral-400">
-                Turn: <span className={turn === "X" ? "text-cyan-400 font-black" : "text-rose-400 font-black"}>{turn}</span>
+                Turn: <span className={turn === "X" ? "text-cyan-400 font-black" : "text-rose-400 font-black"}>{turn === myPlayerSymbol ? "You" : (matchId ? (localOpponent?.name || "Opponent") : turn === "X" ? "Player 1" : "Player 2")} ({turn})</span>
               </span>
             </>
           )}

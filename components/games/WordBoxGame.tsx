@@ -93,6 +93,35 @@ const FALLBACK_DICTIONARY = new Set([
  "WOULD", "WOUND", "WRITE", "WRONG", "YIELD", "YOUNG", "YOUTH"
 ]);
 
+const ROUND_SECONDS = 120;
+const DICTIONARY_PREFIXES = (() => {
+ const prefixes = new Set<string>();
+ FALLBACK_DICTIONARY.forEach((word) => {
+   for (let index = 1; index <= word.length; index += 1) prefixes.add(word.slice(0, index));
+ });
+ return prefixes;
+})();
+
+// Count only words that can actually be traced on this exact board. This keeps
+// the target below the board's achievable score instead of using a fixed goal.
+const getAchievableScore = (board: string[], size: number) => {
+ const found = new Set<string>();
+ const visit = (index: number, word: string, used: Set<number>) => {
+   if (!DICTIONARY_PREFIXES.has(word)) return;
+   if (word.length >= 3 && FALLBACK_DICTIONARY.has(word)) found.add(word);
+   if (word.length === 7) return;
+   const row = Math.floor(index / size); const col = index % size;
+   for (let dr = -1; dr <= 1; dr += 1) for (let dc = -1; dc <= 1; dc += 1) {
+     const nextRow = row + dr; const nextCol = col + dc; const next = nextRow * size + nextCol;
+     if ((dr || dc) && nextRow >= 0 && nextRow < size && nextCol >= 0 && nextCol < size && !used.has(next)) {
+       const nextUsed = new Set(used); nextUsed.add(next); visit(next, word + board[next], nextUsed);
+     }
+   }
+ };
+ board.forEach((letter, index) => visit(index, letter, new Set([index])));
+ return [...found].reduce((total, word) => total + word.length * 10, 0);
+};
+
 export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
  const [appState, setAppState] = useState<"menu" | "playing">("menu");
  const [gridSize, setGridSize] = useState<number>(4);
@@ -101,6 +130,9 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
  const [path, setPath] = useState<number[]>([]);
  const [foundWords, setFoundWords] = useState<{word: string, points: number}[]>([]);
  const [score, setScore] = useState(0);
+ const [targetScore, setTargetScore] = useState(0);
+ const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
+ const [gameOver, setGameOver] = useState(false);
  const [toast, setToast] = useState<{ message: string; color: string } | null>(null);
  const [isChecking, setIsChecking] = useState(false);
  const [showHowToPlay, setShowHowToPlay] = useState(false);
@@ -136,15 +168,28 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
      }
    }
 
+   const achievableScore = getAchievableScore(newBoard, size);
    setBoard(newBoard);
    setFoundWords([]);
    foundWordsRef.current = [];
    setScore(0);
+   setTargetScore(Math.max(0, Math.floor(achievableScore * 0.75 / 10) * 10));
+   setTimeLeft(ROUND_SECONDS);
+   setGameOver(false);
    setPath([]);
    pathRef.current = [];
    isDragging.current = false;
    setAppState("playing");
  };
+
+ useEffect(() => {
+   if (appState !== "playing" || gameOver || showHowToPlay) return;
+   const timer = window.setInterval(() => setTimeLeft((current) => {
+     if (current <= 1) { setGameOver(true); return 0; }
+     return current - 1;
+   }), 1000);
+   return () => window.clearInterval(timer);
+ }, [appState, gameOver, showHowToPlay]);
 
  const showToast = useCallback((message: string, color: "emerald" | "rose" | "amber") => {
    setToast({ message, color });
@@ -228,7 +273,7 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
  };
 
  const handlePointerUp = useCallback(async () => {
-   if (!isDragging.current) return;
+   if (!isDragging.current || gameOver) return;
    isDragging.current = false;
   
    const currentPath = [...pathRef.current]; // Clone for async safety
@@ -256,7 +301,11 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
        const points = word.length * 10;
       
        setFoundWords(prev => [{word, points}, ...prev]);
-       setScore(prev => prev + points);
+       setScore(prev => {
+         const next = prev + points;
+         if (targetScore > 0 && next >= targetScore) setGameOver(true);
+         return next;
+       });
        showToast(`${word} +${points}!`, "emerald");
      } else if (!isValid) {
        showToast("NOT IN DICTIONARY", "rose");
@@ -264,7 +313,7 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
    } else if (currentPath.length > 0) {
      showToast("TOO SHORT", "rose");
    }
- }, [board, showToast]);
+ }, [board, gameOver, showToast, targetScore]);
 
  // Attach global listeners for smooth dragging
  useEffect(() => {
@@ -462,6 +511,18 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
 
                <div className="h-8 w-px bg-slate-700" />
 
+               <div className="flex min-w-[48px] flex-col items-center">
+                 <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400">Target</span>
+                 <span className="text-lg font-black leading-none text-emerald-400">{targetScore}</span>
+               </div>
+
+               <div className="h-8 w-px bg-slate-700" />
+
+               <div className="flex min-w-[36px] flex-col items-center">
+                 <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400">Time</span>
+                 <span className={`text-lg font-black leading-none ${timeLeft <= 15 ? "text-rose-400" : "text-white"}`}>{timeLeft}s</span>
+               </div>
+
                <div className="flex min-w-[38px] flex-col items-center">
                  <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400">
                    Score
@@ -502,6 +563,17 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
          </div>
 
          {/* CURRENT WORD DISPLAY */}
+         {gameOver && (
+           <div className="absolute inset-0 z-40 grid place-items-center bg-slate-950/85 p-6 backdrop-blur-sm">
+             <div className="w-full max-w-sm rounded-3xl border border-amber-300/50 bg-slate-900 p-6 text-center shadow-2xl">
+               <p className="text-5xl">{score >= targetScore && targetScore > 0 ? "🏆" : "⏱️"}</p>
+               <h2 className="mt-3 text-2xl font-black">{score >= targetScore && targetScore > 0 ? "You win!" : "Round over"}</h2>
+               <p className="mt-2 text-sm text-slate-300">Score {score} / {targetScore}</p>
+               <button onClick={() => startNewGame(gridSize)} className="mt-5 w-full rounded-xl bg-amber-400 py-3 font-black text-slate-950">Play Again</button>
+               <button onClick={handleBack} className="mt-3 w-full rounded-xl border border-slate-600 py-3 font-black text-white">Exit</button>
+             </div>
+           </div>
+         )}
          <div className="w-full h-16 shrink-0 flex items-center justify-center relative z-10 px-4 mt-4">
            {toast ? (
               <div className={`text-lg font-black tracking-widest uppercase px-6 py-2 rounded-lg shadow-lg border-2 ${
@@ -639,5 +711,3 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
 };
 
 export default WordBoxGame;
-
-

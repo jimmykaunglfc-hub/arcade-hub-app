@@ -940,7 +940,9 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     });
 
     if (fouled) {
-      turnMsg = "Foul! Turn Lost.";
+      turnMsg = gameRuleModeRef.current === "freestyle" && strikerFoul
+        ? "Foul! Striker pocketed: -5 points and turn lost."
+        : "Foul! Turn Lost.";
       msgType = "foul";
       soundEngine.playSFX("carrom_foul");
       nextTurn = turnRef.current === 1 ? 2 : 1;

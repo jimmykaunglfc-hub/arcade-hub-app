@@ -171,6 +171,8 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
   const disconnectForfeitTimerRef = useRef<number | null>(null);
 
   const [currentTurn, setCurrentTurn] = useState<"player1" | "player2">("player1");
+  const player1Name = myPlayerRole === 1 ? "You" : (localOpponent?.name || "Opponent");
+  const player2Name = myPlayerRole === 2 ? "You" : (localOpponent?.name || "Opponent");
   const [playerGroups, setPlayerGroups] = useState<{ player1: "Open" | "Solids" | "Stripes"; player2: "Open" | "Solids" | "Stripes" }>({
     player1: "Open",
     player2: "Open",
@@ -298,6 +300,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
   const handleTimeOut = useCallback(() => {
     if (winner || isMoving) return;
+    if (playMode === "online" && ((currentTurn === "player1" && myPlayerRole !== 1) || (currentTurn === "player2" && myPlayerRole !== 2))) return;
     soundEngine.playSFX("defeat");
 
     const nextTurn = currentTurn === "player1" ? "player2" : "player1";
@@ -321,7 +324,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
         },
       });
     }
-  }, [currentTurn, winner, isMoving, playMode, playerGroups]);
+  }, [currentTurn, winner, isMoving, playMode, playerGroups, myPlayerRole]);
 
   useEffect(() => {
     if (playMode === "menu" || playMode === "searching" || playMode === "confirmed" || playMode === "host" || playMode === "join" || winner || isMoving) return;
@@ -872,8 +875,11 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               b2.x += Math.cos(angle) * overlap * 0.5;
               b2.y += Math.sin(angle) * overlap * 0.5;
 
-              if (b1.num === 0 && turnTrackingRef.current.firstHitNum === -1) {
-                turnTrackingRef.current.firstHitNum = b2.num;
+              if (turnTrackingRef.current.firstHitNum === -1) {
+                // Record the cue ball's first object-ball contact regardless
+                // of collision-array ordering.
+                if (b1.num === 0 && b2.num !== 0) turnTrackingRef.current.firstHitNum = b2.num;
+                else if (b2.num === 0 && b1.num !== 0) turnTrackingRef.current.firstHitNum = b1.num;
               }
 
               const kx = b1.vx - b2.vx;
@@ -1781,7 +1787,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                 </div>
               )}
               <div className={`flex flex-col items-start min-w-[70px] px-2 py-1 rounded-xl transition-all duration-300 ${currentTurn === "player1" ? "border-2 border-cyan-400/90 bg-cyan-950/40 shadow-[0_0_12px_rgba(34,211,238,0.3)] animate-pulse" : "bg-black/30 opacity-70"}`}>
-                <span className={`text-[9px] font-black ${currentTurn === "player1" ? "text-cyan-400" : "text-slate-400"} tracking-wider uppercase`}>P1</span>
+                <span className={`text-[9px] font-black ${currentTurn === "player1" ? "text-cyan-400" : "text-slate-400"} tracking-wider uppercase truncate max-w-[90px]`}>{player1Name}</span>
                 <span className="text-[10px] font-black text-amber-400 uppercase truncate max-w-[70px]">{playerGroups.player1}</span>
               </div>
             </div>
@@ -1811,7 +1817,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                 </div>
               )}
               <div className={`flex flex-col items-end min-w-[70px] px-2 py-1 rounded-xl transition-all duration-300 ${currentTurn === "player2" ? "border-2 border-rose-500/90 bg-rose-950/40 shadow-[0_0_12px_rgba(244,63,94,0.3)] animate-pulse" : "bg-black/30 opacity-70"}`}>
-                <span className={`text-[9px] font-black ${currentTurn === "player2" ? "text-rose-400" : "text-slate-400"} tracking-wider uppercase`}>{playMode === "bot" ? "BOT" : "P2"}</span>
+                <span className={`text-[9px] font-black ${currentTurn === "player2" ? "text-rose-400" : "text-slate-400"} tracking-wider uppercase truncate max-w-[90px]`}>{playMode === "bot" ? (localOpponent?.name || "Bot") : player2Name}</span>
                 <span className="text-[10px] font-black text-amber-400 uppercase truncate max-w-[70px]">{playerGroups.player2}</span>
               </div>
             </div>

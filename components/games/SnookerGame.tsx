@@ -94,6 +94,8 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   const [scores, setScores] = useState({ player1: 0, player2: 0 });
   const [currentTurn, setCurrentTurn] = useState<"player1" | "player2">("player1");
+  const player1Name = myPlayerRole === 1 ? "You" : (localOpponent?.name || "Opponent");
+  const player2Name = myPlayerRole === 2 ? "You" : (localOpponent?.name || "Opponent");
   const [nextRequiredBall, setNextRequiredBall] = useState<string>("Red");
   const [targetedColor, setTargetedColor] = useState<string>("Red");
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_LIMIT);
@@ -512,6 +514,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   // -------------------------------------------------------------
   const handleTimeOut = useCallback(() => {
     if (isMoving || winner) return;
+    if (playMode === "online" && ((currentTurnRef.current === "player1" && myPlayerRole !== 1) || (currentTurnRef.current === "player2" && myPlayerRole !== 2))) return;
     soundEngine.playSFX("defeat");
 
     if (playMode === "bot" && currentTurnRef.current === "player2") {
@@ -528,7 +531,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         setToast({ msg: "Time expired! Auto shot executed.", type: "foul" });
       }
     }
-  }, [isMoving, winner, playMode, executeBotShot, aimAngle, isBallInHand, playCueShotSound]);
+  }, [isMoving, winner, playMode, executeBotShot, aimAngle, isBallInHand, playCueShotSound, myPlayerRole]);
 
   useEffect(() => {
     if (playMode === "menu" || playMode === "searching" || playMode === "confirmed" || playMode === "host" || playMode === "join" || winner) return;
@@ -1884,7 +1887,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                 </div>
               )}
               <div className={`flex flex-col items-start min-w-[70px] px-2 py-1 rounded-xl transition-all duration-300 ${currentTurn === "player1" ? "border-2 border-cyan-400/90 bg-cyan-950/40 shadow-[0_0_12px_rgba(34,211,238,0.3)] animate-pulse" : "bg-black/30 opacity-70"}`}>
-                <span className={`text-[9px] font-black ${currentTurn === "player1" ? "text-cyan-400" : "text-slate-400"} tracking-wider uppercase`}>P1</span>
+                <span className={`text-[9px] font-black ${currentTurn === "player1" ? "text-cyan-400" : "text-slate-400"} tracking-wider uppercase truncate max-w-[90px]`}>{player1Name}</span>
                 <span className="text-xs font-black font-mono text-white">{scores.player1} <span className="text-[8px] text-neutral-400">pts</span></span>
               </div>
             </div>
@@ -1914,7 +1917,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
                 </div>
               )}
               <div className={`flex flex-col items-end min-w-[70px] px-2 py-1 rounded-xl transition-all duration-300 ${currentTurn === "player2" ? "border-2 border-rose-500/90 bg-rose-950/40 shadow-[0_0_12px_rgba(244,63,94,0.3)] animate-pulse" : "bg-black/30 opacity-70"}`}>
-                <span className={`text-[9px] font-black ${currentTurn === "player2" ? "text-rose-400" : "text-slate-400"} tracking-wider uppercase`}>{playMode === "bot" ? "BOT" : "P2"}</span>
+                <span className={`text-[9px] font-black ${currentTurn === "player2" ? "text-rose-400" : "text-slate-400"} tracking-wider uppercase truncate max-w-[90px]`}>{playMode === "bot" ? (localOpponent?.name || "Bot") : player2Name}</span>
                 <span className="text-xs font-black font-mono text-white">{scores.player2} <span className="text-[8px] text-neutral-400">pts</span></span>
               </div>
             </div>

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { getRandomBotOpponent } from "../lib/botUtils";
 
 interface MatchmakingModalProps {
   gameKey: string;
@@ -16,6 +15,12 @@ interface MatchmakingModalProps {
   onCancel: () => void;
   fallbackAfterMs?: number;
 }
+
+type FoundMatch = {
+  matchId: string;
+  role: 1 | 2;
+  opponent: { name: string; isBot: boolean; avatarIcon?: string; elo?: number };
+};
 
 export default function MatchmakingModal({
   gameKey,
@@ -32,6 +37,10 @@ export default function MatchmakingModal({
   const isValidUuid = (id: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
+  const finishMatchmaking = async (matchData: FoundMatch) => {
+    if (!isCancelledRef.current) onMatchFound(matchData);
+  };
+
   useEffect(() => {
     let isMounted = true;
     let pollInterval: NodeJS.Timeout;
@@ -47,10 +56,7 @@ export default function MatchmakingModal({
         const { data: { user } } = await supabase.auth.getUser();
         if (user) activeUserId = user.id;
       }
-      if (!isValidUuid(activeUserId)) {
-        if (isMounted) triggerBotFallback();
-        return;
-      }
+      if (!isValidUuid(activeUserId)) return;
       activeUserRef.current = activeUserId;
 
       let username = "Online Player";
@@ -92,14 +98,10 @@ export default function MatchmakingModal({
       // Loop every 1.5 seconds after the first immediate check
       pollInterval = setInterval(checkMatch, 1500);
 
-      // Keep tickets visible long enough for players on distant networks to
-      // rendezvous; falling back to a bot after 20 seconds made real global
-      // matches unnecessarily unlikely.
+      // Ranked search only ever returns a real player. Keep polling after the
+      // initial window instead of silently replacing the opponent with a bot.
       setTimeout(() => {
-        if (!isCancelledRef.current && isMounted) {
-          clearInterval(pollInterval);
-          triggerBotFallback();
-        }
+        if (!isCancelledRef.current && isMounted) return;
       }, fallbackAfterMs);
     };
 
@@ -119,25 +121,6 @@ export default function MatchmakingModal({
     }
   };
 
-  const triggerBotFallback = async () => {
-    if (isCancelledRef.current) return;
-    const botOpponent = getRandomBotOpponent();
-    
-    await cleanUpQueueTicket();
-    
-    await finishMatchmaking({
-      matchId: `bot_match_${Date.now()}`,
-      role: 1,
-      opponent: { name: botOpponent.name, isBot: true, avatarIcon: botOpponent.avatarIcon || "smart_toy", elo: 1200 },
-    });
-  };
-
-  const finishMatchmaking = async (matchData: any) => {
-    if (!isCancelledRef.current) {
-      onMatchFound(matchData);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex flex-col items-center justify-center px-6 animate-fade-in touch-none select-none font-sans text-white" style={{ paddingTop: "max(1.5rem, env(safe-area-inset-top))", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
       <div className="bg-[#18181b] border border-white/10 rounded-[32px] p-8 max-w-[340px] w-full flex flex-col items-center text-center shadow-2xl relative overflow-hidden">
@@ -154,7 +137,7 @@ export default function MatchmakingModal({
         <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
           {gameName}
         </h3>
-        <p className="text-xs text-neutral-400 font-medium mb-4">Searching for opponent...</p>
+        <p className="text-xs text-neutral-400 font-medium mb-4">Searching for an online player...</p>
 
         <div className="bg-[#09090b] border border-white/10 px-4 py-1.5 rounded-full mb-8 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#CCFF00] animate-pulse"></span>

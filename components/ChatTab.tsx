@@ -50,12 +50,13 @@ interface ChatTabProps {
 
 type ChallengeGame =
   | "checkers" | "carrom" | "chess" | "snooker" | "pool" | "uno" | "tictactoe"
-  | "cup_pong" | "four_in_a_row" | "bingo" | "ping_pong";
+  | "cup_pong" | "four_in_a_row" | "bingo" | "dominoes" | "ping_pong";
 
-const NEW_CHALLENGE_GAMES: Array<{ type: Extract<ChallengeGame, "cup_pong" | "four_in_a_row" | "bingo" | "ping_pong">; name: string; icon: string; accent: string }> = [
+const NEW_CHALLENGE_GAMES: Array<{ type: Extract<ChallengeGame, "cup_pong" | "four_in_a_row" | "bingo" | "dominoes" | "ping_pong">; name: string; icon: string; accent: string }> = [
   { type: "cup_pong", name: "Cup Pong", icon: "sports_baseball", accent: "text-orange-400" },
   { type: "four_in_a_row", name: "Four in a Row", icon: "view_column", accent: "text-sky-400" },
   { type: "bingo", name: "Bingo", icon: "casino", accent: "text-fuchsia-400" },
+  { type: "dominoes", name: "Dominoes", icon: "view_module", accent: "text-amber-400" },
   { type: "ping_pong", name: "Ping Pong", icon: "table_restaurant", accent: "text-emerald-400" },
 ];
 
@@ -846,7 +847,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                     : "grid_4x4");
           
           const targetUrl = newChallenge
-            ? `native://${newChallenge.type}`
+            ? `native://${newChallenge.type.replace(/_/g, "-")}`
             : isUno 
               ? "native://uno"
             : isTicTacToe

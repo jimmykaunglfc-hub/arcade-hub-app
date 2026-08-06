@@ -60,7 +60,17 @@ export default function GlobalInviteListener({ onAccept }: { onAccept: (gameUrl:
     
     if (status === 'accepted') {
       // Tell the main app router to launch the game and pass the match ID
-      const gameUrl = incomingInvite.game_name === 'Neon Checkers' ? 'native://checkers' : 'native://glitch-deck';
+      const name = incomingInvite.game_name.toLowerCase();
+      const gameUrl = name.includes("checkers") ? "native://checkers"
+        : name.includes("four in a row") ? "native://four-in-a-row"
+        : name.includes("bingo") ? "native://bingo"
+        : name.includes("domino") ? "native://dominoes"
+        : name.includes("tic-tac-toe") ? "native://tictactoe"
+        : name.includes("uno") ? "native://uno"
+        : name.includes("snooker") ? "native://snooker"
+        : name.includes("pool") ? "native://pool"
+        : name.includes("carrom") ? "native://carrom"
+        : "native://glitch-deck";
       onAccept(gameUrl, incomingInvite.match_id);
     }
     

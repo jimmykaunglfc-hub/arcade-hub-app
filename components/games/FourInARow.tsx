@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from "react";
 interface FourInARowProps {
  onClose?: () => void;
  onResult?: (result: "Win" | "Loss" | "Draw") => void;
+ localMode?: boolean;
 }
 
 type Player = 1 | 2; // 1 = You (Red), 2 = Opponent (Yellow)
@@ -186,7 +187,7 @@ const chooseComputerMove = (board: Board) => {
  return bestColumn;
 };
 
-export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => {
+export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, localMode = false }) => {
  const [board, setBoard] = useState<Board>(() =>
    Array.from({ length: ROWS }, () => Array(COLS).fill(null))
  );
@@ -275,7 +276,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
 
  // Helper to dynamically calculate column index from touch/pointer screen position
  const updateHoverFromPos = (clientX: number) => {
-   if (!boardRef.current || winner || currentPlayer !== 1) return;
+   if (!boardRef.current || winner || (!localMode && currentPlayer !== 1)) return;
    const rect = boardRef.current.getBoundingClientRect();
    const relativeX = clientX - rect.left;
    const colWidth = rect.width / COLS;
@@ -295,7 +296,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
  };
 
  const handleBoardClick = (e: React.MouseEvent<HTMLDivElement>) => {
-   if (winner || currentPlayer !== 1 || !boardRef.current) return;
+   if (winner || (!localMode && currentPlayer !== 1) || !boardRef.current) return;
    const rect = boardRef.current.getBoundingClientRect();
    const relativeX = e.clientX - rect.left;
    const colWidth = rect.width / COLS;
@@ -305,7 +306,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
 
  // Strong computer move: immediate tactics plus depth-six alpha-beta search.
  useEffect(() => {
-   if (currentPlayer === 2 && !winner && !showHowToPlay) {
+   if (!localMode && currentPlayer === 2 && !winner && !showHowToPlay) {
      const timer = setTimeout(() => {
        const validColumns = getValidColumns(board);
        if (validColumns.length > 0) {
@@ -315,7 +316,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
 
      return () => clearTimeout(timer);
    }
- }, [currentPlayer, winner, board, showHowToPlay]);
+ }, [currentPlayer, winner, board, showHowToPlay, localMode]);
 
  const resetGame = () => {
    resultReportedRef.current = false;
@@ -391,11 +392,11 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
            ? winner === "Draw"
              ? "DRAW GAME!"
              : winner === 1
-             ? "YOU WIN!"
-             : "OPPONENT WINS!"
+             ? (localMode ? "PLAYER 1 WINS!" : "YOU WIN!")
+             : (localMode ? "PLAYER 2 WINS!" : "OPPONENT WINS!")
            : currentPlayer === 1
-           ? "PLAYER TURN"
-           : "OPPONENT TURN"}
+           ? (localMode ? "PLAYER 1 TURN" : "PLAYER TURN")
+           : (localMode ? "PLAYER 2 TURN" : "OPPONENT TURN")}
        </span>
 
        {/* 3D Disc Box beside turn text */}
@@ -433,7 +434,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult }) => 
        <div className="grid grid-cols-7 gap-1.5 mb-1.5 px-1 relative h-6 items-center">
          {Array.from({ length: COLS }).map((_, c) => (
            <div key={c} className="flex justify-center items-center h-full">
-             {hoveredCol === c && !winner && currentPlayer === 1 && (
+             {hoveredCol === c && !winner && (localMode || currentPlayer === 1) && (
                <div className="w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[16px] border-t-white drop-shadow-[0_3px_2px_rgba(0,0,0,0.4)] transition-all duration-75" />
              )}
            </div>
