@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { getRandomBotOpponent } from "@/lib/botUtils";
 
@@ -83,6 +83,51 @@ const legalPlays = (hand:Card[], previous:HandValue|null, mustContainThreeDiamon
  return plays.sort((a,b) => previous ? a.value.category-b.value.category || a.value.power-b.value.power : b.cards.length-a.cards.length || a.value.category-b.value.category || a.value.power-b.value.power);
 };
 
+// 🤖 SMART BOT AI BRAIN
+// Calculates intelligent moves by protecting 5-card hands, pairs, and triples.
+const getSmartBotPlay = (hand: Card[], previous: HandValue | null, mustContainThreeDiamond: boolean): Card[] | null => {
+  const plays = legalPlays(hand, previous, mustContainThreeDiamond);
+  if (plays.length === 0) return null;
+
+  const counts = countsByRank(hand);
+  const all5CardPlays = legalPlays(hand, null, false).filter(p => p.cards.length === 5);
+  const safe5CardIds = new Set(all5CardPlays.flatMap(p => p.cards.map(c => c.id)));
+
+  const scoredPlays = plays.map(({ cards, value }) => {
+    let penalty = 0;
+    if (cards.length < 5) {
+      cards.forEach(card => {
+        // Penalty for breaking a straight/flush/full house
+        if (safe5CardIds.has(card.id)) penalty += 2000;
+        // Penalty for breaking pairs/triples
+        const groupSize = counts[card.rank]?.length || 1;
+        if (groupSize > cards.length) penalty += (groupSize - cards.length) * 500;
+        // Penalty for wasting high cards (J, Q, K, A, 2) on weak table cards
+        if (previous && card.rank >= 8) penalty += card.rank * 50; 
+      });
+    }
+    return { cards, value, penalty, score: value.power + penalty };
+  });
+
+  scoredPlays.sort((a, b) => a.score - b.score);
+  const bestOption = scoredPlays[0];
+
+  // STRATEGIC PASSING: If forced to break a valuable 5-card hand or a high pair just to beat a weak card, PASS instead!
+  if (previous && bestOption.penalty >= 2000 && hand.length > 5) return null;
+  if (previous && bestOption.penalty >= 500 && hand.length > 3) return null;
+
+  // FREE LEAD TACTICS: Drop 5-card hands first, then pairs, then singles
+  if (!previous) {
+    const fives = scoredPlays.filter(p => p.cards.length === 5);
+    if (fives.length > 0) return fives[0].cards;
+    
+    const pairs = scoredPlays.filter(p => p.cards.length === 2 && p.penalty < 1000);
+    if (pairs.length > 0) return pairs[0].cards;
+  }
+
+  return bestOption.cards;
+};
+
 const dealGame = () => {
  const deck = shuffledDeck();
  const hands = [0,1,2,3].map(index => sortCards(deck.slice(index * 13, (index + 1) * 13)));
@@ -121,30 +166,42 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
  const [message,setMessage]=useState(initialGame.starter===0?"You have 3♦. Lead the first trick.":`${playerNames[initialGame.starter]} has 3♦ and starts.`);
  const [showRules,setShowRules]=useState(false);
 
+ const timeoutRequested = useRef<string | null>(null);
+
  useEffect(() => {
    const preventPinch = (event: Event) => event.preventDefault();
    document.addEventListener("gesturestart", preventPinch, { passive: false });
    return () => document.removeEventListener("gesturestart", preventPinch);
  }, []);
 
+ // ⏱️ TIMEOUT ENGINE: Aggressively skip stuck turns
  useEffect(() => {
    if (!turnDeadline) { setSecondsLeft(null); return; }
-   const update = () => setSecondsLeft(Math.max(0, Math.ceil((new Date(turnDeadline).getTime() - Date.now()) / 1000)));
+   timeoutRequested.current = null;
+   const update = () => {
+     const left = Math.max(0, Math.ceil((new Date(turnDeadline).getTime() - Date.now()) / 1000));
+     setSecondsLeft(left);
+     
+     if (left === 0 && roomId && timeoutRequested.current !== turnDeadline) {
+       timeoutRequested.current = turnDeadline;
+       void supabase.rpc("big_two_timeout_turn", { p_room_id: roomId }).then(({ error }) => {
+         if (error) void supabase.rpc("advance_big_two_timeout", { p_room_id: roomId });
+       });
+     }
+   };
    update();
    const timer = window.setInterval(update, 250);
    return () => window.clearInterval(timer);
- }, [turnDeadline]);
+ }, [turnDeadline, roomId]);
 
- // 🎯 THE FIX: Continuous aggressive polling for bot resolution AND timeout advancements
+ // 🤖 BOT RESOLUTION POLLING
  useEffect(() => {
    if (!roomId) return;
    const handleServerTicks = () => {
      void supabase.rpc("resolve_big_two_bot_turns", { p_room_id: roomId });
-     void supabase.rpc("advance_big_two_timeout", { p_room_id: roomId });
    };
-   
    handleServerTicks();
-   const timer = window.setInterval(handleServerTicks, 1000);
+   const timer = window.setInterval(handleServerTicks, 1500);
    return () => window.clearInterval(timer);
  }, [roomId]);
 
@@ -169,12 +226,7 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
      ]);
      const seat = (room?.players || []).find((player: any) => player.user_id === auth.user?.id)?.seat;
      if (!seat || !state || (state.status !== "playing" && state.status !== "completed")) return;
-     
-     const currentSeatPlayer = (room?.players || []).find((player: any) => player.seat === state.current_seat);
-     if (state.status === "playing" && currentSeatPlayer?.is_bot) {
-       void supabase.rpc("resolve_big_two_bot_turns", { p_room_id: roomId });
-     }
-     
+
      const { data: hand } = await supabase.from("big_two_player_hands").select("cards").eq("room_id", roomId).eq("seat", seat).maybeSingle();
      if (!hand) return;
      
@@ -232,9 +284,20 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
 
  const passTurn=useCallback((player:number)=>{ if(!currentPlay)return; const nextPasses=passes+1; if(nextPasses>=3){setPasses(0);setFreeLead(true);setTurn(currentPlay.player);setMessage(`${playerNames[currentPlay.player]} controls the new trick.`);}else{setPasses(nextPasses);setTurn((player+1)%4);setMessage(`${playerNames[player]} passed.`);} },[currentPlay,passes,playerNames]);
 
- // Room-backed matches must never run local AI. A remote move is applied only
- // after it is accepted by the shared match state; otherwise clients diverge.
- useEffect(()=>{ if(roomId || turn===0||winner!==null||hands[turn].length===0)return; const timer=window.setTimeout(()=>{const plays=legalPlays(hands[turn],currentPlay?.value??null,opening); if(plays.length===0){passTurn(turn);return;} const choice=plays[0];playCards(turn,choice.cards,choice.value);},650);return()=>window.clearTimeout(timer);},[currentPlay,hands,opening,passTurn,playCards,roomId,turn,winner]);
+ // LOCAL OFFLINE BOT ENGINE (Wired to the Smart AI Brain)
+ useEffect(()=>{ 
+   if(roomId || turn===0||winner!==null||hands[turn].length===0) return; 
+   const timer=window.setTimeout(() => {
+     const smartCards = getSmartBotPlay(hands[turn], currentPlay?.value ?? null, opening);
+     if(!smartCards) {
+       passTurn(turn);
+     } else {
+       const val = evaluate(smartCards)!;
+       playCards(turn, smartCards, val);
+     }
+   }, 1200); // 1.2s delay for visual pacing
+   return()=>window.clearTimeout(timer);
+ }, [currentPlay, hands, opening, passTurn, playCards, roomId, turn, winner]);
 
  const selectedCards=useMemo(()=>hands[0].filter(card=>selected.includes(card.id)),[hands,selected]);
  const selectedValue=useMemo(()=>evaluate(selectedCards),[selectedCards]);

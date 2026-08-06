@@ -902,7 +902,6 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     const activeIsBot = isMonopolyBotId(activeServerPlayerRef.current);
     const isTradeResolution = pendingCommandRef.current === "confirm_trade" || pendingCommandRef.current === "decline_trade";
 
-    // Stop publishing intermediate animated states (solves the rubberbanding bug)
     if (isRolling || isMoving) return;
 
     if (!roomId || !userId || serverVersion === null || publishingRef.current || 
@@ -1182,8 +1181,8 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     });
   };
 
-  const handleBuildProperty = (spaceId: string) => {
-    if (!isMyTurn) return;
+  const handleBuildProperty = useCallback((spaceId: string) => {
+    if (!canDriveActiveTurn) return;
     markCommand("build");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1196,7 +1195,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       const players = current.players.map((player) => player.id === owner.id ? { ...player, cash: player.cash - cost, propertyLevels: { ...player.propertyLevels, [spaceId]: nextLevel } } : player);
       return { ...current, players, autoPassPlayerId: owner.id, actionLog: { title: `${owner.username} built on ${space.label}`, highlight: nextLevel === MAX_PROPERTY_LEVEL ? "HOTEL COMPLETE" : `HOUSE ${nextLevel} · RENT ${currency.format(getPropertyRent(space, nextLevel))}` }, winnerId: getWinner(players)?.id ?? null };
     });
-  };
+  }, [canDriveActiveTurn, registerPlayerActivity]);
 
   const handleSellBuilding = (spaceId: string, mode: "single" | "hotel" | "clear") => {
     if (!isMyTurn) return;
@@ -1273,7 +1272,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     });
   };
 
-  const handleConfirmTrade = () => {
+  const handleConfirmTrade = useCallback(() => {
     markCommand("confirm_trade");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1305,13 +1304,39 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       });
       return { ...current, players, actionPanel: null, autoPassPlayerId: proposer.id, actionLog: { title: "TRADE CONFIRMED", highlight: `${proposer.username.toUpperCase()} ↔ ${recipient.username.toUpperCase()}` } };
     });
-  };
+  }, [registerPlayerActivity]);
 
-  const handleDeclineTrade = () => {
+  const handleDeclineTrade = useCallback(() => {
     markCommand("decline_trade");
     registerPlayerActivity();
     setGameState((current) => ({ ...current, actionPanel: null, actionLog: { title: "TRADE DECLINED", highlight: "PROPOSAL REJECTED" } }));
-  };
+  }, [registerPlayerActivity]);
+
+  // 🤖 BOT AI: Trade Evaluator
+  useEffect(() => {
+    const panel = gameState.actionPanel;
+    const trade = panel?.trade;
+    
+    if (panel?.kind === "trade" && trade?.awaitingConfirmation && isMonopolyBotId(trade.recipientId)) {
+      // Only the proposer computes the bot's response to prevent duplicate state updates across clients
+      if (roomId && userId !== trade.proposerId) return; 
+
+      const timer = window.setTimeout(() => {
+         const offeredSpace = trade.offeredPropertyId ? getSpace(trade.offeredPropertyId) : null;
+         const requestedSpace = trade.requestedPropertyId ? getSpace(trade.requestedPropertyId) : null;
+         
+         const offerValue = trade.offeredCash + (offeredSpace ? (offeredSpace.cost || 150) * 1.5 : 0) + (trade.offeredJailFreeCard ? 50 : 0);
+         const requestValue = trade.requestedCash + (requestedSpace ? (requestedSpace.cost || 150) * 2 : 0) + (trade.requestedJailFreeCard ? 50 : 0);
+         
+         if (offerValue >= requestValue) {
+            handleConfirmTrade();
+         } else {
+            handleDeclineTrade();
+         }
+      }, 2000); // 2 seconds of "thinking"
+      return () => window.clearTimeout(timer);
+    }
+  }, [gameState.actionPanel, roomId, userId, handleConfirmTrade, handleDeclineTrade]);
 
   const handleUpgrade = () => {
     if (!isMyTurn) return;
@@ -1396,19 +1421,38 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     setGameState((current) => getNextTurnState(current, "system"));
   }, [canDriveActiveTurn, registerPlayerActivity]);
 
-  // The room host executes only deterministic bot turns. Bot seats carry
-  // stable server UUIDs, so their dice, board changes, timeout and audit trail
-  // travel through the exact same room/version path as human turns.
+  // 🤖 BOT AI: Turn Actions (Roll, Buy, Build, End)
   useEffect(() => {
     if (!roomId || !isMonopolyBotId(activePlayer.id) || gameState.winnerId || isRolling || isMoving) return;
     const timer = window.setTimeout(() => {
-      if (gameState.alert) handleDismissAlert();
-      else if (gameState.pendingPurchaseId) handleBuy();
-      else if (!gameState.hasRolled && !gameState.actionPanel) void handleRoll();
-      else if (gameState.hasRolled && !gameState.alert && !gameState.actionPanel) handleEndTurn();
-    }, 700);
+      if (gameState.alert) {
+        handleDismissAlert();
+      } else if (gameState.pendingPurchaseId) {
+        handleBuy();
+      } else if (!gameState.hasRolled && !gameState.actionPanel) {
+        // SMART BOT: Check if it can build houses before rolling
+        let didBuild = false;
+        const ownedProps = activePlayer.ownedSpaceIds.map(getSpace).filter((s) => s.kind === "property");
+        for (const space of ownedProps) {
+          if (canBuildEvenly(activePlayer, space)) {
+            const cost = getUpgradeCost(space, getPropertyLevel(activePlayer, space.id) + 1);
+            // Bot keeps a safety buffer of $300 before spending on upgrades
+            if (activePlayer.cash >= cost + 300) {
+              handleBuildProperty(space.id);
+              didBuild = true;
+              break; 
+            }
+          }
+        }
+        if (!didBuild) {
+          void handleRoll();
+        }
+      } else if (gameState.hasRolled && !gameState.alert && !gameState.actionPanel) {
+        handleEndTurn();
+      }
+    }, 1200); // 1.2s delay makes the bot actions visible to humans
     return () => window.clearTimeout(timer);
-  }, [activePlayer.id, gameState, handleBuy, handleDismissAlert, handleRoll, handleEndTurn, isMoving, isRolling, roomId]);
+  }, [activePlayer, gameState, handleBuy, handleDismissAlert, handleRoll, handleEndTurn, handleBuildProperty, isMoving, isRolling, roomId]);
 
   useEffect(() => {
     if (roomId) return;
@@ -1428,8 +1472,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     return () => window.clearTimeout(timer);
   }, [gameState.winnerId, phase, secondsLeft]);
 
-  // Jail is a single skipped turn. If the player possesses a Jail-Free card, 
-  // they instantly consume it and are free to roll. Otherwise, they skip their turn.
+  // Jail Rule: Single skipped turn, OR use card if owned
   useEffect(() => {
     if (gameState.winnerId || !activePlayer.inJail || gameState.hasRolled || isMoving || isRolling || !canDriveActiveTurn) return;
     const timer = window.setTimeout(() => {
@@ -1523,7 +1566,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
         <footer className="portrait-controls shrink-0 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
           <ActionControlBar disabled={!isMyTurn || isRolling || isMoving || Boolean(gameState.alert) || Boolean(gameState.winnerId)} sellDisabled={Boolean(gameState.winnerId)} onOpen={handleOpenActionPanel} />
           <div className="mx-auto mt-1.5 max-w-md">
-            <button type="button" onClick={isEndTurn ? handleEndTurn : handleRoll} disabled={!isMyTurn || isRolling || isMoving || (!isEndTurn && gameState.hasRolled) || Boolean(gameState.pendingPurchaseId) || Boolean(gameState.alert) || Boolean(gameState.winnerId)} className="group relative w-full overflow-hidden rounded-xl border border-[#8fdfff] bg-[linear-gradient(180deg,#5dd9ff,#087dbf)] px-3 py-2.5 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,.85),0_6px_13px_rgba(0,0,0,.4),0_0_17px_rgba(39,181,255,.18)] transition hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-45"><span className="absolute inset-x-[10%] top-0 h-px bg-white/85" /><span className="flex items-center justify-center gap-3"><span className="text-center"><span className="block text-[7px] font-black uppercase tracking-[.22em] text-[#d9f5ff]">Crystal action</span><span className="mt-0.5 block text-sm font-black uppercase tracking-[.14em]">{isRolling ? "Rolling" : isMoving ? "Moving" : isEndTurn ? "End turn" : isMyTurn ? "Roll dice" : `${activePlayer.username}'s turn`}</span></span><Gem className="h-6 w-6 shrink-0 text-[#fff0a8] drop-shadow-[0_0_5px_rgba(255,218,109,.8)]" fill="currentColor" /></span></button>
+            <button type="button" onClick={isEndTurn ? handleEndTurn : handleRoll} disabled={!isMyTurn || isRolling || isMoving || (!isEndTurn && gameState.hasRolled) || Boolean(gameState.pendingPurchaseId) || Boolean(gameState.alert) || Boolean(gameState.winnerId)} className="group relative w-full overflow-hidden rounded-xl border border-[#8fdfff] bg-[linear-gradient(180deg,#5dd9ff,#087dbf)] px-3 py-2.5 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,.85),0_6px_13px_rgba(0,0,0,.4),0_0_17px_rgba(39,181,255,.18)] transition hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-45"><span className="absolute inset-x-[10%] top-0 h-px bg-white/85" /><span className="flex items-center justify-center gap-3"><span className="text-center"><span className="block text-[7px] font-black uppercase tracking-[.2em] text-[#d9f5ff]">Crystal action</span><span className="mt-0.5 block text-sm font-black uppercase tracking-[.14em]">{isRolling ? "Rolling" : isMoving ? "Moving" : isEndTurn ? "End turn" : isMyTurn ? "Roll dice" : `${activePlayer.username}'s turn`}</span></span><Gem className="h-6 w-6 shrink-0 text-[#fff0a8] drop-shadow-[0_0_5px_rgba(255,218,109,.8)]" fill="currentColor" /></span></button>
           </div>
         </footer>
       </div>
