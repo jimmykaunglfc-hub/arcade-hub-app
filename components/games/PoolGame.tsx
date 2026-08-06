@@ -405,6 +405,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           cueBall.spinX = spinX;
           cueBall.spinY = spinY;
           setIsBallInHand(false);
+          setShowConfirmBtn(false);
           setIsMoving(true);
           didIShootRef.current = false;
           turnTrackingRef.current = { pottedNum: [], firstHitNum: -1, cueScratch: false };
@@ -823,14 +824,20 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               ball.y = p.y;
 
               if (ball.num === 0) {
-                turnTrackingRef.current.cueScratch = true;
+                // The remote player animates the same shot for visual feedback,
+                // but only the shooter may turn a locally simulated pocket into
+                // a real scratch/ball-in-hand result.
+                const isAuthoritativeShot = playModeRef.current !== "online" || didIShootRef.current;
+                if (isAuthoritativeShot) turnTrackingRef.current.cueScratch = true;
                 setTimeout(() => {
                   ball.isPotted = false;
                   ball.scale = 1;
                   ball.x = TABLE_WIDTH / 2;
                   ball.y = HEAD_LINE_Y;
-                  setIsBallInHand(true);
-                  setShowConfirmBtn(true);
+                  if (isAuthoritativeShot) {
+                    setIsBallInHand(true);
+                    setShowConfirmBtn(true);
+                  }
                 }, 700);
               } else {
                 turnTrackingRef.current.pottedNum.push(ball.num);
