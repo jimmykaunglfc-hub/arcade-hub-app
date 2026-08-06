@@ -135,6 +135,14 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
    const timer = window.setInterval(keepRoomAlive, 10_000);
    return () => window.clearInterval(timer);
  }, [roomId]);
+
+ useEffect(() => {
+   if (!roomId) return;
+   const resolve = () => { void supabase.rpc("resolve_ludo_bot_turns", { p_room_id: roomId }); };
+   resolve();
+   const timer = window.setInterval(resolve, 1200);
+   return () => window.clearInterval(timer);
+ }, [roomId]);
  
  const [turnDeadline, setTurnDeadline] = useState<string | null>(null);
  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);

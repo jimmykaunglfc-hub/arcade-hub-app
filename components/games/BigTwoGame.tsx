@@ -200,6 +200,14 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
 
  useEffect(() => {
    if (!roomId) return;
+   const resolve = () => { void supabase.rpc("run_big_two_bot_turns", { p_room_id: roomId }); };
+   resolve();
+   const timer = window.setInterval(resolve, 1200);
+   return () => window.clearInterval(timer);
+ }, [roomId]);
+
+ useEffect(() => {
+   if (!roomId) return;
    const loadRoom = async () => {
      const [{ data: auth }, { data: room }, { data: state }] = await Promise.all([
        supabase.auth.getUser(),
