@@ -142,10 +142,15 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   const deckRef = useRef<Card[]>([]);
   const discardPileRef = useRef<Card[]>([]);
   const currentPlayerRef = useRef<number>(1);
+  const isProcessingTurnRef = useRef(false);
+  const executePlayRef = useRef<(card: Card, pId: number, chosenColor?: CardColor) => void>(() => undefined);
+  const drawCardForPlayerRef = useRef<(pId: number, count?: number) => void>(() => undefined);
+  const getNextPlayerIdRef = useRef<(currentPId: number, step?: number, currentDir?: number) => number>(() => 1);
 
   useEffect(() => { deckRef.current = deck; }, [deck]);
   useEffect(() => { discardPileRef.current = discardPile; }, [discardPile]);
   useEffect(() => { currentPlayerRef.current = currentPlayer; }, [currentPlayer]);
+  useEffect(() => { isProcessingTurnRef.current = isProcessingTurn; }, [isProcessingTurn]);
 
   // 🎯 COMPONENT-LEVEL VICTORY CHECK
   const isUserVictory = winnerTeam !== null && winnerTeam === players.find(p => p.id === myRole)?.team;
@@ -226,13 +231,13 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
       .on("broadcast", { event: "player_action" }, (payload) => {
         if (myRole === 1) {
           const { action, card, color, pId } = payload.payload;
-          if (action === "play") executePlay(card, pId, color);
+          if (action === "play") executePlayRef.current(card, pId, color);
           if (action === "draw") {
             if (pId === currentPlayerRef.current) {
               // A normal draw action is always exactly one card. Penalty draws
               // are resolved only by the authoritative play action.
-              drawCardForPlayer(pId, 1);
-              const nextPlayer = getNextPlayerId(pId, 1);
+              drawCardForPlayerRef.current(pId, 1);
+              const nextPlayer = getNextPlayerIdRef.current(pId, 1);
               currentPlayerRef.current = nextPlayer;
               setCurrentPlayer(nextPlayer);
             }
@@ -447,11 +452,12 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     const ownedCards = hands[pId] || [];
     // The Player 1 client is the match authority. Reject stale, duplicate or
     // illegal network actions before they can mutate the deck/turn state.
-    if (pId !== currentPlayerRef.current || isProcessingTurn || winnerTeam !== null) return;
+    if (pId !== currentPlayerRef.current || isProcessingTurnRef.current || winnerTeam !== null) return;
     if (!ownedCards.some((owned) => owned.id === card.id) || !canPlayCard(card)) return;
     // Official UNO rule: Wild Draw Four may be used only when the player has
     // no card matching the active colour.
     if (card.value === "wild4" && ownedCards.some((owned) => owned.id !== card.id && owned.color === activeColor)) return;
+    isProcessingTurnRef.current = true;
     setIsProcessingTurn(true);
     const pConfig = players.find(p => p.id === pId)!;
     const remainingAfterPlay = (hands[pId]?.length || 0) - 1;
@@ -528,17 +534,43 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
     setTimeout(() => {
       currentPlayerRef.current = nextPId;
       setCurrentPlayer(nextPId);
+      isProcessingTurnRef.current = false;
       setIsProcessingTurn(false);
     }, 600);
   };
 
   const handleCardPlay = (card: Card, color?: CardColor) => {
+    if (currentPlayerRef.current !== myRole || isProcessingTurnRef.current || winnerTeam !== null) return;
     if (myRole === 2 && !localOpponent?.isBot) {
       channel?.send({ type: "broadcast", event: "player_action", payload: { action: "play", card, color, pId: 2 } });
     } else {
       executePlay(card, myRole, color);
     }
   };
+
+  const handleDraw = () => {
+    if (currentPlayerRef.current !== myRole || isProcessingTurnRef.current || winnerTeam !== null) return;
+
+    if (myRole === 2 && !localOpponent?.isBot) {
+      // Stop rapid repeated taps while the host validates this request.
+      isProcessingTurnRef.current = true;
+      setIsProcessingTurn(true);
+      channel?.send({ type: "broadcast", event: "player_action", payload: { action: "draw", pId: myRole } });
+      return;
+    }
+
+    drawCardForPlayer(myRole, 1);
+    const nextPlayer = getNextPlayerId(myRole, 1);
+    currentPlayerRef.current = nextPlayer;
+    setCurrentPlayer(nextPlayer);
+  };
+
+  // Realtime subscriptions are created before these handlers in the component
+  // lifecycle. Refs ensure each incoming action uses the latest board, hand,
+  // deck and turn instead of the stale values from the original subscription.
+  executePlayRef.current = executePlay;
+  drawCardForPlayerRef.current = drawCardForPlayer;
+  getNextPlayerIdRef.current = getNextPlayerId;
 
   useEffect(() => {
     if (view !== "play" || winnerTeam !== null) return;
@@ -557,8 +589,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
               setPendingWild(null);
               handleCardPlay(randomCard, chosenColor);
             } else {
-              if (myRole === 2 && !localOpponent?.isBot) channel?.send({ type: "broadcast", event: "player_action", payload: { action: "draw", count: 1, pId: 2 } });
-              else { drawCardForPlayer(myRole, 1); setCurrentPlayer(getNextPlayerId(myRole, 1)); }
+              handleDraw();
             }
           }
           return 0;
@@ -594,7 +625,9 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
         executePlay(cardToPlay, currentPObj.id, chosenColor);
       } else {
         drawCardForPlayer(currentPObj.id, 1);
-        setCurrentPlayer(getNextPlayerId(currentPObj.id, 1));
+        const nextPlayer = getNextPlayerId(currentPObj.id, 1);
+        currentPlayerRef.current = nextPlayer;
+        setCurrentPlayer(nextPlayer);
       }
     }, thinkingDelay);
 
@@ -852,8 +885,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                         <button
                           onClick={() => {
                             if (isUserDrawRequired) {
-                              if (myRole === 2 && !localOpponent?.isBot) channel?.send({ type: "broadcast", event: "player_action", payload: { action: "draw", count: 1, pId: 2 } });
-                              else { drawCardForPlayer(myRole, 1); setCurrentPlayer(getNextPlayerId(myRole, 1)); }
+                              handleDraw();
                             }
                           }}
                           disabled={!isUserDrawRequired}
