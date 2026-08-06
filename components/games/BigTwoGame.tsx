@@ -267,9 +267,19 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
        setViewerWon(false);
      }
      
-     setMessage(tableCards.length && tableValue && displayLastPlayer >= 0
-       ? `${order.map((number) => bySeat.get(number)?.name || "Player")[displayLastPlayer]} played ${tableValue.label}.`
-       : displayTurn === 0 ? (state.state?.opening_required ? "Your opening play must include 3♦." : "Your turn. Lead the new trick.") : `${order.map((number) => bySeat.get(number)?.name || "Player")[displayTurn] || "Player"}'s turn.`);
+     const displayedNames = order.map((number) => bySeat.get(number)?.name || "Player");
+     const lastAction = tableCards.length && tableValue && displayLastPlayer >= 0
+       ? `${displayedNames[displayLastPlayer]} played ${tableValue.label}.`
+       : null;
+     setMessage(displayTurn === 0
+       ? state.state?.opening_required
+         ? "Your opening play must include 3♦."
+         : lastAction
+           ? `Your turn — ${lastAction} Beat it or pass.`
+           : "Your turn. Lead the new trick."
+       : lastAction
+         ? `${lastAction} ${displayedNames[displayTurn] || "Player"}'s turn.`
+         : `${displayedNames[displayTurn] || "Player"}'s turn.`);
      setRoomReady(true);
    };
    
@@ -344,7 +354,7 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
          <div className="flex flex-col items-end -space-y-9">{hands[3].map(card=><CardBack key={card.id} className="rotate-90"/>)}</div>
        </div>
 
-       {secondsLeft !== null && <div className={`absolute left-1/2 top-[22%] z-20 -translate-x-1/2 rounded-full border px-4 py-1 text-sm font-black ${turn===0 ? "border-amber-200 bg-amber-300 text-emerald-950" : "border-white/20 bg-slate-950/70 text-amber-200"}`}>⏱ {secondsLeft}s</div>}
+       {secondsLeft !== null && <div className={`absolute left-1/2 top-[22%] z-20 -translate-x-1/2 whitespace-nowrap rounded-full border px-4 py-1 text-sm font-black ${turn===0 ? "border-amber-200 bg-amber-300 text-emerald-950" : "border-white/20 bg-slate-950/70 text-amber-200"}`}>⏱ {secondsLeft}s · {turn===0 ? "Your turn" : `${playerNames[turn] || "Player"}'s turn`}</div>}
        <section className="absolute left-24 right-24 top-[29%] flex min-h-40 flex-col items-center justify-center rounded-[1.75rem] border border-emerald-200/15 bg-emerald-950/25 p-2">
          <p className="mb-2 text-center text-[10px] font-black uppercase tracking-widest text-amber-200">{currentPlay ? `${playerNames[currentPlay.player]} · ${currentPlay.value.label}${freeLead ? " · Free lead" : ""}` : "New trick — any valid combination"}</p>
          <div className="flex justify-center -space-x-4">{currentPlay?.cards.map(card=><PlayingCard key={card.id} card={card} small />)??<span className="text-5xl text-white/15">♠</span>}</div>
