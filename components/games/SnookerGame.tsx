@@ -146,12 +146,14 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const gamePhaseRef = useRef(gamePhase);
   const nextRequiredBallRef = useRef(nextRequiredBall);
   const colorSeqIndexRef = useRef(colorSeqIndex);
+  const playModeRef = useRef(playMode);
 
   useEffect(() => { currentTurnRef.current = currentTurn; }, [currentTurn]);
   useEffect(() => { scoresRef.current = scores; }, [scores]);
   useEffect(() => { gamePhaseRef.current = gamePhase; }, [gamePhase]);
   useEffect(() => { nextRequiredBallRef.current = nextRequiredBall; }, [nextRequiredBall]);
   useEffect(() => { colorSeqIndexRef.current = colorSeqIndex; }, [colorSeqIndex]);
+  useEffect(() => { playModeRef.current = playMode; }, [playMode]);
 
   // Live Emojis
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; role: number }[]>([]);
@@ -341,16 +343,27 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           setIsBallInHand(false);
           setIsMoving(true);
           didIShootRef.current = false;
+          // The remote device animates the shot only. It must not reuse the
+          // previous turn's pockets/first-hit data to score this shot.
+          turnTrackingRef.current = { redsPotted: 0, colorsPotted: [], firstHitBallType: "" };
           playCueShotSound();
         }
       })
       .on("broadcast", { event: "turn_sync" }, (payload) => {
-        const { balls, nextTurn, newScores, phase, nextReq, win } = payload.payload;
+        const { balls, nextTurn, newScores, phase, nextReq, colorSeqIndex, ballInHand, win } = payload.payload;
         ballsRef.current = balls;
+        currentTurnRef.current = nextTurn;
+        scoresRef.current = newScores;
+        gamePhaseRef.current = phase;
+        nextRequiredBallRef.current = nextReq;
+        colorSeqIndexRef.current = colorSeqIndex ?? colorSeqIndexRef.current;
         setCurrentTurn(nextTurn);
         setScores(newScores);
         setGamePhase(phase);
         setNextRequiredBall(nextReq);
+        setColorSeqIndex(colorSeqIndex ?? colorSeqIndexRef.current);
+        setIsBallInHand(Boolean(ballInHand));
+        didIShootRef.current = false;
         if (win) {
           setWinner(win);
           soundEngine.playSFX("victory");
@@ -528,6 +541,13 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         setIsMoving(true);
         didIShootRef.current = true;
         playCueShotSound();
+        if (playMode === "online" && channelRef.current) {
+          channelRef.current.send({
+            type: "broadcast",
+            event: "shot_fired",
+            payload: { vx: cueBall.vx, vy: cueBall.vy, spinX: 0, spinY: 0, cueX: cueBall.x, cueY: cueBall.y },
+          });
+        }
         setToast({ msg: "Time expired! Auto shot executed.", type: "foul" });
       }
     }
@@ -619,18 +639,16 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     };
     const spot = spots[colorName];
     if (spot) {
-      setTimeout(() => {
-        ballsRef.current.push({
-          id: Date.now() + Math.random(),
-          x: spot.x,
-          y: spot.y,
-          vx: 0,
-          vy: 0,
-          type: colorName,
-          scale: 1,
-          isPotted: false,
-        });
-      }, 300);
+      ballsRef.current.push({
+        id: Date.now() + Math.random(),
+        x: spot.x,
+        y: spot.y,
+        vx: 0,
+        vy: 0,
+        type: colorName,
+        scale: 1,
+        isPotted: false,
+      });
     }
   }, [baulkLineY, tableHeight, tableWidth]);
 
@@ -711,6 +729,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         if (tracking.colorsPotted.length > 0) tracking.colorsPotted.forEach((c) => respotColorBall(c));
         penalty = 4; turnSwitched = true;
         newPhase = "COLORS_SEQUENCE";
+        colorSeqIndexRef.current = 0;
         setColorSeqIndex(0);
         newNextReq = "Yellow";
         soundEngine.playSFX("defeat");
@@ -721,6 +740,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         soundEngine.playSFX("capture");
         respotColorBall(colorName);
         newPhase = "COLORS_SEQUENCE";
+        colorSeqIndexRef.current = 0;
         setColorSeqIndex(0);
         newNextReq = "Yellow";
       }
@@ -735,6 +755,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         newScores[turnVal] += pts;
         soundEngine.playSFX("capture");
         const nextIdx = seqIdxVal + 1;
+        colorSeqIndexRef.current = nextIdx;
         setColorSeqIndex(nextIdx);
         if (nextIdx < COLOR_SEQUENCE.length) {
           newNextReq = COLOR_SEQUENCE[nextIdx];
@@ -750,6 +771,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       nextTurn = opponentPlayer;
     }
 
+    scoresRef.current = newScores;
+    currentTurnRef.current = nextTurn;
+    gamePhaseRef.current = newPhase;
+    nextRequiredBallRef.current = newNextReq;
     setScores(newScores);
     setCurrentTurn(nextTurn);
     setGamePhase(newPhase);
@@ -769,6 +794,8 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           newScores,
           phase: newPhase,
           nextReq: newNextReq,
+          colorSeqIndex: colorSeqIndexRef.current,
+          ballInHand: isCuePotted,
           win: winner,
         },
       });
@@ -820,6 +847,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     setGamePhase("REDS");
     setNextRequiredBall("Red");
     setTargetedColor("Red");
+    colorSeqIndexRef.current = 0;
     setColorSeqIndex(0);
     setWinner(null);
     // Keep the complete rack visible while the white is being positioned.
@@ -1070,7 +1098,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
       setIsMoving(dynamicMotion);
 
-      if (wasMovingRef.current && !dynamicMotion) {
+      // Only the player who fired the online shot may calculate rules and
+      // advance the turn. The opponent receives that single authoritative
+      // result through `turn_sync`, eliminating duplicate turn transitions.
+      if (wasMovingRef.current && !dynamicMotion && (playModeRef.current !== "online" || didIShootRef.current)) {
         evaluateTurnEndRef.current();
       }
       wasMovingRef.current = dynamicMotion;
