@@ -7,9 +7,12 @@ import React, {
  useRef,
  useState,
 } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 interface DominoesProps {
  onClose?: () => void;
+ roomId?: string;
+ seat?: 1 | 2;
 }
 
 type Player = "you" | "computer";
@@ -771,6 +774,8 @@ function RealDominoTable({
 
 export default function Dominoes({
  onClose,
+ roomId,
+ seat = 1,
 }: DominoesProps) {
  const [yourHand, setYourHand] =
    useState<Domino[]>([]);
@@ -786,6 +791,27 @@ export default function Dominoes({
  const [board, setBoard] =
    useState<PlayedDomino[]>([]);
  const boardRef = useRef<PlayedDomino[]>([]);
+ const [roomVersion, setRoomVersion] = useState(1);
+
+ useEffect(() => {
+   if (!roomId) return;
+   const load = async () => {
+     const [{ data: state }, { data: hand }] = await Promise.all([
+       supabase.from("two_player_game_state").select("state,current_seat,version,status").eq("room_id", roomId).maybeSingle(),
+       supabase.from("dominoes_match_hands").select("hand").eq("room_id", roomId).eq("seat", seat).maybeSingle(),
+     ]);
+     if (state) {
+       setBoard((state.state?.board || []) as PlayedDomino[]);
+       setDrawPile((state.state?.draw_pile || []) as Domino[]);
+       setCurrentPlayer(state.current_seat === seat ? "you" : "computer");
+       setRoomVersion(state.version);
+     }
+     if (hand?.hand) setYourHand(hand.hand as Domino[]);
+   };
+   void load();
+   const channel = supabase.channel(`dominoes-${roomId}`).on("postgres_changes", { event: "*", schema: "public", table: "two_player_game_state", filter: `room_id=eq.${roomId}` }, load).on("postgres_changes", { event: "*", schema: "public", table: "dominoes_match_hands", filter: `room_id=eq.${roomId}` }, load).subscribe();
+   return () => { void supabase.removeChannel(channel); };
+ }, [roomId, seat]);
 
  const [
    currentPlayer,
@@ -1012,6 +1038,12 @@ export default function Dominoes({
      side: BoardSide,
      player: Player
    ) => {
+     if (roomId && player === "you") {
+       void supabase.rpc("dominoes_play", { p_room_id: roomId, p_tile_id: domino.id, p_side: boardRef.current.length === 0 ? "start" : side, p_expected_version: roomVersion });
+       setShowSidePicker(false);
+       setSelectedDominoId(null);
+       return true;
+     }
      if (gameOver) {
        return false;
      }
@@ -1216,6 +1248,10 @@ export default function Dominoes({
  };
 
  const drawDomino = () => {
+   if (roomId) {
+     if (currentPlayer === "you" && !gameOver) void supabase.rpc("dominoes_draw_or_pass", { p_room_id: roomId, p_expected_version: roomVersion });
+     return;
+   }
    if (
      currentPlayer !== "you" ||
      gameOver
@@ -1293,6 +1329,7 @@ export default function Dominoes({
 
  useEffect(() => {
    if (
+     roomId ||
      currentPlayer !==
        "computer" ||
      gameOver
@@ -1422,6 +1459,7 @@ export default function Dominoes({
    gameOver,
    leftEnd,
    placeDomino,
+   roomId,
    rightEnd,
    yourHand,
  ]);
@@ -1842,4 +1880,3 @@ export default function Dominoes({
    </div>
  );
 }
-

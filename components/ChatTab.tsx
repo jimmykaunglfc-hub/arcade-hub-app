@@ -395,12 +395,23 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
     else if (gameType !== "carrom") {
       const game = NEW_CHALLENGE_GAMES.find((candidate) => candidate.type === gameType);
       if (!game) return;
+      const gameKey = game.type.replace(/_/g, "-");
+      const { data: room, error: roomError } = await supabase.rpc("create_two_player_room", {
+        p_game_key: gameKey,
+        p_name: "Player 1",
+        p_state: {},
+      });
+      if (roomError || !room?.room_id) {
+        alert(`Could not create the challenge room: ${roomError?.message || "Unknown error"}`);
+        return;
+      }
+      if (gameKey === "four-in-a-row") await supabase.rpc("create_four_in_a_row_state", { p_room_id: room.room_id });
       await supabase.from("direct_messages").insert([{
         sender_id: myUserId,
         receiver_id: activeChat.id,
         content: `Challenged you to ${game.name}`,
         message_type: "game_invite",
-        match_id: crypto.randomUUID(),
+        match_id: room.room_id,
         game_name: game.name,
         invite_status: "pending",
       }]);
@@ -916,12 +927,18 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                               Decline
                             </button>
                             <button 
-                              onClick={() => {
+                              onClick={async () => {
                                 if (isLockedOut) {
                                   alert("Accept Halted: You cannot accept challenges with 0 credits.");
                                   return;
                                 }
-                                updateInviteStatus(msg.id, 'accepted');
+                                if (newChallenge && msg.match_id) {
+                                  const { data: room } = await supabase.from("matchmaking_rooms").select("room_code").eq("id", msg.match_id).maybeSingle();
+                                  const { error } = await supabase.rpc("join_two_player_room", { p_code: room?.room_code, p_name: "Player 2" });
+                                  if (error) { alert(error.message); return; }
+                                }
+                                await updateInviteStatus(msg.id, 'accepted');
+                                onPlay?.(targetUrl, msg.match_id!);
                               }}
                               disabled={isLockedOut}
                               className="flex-1 py-2 bg-primary text-on-primary font-headline font-bold text-[11px] rounded-xl hover:opacity-90 disabled:opacity-40 transition-colors"
