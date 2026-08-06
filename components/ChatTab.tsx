@@ -94,8 +94,19 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   
   const [messages, setMessages] = useState<DirectMessage[]>([]);
+  const launchedInviteIds = useRef<Set<string>>(new Set());
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const accepted = messages.find((message) => message.message_type === "game_invite" && message.sender_id === myUserId && message.invite_status === "accepted" && message.match_id && !launchedInviteIds.current.has(message.id));
+    if (!accepted) return;
+    const name = (accepted.game_name || "").toLowerCase();
+    const route = name.includes("four in a row") ? "native://four-in-a-row" : name.includes("bingo") ? "native://bingo" : name.includes("domino") ? "native://dominoes" : null;
+    if (!route) return;
+    launchedInviteIds.current.add(accepted.id);
+    onPlay?.(route, accepted.match_id!);
+  }, [messages, myUserId, onPlay]);
 
   const [searchTarget, setSearchTarget] = useState("");
   const [inviteStatus, setInviteStatus] = useState("");
@@ -936,6 +947,8 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                                   const { data: room } = await supabase.from("matchmaking_rooms").select("room_code").eq("id", msg.match_id).maybeSingle();
                                   const { error } = await supabase.rpc("join_two_player_room", { p_code: room?.room_code, p_name: "Player 2" });
                                   if (error) { alert(error.message); return; }
+                                  if (newChallenge.type === "bingo") await supabase.rpc("initialize_bingo_match", { p_room_id: msg.match_id });
+                                  if (newChallenge.type === "dominoes") await supabase.rpc("initialize_dominoes_match", { p_room_id: msg.match_id });
                                 }
                                 await updateInviteStatus(msg.id, 'accepted');
                                 onPlay?.(targetUrl, msg.match_id!);
