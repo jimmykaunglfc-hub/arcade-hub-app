@@ -594,6 +594,11 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
   };
 
   const isBotOpponent = localOpponent?.isBot || matchId?.startsWith("bot_") || gameMode !== "pvp";
+  const playerLabel = (symbol: Player) => {
+    if (!matchId) return symbol === "X" ? "Player 1" : "Player 2";
+    if (symbol === myPlayerSymbol) return "You";
+    return localOpponent?.name || (isBotOpponent ? "Bot" : "Opponent");
+  };
 
   // LOBBY / MENU VIEW
   if (view === "menu") {
@@ -999,7 +1004,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
                 Match Result
               </span>
               <h2 className="text-2xl font-headline font-black tracking-tight text-white uppercase">
-                {winner === "draw" ? "IT'S A TIE!" : `PLAYER ${winner} WINS!`}
+                {winner === "draw" ? "IT'S A TIE!" : `${playerLabel(winner)} WINS!`}
               </h2>
             </div>
 
