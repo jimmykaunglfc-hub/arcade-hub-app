@@ -288,6 +288,10 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
  // 🎯 THE FIX: CLIENT-SIDE BOT DRIVER
  // We now calculate the bot's moves on the client so we don't rely on missing backend RPC AI!
  useEffect(() => {
+   // Online games are server-authoritative. A human browser cannot call a
+   // player-only RPC as a bot seat, so doing this here only creates rejected
+   // requests and can race the server bot resolver.
+   if (roomId) return;
    if (winner !== null || hands[turn].length === 0) return;
    
    const isBot = roomId ? botIndexes.includes(turn) : turn !== 0;
