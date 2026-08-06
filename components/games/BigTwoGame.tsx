@@ -200,7 +200,14 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
 
  useEffect(() => {
    if (!roomId) return;
-   const resolve = () => { void supabase.rpc("run_big_two_bot_turns", { p_room_id: roomId }); };
+   const resolve = () => {
+     void supabase.rpc("run_big_two_bot_turns", { p_room_id: roomId }).then(({ error }) => {
+       if (error) {
+         console.error("Big Two bot resolver failed", error);
+         setMessage(`Bot resolver error: ${error.message}`);
+       }
+     });
+   };
    resolve();
    const timer = window.setInterval(resolve, 1200);
    return () => window.clearInterval(timer);

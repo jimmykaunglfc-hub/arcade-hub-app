@@ -138,7 +138,14 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
 
  useEffect(() => {
    if (!roomId) return;
-   const resolve = () => { void supabase.rpc("resolve_ludo_bot_turns", { p_room_id: roomId }); };
+   const resolve = () => {
+     void supabase.rpc("resolve_ludo_bot_turns", { p_room_id: roomId }).then(({ error }) => {
+       if (error) {
+         console.error("Ludo bot resolver failed", error);
+         setMessage(`Bot resolver error: ${error.message}`);
+       }
+     });
+   };
    resolve();
    const timer = window.setInterval(resolve, 1200);
    return () => window.clearInterval(timer);
