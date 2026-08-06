@@ -135,6 +135,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
    const timer = window.setInterval(keepRoomAlive, 10_000);
    return () => window.clearInterval(timer);
  }, [roomId]);
+ 
  const [turnDeadline, setTurnDeadline] = useState<string | null>(null);
  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
  const [isHost, setIsHost] = useState(false);
@@ -155,6 +156,19 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
    return () => document.removeEventListener("gesturestart", preventPinch);
  }, []);
 
+ // 🎯 THE FIX: Continuous aggressive polling for bot resolution AND timeout advancements
+ useEffect(() => {
+   if (!roomId) return;
+   const handleServerTicks = () => {
+     void supabase.rpc("resolve_ludo_bot_turns", { p_room_id: roomId });
+     void supabase.rpc("advance_ludo_timeout", { p_room_id: roomId });
+   };
+   
+   handleServerTicks();
+   const timer = window.setInterval(handleServerTicks, 1000);
+   return () => window.clearInterval(timer);
+ }, [roomId]);
+
  useEffect(() => {
    if (!roomId) return;
    void (async () => {
@@ -170,14 +184,13 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
    })();
  }, [roomId]);
 
+ // 🎯 THE LOCAL FALLBACK: If playing offline, resolve bot turns using setTimeout
  useEffect(() => {
-   // Any connected player may advance a bot.  The room host is not a reliable
-   // turn worker on mobile because it can be backgrounded at any time.
-   if (!roomId || !botIndexes.includes(current) || winner !== null || rolling) return;
+   if (roomId || !botIndexes.includes(current) || winner !== null || rolling) return;
    const timer = window.setTimeout(() => {
-     if (dice === null) { void supabase.rpc("ludo_roll", { p_room_id: roomId }); return; }
+     if (dice === null) { rollDice(current); return; }
      const piece = movableTokens(tokens[current], dice)[0];
-     if (piece !== undefined) void supabase.rpc("ludo_move", { p_room_id: roomId, p_piece: piece });
+     if (piece !== undefined) movePiece(current, piece, dice);
    }, 700);
    return () => window.clearTimeout(timer);
  }, [botIndexes, current, dice, rolling, roomId, tokens, winner]);
@@ -201,6 +214,13 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
      setCurrent(displayCurrent);
      setDice(match.state?.dice ?? null);
      setTurnDeadline(match.turn_deadline || null);
+     
+     // Resolve any bots waiting in the playing state 
+     const currentSeatPlayer = (room?.players || []).find((player: any) => player.seat === match.current_seat);
+     if (match.status === "playing" && currentSeatPlayer?.is_bot) {
+       void supabase.rpc("resolve_ludo_bot_turns", { p_room_id: roomId });
+     }
+
      if (match.status === "completed") setMessage(displayCurrent === seat - 1 ? "Match complete." : `${displayNames[displayCurrent]} wins.`);
      else if (match.state?.dice) setMessage(displayCurrent === seat - 1 ? `You rolled ${match.state.dice}. Choose a token.` : `${displayNames[displayCurrent]} is choosing a token.`);
      else setMessage(displayCurrent === seat - 1 ? "Your turn. Roll the dice!" : `${displayNames[displayCurrent]}'s turn to roll.`);
@@ -218,17 +238,10 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
    const update = () => {
      const left = Math.max(0, Math.ceil((new Date(turnDeadline).getTime() - Date.now()) / 1000));
      setSecondsLeft(left);
-     if (left === 0 && roomId && timeoutRequested.current !== turnDeadline) {
-       timeoutRequested.current = turnDeadline;
-       void supabase.rpc("ludo_timeout_turn", { p_room_id: roomId }).then(({ error }) => {
-         if (error) setMessage("Waiting for the server to advance the turn…");
-         else setTurnDeadline(null);
-       });
-     }
    };
    update(); const timer = window.setInterval(update, 500);
    return () => window.clearInterval(timer);
- }, [roomId, turnDeadline]);
+ }, [turnDeadline]);
 
  const available = useMemo(
    () => dice === null ? [] : movableTokens(tokens[current], dice),
@@ -299,12 +312,6 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
      }
    }, 450);
  }, [dice, finishTurn, mySeatIndex, rolling, roomId, tokens, winner]);
-
- useEffect(() => {
-   if (roomId || current === 0 || winner !== null || rolling || dice !== null) return;
-   const timer = window.setTimeout(() => rollDice(current), 650);
-   return () => window.clearTimeout(timer);
- }, [current, dice, rollDice, rolling, roomId, winner]);
 
  useEffect(() => {
    if (roomId || current === 0 || winner !== null || dice === null || rolling) return;

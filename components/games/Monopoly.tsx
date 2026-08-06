@@ -204,7 +204,6 @@ function getCardCashDelta(card: DrawCard) {
   return isDeduction ? -amount : amount;
 }
 
-// Movement starts at GO, then travels counter-clockwise around the visual board.
 const boardSpaces: BoardSpace[] = [
   { id: "go", label: "GO", kind: "go" },
   { id: "manila", label: "MANILA", kind: "property", color: "#f5d547", cost: 60, rent: 6 },
@@ -240,7 +239,6 @@ const boardSpaces: BoardSpace[] = [
   { id: "chance-right", label: "PORT", kind: "station", transportType: "port", cost: 200, rent: 35 },
 ];
 
-// The visual rows are intentionally the inverse of the clockwise bottom movement order.
 const topTileIds = ["free-parking", "hanoi", "ho-chi-minh", "chest-top", "kuala-lumpur", "penang", "malacca", "chance-top", "go-to-jail"];
 const leftTileIds = ["asean-station", "chest-left", "yangon", "mandalay", "chance-left", "bangkok", "phuket"];
 const rightTileIds = ["jakarta", "surabaya", "bali", "chest-right", "vientiane", "luang-prabang", "chance-right"];
@@ -294,16 +292,11 @@ function getPropertyRent(space: BoardSpace, level: number, hasCompleteSet = fals
 }
 
 function getConstructionCost(space: BoardSpace) {
-  // The 1x HOUSE value displayed on the property card is the authoritative
-  // first-build price. Keeping this tied to the rent tiers prevents the UI
-  // and the cash transaction from drifting apart.
   return getRentTiers(space)[1] ?? Math.max(10, getPropertyPrice(space));
 }
 
 function getUpgradeCost(space: BoardSpace, targetLevel = 1) {
   const tier = Math.min(Math.max(targetLevel, 1), MAX_PROPERTY_LEVEL);
-  // A build to level N costs exactly the matching N-house / hotel value that
-  // the player sees in the card, including the non-linear tier progression.
   return getRentTiers(space)[tier] ?? getConstructionCost(space);
 }
 
@@ -373,9 +366,6 @@ function commitPendingTransactions(current: GameState): GameState {
     if (transaction.kind === "bank-fee") {
       const player = players.find((item) => item.id === transaction.playerId);
       if (!player) return;
-      // Zero cash is recoverable: titles remain available to sell, mortgage or
-      // trade instead of automatically eliminating the player and freezing
-      // the room.
       players = players.map((item) => item.id !== player.id ? item : { ...item, cash: Math.max(0, item.cash - transaction.amount) });
       return;
     }
@@ -603,7 +593,7 @@ function TurnWarningBanner() {
   return <div role="status" className="pointer-events-none absolute left-1/2 top-[21%] z-50 w-[88%] -translate-x-1/2 rounded-lg border border-[#ffca5b]/80 bg-[#2b1608]/95 px-[4%] py-[2%] text-center shadow-[0_0_20px_rgba(255,166,42,.34),inset_0_1px_0_rgba(255,255,255,.18)]"><p className="text-[clamp(6px,1.35cqw,9px)] font-black leading-snug text-[#ffe6a0]">WARNING: 40s reached. Turn auto-passes at 1 min.</p></div>;
 }
 
-function CityStage({ actionLog, dice, isRolling, canRoll, showStartBanner, activePlayer, alert, auction, actionPanel, secondsLeft, turnWarning, players, viewerId, onRoll, onBuy, onSkip, onUpgrade, onSell, onAwardAuction, onDismiss, onBuild, onSellBuilding, onMortgage, onRedeem, onUpdateTrade, onProposeTrade, onConfirmTrade, onCloseActionPanel }: { actionLog: ActionLog; dice: [number, number]; isRolling: boolean; canRoll: boolean; showStartBanner: boolean; activePlayer: Player; alert: GameAlert | null; auction: AuctionState | null; actionPanel: ActionPanel | null; secondsLeft: number; turnWarning: boolean; players: Player[]; viewerId?: string; onRoll: () => void; onBuy: () => void; onSkip: () => void; onUpgrade: () => void; onSell: () => void; onAwardAuction: () => void; onDismiss: () => void; onBuild: (spaceId: string) => void; onSellBuilding: (spaceId: string, mode: "single" | "hotel" | "clear") => void; onMortgage: (spaceId: string) => void; onRedeem: (spaceId: string) => void; onUpdateTrade: (update: Partial<TradeDraft>) => void; onProposeTrade: () => void; onConfirmTrade: () => void; onCloseActionPanel: () => void }) {
+function CityStage({ actionLog, dice, isRolling, canRoll, isEndTurn, showStartBanner, activePlayer, alert, auction, actionPanel, secondsLeft, turnWarning, players, viewerId, onRoll, onEndTurn, onBuy, onSkip, onUpgrade, onSell, onAwardAuction, onDismiss, onBuild, onSellBuilding, onMortgage, onRedeem, onUpdateTrade, onProposeTrade, onConfirmTrade, onDeclineTrade, onCloseActionPanel }: { actionLog: ActionLog; dice: [number, number]; isRolling: boolean; canRoll: boolean; isEndTurn: boolean; showStartBanner: boolean; activePlayer: Player; alert: GameAlert | null; auction: AuctionState | null; actionPanel: ActionPanel | null; secondsLeft: number; turnWarning: boolean; players: Player[]; viewerId?: string; onRoll: () => void; onEndTurn: () => void; onBuy: () => void; onSkip: () => void; onUpgrade: () => void; onSell: () => void; onAwardAuction: () => void; onDismiss: () => void; onBuild: (spaceId: string) => void; onSellBuilding: (spaceId: string, mode: "single" | "hotel" | "clear") => void; onMortgage: (spaceId: string) => void; onRedeem: (spaceId: string) => void; onUpdateTrade: (update: Partial<TradeDraft>) => void; onProposeTrade: () => void; onConfirmTrade: () => void; onDeclineTrade: () => void; onCloseActionPanel: () => void }) {
   const timerLabel = secondsLeft === TURN_DURATION_SECONDS ? "01:00" : `00:${String(secondsLeft).padStart(2, "0")}`;
 
   return (
@@ -626,18 +616,18 @@ function CityStage({ actionLog, dice, isRolling, canRoll, showStartBanner, activ
 
       {showStartBanner && <div className="pointer-events-none absolute left-1/2 top-[17%] z-40 w-[76%] -translate-x-1/2 rounded-lg border border-[#98dcff]/80 bg-[#061322]/95 px-[4%] py-[2.5%] text-center shadow-[0_0_18px_rgba(70,190,255,.28),inset_0_1px_0_rgba(255,255,255,.18)]"><p className="text-[clamp(5px,1.35vw,9px)] font-black uppercase tracking-[.08em] text-white">ALL PLAYERS ARE ON GO.</p><p className="mt-[1%] text-[clamp(6px,1.55vw,11px)] font-black uppercase tracking-[.04em] text-[#ffdb45]">ROLL TO START THE JOURNEY</p></div>}
 
-      <button type="button" onClick={onRoll} disabled={!canRoll} aria-label="Roll two dice on the white stage" className="absolute left-1/2 top-[55%] z-40 h-[34%] w-[60%] overflow-visible rounded-[25%] outline-none transition hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#ffe18a] disabled:cursor-not-allowed" style={{ transform: "translate(-50%, -50%)" }}>
+      <button type="button" onClick={isEndTurn ? onEndTurn : onRoll} disabled={!canRoll && !isEndTurn} aria-label="Roll two dice on the white stage" className="absolute left-1/2 top-[55%] z-40 h-[34%] w-[60%] overflow-visible rounded-[25%] outline-none transition hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#ffe18a] disabled:cursor-not-allowed" style={{ transform: "translate(-50%, -50%)" }}>
         <span className="relative z-10 flex h-full items-center justify-center gap-[clamp(6px,1.6vw,14px)]">
           <StageDie value={dice[0]} rolling={isRolling} />
           <StageDie value={dice[1]} rolling={isRolling} delay={55} />
         </span>
-        <span className="absolute -bottom-[24%] left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full border border-[#8bdcff]/55 bg-[#06111ed9] px-[7%] py-[3%] text-[clamp(4px,1.15vw,8px)] font-black uppercase tracking-[.11em] text-[#d9f7ff] shadow-[0_0_12px_rgba(58,191,255,.24)]">{isRolling ? "Rolling two dice…" : "Tap white stage to roll"}</span>
+        <span className="absolute -bottom-[24%] left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full border border-[#8bdcff]/55 bg-[#06111ed9] px-[7%] py-[3%] text-[clamp(4px,1.15vw,8px)] font-black uppercase tracking-[.11em] text-[#d9f7ff] shadow-[0_0_12px_rgba(58,191,255,.24)]">{isRolling ? "Rolling two dice…" : isEndTurn ? "Tap stage to end turn" : "Tap white stage to roll"}</span>
       </button>
 
       <div className="absolute bottom-[5%] z-30 max-w-[83%] rounded-md border border-[#72cfff]/35 bg-[#06111ed9] px-[5%] py-[2%] text-center shadow-[inset_0_1px_0_rgba(255,255,255,.1)]"><p className="truncate text-[clamp(4px,1.1vw,7px)] font-black uppercase tracking-[.16em] text-[#7ecfff]">{actionLog.title}</p><p className="mt-[3%] truncate text-[clamp(5px,1.35vw,9px)] font-black text-white">{actionLog.highlight}</p></div>
 
       {alert && <ActionModal alert={alert} auction={auction} players={players} onBuy={onBuy} onSkip={onSkip} onUpgrade={onUpgrade} onSell={onSell} onAwardAuction={onAwardAuction} onDismiss={onDismiss} />}
-      {actionPanel && <ActionPanelModal panel={actionPanel} activePlayer={activePlayer} players={players} viewerId={viewerId} onBuild={onBuild} onSellBuilding={onSellBuilding} onMortgage={onMortgage} onRedeem={onRedeem} onUpdateTrade={onUpdateTrade} onProposeTrade={onProposeTrade} onConfirmTrade={onConfirmTrade} onClose={onCloseActionPanel} />}
+      {actionPanel && <ActionPanelModal panel={actionPanel} activePlayer={activePlayer} players={players} viewerId={viewerId} onBuild={onBuild} onSellBuilding={onSellBuilding} onMortgage={onMortgage} onRedeem={onRedeem} onUpdateTrade={onUpdateTrade} onProposeTrade={onProposeTrade} onConfirmTrade={onConfirmTrade} onDeclineTrade={onDeclineTrade} onClose={onCloseActionPanel} />}
       {turnWarning && <TurnWarningBanner />}
 
     </section>
@@ -734,7 +724,7 @@ function ActionControlBar({ disabled, sellDisabled, onOpen }: { disabled: boolea
   );
 }
 
-function ActionPanelModal({ panel, activePlayer, players, viewerId, onBuild, onSellBuilding, onMortgage, onRedeem, onUpdateTrade, onProposeTrade, onConfirmTrade, onClose }: { panel: ActionPanel; activePlayer: Player; players: Player[]; viewerId?: string; onBuild: (spaceId: string) => void; onSellBuilding: (spaceId: string, mode: "single" | "hotel" | "clear") => void; onMortgage: (spaceId: string) => void; onRedeem: (spaceId: string) => void; onUpdateTrade: (update: Partial<TradeDraft>) => void; onProposeTrade: () => void; onConfirmTrade: () => void; onClose: () => void }) {
+function ActionPanelModal({ panel, activePlayer, players, viewerId, onBuild, onSellBuilding, onMortgage, onRedeem, onUpdateTrade, onProposeTrade, onConfirmTrade, onDeclineTrade, onClose }: { panel: ActionPanel; activePlayer: Player; players: Player[]; viewerId?: string; onBuild: (spaceId: string) => void; onSellBuilding: (spaceId: string, mode: "single" | "hotel" | "clear") => void; onMortgage: (spaceId: string) => void; onRedeem: (spaceId: string) => void; onUpdateTrade: (update: Partial<TradeDraft>) => void; onProposeTrade: () => void; onConfirmTrade: () => void; onDeclineTrade: () => void; onClose: () => void }) {
   const ownedProperties = activePlayer.ownedSpaceIds.map(getSpace).filter((space) => space.kind === "property");
   const trade = panel.trade;
   const recipient = trade ? players.find((player) => player.id === trade.recipientId) : undefined;
@@ -750,7 +740,7 @@ function ActionPanelModal({ panel, activePlayer, players, viewerId, onBuild, onS
         {panel.kind === "sell" && <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto pr-0.5">{ownedProperties.filter((space) => getPropertyLevel(activePlayer, space.id) > 0).map((space) => { const level = getPropertyLevel(activePlayer, space.id); const eligible = canSellEvenly(activePlayer, space); const refund = Math.round(getUpgradeCost(space, level) * 0.5); const clearRefund = Math.round(Array.from({ length: MAX_PROPERTY_LEVEL }, (_, index) => getUpgradeCost(space, index + 1)).reduce((total, cost) => total + cost, 0) * 0.5); return <div key={space.id} className="rounded-md border border-white/10 bg-white/5 px-1.5 py-1 text-left"><div className="flex items-center justify-between gap-1"><span className="truncate text-[clamp(5px,1.1vw,7px)] font-black text-white">{space.label} · {level === MAX_PROPERTY_LEVEL ? "HOTEL" : `H${level}`}</span><span className="text-[clamp(4px,.85vw,6px)] font-bold text-[#ffd38c]">50% REFUND</span></div>{level === MAX_PROPERTY_LEVEL ? <div className="mt-1 grid grid-cols-2 gap-1"><button type="button" disabled={!eligible} onClick={() => onSellBuilding(space.id, "hotel")} className="rounded bg-[#ffb46e] px-1 py-1 text-[clamp(4px,.85vw,6px)] font-black text-[#2b1103] disabled:opacity-35">HOTEL → 4H +{currency.format(refund)}</button><button type="button" disabled={!eligible} onClick={() => onSellBuilding(space.id, "clear")} className="rounded border border-[#ffb46e]/60 px-1 py-1 text-[clamp(4px,.85vw,6px)] font-black text-[#ffe0bf] disabled:opacity-35">CLEAR +{currency.format(clearRefund)}</button></div> : <button type="button" disabled={!eligible} onClick={() => onSellBuilding(space.id, "single")} className="mt-1 rounded bg-[#ffb46e] px-1.5 py-1 text-[clamp(5px,1vw,7px)] font-black text-[#2b1103] disabled:opacity-35">SELL 1 HOUSE +{currency.format(refund)}</button>}</div>; })}{!ownedProperties.some((space) => getPropertyLevel(activePlayer, space.id) > 0) && <p className="pt-4 text-[8px] font-bold text-slate-300">No houses or hotels to sell.</p>}</div>}
         {panel.kind === "mortgage" && <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto pr-0.5">{ownedProperties.map((space) => { const blocked = activePlayer.mortgagedSpaceIds.includes(space.id) || hasAnyBuildingsInColorSet(activePlayer, space); return <div key={space.id} className="flex items-center justify-between gap-1 rounded-md border border-white/10 bg-white/5 px-1.5 py-1 text-left"><span><span className="block text-[clamp(5px,1.1vw,7px)] font-black text-white">{space.label}</span><span className="block text-[clamp(4px,.85vw,6px)] font-bold text-slate-300">{activePlayer.mortgagedSpaceIds.includes(space.id) ? "Already mortgaged" : hasAnyBuildingsInColorSet(activePlayer, space) ? "Sell all color-set buildings first" : `Receive ${currency.format(getMortgageValue(space))}`}</span></span><button type="button" disabled={blocked} onClick={() => onMortgage(space.id)} className="rounded bg-[#78b4e8] px-1.5 py-1 text-[clamp(5px,1vw,7px)] font-black text-[#061525] disabled:opacity-35">MORTGAGE</button></div>; })}</div>}
         {panel.kind === "redeem" && <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto pr-0.5">{ownedProperties.filter((space) => activePlayer.mortgagedSpaceIds.includes(space.id)).map((space) => { const redeemCost = Math.ceil(getMortgageValue(space) * 1.1); return <div key={space.id} className="flex items-center justify-between gap-1 rounded-md border border-white/10 bg-white/5 px-1.5 py-1 text-left"><span><span className="block text-[clamp(5px,1.1vw,7px)] font-black text-white">{space.label}</span><span className="block text-[clamp(4px,.85vw,6px)] font-bold text-slate-300">Principal + 10% = {currency.format(redeemCost)}</span></span><button type="button" disabled={activePlayer.cash < redeemCost} onClick={() => onRedeem(space.id)} className="rounded bg-[#8ce37b] px-1.5 py-1 text-[clamp(5px,1vw,7px)] font-black text-[#102307] disabled:opacity-35">REDEEM</button></div>; })}{!ownedProperties.some((space) => activePlayer.mortgagedSpaceIds.includes(space.id)) && <p className="pt-4 text-[8px] font-bold text-slate-300">No mortgaged properties.</p>}</div>}
-        {panel.kind === "trade" && trade && <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-0.5 text-left">{trade.awaitingConfirmation ? <div className="rounded-lg border border-[#ffe36b]/55 bg-[#241c08]/70 p-2 text-center"><p className="text-[8px] font-black text-[#ffe36b]">WAITING FOR {recipient?.username.toUpperCase()} TO CONFIRM</p><p className="mt-1 text-[7px] text-white">Cash: {currency.format(trade.offeredCash)} offered / {currency.format(trade.requestedCash)} requested</p><div className="mt-2 grid grid-cols-2 gap-1">{viewerId === trade.recipientId ? <button type="button" onClick={onConfirmTrade} className="rounded bg-[#8ce37b] py-1 text-[7px] font-black text-[#102307]">ACCEPT</button> : <span className="rounded bg-white/10 py-1 text-[7px] font-black text-slate-400">AWAITING RECIPIENT</span>}<button type="button" onClick={onClose} className="rounded border border-white/25 py-1 text-[7px] font-black text-white">DECLINE</button></div></div> : <><p className="text-[6px] font-black uppercase text-[#80d8ff]">Choose opponent</p><div className="mt-1 flex gap-1 overflow-x-auto pb-1">{players.filter((player) => player.id !== activePlayer.id && !player.bankrupt).map((player) => <button type="button" key={player.id} onClick={() => onUpdateTrade({ recipientId: player.id, requestedPropertyId: null })} className={`shrink-0 rounded border px-1.5 py-1 text-[6px] font-black ${player.id === trade.recipientId ? "border-white bg-white/15" : "border-white/15"}`} style={{ color: player.color }}>{player.username}</button>)}</div><div className="mt-1 grid grid-cols-2 gap-1 text-[6px]"><div className="rounded border border-white/10 bg-white/5 p-1"><p className="font-black text-[#9ee5ff]">YOU OFFER CASH</p><div className="mt-1 flex items-center justify-between"><button type="button" onClick={() => onUpdateTrade({ offeredCash: Math.max(0, trade.offeredCash - 50) })}>−</button><span className="font-black text-white">{currency.format(trade.offeredCash)}</span><button type="button" onClick={() => onUpdateTrade({ offeredCash: Math.min(activePlayer.cash, trade.offeredCash + 50) })}>+</button></div></div><div className="rounded border border-white/10 bg-white/5 p-1"><p className="font-black text-[#ffd38c]">YOU REQUEST CASH</p><div className="mt-1 flex items-center justify-between"><button type="button" onClick={() => onUpdateTrade({ requestedCash: Math.max(0, trade.requestedCash - 50) })}>−</button><span className="font-black text-white">{currency.format(trade.requestedCash)}</span><button type="button" onClick={() => onUpdateTrade({ requestedCash: Math.min(recipient?.cash ?? 0, trade.requestedCash + 50) })}>+</button></div></div></div><p className="mt-1 text-center text-[6px] font-bold text-[#ffd38c]">A trade must include a title or Jail-Free card; cash-only requests are blocked.</p><div className="mt-1 grid grid-cols-2 gap-1 text-[6px]"><label className="rounded border border-white/10 bg-white/5 p-1"><span className="block font-black text-[#9ee5ff]">OFFER TITLE</span><select value={trade.offeredPropertyId ?? ""} onChange={(event) => onUpdateTrade({ offeredPropertyId: event.target.value || null })} className="mt-1 w-full bg-transparent text-white"><option value="">None</option>{offerableProperties.map((space) => <option key={space.id} value={space.id}>{space.label}</option>)}</select></label><label className="rounded border border-white/10 bg-white/5 p-1"><span className="block font-black text-[#ffd38c]">REQUEST TITLE</span><select value={trade.requestedPropertyId ?? ""} onChange={(event) => onUpdateTrade({ requestedPropertyId: event.target.value || null })} className="mt-1 w-full bg-transparent text-white"><option value="">None</option>{requestedProperties.map((space) => <option key={space.id} value={space.id}>{space.label}</option>)}</select></label></div><div className="mt-1 grid grid-cols-2 gap-1 text-[6px]"><button type="button" onClick={() => onUpdateTrade({ offeredJailFreeCard: !trade.offeredJailFreeCard })} disabled={activePlayer.jailFreeCards < 1} className={`rounded border p-1 font-black ${trade.offeredJailFreeCard ? "border-[#80d8ff] bg-[#0e3951]" : "border-white/15"}`}>OFFER JAIL-FREE</button><button type="button" onClick={() => onUpdateTrade({ requestedJailFreeCard: !trade.requestedJailFreeCard })} disabled={(recipient?.jailFreeCards ?? 0) < 1} className={`rounded border p-1 font-black ${trade.requestedJailFreeCard ? "border-[#ffd38c] bg-[#4d2d0d]" : "border-white/15"}`}>REQUEST JAIL-FREE</button></div><button type="button" onClick={onProposeTrade} className="mt-2 w-full rounded bg-[#74c8f5] py-1.5 text-[7px] font-black text-[#071826]">PROPOSE TRADE</button></>}</div>}
+        {panel.kind === "trade" && trade && <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-0.5 text-left">{trade.awaitingConfirmation ? <div className="rounded-lg border border-[#ffe36b]/55 bg-[#241c08]/70 p-2 text-center"><p className="text-[8px] font-black text-[#ffe36b]">WAITING FOR {recipient?.username.toUpperCase()} TO CONFIRM</p><p className="mt-1 text-[7px] text-white">Cash: {currency.format(trade.offeredCash)} offered / {currency.format(trade.requestedCash)} requested</p><div className="mt-2 grid grid-cols-2 gap-1">{viewerId === trade.recipientId || !viewerId ? <button type="button" onClick={onConfirmTrade} className="rounded bg-[#8ce37b] py-1 text-[7px] font-black text-[#102307]">ACCEPT</button> : <span className="rounded bg-white/10 py-1 text-[7px] font-black text-slate-400">AWAITING RECIPIENT</span>}<button type="button" onClick={(viewerId === trade.recipientId || !viewerId) ? onDeclineTrade : onClose} className="rounded border border-white/25 py-1 text-[7px] font-black text-white">{(viewerId === trade.recipientId || !viewerId) ? "DECLINE" : "CANCEL"}</button></div></div> : <><p className="text-[6px] font-black uppercase text-[#80d8ff]">Choose opponent</p><div className="mt-1 flex gap-1 overflow-x-auto pb-1">{players.filter((player) => player.id !== activePlayer.id && !player.bankrupt).map((player) => <button type="button" key={player.id} onClick={() => onUpdateTrade({ recipientId: player.id, requestedPropertyId: null })} className={`shrink-0 rounded border px-1.5 py-1 text-[6px] font-black ${player.id === trade.recipientId ? "border-white bg-white/15" : "border-white/15"}`} style={{ color: player.color }}>{player.username}</button>)}</div><div className="mt-1 grid grid-cols-2 gap-1 text-[6px]"><div className="rounded border border-white/10 bg-white/5 p-1"><p className="font-black text-[#9ee5ff]">YOU OFFER CASH</p><div className="mt-1 flex items-center justify-between"><button type="button" onClick={() => onUpdateTrade({ offeredCash: Math.max(0, trade.offeredCash - 50) })}>−</button><span className="font-black text-white">{currency.format(trade.offeredCash)}</span><button type="button" onClick={() => onUpdateTrade({ offeredCash: Math.min(activePlayer.cash, trade.offeredCash + 50) })}>+</button></div></div><div className="rounded border border-white/10 bg-white/5 p-1"><p className="font-black text-[#ffd38c]">YOU REQUEST CASH</p><div className="mt-1 flex items-center justify-between"><button type="button" onClick={() => onUpdateTrade({ requestedCash: Math.max(0, trade.requestedCash - 50) })}>−</button><span className="font-black text-white">{currency.format(trade.requestedCash)}</span><button type="button" onClick={() => onUpdateTrade({ requestedCash: Math.min(recipient?.cash ?? 0, trade.requestedCash + 50) })}>+</button></div></div></div><p className="mt-1 text-center text-[6px] font-bold text-[#ffd38c]">A trade must include a title or Jail-Free card; cash-only requests are blocked.</p><div className="mt-1 grid grid-cols-2 gap-1 text-[6px]"><label className="rounded border border-white/10 bg-white/5 p-1"><span className="block font-black text-[#9ee5ff]">OFFER TITLE</span><select value={trade.offeredPropertyId ?? ""} onChange={(event) => onUpdateTrade({ offeredPropertyId: event.target.value || null })} className="mt-1 w-full bg-transparent text-white"><option value="">None</option>{offerableProperties.map((space) => <option key={space.id} value={space.id}>{space.label}</option>)}</select></label><label className="rounded border border-white/10 bg-white/5 p-1"><span className="block font-black text-[#ffd38c]">REQUEST TITLE</span><select value={trade.requestedPropertyId ?? ""} onChange={(event) => onUpdateTrade({ requestedPropertyId: event.target.value || null })} className="mt-1 w-full bg-transparent text-white"><option value="">None</option>{requestedProperties.map((space) => <option key={space.id} value={space.id}>{space.label}</option>)}</select></label></div><div className="mt-1 grid grid-cols-2 gap-1 text-[6px]"><button type="button" onClick={() => onUpdateTrade({ offeredJailFreeCard: !trade.offeredJailFreeCard })} disabled={activePlayer.jailFreeCards < 1} className={`rounded border p-1 font-black ${trade.offeredJailFreeCard ? "border-[#80d8ff] bg-[#0e3951]" : "border-white/15"}`}>OFFER JAIL-FREE</button><button type="button" onClick={() => onUpdateTrade({ requestedJailFreeCard: !trade.requestedJailFreeCard })} disabled={(recipient?.jailFreeCards ?? 0) < 1} className={`rounded border p-1 font-black ${trade.requestedJailFreeCard ? "border-[#ffd38c] bg-[#4d2d0d]" : "border-white/15"}`}>REQUEST JAIL-FREE</button></div><button type="button" onClick={onProposeTrade} className="mt-2 w-full rounded bg-[#74c8f5] py-1.5 text-[7px] font-black text-[#071826]">PROPOSE TRADE</button></>}</div>}
       </section>
     </div>
   );
@@ -860,9 +850,6 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       ]);
       setIsRoomHost(room?.host_id === userId);
       if (existing?.state) {
-        // Do not overwrite an in-progress local dice animation with the last
-        // persisted snapshot.  That was the source of tokens jumping backward
-        // and purchase prompts disappearing before a player could act.
         const isNewServerRevision = serverVersionRef.current === null || existing.version !== serverVersionRef.current;
         if (isNewServerRevision && !isRollingRef.current && !isMovingRef.current && !publishingRef.current) {
           setGameState(existing.state as GameState);
@@ -897,9 +884,6 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     return () => window.clearInterval(timer);
   }, [roomId]);
 
-  // The shared room owns the deadline. Rendering it from the database clock
-  // keeps every device on the same visible countdown and avoids a stale
-  // client timer incorrectly claiming a turn after a reconnect.
   useEffect(() => {
     if (!roomId || !serverTurnDeadline) return;
     const syncTimer = () => setSecondsLeft(Math.max(0, Math.ceil((new Date(serverTurnDeadline).getTime() - Date.now()) / 1000)));
@@ -915,11 +899,16 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
 
   useEffect(() => {
     const serialized = JSON.stringify(gameState);
-    // A bot can be advanced by any connected room member. Restricting this to
-    // the original host left an entire match frozen as soon as that device was
-    // backgrounded or disconnected.
     const activeIsBot = isMonopolyBotId(activeServerPlayerRef.current);
-    if (!roomId || !userId || serverVersion === null || publishingRef.current || (!activeIsBot && activeServerPlayerRef.current !== userId) || lastPublishedStateRef.current === serialized) return;
+    const isTradeResolution = pendingCommandRef.current === "confirm_trade" || pendingCommandRef.current === "decline_trade";
+
+    // Stop publishing intermediate animated states (solves the rubberbanding bug)
+    if (isRolling || isMoving) return;
+
+    if (!roomId || !userId || serverVersion === null || publishingRef.current || 
+       (!activeIsBot && activeServerPlayerRef.current !== userId && !isTradeResolution) || 
+       lastPublishedStateRef.current === serialized) return;
+
     publishingRef.current = true;
     void supabase.rpc("update_monopoly_match_state", {
       p_room_id: roomId,
@@ -940,14 +929,13 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
         pendingCommandRef.current = "state_sync";
       }
     });
-  }, [gameState, roomId, serverVersion, userId]);
+  }, [gameState, roomId, serverVersion, userId, isRolling, isMoving]);
 
   const activePlayer = gameState.players.find((player) => player.id === gameState.activePlayerId) ?? gameState.players[0];
   const isMyTurn = !roomId || gameState.activePlayerId === userId;
-  // A bot has no browser of its own. Any connected room member may execute
-  // its deterministic turn; server RPCs still version-lock every mutation.
   const canDriveActiveTurn = isMyTurn || (Boolean(roomId) && isMonopolyBotId(gameState.activePlayerId));
   const winner = gameState.winnerId ? gameState.players.find((player) => player.id === gameState.winnerId) : null;
+  const isEndTurn = isMyTurn && gameState.hasRolled && !gameState.alert && !gameState.pendingPurchaseId && !gameState.actionPanel;
   const markCommand = (command: string) => { pendingCommandRef.current = command; };
 
   const playersBySpace = useMemo(() => {
@@ -971,9 +959,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     const lockPortrait = async () => {
       try {
         await (window.screen.orientation as BrowserScreenOrientation | undefined)?.lock?.("portrait");
-      } catch {
-        // Browsers can refuse orientation locks until user interaction.
-      }
+      } catch { }
     };
 
     void lockPortrait();
@@ -1000,8 +986,6 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   }, []);
 
   const registerPlayerActivity = useCallback(() => {
-    // Shared rooms use the database deadline. Updating a client-only warning
-    // here would create an extra board revision just before a server dice RPC.
     if (roomId) return;
     setSecondsLeft(TURN_DURATION_SECONDS);
     setGameState((current) => current.turnWarning ? { ...current, turnWarning: false } : current);
@@ -1102,22 +1086,6 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     }
   };
 
-  const resolveJailRoll = () => {
-    setGameState((current) => {
-      const mover = current.players.find((player) => player.id === current.activePlayerId);
-      if (!mover) return current;
-      const attempts = mover.jailAttempts + 1;
-      if (attempts < 3) {
-        return { ...current, players: current.players.map((player) => player.id === mover.id ? { ...player, jailAttempts: attempts } : player), actionLog: { title: `${mover.username} remains in Jail`, highlight: `NEED DOUBLES · ATTEMPT ${attempts} OF 3` }, alert: { kind: "notice", title: "Still in Jail", message: `${mover.username} needs matching dice to leave Jail. Attempt ${attempts} of 3.` }, autoPassPlayerId: mover.id };
-      }
-      if (mover.cash < JAIL_FINE) {
-        return { ...current, pendingTransactions: [...current.pendingTransactions, { kind: "bank-fee", playerId: mover.id, amount: JAIL_FINE, bankruptIfInsufficient: true, autoPassAfterConfirmation: true }], actionLog: { title: `${mover.username} cannot cover the Jail fine`, highlight: "CONFIRM BANKRUPTCY" }, alert: { kind: "payment", title: "Jail fine unpaid", message: `${mover.username} cannot pay the ${currency.format(JAIL_FINE)} Jail fine. Press CONTINUE to confirm bankruptcy.` } };
-      }
-      const players = current.players.map((player) => player.id === mover.id ? { ...player, inJail: false, jailAttempts: 0 } : player);
-      return { ...current, players, pendingTransactions: [...current.pendingTransactions, { kind: "balance", changes: [{ playerId: mover.id, cashDelta: -JAIL_FINE }], autoPassAfterConfirmation: true }], actionLog: { title: `${mover.username} must pay the Jail fine`, highlight: `${currency.format(JAIL_FINE)} · CONFIRM PAYMENT` }, alert: { kind: "payment", title: "Jail fine due", message: `Confirm the ${currency.format(JAIL_FINE)} Jail fine to end ${mover.username}'s turn.` } };
-    });
-  };
-
   const handleRoll = async () => {
     if (!canDriveActiveTurn || isRolling || isMoving || gameState.hasRolled || gameState.pendingPurchaseId || gameState.alert || gameState.winnerId) return;
     if (roomId && (!userId || serverVersion === null)) return;
@@ -1127,10 +1095,6 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     if (roomId) {
       const { data, error } = await supabase.rpc("roll_monopoly_dice", { p_room_id: roomId, p_expected_version: serverVersionRef.current });
       if (error || !data) {
-        // A timeout or another player's completed action can arrive between a
-        // rendered frame and a tap.  Keep the board usable and make the next
-        // authoritative poll replace the stale snapshot instead of leaving a
-        // disabled dice button with no explanation.
         setGameState((current) => ({ ...current, actionLog: { title: "Board updated", highlight: "WAITING FOR THE CURRENT TURN" } }));
         return;
       }
@@ -1146,10 +1110,6 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     window.setTimeout(() => {
       if (turnEpochRef.current !== turnEpoch) return;
       setIsRolling(false);
-      if (rollingPlayer.inJail && dice[0] !== dice[1]) {
-        resolveJailRoll();
-        return;
-      }
       movePlayerStepByStep(dieTotal, rollingPlayer.id, turnEpoch, rollingPlayer.position);
     }, 680);
   };
@@ -1212,11 +1172,13 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleCloseActionPanel = () => {
-    if (!isMyTurn) return;
+    const isTradeRecipient = gameState.actionPanel?.trade?.recipientId === userId;
+    if (!isMyTurn && !isTradeRecipient) return;
     registerPlayerActivity();
     setGameState((current) => {
       const cancelledSell = current.actionPanel?.kind === "sell";
-      return { ...current, actionPanel: null, autoPassPlayerId: cancelledSell ? current.activePlayerId : current.autoPassPlayerId, actionLog: cancelledSell ? { title: "SALE CANCELLED", highlight: "NEXT PLAYER READY" } : current.actionLog };
+      const cancelledTrade = current.actionPanel?.kind === "trade" && current.actionPanel?.trade?.awaitingConfirmation;
+      return { ...current, actionPanel: null, autoPassPlayerId: cancelledSell ? current.activePlayerId : current.autoPassPlayerId, actionLog: cancelledSell ? { title: "SALE CANCELLED", highlight: "NEXT PLAYER READY" } : cancelledTrade ? { title: "TRADE CANCELLED", highlight: "PROPOSAL REJECTED" } : current.actionLog };
     });
   };
 
@@ -1312,12 +1274,6 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleConfirmTrade = () => {
-    const proposedTrade = gameState.actionPanel?.trade;
-    if (roomId) {
-      if (!proposedTrade || userId !== proposedTrade.recipientId || serverVersionRef.current === null) return;
-      void supabase.rpc("accept_monopoly_trade", { p_room_id: roomId, p_expected_version: serverVersionRef.current });
-      return;
-    }
     markCommand("confirm_trade");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1329,6 +1285,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       const requestedSpace = trade?.requestedPropertyId ? getSpace(trade.requestedPropertyId) : null;
       const valid = panel?.kind === "trade" && trade?.awaitingConfirmation && proposer && recipient && Boolean(trade.offeredPropertyId || trade.requestedPropertyId || trade.offeredJailFreeCard || trade.requestedJailFreeCard) && trade.offeredCash <= proposer.cash && trade.requestedCash <= recipient.cash && (!offeredSpace || proposer.ownedSpaceIds.includes(offeredSpace.id) && getPropertyLevel(proposer, offeredSpace.id) === 0 && !proposer.mortgagedSpaceIds.includes(offeredSpace.id)) && (!requestedSpace || recipient.ownedSpaceIds.includes(requestedSpace.id) && getPropertyLevel(recipient, requestedSpace.id) === 0 && !recipient.mortgagedSpaceIds.includes(requestedSpace.id)) && (!trade.offeredJailFreeCard || proposer.jailFreeCards > 0) && (!trade.requestedJailFreeCard || recipient.jailFreeCards > 0);
       if (!valid || !trade || !proposer || !recipient) return { ...current, actionPanel: null, actionLog: { title: "TRADE DECLINED", highlight: "TERMS ARE NO LONGER VALID" } };
+      
       const players = current.players.map((player) => {
         if (player.id === proposer.id) {
           const ownedSpaceIds = [...player.ownedSpaceIds];
@@ -1348,6 +1305,12 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       });
       return { ...current, players, actionPanel: null, autoPassPlayerId: proposer.id, actionLog: { title: "TRADE CONFIRMED", highlight: `${proposer.username.toUpperCase()} ↔ ${recipient.username.toUpperCase()}` } };
     });
+  };
+
+  const handleDeclineTrade = () => {
+    markCommand("decline_trade");
+    registerPlayerActivity();
+    setGameState((current) => ({ ...current, actionPanel: null, actionLog: { title: "TRADE DECLINED", highlight: "PROPOSAL REJECTED" } }));
   };
 
   const handleUpgrade = () => {
@@ -1426,6 +1389,13 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     });
   };
 
+  const handleEndTurn = useCallback(() => {
+    if (!canDriveActiveTurn) return;
+    markCommand("end_turn");
+    registerPlayerActivity();
+    setGameState((current) => getNextTurnState(current, "system"));
+  }, [canDriveActiveTurn, registerPlayerActivity]);
+
   // The room host executes only deterministic bot turns. Bot seats carry
   // stable server UUIDs, so their dice, board changes, timeout and audit trail
   // travel through the exact same room/version path as human turns.
@@ -1435,9 +1405,10 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       if (gameState.alert) handleDismissAlert();
       else if (gameState.pendingPurchaseId) handleBuy();
       else if (!gameState.hasRolled && !gameState.actionPanel) void handleRoll();
+      else if (gameState.hasRolled && !gameState.alert && !gameState.actionPanel) handleEndTurn();
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [activePlayer.id, gameState, handleBuy, handleDismissAlert, handleRoll, isMoving, isRolling, roomId]);
+  }, [activePlayer.id, gameState, handleBuy, handleDismissAlert, handleRoll, handleEndTurn, isMoving, isRolling, roomId]);
 
   useEffect(() => {
     if (roomId) return;
@@ -1457,18 +1428,27 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     return () => window.clearTimeout(timer);
   }, [gameState.winnerId, phase, secondsLeft]);
 
-  // Jail is a single skipped turn. The player does not need to roll to leave;
-  // the shared state advances after a short, visible notice.
+  // Jail is a single skipped turn. If the player possesses a Jail-Free card, 
+  // they instantly consume it and are free to roll. Otherwise, they skip their turn.
   useEffect(() => {
-    if (gameState.winnerId || !activePlayer.inJail || gameState.hasRolled || isMoving || isRolling) return;
+    if (gameState.winnerId || !activePlayer.inJail || gameState.hasRolled || isMoving || isRolling || !canDriveActiveTurn) return;
     const timer = window.setTimeout(() => {
-      markCommand("timeout");
-      setGameState((current) => current.activePlayerId === activePlayer.id && current.players.find((player) => player.id === activePlayer.id)?.inJail
-        ? { ...current, players: current.players.map((player) => player.id === activePlayer.id ? { ...player, inJail: false, jailAttempts: 0 } : player), autoPassPlayerId: activePlayer.id, actionLog: { title: `${activePlayer.username} serves a Jail turn`, highlight: "TURN SKIPPED" } }
-        : current);
+      if (activePlayer.jailFreeCards > 0) {
+        markCommand("use_jail_card");
+        setGameState((current) => ({
+          ...current,
+          players: current.players.map((player) => player.id === activePlayer.id ? { ...player, inJail: false, jailFreeCards: player.jailFreeCards - 1 } : player),
+          actionLog: { title: `${activePlayer.username} used a Jail-Free card`, highlight: "ESCAPED JAIL · CAN ROLL" }
+        }));
+      } else {
+        markCommand("jail_skip");
+        setGameState((current) => current.activePlayerId === activePlayer.id && current.players.find((player) => player.id === activePlayer.id)?.inJail
+          ? { ...current, players: current.players.map((player) => player.id === activePlayer.id ? { ...player, inJail: false, jailAttempts: 0 } : player), autoPassPlayerId: activePlayer.id, actionLog: { title: `${activePlayer.username} serves a Jail turn`, highlight: "TURN SKIPPED" } }
+          : current);
+      }
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [activePlayer.id, activePlayer.inJail, activePlayer.username, gameState.hasRolled, gameState.winnerId, isMoving, isRolling]);
+  }, [activePlayer.id, activePlayer.inJail, activePlayer.jailFreeCards, activePlayer.username, gameState.hasRolled, gameState.winnerId, isMoving, isRolling, canDriveActiveTurn]);
 
   useEffect(() => {
     const playerId = gameState.autoPassPlayerId;
@@ -1484,10 +1464,6 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   }, [gameState.autoPassPlayerId, gameState.winnerId]);
 
   const handleExit = () => {
-    // A Monopoly entry is held in room escrow. Leaving an active shared match
-    // must mark the seat as departed, but must never refund the stake before
-    // the server settles the eventual winner.
-    // Closing the view is reconnectable; do not immediately bankrupt a player.
     if (onBack) onBack();
     else if (onClose) onClose();
     else window.location.assign("/");
@@ -1535,7 +1511,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
               <section aria-label="Southeast Asia Monopoly board" className="relative z-10 mx-auto grid h-[min(100cqh,100cqw)] w-[min(100cqh,100cqw)] max-h-full max-w-full overflow-hidden rounded-xl border-2 border-[#0a1016] bg-[#e8e4d6] shadow-[0_4px_0_#020407,0_10px_0_#1d2d39,0_23px_30px_rgba(0,0,0,.64),inset_0_0_0_2px_rgba(255,255,255,.62)]" style={{ gridTemplateColumns: "1.14fr repeat(7,minmax(0,1fr)) 1.14fr", gridTemplateRows: "1.14fr repeat(7,minmax(0,1fr)) 1.14fr" }}>
                 <div className="col-span-9 row-start-1 grid min-h-0 grid-cols-9">{topTileIds.map((id) => <BoardTile key={id} colorBandEdge="bottom" space={getSpace(id)} tokens={playersBySpace.get(id) ?? []} owner={ownersBySpace.get(id)} mortgaged={mortgagedSpaceIds.has(id)} activePlayerId={gameState.activePlayerId} onInspect={handleInspectProperty} />)}</div>
                 <div className="col-start-1 row-start-2 row-span-7 grid min-h-0 grid-rows-7">{leftTileIds.map((id) => <BoardTile key={id} colorBandEdge="right" space={getSpace(id)} tokens={playersBySpace.get(id) ?? []} owner={ownersBySpace.get(id)} mortgaged={mortgagedSpaceIds.has(id)} activePlayerId={gameState.activePlayerId} onInspect={handleInspectProperty} />)}</div>
-                <CityStage actionLog={gameState.actionLog} dice={gameState.dice} isRolling={isRolling} canRoll={isMyTurn && !isRolling && !isMoving && !gameState.hasRolled && !gameState.pendingPurchaseId && !gameState.alert && !gameState.actionPanel && !gameState.winnerId} showStartBanner={!gameState.hasJourneyStarted} activePlayer={activePlayer} alert={gameState.alert} auction={gameState.auction} actionPanel={gameState.actionPanel} secondsLeft={secondsLeft} turnWarning={gameState.turnWarning} players={gameState.players} viewerId={userId} onRoll={handleRoll} onBuy={handleBuy} onSkip={handleSkip} onUpgrade={handleUpgrade} onSell={handleSell} onAwardAuction={handleAwardAuction} onDismiss={handleDismissAlert} onBuild={handleBuildProperty} onSellBuilding={handleSellBuilding} onMortgage={handleMortgageProperty} onRedeem={handleRedeemMortgage} onUpdateTrade={handleUpdateTrade} onProposeTrade={handleProposeTrade} onConfirmTrade={handleConfirmTrade} onCloseActionPanel={handleCloseActionPanel} />
+                <CityStage actionLog={gameState.actionLog} dice={gameState.dice} isRolling={isRolling} canRoll={isMyTurn && !isRolling && !isMoving && !gameState.hasRolled && !gameState.pendingPurchaseId && !gameState.alert && !gameState.actionPanel && !gameState.winnerId} isEndTurn={isEndTurn} showStartBanner={!gameState.hasJourneyStarted} activePlayer={activePlayer} alert={gameState.alert} auction={gameState.auction} actionPanel={gameState.actionPanel} secondsLeft={secondsLeft} turnWarning={gameState.turnWarning} players={gameState.players} viewerId={userId} onRoll={handleRoll} onEndTurn={handleEndTurn} onBuy={handleBuy} onSkip={handleSkip} onUpgrade={handleUpgrade} onSell={handleSell} onAwardAuction={handleAwardAuction} onDismiss={handleDismissAlert} onBuild={handleBuildProperty} onSellBuilding={handleSellBuilding} onMortgage={handleMortgageProperty} onRedeem={handleRedeemMortgage} onUpdateTrade={handleUpdateTrade} onProposeTrade={handleProposeTrade} onConfirmTrade={handleConfirmTrade} onDeclineTrade={handleDeclineTrade} onCloseActionPanel={handleCloseActionPanel} />
                 <div className="col-start-9 row-start-2 row-span-7 grid min-h-0 grid-rows-7">{rightTileIds.map((id) => <BoardTile key={id} colorBandEdge="left" space={getSpace(id)} tokens={playersBySpace.get(id) ?? []} owner={ownersBySpace.get(id)} mortgaged={mortgagedSpaceIds.has(id)} activePlayerId={gameState.activePlayerId} onInspect={handleInspectProperty} />)}</div>
                 <div className="col-span-9 row-start-9 grid min-h-0 grid-cols-9">{bottomTileIds.map((id) => <BoardTile key={id} colorBandEdge="top" space={getSpace(id)} tokens={playersBySpace.get(id) ?? []} owner={ownersBySpace.get(id)} mortgaged={mortgagedSpaceIds.has(id)} activePlayerId={gameState.activePlayerId} onInspect={handleInspectProperty} />)}</div>
               </section>
@@ -1547,14 +1523,14 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
         <footer className="portrait-controls shrink-0 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2">
           <ActionControlBar disabled={!isMyTurn || isRolling || isMoving || Boolean(gameState.alert) || Boolean(gameState.winnerId)} sellDisabled={Boolean(gameState.winnerId)} onOpen={handleOpenActionPanel} />
           <div className="mx-auto mt-1.5 max-w-md">
-            <button type="button" onClick={handleRoll} disabled={!isMyTurn || isRolling || isMoving || gameState.hasRolled || Boolean(gameState.pendingPurchaseId) || Boolean(gameState.alert) || Boolean(gameState.winnerId)} className="group relative w-full overflow-hidden rounded-xl border border-[#8fdfff] bg-[linear-gradient(180deg,#5dd9ff,#087dbf)] px-3 py-2.5 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,.85),0_6px_13px_rgba(0,0,0,.4),0_0_17px_rgba(39,181,255,.18)] transition hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-45"><span className="absolute inset-x-[10%] top-0 h-px bg-white/85" /><span className="flex items-center justify-center gap-3"><span className="text-center"><span className="block text-[7px] font-black uppercase tracking-[.22em] text-[#d9f5ff]">Crystal action</span><span className="mt-0.5 block text-sm font-black uppercase tracking-[.14em]">{isRolling ? "Rolling" : isMoving ? "Moving" : isMyTurn ? "Roll dice" : `${activePlayer.username}'s turn`}</span></span><Gem className="h-6 w-6 shrink-0 text-[#fff0a8] drop-shadow-[0_0_5px_rgba(255,218,109,.8)]" fill="currentColor" /></span></button>
+            <button type="button" onClick={isEndTurn ? handleEndTurn : handleRoll} disabled={!isMyTurn || isRolling || isMoving || (!isEndTurn && gameState.hasRolled) || Boolean(gameState.pendingPurchaseId) || Boolean(gameState.alert) || Boolean(gameState.winnerId)} className="group relative w-full overflow-hidden rounded-xl border border-[#8fdfff] bg-[linear-gradient(180deg,#5dd9ff,#087dbf)] px-3 py-2.5 text-center text-white shadow-[inset_0_1px_0_rgba(255,255,255,.85),0_6px_13px_rgba(0,0,0,.4),0_0_17px_rgba(39,181,255,.18)] transition hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-45"><span className="absolute inset-x-[10%] top-0 h-px bg-white/85" /><span className="flex items-center justify-center gap-3"><span className="text-center"><span className="block text-[7px] font-black uppercase tracking-[.22em] text-[#d9f5ff]">Crystal action</span><span className="mt-0.5 block text-sm font-black uppercase tracking-[.14em]">{isRolling ? "Rolling" : isMoving ? "Moving" : isEndTurn ? "End turn" : isMyTurn ? "Roll dice" : `${activePlayer.username}'s turn`}</span></span><Gem className="h-6 w-6 shrink-0 text-[#fff0a8] drop-shadow-[0_0_5px_rgba(255,218,109,.8)]" fill="currentColor" /></span></button>
           </div>
         </footer>
       </div>
 
       {showGoBonusToast && <div className="pointer-events-none absolute left-1/2 top-16 z-[52] rounded-full border border-[#ffe45e] bg-[#2a2107]/95 px-4 py-2 text-center text-xs font-black tracking-[.12em] text-[#fff09a] shadow-[0_0_20px_rgba(255,213,68,.45)] animate-[monopoly-go-bonus-toast_3s_ease-in-out_forwards]">+$200 GO BONUS · CONFIRM TO COLLECT</div>}
 
-      {showRules && <div className="absolute inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm"><section className="w-full max-w-sm rounded-2xl border border-[#56bbff] bg-[linear-gradient(135deg,#12283b,#06101a)] p-5 shadow-[0_16px_44px_rgba(0,0,0,.65)]"><div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.2em] text-[#72caff]">Crystal table rules</p><h2 className="mt-1 text-xl font-black">Neon Monopoly</h2></div><button type="button" onClick={() => setShowRules(false)} className="grid h-8 w-8 place-items-center rounded-full border border-white/20"><X className="h-4 w-4" /></button></div><ol className="mt-4 space-y-2 text-xs leading-relaxed text-slate-200"><li><b className="text-[#ffda2d]">1.</b> Every selected player begins together on GO with {currency.format(STARTING_CASH)}.</li><li><b className="text-[#ffda2d]">2.</b> Roll the two 3D dice, buy available cities, and collect rent on owned cities.</li><li><b className="text-[#ffda2d]">3.</b> Passing GO earns {currency.format(GO_SALARY)}. Roll matching dice to leave Jail before the final fine.</li><li><b className="text-[#ffda2d]">4.</b> At game end, each surviving player receives final points equal to remaining cash × 10%.</li></ol><button type="button" onClick={() => setShowRules(false)} className="mt-5 w-full rounded-xl bg-gradient-to-b from-[#49c5ff] to-[#0c7fc4] py-3 text-xs font-black uppercase tracking-wider">Got it</button></section></div>}
+      {showRules && <div className="absolute inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm"><section className="w-full max-w-sm rounded-2xl border border-[#56bbff] bg-[linear-gradient(135deg,#12283b,#06101a)] p-5 shadow-[0_16px_44px_rgba(0,0,0,.65)]"><div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.2em] text-[#72caff]">Crystal table rules</p><h2 className="mt-1 text-xl font-black">Neon Monopoly</h2></div><button type="button" onClick={() => setShowRules(false)} className="grid h-8 w-8 place-items-center rounded-full border border-white/20"><X className="h-4 w-4" /></button></div><ol className="mt-4 space-y-2 text-xs leading-relaxed text-slate-200"><li><b className="text-[#ffda2d]">1.</b> Every selected player begins together on GO with {currency.format(STARTING_CASH)}.</li><li><b className="text-[#ffda2d]">2.</b> Roll the two 3D dice, buy available cities, and collect rent on owned cities.</li><li><b className="text-[#ffda2d]">3.</b> Passing GO earns {currency.format(GO_SALARY)}. Being sent to Jail skips your next turn (unless you possess a Jail-Free card).</li><li><b className="text-[#ffda2d]">4.</b> At game end, each surviving player receives final points equal to remaining cash × 10%.</li></ol><button type="button" onClick={() => setShowRules(false)} className="mt-5 w-full rounded-xl bg-gradient-to-b from-[#49c5ff] to-[#0c7fc4] py-3 text-xs font-black uppercase tracking-wider">Got it</button></section></div>}
 
       {winner && <div className="absolute inset-0 z-[60] grid place-items-center bg-black/80 p-4 backdrop-blur-sm"><section className="w-full max-w-sm rounded-2xl border-2 bg-[linear-gradient(135deg,#112b40,#061019)] p-6 text-center shadow-[0_0_40px_rgba(44,173,255,.22)]" style={{ borderColor: winner.color }}><Crown className="mx-auto h-10 w-10" style={{ color: winner.color }} fill="currentColor" /><p className="mt-2 text-[10px] font-black uppercase tracking-[.2em]" style={{ color: winner.color }}>Southeast Asia champion</p><h2 className="mt-2 text-3xl font-black">{winner.username}</h2><p className="mt-2 text-sm text-slate-200">Final points: {gameState.finalPointsAwarded ? winner.points : getFinalPoints(winner)} · {currency.format(winner.cash)} cash × 10%</p><div className="mt-4 space-y-1 rounded-xl border border-white/10 bg-black/20 p-2 text-left">{gameState.players.filter((player) => !player.bankrupt).sort((first, second) => getFinalPoints(second) - getFinalPoints(first) || second.cash - first.cash).map((player) => <div key={player.id} className="flex items-center justify-between text-[10px] font-bold"><span style={{ color: player.color }}>{player.username}</span><span className="text-slate-100">{getFinalPoints(player)} PTS · {currency.format(player.cash)}</span></div>)}</div><button type="button" onClick={() => { turnEpochRef.current += 1; setSecondsLeft(TURN_DURATION_SECONDS); setGameState(createGameState(selectedPlayerCount)); }} className="mt-6 w-full rounded-xl bg-white/10 py-3 text-xs font-black uppercase tracking-wider transition hover:bg-white/20"><RotateCcw className="mr-1 inline h-4 w-4" />Play again</button><button type="button" onClick={() => setPhase("setup")} className="mt-2 w-full py-2 text-[10px] font-black uppercase tracking-wider text-[#77cbff]">Change players</button></section></div>}
     </div>

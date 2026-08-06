@@ -135,9 +135,16 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
    return () => window.clearInterval(timer);
  }, [turnDeadline]);
 
+ // 🎯 THE FIX: Continuous aggressive polling for bot resolution AND timeout advancements
  useEffect(() => {
    if (!roomId) return;
-   const timer = window.setInterval(() => { void supabase.rpc("resolve_big_two_bot_turns", { p_room_id: roomId }); }, 1000);
+   const handleServerTicks = () => {
+     void supabase.rpc("resolve_big_two_bot_turns", { p_room_id: roomId });
+     void supabase.rpc("advance_big_two_timeout", { p_room_id: roomId });
+   };
+   
+   handleServerTicks();
+   const timer = window.setInterval(handleServerTicks, 1000);
    return () => window.clearInterval(timer);
  }, [roomId]);
 
@@ -162,26 +169,29 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
      ]);
      const seat = (room?.players || []).find((player: any) => player.user_id === auth.user?.id)?.seat;
      if (!seat || !state || (state.status !== "playing" && state.status !== "completed")) return;
-     // A bot opening seat must never depend on a particular human device
-     // staying on the game screen. The RPC is row-locked and idempotent, so
-     // every client may safely nudge it as soon as it observes a bot turn.
+     
      const currentSeatPlayer = (room?.players || []).find((player: any) => player.seat === state.current_seat);
      if (state.status === "playing" && currentSeatPlayer?.is_bot) {
        void supabase.rpc("resolve_big_two_bot_turns", { p_room_id: roomId });
      }
+     
      const { data: hand } = await supabase.from("big_two_player_hands").select("cards").eq("room_id", roomId).eq("seat", seat).maybeSingle();
      if (!hand) return;
+     
      const bySeat = new Map<number, { name?: string }>((room.players || []).map((player: any) => [player.seat, player]));
      const order = [seat, seat % 4 + 1, (seat + 1) % 4 + 1, (seat + 2) % 4 + 1];
      setPlayerNames(order.map((number) => bySeat.get(number)?.name || getRandomBotOpponent().name));
+     
      const counts = state.state?.hand_counts || [13,13,13,13];
      const ownCards = sortCards((hand.cards || []) as Card[]);
      setHands(order.map((number, index) => index === 0 ? ownCards : Array.from({ length: counts[number - 1] || 0 }, (_, card) => ({ id: `back-${number}-${card}`, rank: 0, suit: 0 as Suit }))));
+     
      const tableCards = (state.state?.table_cards || []) as Card[];
      const tableValue = tableCards.length ? evaluate(tableCards) : null;
      const lastSeat = Number(state.state?.last_play_seat || 0);
      const displayTurn = order.indexOf(state.current_seat);
      const displayLastPlayer = order.indexOf(lastSeat);
+     
      setTurn(displayTurn >= 0 ? displayTurn : 0);
      setCurrentPlay(tableValue && displayLastPlayer >= 0 ? { cards: tableCards, value: tableValue, player: displayLastPlayer } : null);
      setFreeLead(Boolean(state.state?.free_lead));
@@ -189,12 +199,11 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
      setPasses(Number(state.state?.passes || 0));
      setOpening(Boolean(state.state?.opening_required));
      setTurnDeadline(state.turn_deadline || null);
-    // `winner_seat` is authoritative and is written with the final play.  Do
-    // not infer a win from the local hand: an older local snapshot can be
-    // empty while another player has already completed the shared match.
-    const winnerSeat = Number(state.state?.winner_seat || 0);
+
+     const winnerSeat = Number(state.state?.winner_seat || 0);
      const displayWinner = order.indexOf(winnerSeat);
      const winningPlayer = (room.players || []).find((player: any) => player.seat === winnerSeat);
+     
      if (state.status === "completed" && winningPlayer) {
        setWinner(displayWinner >= 0 ? displayWinner : -1);
        setWinnerName(winningPlayer.name || "Player");
@@ -204,16 +213,17 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
        setWinnerName(null);
        setViewerWon(false);
      }
+     
      setMessage(tableCards.length && tableValue && displayLastPlayer >= 0
        ? `${order.map((number) => bySeat.get(number)?.name || "Player")[displayLastPlayer]} played ${tableValue.label}.`
        : displayTurn === 0 ? (state.state?.opening_required ? "Your opening play must include 3♦." : "Your turn. Lead the new trick.") : `${order.map((number) => bySeat.get(number)?.name || "Player")[displayTurn] || "Player"}'s turn.`);
      setRoomReady(true);
    };
+   
    void loadRoom();
    const channel = supabase.channel(`big-two-${roomId}`).on("postgres_changes", { event: "*", schema: "public", table: "big_two_match_state", filter: `room_id=eq.${roomId}` }, loadRoom).on("postgres_changes", { event: "*", schema: "public", table: "big_two_player_hands", filter: `room_id=eq.${roomId}` }, loadRoom).subscribe();
-   // Polling remains as a reliable fallback when Supabase Realtime has not
-   // yet been enabled for these new tables in a production project.
    const poll = window.setInterval(() => { void loadRoom(); }, 1500);
+   
    return () => { window.clearInterval(poll); void supabase.removeChannel(channel); };
  }, [roomId]);
 
