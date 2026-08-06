@@ -35,6 +35,14 @@ export default function CompetitiveGameLaunch({ gameKey, gameTitle, Game, onClos
     reported.current = true; // pass-and-play and host sessions do not award online currency.
     setOpponent({ name: mode === "host" ? "Guest Player" : "Player 2", isBot: false });
   };
+  const joinRoom = async () => {
+    const { data: auth } = await supabase.auth.getUser();
+    const { data, error } = await supabase.rpc("join_two_player_room", { p_code: roomCode, p_name: auth.user?.email?.split("@")[0] || "Player 2" });
+    if (error) { setMatchError(error.message); return; }
+    if (data.game_key !== gameKey) { setMatchError("That room belongs to a different game."); return; }
+    setRoom({ id: data.room_id, seat: data.seat as 1 | 2 });
+    setOpponent({ name: "Online Player", isBot: false });
+  };
   const reportResult = async (result: Result) => {
     if (reported.current) return;
     reported.current = true;
@@ -45,6 +53,6 @@ export default function CompetitiveGameLaunch({ gameKey, gameTitle, Game, onClos
   if (mode === "online" && userId) return <MatchmakingModal gameKey={gameKey} gameName={gameTitle} userId={userId} fallbackAfterMs={45000} onMatchFound={(match) => void startMatch(match)} onCancel={() => setMode("menu")} />;
   if (mode === "host") return <div className="fixed inset-0 z-[100] grid place-items-center bg-[#09090b] p-6 text-center text-white"><div className="w-full max-w-sm rounded-[32px] border border-white/10 bg-[#18181b] p-7"><p className="text-xs font-bold uppercase tracking-widest text-neutral-400">Create a private room</p><button onClick={async()=>{const {data:{user}}=await supabase.auth.getUser(); const {data,error}=await supabase.rpc("create_two_player_room",{p_game_key:gameKey,p_name:user?.email?.split("@")[0]||"Player 1",p_state:{}}); if(error){setMatchError(error.message);return;} if(gameKey==="four-in-a-row") await supabase.rpc("create_four_in_a_row_state",{p_room_id:data.room_id}); setRoom({id:data.room_id,seat:1});setRoomCode(data.room_code);}} className="mt-6 w-full rounded-2xl bg-[#CCFF00] py-3 text-xs font-black uppercase text-black">Create room</button>{roomCode&&<><p className="mt-6 text-xs font-bold uppercase text-neutral-400">Share this room code</p><p className="my-3 font-mono text-4xl font-black tracking-[.2em] text-[#CCFF00]">{roomCode}</p><button onClick={()=>setOpponent({name:"Online Player",isBot:false})} className="w-full rounded-2xl bg-white py-3 text-xs font-black uppercase text-black">Enter room</button></>}<button onClick={() => setMode("menu")} className="mt-4 text-xs font-bold text-neutral-400">Back</button></div></div>;
   if (mode === "local") return <Game onClose={onClose} onResult={() => undefined} localMode />;
-  if (mode === "menu") return <GameEngagementMenu gameName={gameTitle} entryFee={entryFee.current} onOnline={() => userId ? setMode("online") : setStatus("Sign in to play online.")} onHost={() => setMode("host")} onLocal={() => setMode("local")} onExit={onClose} />;
+  if (mode === "menu") return <GameEngagementMenu gameName={gameTitle} entryFee={entryFee.current} onOnline={() => userId ? setMode("online") : setStatus("Sign in to play online.")} onHost={() => setMode("host")} onLocal={() => setMode("local")} onExit={onClose} roomCode={roomCode} setRoomCode={setRoomCode} onJoin={() => void joinRoom()} />;
   return <div className="fixed inset-0 z-[100] grid place-items-center bg-background p-6 text-center text-on-background"><div><p className="font-bold">{status}</p><button onClick={onClose} className="mt-5 rounded-xl bg-primary px-5 py-3 text-xs font-black text-on-primary">Back to arcade</button></div></div>;
 }

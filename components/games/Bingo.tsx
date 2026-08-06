@@ -1,10 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 interface BingoProps {
  onClose?: () => void;
  onResult?: (result: "Win" | "Loss" | "Draw") => void;
+ roomId?: string;
+ seat?: 1 | 2;
 }
 
 type BoardTile = {
@@ -60,7 +63,7 @@ const countCompletedLines = (board: BoardTile[]): number => {
  return lines;
 };
 
-export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
+export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, seat = 1 }) => {
  const [appState, setAppState] = useState<"menu" | "playing">("menu");
  const [board, setBoard] = useState<BoardTile[]>([]);
  const [computerBoard, setComputerBoard] = useState<BoardTile[]>(() =>
@@ -75,6 +78,22 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
  const [showHowToPlay, setShowHowToPlay] = useState<boolean>(false);
  const [isAutoCalling, setIsAutoCalling] = useState<boolean>(true);
  const resultReportedRef = React.useRef(false);
+ const [roomVersion, setRoomVersion] = useState(1);
+
+ useEffect(() => {
+   if (!roomId) return;
+   const load = async () => {
+     const [{ data: game }, { data: card }] = await Promise.all([
+       supabase.from("two_player_game_state").select("state,version,status").eq("room_id", roomId).maybeSingle(),
+       supabase.from("bingo_match_cards").select("card,marked").eq("room_id", roomId).eq("seat", seat).maybeSingle(),
+     ]);
+     if (game) { setCalledNumbers(game.state?.called_numbers || []); setRoomVersion(game.version); const winner = Number(game.state?.winner_seat || 0); setIsGameOver(game.status === "completed"); setHasWon(winner === seat); }
+     if (card?.card) setBoard(card.card.map((number: number | null, index: number) => ({ id: `tile-${index}`, number: index === 12 ? "FREE" : number, marked: (card.marked || []).includes(index) })));
+   };
+   void load();
+   const channel = supabase.channel(`bingo-${roomId}`).on("postgres_changes", { event: "*", schema: "public", table: "two_player_game_state", filter: `room_id=eq.${roomId}` }, load).on("postgres_changes", { event: "*", schema: "public", table: "bingo_match_cards", filter: `room_id=eq.${roomId}` }, load).subscribe();
+   return () => { void supabase.removeChannel(channel); };
+ }, [roomId, seat]);
 
  useEffect(() => {
    if (!isGameOver || resultReportedRef.current) return;
@@ -84,6 +103,10 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
 
  // Call Next Ball
  const callNextNumber = useCallback(() => {
+   if (roomId) {
+     void supabase.rpc("bingo_draw_number", { p_room_id: roomId, p_expected_version: roomVersion });
+     return;
+   }
    if (calledNumbers.length >= 75 || isGameOver) return;
 
    const available = Array.from({ length: 75 }, (_, idx) => idx + 1).filter(
@@ -113,7 +136,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
 
      return nextBoard;
    });
- }, [calledNumbers, isGameOver]);
+ }, [calledNumbers, isGameOver, roomId, roomVersion]);
 
  // Start Game
  const startNewGame = () => {
@@ -143,6 +166,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
 
  // Handle Tile Click
  const handleTileClick = (index: number) => {
+   if (roomId) { void supabase.rpc("bingo_mark_square", { p_room_id: roomId, p_tile_index: index, p_expected_version: roomVersion }); return; }
    if (isGameOver) return;
    const tile = board[index];
 
@@ -215,7 +239,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
              BINGO SAFARI
            </h1>
            <p className="text-emerald-200 font-bold tracking-widest uppercase text-xs drop-shadow">
-             Player vs Computer
+             {roomId ? "Online Bingo Match" : "Bingo Safari"}
            </p>
          </div>
 
@@ -224,7 +248,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
              onClick={startNewGame}
              className="bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-slate-950 font-black py-4 rounded-2xl shadow-[0_5px_0_#b45309] hover:brightness-110 active:translate-y-1 active:shadow-none transition-all text-sm tracking-wider uppercase border-2 border-amber-200"
            >
-             🤖 PLAY VS COMPUTER
+             Start Bingo
            </button>
 
          </div>
@@ -344,14 +368,14 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
          {/* Lines & Status Bar */}
          <div className="w-full shrink-0 flex items-center justify-between px-6 py-1 max-w-sm mx-auto text-xs font-extrabold text-amber-300">
            <span>Your Lines: {completedLines} / 5</span>
-           <span className="text-rose-400">Computer: {computerLines} / 5</span>
+           {!roomId && <span className="text-rose-400">Opponent: {computerLines} / 5</span>}
          </div>
 
          {/* Main Gameplay Area */}
          <div className="w-full flex items-center justify-center p-3 gap-3 max-w-2xl mx-auto">
           
-           {/* Computer card preview */}
-             <div className="hidden sm:flex flex-col items-center relative shrink-0">
+           {/* Legacy local preview; online games render only the player’s private card. */}
+             {!roomId && <div className="hidden sm:flex flex-col items-center relative shrink-0">
                <div className="bg-[#4a2311] border-2 border-[#2d1408] rounded-lg p-1.5 w-24 shadow-2xl">
                  <div className="grid grid-cols-5 gap-0.5 text-[8px] font-black text-center mb-1">
                    <span className="text-pink-400">B</span>
@@ -376,7 +400,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
                  </div>
                </div>
                <div className="absolute right-[-10px] top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-t-transparent border-b-8 border-b-transparent border-l-8 border-l-rose-500 drop-shadow" />
-             </div>
+             </div>}
 
            {/* Main Wooden Bingo Board */}
            <div className="bg-[#4a2311] border-4 border-[#2d1408] rounded-3xl p-3 shadow-[0_15px_30px_rgba(0,0,0,0.8)] w-full max-w-[360px]">
@@ -542,4 +566,3 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult }) => {
 };
 
 export default BingoGame;
-
