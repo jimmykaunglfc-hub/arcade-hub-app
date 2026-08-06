@@ -223,6 +223,26 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
  const [gameOver, setGameOver] = useState(false);
  const [showHowToPlay, setShowHowToPlay] = useState(false);
 
+ // This game owns the full mobile viewport. Without this lock iOS can scroll
+ // the page behind the fixed menu and expose a distracting rubber-band area.
+ useEffect(() => {
+   const root = document.documentElement;
+   const body = document.body;
+   const previousRootOverscroll = root.style.overscrollBehavior;
+   const previousBodyOverflow = body.style.overflow;
+   const previousBodyOverscroll = body.style.overscrollBehavior;
+
+   root.style.overscrollBehavior = "none";
+   body.style.overflow = "hidden";
+   body.style.overscrollBehavior = "none";
+
+   return () => {
+     root.style.overscrollBehavior = previousRootOverscroll;
+     body.style.overflow = previousBodyOverflow;
+     body.style.overscrollBehavior = previousBodyOverscroll;
+   };
+ }, []);
+
  const selected = useMemo(
    () => tray.find((shape) => shape.id === selectedId) ?? null,
    [selectedId, tray]
@@ -403,7 +423,7 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
 
  if (mode === "menu") {
    return (
-     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-violet-950 via-indigo-950 to-slate-950 p-6 text-white">
+     <div className="fixed inset-0 z-40 flex h-[100dvh] max-h-[100dvh] flex-col items-center justify-center overflow-hidden overscroll-none touch-pan-x bg-gradient-to-b from-violet-950 via-indigo-950 to-slate-950 p-6 text-white">
        <div className="absolute left-3 right-3 top-3 flex items-center justify-between">
          <button
            type="button"
