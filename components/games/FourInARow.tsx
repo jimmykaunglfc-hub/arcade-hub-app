@@ -1,11 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 interface FourInARowProps {
  onClose?: () => void;
  onResult?: (result: "Win" | "Loss" | "Draw") => void;
  localMode?: boolean;
+ roomId?: string;
+ seat?: 1 | 2;
 }
 
 type Player = 1 | 2; // 1 = You (Red), 2 = Opponent (Yellow)
@@ -187,7 +190,7 @@ const chooseComputerMove = (board: Board) => {
  return bestColumn;
 };
 
-export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, localMode = false }) => {
+export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, localMode = false, roomId, seat = 1 }) => {
  const [board, setBoard] = useState<Board>(() =>
    Array.from({ length: ROWS }, () => Array(COLS).fill(null))
  );
@@ -197,6 +200,25 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  const [winningCells, setWinningCells] = useState<[number, number][]>([]);
  const [showHowToPlay, setShowHowToPlay] = useState(false);
  const resultReportedRef = useRef(false);
+ const [roomVersion, setRoomVersion] = useState(1);
+ const online = Boolean(roomId);
+
+ useEffect(() => {
+   if (!roomId) return;
+   const load = async () => {
+     const { data } = await supabase.from("two_player_game_state").select("state,current_seat,version,status").eq("room_id", roomId).maybeSingle();
+     if (!data) return;
+     const nextBoard = data.state?.board as Board | undefined;
+     if (nextBoard) setBoard(nextBoard);
+     setCurrentPlayer(data.current_seat as Player);
+     setRoomVersion(data.version);
+     const winnerSeat = Number(data.state?.winner_seat || 0);
+     setWinner(winnerSeat ? winnerSeat as Player : data.state?.draw ? "Draw" : null);
+   };
+   void load();
+   const channel = supabase.channel(`four-in-a-row-${roomId}`).on("postgres_changes", { event: "*", schema: "public", table: "two_player_game_state", filter: `room_id=eq.${roomId}` }, load).subscribe();
+   return () => { void supabase.removeChannel(channel); };
+ }, [roomId]);
 
  useEffect(() => {
    if (!winner || resultReportedRef.current) return;
@@ -296,17 +318,19 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  };
 
  const handleBoardClick = (e: React.MouseEvent<HTMLDivElement>) => {
-   if (winner || (!localMode && currentPlayer !== 1) || !boardRef.current) return;
+   if (winner || (!localMode && !online && currentPlayer !== 1) || (online && currentPlayer !== seat) || !boardRef.current) return;
    const rect = boardRef.current.getBoundingClientRect();
    const relativeX = e.clientX - rect.left;
    const colWidth = rect.width / COLS;
    const clickedCol = Math.min(Math.max(Math.floor(relativeX / colWidth), 0), COLS - 1);
-   executeMove(clickedCol, 1);
+   if (online && roomId) {
+     void supabase.rpc("four_in_a_row_move", { p_room_id: roomId, p_column: clickedCol, p_expected_version: roomVersion });
+   } else executeMove(clickedCol, currentPlayer);
  };
 
  // Strong computer move: immediate tactics plus depth-six alpha-beta search.
  useEffect(() => {
-   if (!localMode && currentPlayer === 2 && !winner && !showHowToPlay) {
+   if (!online && !localMode && currentPlayer === 2 && !winner && !showHowToPlay) {
      const timer = setTimeout(() => {
        const validColumns = getValidColumns(board);
        if (validColumns.length > 0) {
@@ -316,7 +340,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
 
      return () => clearTimeout(timer);
    }
- }, [currentPlayer, winner, board, showHowToPlay, localMode]);
+ }, [currentPlayer, winner, board, showHowToPlay, localMode, online]);
 
  const resetGame = () => {
    resultReportedRef.current = false;
