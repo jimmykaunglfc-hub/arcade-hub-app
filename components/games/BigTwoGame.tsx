@@ -122,6 +122,12 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
  const [showRules,setShowRules]=useState(false);
 
  useEffect(() => {
+   const preventPinch = (event: Event) => event.preventDefault();
+   document.addEventListener("gesturestart", preventPinch, { passive: false });
+   return () => document.removeEventListener("gesturestart", preventPinch);
+ }, []);
+
+ useEffect(() => {
    if (!turnDeadline) { setSecondsLeft(null); return; }
    const update = () => setSecondsLeft(Math.max(0, Math.ceil((new Date(turnDeadline).getTime() - Date.now()) / 1000)));
    update();

@@ -150,6 +150,12 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
  const [showRules, setShowRules] = useState(false);
 
  useEffect(() => {
+   const preventPinch = (event: Event) => event.preventDefault();
+   document.addEventListener("gesturestart", preventPinch, { passive: false });
+   return () => document.removeEventListener("gesturestart", preventPinch);
+ }, []);
+
+ useEffect(() => {
    if (!roomId) return;
    void (async () => {
      const [{ data: auth }, { data: room }] = await Promise.all([supabase.auth.getUser(), supabase.rpc("get_matchmaking_room", { p_room_id: roomId })]);
@@ -165,14 +171,16 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
  }, [roomId]);
 
  useEffect(() => {
-   if (!roomId || !isHost || !botIndexes.includes(current) || winner !== null || rolling) return;
+   // Any connected player may advance a bot.  The room host is not a reliable
+   // turn worker on mobile because it can be backgrounded at any time.
+   if (!roomId || !botIndexes.includes(current) || winner !== null || rolling) return;
    const timer = window.setTimeout(() => {
      if (dice === null) { void supabase.rpc("ludo_roll", { p_room_id: roomId }); return; }
      const piece = movableTokens(tokens[current], dice)[0];
      if (piece !== undefined) void supabase.rpc("ludo_move", { p_room_id: roomId, p_piece: piece });
    }, 700);
    return () => window.clearTimeout(timer);
- }, [botIndexes, current, dice, isHost, rolling, roomId, tokens, winner]);
+ }, [botIndexes, current, dice, rolling, roomId, tokens, winner]);
 
  useEffect(() => {
    if (!roomId) return;
@@ -332,7 +340,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
    ) as PlayerId | -1;
 
  return (
-   <div className="absolute inset-x-0 bottom-20 top-0 flex flex-col overflow-hidden bg-[radial-gradient(circle_at_center,#2563a8_0%,#173b73_58%,#10284f_100%)] p-3 text-white select-none">
+   <div className="fixed inset-0 z-[100] flex h-[100dvh] min-h-[100svh] flex-col overflow-hidden overscroll-none touch-none bg-[radial-gradient(circle_at_center,#2563a8_0%,#173b73_58%,#10284f_100%)] p-3 text-white select-none">
      <header className="mx-auto grid w-full max-w-md grid-cols-[1fr_auto_1fr] items-center gap-2">
        <div className="justify-self-start">
          {onClose && (

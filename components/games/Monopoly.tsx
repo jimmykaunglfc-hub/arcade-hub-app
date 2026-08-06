@@ -825,6 +825,12 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   const goBonusToastTimerRef = useRef<number | undefined>(undefined);
   const alertResolutionRef = useRef(false);
 
+  useEffect(() => {
+    const preventPinch = (event: Event) => event.preventDefault();
+    document.addEventListener("gesturestart", preventPinch, { passive: false });
+    return () => document.removeEventListener("gesturestart", preventPinch);
+  }, []);
+
   useEffect(() => { isRollingRef.current = isRolling; }, [isRolling]);
   useEffect(() => { isMovingRef.current = isMoving; }, [isMoving]);
 
@@ -909,8 +915,11 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
 
   useEffect(() => {
     const serialized = JSON.stringify(gameState);
-    const activeIsHostBot = isRoomHost && isMonopolyBotId(activeServerPlayerRef.current);
-    if (!roomId || !userId || serverVersion === null || publishingRef.current || (!activeIsHostBot && activeServerPlayerRef.current !== userId) || lastPublishedStateRef.current === serialized) return;
+    // A bot can be advanced by any connected room member. Restricting this to
+    // the original host left an entire match frozen as soon as that device was
+    // backgrounded or disconnected.
+    const activeIsBot = isMonopolyBotId(activeServerPlayerRef.current);
+    if (!roomId || !userId || serverVersion === null || publishingRef.current || (!activeIsBot && activeServerPlayerRef.current !== userId) || lastPublishedStateRef.current === serialized) return;
     publishingRef.current = true;
     void supabase.rpc("update_monopoly_match_state", {
       p_room_id: roomId,
@@ -931,10 +940,13 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
         pendingCommandRef.current = "state_sync";
       }
     });
-  }, [gameState, isRoomHost, roomId, serverVersion, userId]);
+  }, [gameState, roomId, serverVersion, userId]);
 
   const activePlayer = gameState.players.find((player) => player.id === gameState.activePlayerId) ?? gameState.players[0];
   const isMyTurn = !roomId || gameState.activePlayerId === userId;
+  // A bot has no browser of its own. Any connected room member may execute
+  // its deterministic turn; server RPCs still version-lock every mutation.
+  const canDriveActiveTurn = isMyTurn || (Boolean(roomId) && isMonopolyBotId(gameState.activePlayerId));
   const winner = gameState.winnerId ? gameState.players.find((player) => player.id === gameState.winnerId) : null;
   const markCommand = (command: string) => { pendingCommandRef.current = command; };
 
@@ -1107,7 +1119,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleRoll = async () => {
-    if (!isMyTurn || isRolling || isMoving || gameState.hasRolled || gameState.pendingPurchaseId || gameState.alert || gameState.winnerId) return;
+    if (!canDriveActiveTurn || isRolling || isMoving || gameState.hasRolled || gameState.pendingPurchaseId || gameState.alert || gameState.winnerId) return;
     if (roomId && (!userId || serverVersion === null)) return;
     registerPlayerActivity();
 
@@ -1143,7 +1155,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleBuy = () => {
-    if (!isMyTurn) return;
+    if (!canDriveActiveTurn) return;
     markCommand("purchase");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1160,7 +1172,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleSkip = () => {
-    if (!isMyTurn) return;
+    if (!canDriveActiveTurn) return;
     markCommand("skip_purchase");
     registerPlayerActivity();
     setGameState((current) => {
@@ -1172,7 +1184,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   };
 
   const handleDismissAlert = () => {
-    if (!isMyTurn) return;
+    if (!canDriveActiveTurn) return;
     if (alertResolutionRef.current) return;
     alertResolutionRef.current = true;
     markCommand("resolve_landing");
@@ -1418,14 +1430,14 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   // stable server UUIDs, so their dice, board changes, timeout and audit trail
   // travel through the exact same room/version path as human turns.
   useEffect(() => {
-    if (!roomId || !isRoomHost || !isMonopolyBotId(activePlayer.id) || gameState.winnerId || isRolling || isMoving) return;
+    if (!roomId || !isMonopolyBotId(activePlayer.id) || gameState.winnerId || isRolling || isMoving) return;
     const timer = window.setTimeout(() => {
       if (gameState.alert) handleDismissAlert();
       else if (gameState.pendingPurchaseId) handleBuy();
       else if (!gameState.hasRolled && !gameState.actionPanel) void handleRoll();
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [activePlayer.id, gameState, handleBuy, handleDismissAlert, handleRoll, isMoving, isRolling, isRoomHost, roomId]);
+  }, [activePlayer.id, gameState, handleBuy, handleDismissAlert, handleRoll, isMoving, isRolling, roomId]);
 
   useEffect(() => {
     if (roomId) return;
