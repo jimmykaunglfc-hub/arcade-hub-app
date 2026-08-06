@@ -184,6 +184,13 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
   const [isMoving, setIsMoving] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
   const [foulMessage, setFoulMessage] = useState<string | null>(null);
+  const currentTurnRef = useRef(currentTurn);
+  const playerGroupsRef = useRef(playerGroups);
+  const playModeRef = useRef(playMode);
+
+  useEffect(() => { currentTurnRef.current = currentTurn; }, [currentTurn]);
+  useEffect(() => { playerGroupsRef.current = playerGroups; }, [playerGroups]);
+  useEffect(() => { playModeRef.current = playMode; }, [playMode]);
 
   const [isBallInHand, setIsBallInHand] = useState(false);
   const [showConfirmBtn, setShowConfirmBtn] = useState(false);
@@ -300,11 +307,13 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
   const handleTimeOut = useCallback(() => {
     if (winner || isMoving) return;
-    if (playMode === "online" && ((currentTurn === "player1" && myPlayerRole !== 1) || (currentTurn === "player2" && myPlayerRole !== 2))) return;
+    const activeTurn = currentTurnRef.current;
+    if (playMode === "online" && ((activeTurn === "player1" && myPlayerRole !== 1) || (activeTurn === "player2" && myPlayerRole !== 2))) return;
     soundEngine.playSFX("defeat");
 
-    const nextTurn = currentTurn === "player1" ? "player2" : "player1";
+    const nextTurn = activeTurn === "player1" ? "player2" : "player1";
     triggerFoulAlert("🚨 TIME EXPIRED! TURN LOST");
+    currentTurnRef.current = nextTurn;
     setCurrentTurn(nextTurn);
     setIsBallInHand(true);
     setShowConfirmBtn(true);
@@ -319,12 +328,15 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           balls: ballsRef.current,
           nextTurn,
           groups: playerGroups,
+          remainingSolids,
+          remainingStripes,
+          ballInHand: true,
           win: winner,
           foul: "🚨 TIME EXPIRED! TURN LOST"
         },
       });
     }
-  }, [currentTurn, winner, isMoving, playMode, playerGroups, myPlayerRole]);
+  }, [winner, isMoving, playMode, playerGroups, remainingSolids, remainingStripes, myPlayerRole]);
 
   useEffect(() => {
     if (playMode === "menu" || playMode === "searching" || playMode === "confirmed" || playMode === "host" || playMode === "join" || winner || isMoving) return;
@@ -393,14 +405,22 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           setIsBallInHand(false);
           setIsMoving(true);
           didIShootRef.current = false;
+          turnTrackingRef.current = { pottedNum: [], firstHitNum: -1, cueScratch: false };
           soundEngine.playSFX("strike");
         }
       })
       .on("broadcast", { event: "turn_sync" }, (payload) => {
-        const { balls, nextTurn, groups, win, foul } = payload.payload;
+        const { balls, nextTurn, groups, remainingSolids: syncedSolids, remainingStripes: syncedStripes, ballInHand, win, foul } = payload.payload;
         ballsRef.current = balls;
+        currentTurnRef.current = nextTurn;
+        playerGroupsRef.current = groups;
         setCurrentTurn(nextTurn);
         setPlayerGroups(groups);
+        if (typeof syncedSolids === "number") setRemainingSolids(syncedSolids);
+        if (typeof syncedStripes === "number") setRemainingStripes(syncedStripes);
+        setIsBallInHand(Boolean(ballInHand));
+        setShowConfirmBtn(Boolean(ballInHand));
+        didIShootRef.current = false;
         if (foul) triggerFoulAlert(foul);
         if (win) {
           setWinner(win);
@@ -449,11 +469,12 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
   const evaluateTurnEnd = useCallback(() => {
     const tracking = turnTrackingRef.current;
-    const opponent = currentTurn === "player1" ? "player2" : "player1";
+    const activeTurn = currentTurnRef.current;
+    const opponent = activeTurn === "player1" ? "player2" : "player1";
     let turnSwitched = false;
     let localFoulMsg: string | null = null;
 
-    const myGroup = playerGroups[currentTurn];
+    const myGroup = playerGroupsRef.current[activeTurn];
     const pottedEight = tracking.pottedNum.includes(8);
     const scratch = tracking.cueScratch;
 
@@ -472,10 +493,29 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
     if (pottedEight) {
       const myRemaining = myGroup === "Solids" ? solidsRemainingCurrent : myGroup === "Stripes" ? stripesRemainingCurrent : 99;
+      const winState = scratch || (myGroup !== "Open" && myRemaining > 0)
+        ? (opponent === "player1" ? "Player 1" : "Player 2")
+        : (activeTurn === "player1" ? "Player 1" : "Player 2");
       if (scratch || (myGroup !== "Open" && myRemaining > 0)) {
-        setWinner(opponent === "player1" ? "Player 1" : "Player 2");
+        setWinner(winState);
       } else {
-        setWinner(currentTurn === "player1" ? "Player 1" : "Player 2");
+        setWinner(winState);
+      }
+      if (playMode === "online" && channelRef.current && didIShootRef.current) {
+        channelRef.current.send({
+          type: "broadcast",
+          event: "turn_sync",
+          payload: {
+            balls: ballsRef.current,
+            nextTurn: activeTurn,
+            groups: playerGroupsRef.current,
+            remainingSolids: solidsRemainingCurrent,
+            remainingStripes: stripesRemainingCurrent,
+            ballInHand: false,
+            win: winState,
+            foul: scratch ? "🚨 FOUL - CUE BALL SCRATCH!" : null,
+          },
+        });
       }
       return;
     }
@@ -495,7 +535,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
       }
     }
 
-    let nextPlayerGroups = { ...playerGroups };
+    let nextPlayerGroups = { ...playerGroupsRef.current };
 
     if (scratch) {
       localFoulMsg = "🚨 FOUL - CUE BALL SCRATCH!";
@@ -510,7 +550,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
       setShowConfirmBtn(true);
       turnSwitched = true;
     } else {
-      if (playerGroups.player1 === "Open") {
+      if (playerGroupsRef.current.player1 === "Open") {
         const firstPottedTarget = tracking.pottedNum.find((n) => n !== 0 && n !== 8);
         if (firstPottedTarget) {
           const pottedType = BALL_TYPES[firstPottedTarget]?.type;
@@ -518,15 +558,16 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
             const assignedGroup = pottedType === "Solid" ? "Solids" : "Stripes";
             const otherGroup = assignedGroup === "Solids" ? "Stripes" : "Solids";
             nextPlayerGroups = {
-              player1: currentTurn === "player1" ? assignedGroup : otherGroup,
-              player2: currentTurn === "player2" ? assignedGroup : otherGroup,
+              player1: activeTurn === "player1" ? assignedGroup : otherGroup,
+              player2: activeTurn === "player2" ? assignedGroup : otherGroup,
             };
+            playerGroupsRef.current = nextPlayerGroups;
             setPlayerGroups(nextPlayerGroups);
           }
         }
       }
 
-      const curGroupUpdated = nextPlayerGroups[currentTurn];
+      const curGroupUpdated = nextPlayerGroups[activeTurn];
       const validPotted = tracking.pottedNum.some((n) => {
         const t = BALL_TYPES[n]?.type;
         if (curGroupUpdated === "Solids") return t === "Solid";
@@ -539,8 +580,11 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
       }
     }
 
-    const nextTurn = turnSwitched ? opponent : currentTurn;
-    if (turnSwitched) setCurrentTurn(nextTurn);
+    const nextTurn = turnSwitched ? opponent : activeTurn;
+    if (turnSwitched) {
+      currentTurnRef.current = nextTurn;
+      setCurrentTurn(nextTurn);
+    }
 
     setSpinOffset({ x: 0, y: 0 });
     setUiPower(0);
@@ -555,13 +599,16 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           balls: ballsRef.current,
           nextTurn,
           groups: nextPlayerGroups,
+          remainingSolids: solidsRemainingCurrent,
+          remainingStripes: stripesRemainingCurrent,
+          ballInHand: scratch || !isLegalHit,
           win: winner,
           foul: localFoulMsg
         },
       });
     }
 
-  }, [currentTurn, playerGroups, playMode, winner]);
+  }, [playMode, winner]);
 
   useEffect(() => {
     if (playMode === "bot" && currentTurn === "player2" && !isMoving && !winner) {
@@ -906,7 +953,9 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
       setIsMoving((prev) => (prev !== dynamicMotion ? dynamicMotion : prev));
 
-      if (wasMovingRef.current && !dynamicMotion) {
+      // The shooting player is the sole online rules authority. The other
+      // device animates the shot and waits for the authoritative turn sync.
+      if (wasMovingRef.current && !dynamicMotion && (playModeRef.current !== "online" || didIShootRef.current)) {
         evaluateTurnEnd();
       }
       wasMovingRef.current = dynamicMotion;
