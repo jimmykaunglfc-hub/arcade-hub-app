@@ -221,6 +221,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  const [showHowToPlay, setShowHowToPlay] = useState(false);
  const [showResultModal, setShowResultModal] = useState(false);
  const [playerNames, setPlayerNames] = useState<Record<Player, string>>({ 1: "Player 1", 2: "Player 2" });
+ const [mySeat, setMySeat] = useState<Player>(seat);
  const [stateReady, setStateReady] = useState(!roomId);
  const [syncMessage, setSyncMessage] = useState<string | null>(null);
  const resultReportedRef = useRef(false);
@@ -230,12 +231,15 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  useEffect(() => {
    if (!roomId) return;
    const load = async () => {
-     const [{ data, error }, { data: players, error: playersError }] = await Promise.all([
+     const [{ data, error }, { data: players, error: playersError }, { data: auth }] = await Promise.all([
        supabase.from("two_player_game_state").select("state,current_seat,version,status").eq("room_id", roomId).eq("game_key", "four-in-a-row").maybeSingle(),
-       supabase.from("matchmaking_room_players").select("seat,display_name").eq("room_id", roomId).is("left_at", null),
+       supabase.from("matchmaking_room_players").select("seat,display_name,user_id").eq("room_id", roomId).is("left_at", null),
+       supabase.auth.getUser(),
      ]);
      if (playersError) setSyncMessage("Unable to load player names. Please reopen the match.");
      if (players) {
+       const mine = players.find((player) => player.user_id === auth.user?.id);
+       if (mine?.seat === 1 || mine?.seat === 2) setMySeat(mine.seat);
        setPlayerNames({
          1: players.find((player) => player.seat === 1)?.display_name || "Player 1",
          2: players.find((player) => player.seat === 2)?.display_name || "Player 2",
@@ -258,8 +262,11 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
      if (nextBoard && winnerSeat) setWinningCells(findWinningCells(nextBoard, winnerSeat as Player));
    };
    void load();
+   // Polling is intentional: it keeps moves and bot turns synchronized even
+   // when the room table has not been added to the Realtime publication.
+   const poll = window.setInterval(load, 1200);
    const channel = supabase.channel(`four-in-a-row-${roomId}`).on("postgres_changes", { event: "*", schema: "public", table: "two_player_game_state", filter: `room_id=eq.${roomId}` }, load).subscribe();
-   return () => { void supabase.removeChannel(channel); };
+   return () => { window.clearInterval(poll); void supabase.removeChannel(channel); };
  }, [roomId]);
 
  // The server owns bot moves in online rooms. Calling this safely from both
@@ -267,6 +274,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  useEffect(() => {
    if (!roomId || winner || !stateReady) return;
    const resolve = () => { void supabase.rpc("resolve_four_in_a_row_bot_turn", { p_room_id: roomId }); };
+   resolve();
    const timer = window.setInterval(resolve, 1200);
    return () => window.clearInterval(timer);
  }, [roomId, winner, stateReady]);
@@ -277,10 +285,10 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
    // Keep the winning discs and result modal visible before the arena shell
    // receives its result callback and potentially navigates away.
    const timer = window.setTimeout(() => {
-     onResult?.(winner === "Draw" ? "Draw" : winner === 1 ? "Win" : "Loss");
+     onResult?.(winner === "Draw" ? "Draw" : online ? winner === mySeat ? "Win" : "Loss" : winner === 1 ? "Win" : "Loss");
    }, 2200);
    return () => window.clearTimeout(timer);
- }, [onResult, winner]);
+ }, [mySeat, onResult, online, winner]);
 
  // Leave the winning four visible before the result modal covers the board.
  useEffect(() => {
@@ -356,7 +364,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
 
  // Helper to dynamically calculate column index from touch/pointer screen position
  const updateHoverFromPos = (clientX: number) => {
-   if (!boardRef.current || winner || !stateReady || (!localMode && online ? currentPlayer !== seat : !localMode && currentPlayer !== 1)) return;
+   if (!boardRef.current || winner || !stateReady || (!localMode && online ? currentPlayer !== mySeat : !localMode && currentPlayer !== 1)) return;
    const rect = boardRef.current.getBoundingClientRect();
    const relativeX = clientX - rect.left;
    const colWidth = rect.width / COLS;
@@ -376,7 +384,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  };
 
  const handleBoardClick = (e: React.MouseEvent<HTMLDivElement>) => {
-   if (winner || !stateReady || (!localMode && !online && currentPlayer !== 1) || (online && currentPlayer !== seat) || !boardRef.current) return;
+   if (winner || !stateReady || (!localMode && !online && currentPlayer !== 1) || (online && currentPlayer !== mySeat) || !boardRef.current) return;
    const rect = boardRef.current.getBoundingClientRect();
    const relativeX = e.clientX - rect.left;
    const colWidth = rect.width / COLS;
@@ -415,7 +423,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  const isWinningCell = (r: number, c: number) =>
    winningCells.some(([winR, winC]) => winR === r && winC === c);
  const activePlayerName = online
-   ? currentPlayer === seat ? `You (${playerNames[seat]})` : playerNames[currentPlayer]
+   ? currentPlayer === mySeat ? `You (${playerNames[mySeat]})` : playerNames[currentPlayer]
    : `Player ${currentPlayer}`;
 
  return (
@@ -528,7 +536,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
        <div className="grid grid-cols-7 gap-1.5 mb-1.5 px-1 relative h-6 items-center">
          {Array.from({ length: COLS }).map((_, c) => (
            <div key={c} className="flex justify-center items-center h-full">
-             {hoveredCol === c && !winner && (localMode || (online ? currentPlayer === seat : currentPlayer === 1)) && (
+             {hoveredCol === c && !winner && (localMode || (online ? currentPlayer === mySeat : currentPlayer === 1)) && (
                <div className="w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[16px] border-t-white drop-shadow-[0_3px_2px_rgba(0,0,0,0.4)] transition-all duration-75" />
              )}
            </div>
