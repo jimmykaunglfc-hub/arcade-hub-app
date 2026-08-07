@@ -220,6 +220,9 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  const [winningCells, setWinningCells] = useState<[number, number][]>([]);
  const [showHowToPlay, setShowHowToPlay] = useState(false);
  const [showResultModal, setShowResultModal] = useState(false);
+ const [playerNames, setPlayerNames] = useState<Record<Player, string>>({ 1: "Player 1", 2: "Player 2" });
+ const [stateReady, setStateReady] = useState(!roomId);
+ const [syncMessage, setSyncMessage] = useState<string | null>(null);
  const resultReportedRef = useRef(false);
  const [roomVersion, setRoomVersion] = useState(1);
  const online = Boolean(roomId);
@@ -227,12 +230,28 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  useEffect(() => {
    if (!roomId) return;
    const load = async () => {
-     const { data } = await supabase.from("two_player_game_state").select("state,current_seat,version,status").eq("room_id", roomId).maybeSingle();
-     if (!data) return;
+     const [{ data, error }, { data: players, error: playersError }] = await Promise.all([
+       supabase.from("two_player_game_state").select("state,current_seat,version,status").eq("room_id", roomId).eq("game_key", "four-in-a-row").maybeSingle(),
+       supabase.from("matchmaking_room_players").select("seat,display_name").eq("room_id", roomId).is("left_at", null),
+     ]);
+     if (playersError) setSyncMessage("Unable to load player names. Please reopen the match.");
+     if (players) {
+       setPlayerNames({
+         1: players.find((player) => player.seat === 1)?.display_name || "Player 1",
+         2: players.find((player) => player.seat === 2)?.display_name || "Player 2",
+       });
+     }
+     if (error || !data || data.status !== "playing" || !data.state?.board || ![1, 2].includes(Number(data.current_seat))) {
+       setStateReady(false);
+       setSyncMessage(error?.message || "Match is still preparing. Please wait a moment.");
+       return;
+     }
      const nextBoard = data.state?.board as Board | undefined;
      if (nextBoard) setBoard(nextBoard);
      setCurrentPlayer(data.current_seat as Player);
      setRoomVersion(data.version);
+     setStateReady(true);
+     setSyncMessage(null);
      const winnerSeat = Number(data.state?.winner_seat || 0);
      const nextWinner = winnerSeat ? winnerSeat as Player : data.state?.draw ? "Draw" : null;
      setWinner(nextWinner);
@@ -246,11 +265,11 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  // The server owns bot moves in online rooms. Calling this safely from both
  // clients is harmless; it only acts when the current seat belongs to a bot.
  useEffect(() => {
-   if (!roomId || winner) return;
+   if (!roomId || winner || !stateReady) return;
    const resolve = () => { void supabase.rpc("resolve_four_in_a_row_bot_turn", { p_room_id: roomId }); };
    const timer = window.setInterval(resolve, 1200);
    return () => window.clearInterval(timer);
- }, [roomId, winner]);
+ }, [roomId, winner, stateReady]);
 
  useEffect(() => {
    if (!winner || resultReportedRef.current) return;
@@ -337,7 +356,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
 
  // Helper to dynamically calculate column index from touch/pointer screen position
  const updateHoverFromPos = (clientX: number) => {
-   if (!boardRef.current || winner || (!localMode && currentPlayer !== 1)) return;
+   if (!boardRef.current || winner || !stateReady || (!localMode && online ? currentPlayer !== seat : !localMode && currentPlayer !== 1)) return;
    const rect = boardRef.current.getBoundingClientRect();
    const relativeX = clientX - rect.left;
    const colWidth = rect.width / COLS;
@@ -357,13 +376,15 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  };
 
  const handleBoardClick = (e: React.MouseEvent<HTMLDivElement>) => {
-   if (winner || (!localMode && !online && currentPlayer !== 1) || (online && currentPlayer !== seat) || !boardRef.current) return;
+   if (winner || !stateReady || (!localMode && !online && currentPlayer !== 1) || (online && currentPlayer !== seat) || !boardRef.current) return;
    const rect = boardRef.current.getBoundingClientRect();
    const relativeX = e.clientX - rect.left;
    const colWidth = rect.width / COLS;
    const clickedCol = Math.min(Math.max(Math.floor(relativeX / colWidth), 0), COLS - 1);
    if (online && roomId) {
-     void supabase.rpc("four_in_a_row_move", { p_room_id: roomId, p_column: clickedCol, p_expected_version: roomVersion });
+     void supabase.rpc("four_in_a_row_move", { p_room_id: roomId, p_column: clickedCol, p_expected_version: roomVersion }).then(({ error }) => {
+       if (error) setSyncMessage(error.message);
+     });
    } else executeMove(clickedCol, currentPlayer);
  };
 
@@ -393,6 +414,9 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
 
  const isWinningCell = (r: number, c: number) =>
    winningCells.some(([winR, winC]) => winR === r && winC === c);
+ const activePlayerName = online
+   ? currentPlayer === seat ? `You (${playerNames[seat]})` : playerNames[currentPlayer]
+   : `Player ${currentPlayer}`;
 
  return (
    <div className="fixed inset-0 flex flex-col items-center justify-start bg-[#258a8a] text-white font-sans p-4 pt-20 overflow-y-auto select-none z-[100] bg-[radial-gradient(#2ea4a4_1px,transparent_1px)] [background-size:16px_16px]">
@@ -429,12 +453,14 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
        </h1>
 
        <div className="flex items-center justify-end gap-2">
-         <button
-           onClick={resetGame}
-           className="text-xs font-black uppercase tracking-wider bg-amber-400 hover:bg-amber-300 text-slate-950 px-3.5 py-1.5 rounded-xl border border-amber-200 shadow-sm transition-all active:scale-95"
-         >
-           RESET
-         </button>
+         {!online && (
+           <button
+             onClick={resetGame}
+             className="text-xs font-black uppercase tracking-wider bg-amber-400 hover:bg-amber-300 text-slate-950 px-3.5 py-1.5 rounded-xl border border-amber-200 shadow-sm transition-all active:scale-95"
+           >
+             RESET
+           </button>
+         )}
 
          <button
            type="button"
@@ -456,11 +482,9 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
            ? winner === "Draw"
              ? "DRAW GAME!"
              : winner === 1
-             ? (localMode ? "PLAYER 1 WINS!" : "YOU WIN!")
-             : (localMode ? "PLAYER 2 WINS!" : "OPPONENT WINS!")
-           : currentPlayer === 1
-           ? (localMode ? "PLAYER 1 TURN" : "PLAYER TURN")
-           : (localMode ? "PLAYER 2 TURN" : "OPPONENT TURN")}
+             ? (online ? `${playerNames[1]} WINS!` : "PLAYER 1 WINS!")
+             : (online ? `${playerNames[2]} WINS!` : "PLAYER 2 WINS!")
+           : stateReady ? `${activePlayerName}'S TURN` : "MATCH PREPARING…"}
        </span>
 
        {/* 3D Disc Box beside turn text */}
@@ -483,6 +507,12 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
        </div>
      </div>
 
+     {syncMessage && (
+       <p className="mb-3 max-w-sm rounded-xl border border-amber-200/40 bg-slate-950/60 px-3 py-2 text-center text-xs font-bold text-amber-100">
+         {syncMessage}
+       </p>
+     )}
+
      {/* Main Connect Four Board Container */}
      <div
        onMouseLeave={() => setHoveredCol(null)}
@@ -498,7 +528,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
        <div className="grid grid-cols-7 gap-1.5 mb-1.5 px-1 relative h-6 items-center">
          {Array.from({ length: COLS }).map((_, c) => (
            <div key={c} className="flex justify-center items-center h-full">
-             {hoveredCol === c && !winner && (localMode || currentPlayer === 1) && (
+             {hoveredCol === c && !winner && (localMode || (online ? currentPlayer === seat : currentPlayer === 1)) && (
                <div className="w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[16px] border-t-white drop-shadow-[0_3px_2px_rgba(0,0,0,0.4)] transition-all duration-75" />
              )}
            </div>
@@ -637,6 +667,8 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
              <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 drop-shadow">
                {winner === "Draw"
                  ? "IT'S A DRAW!"
+                 : online
+                 ? `${playerNames[winner]} WINS!`
                  : winner === 1
                  ? "YOU WON!"
                  : "OPPONENT WINS!"}
@@ -644,12 +676,14 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
            </div>
 
            <div className="flex flex-col gap-3 w-full pt-2">
-             <button
-               onClick={resetGame}
-               className="w-full bg-gradient-to-b from-amber-400 to-amber-600 hover:brightness-110 text-slate-950 py-3.5 rounded-xl font-black text-sm tracking-wider uppercase transition-all shadow-lg active:scale-95 border border-amber-200"
-             >
-               Restart Your Game
-             </button>
+             {!online && (
+               <button
+                 onClick={resetGame}
+                 className="w-full bg-gradient-to-b from-amber-400 to-amber-600 hover:brightness-110 text-slate-950 py-3.5 rounded-xl font-black text-sm tracking-wider uppercase transition-all shadow-lg active:scale-95 border border-amber-200"
+               >
+                 Restart Your Game
+               </button>
+             )}
              {onClose && (
                <button
                  onClick={onClose}
