@@ -26,7 +26,7 @@ begin
       end if;
     end loop;
     update public.bingo_match_cards set marked=v_marked,updated_at=now() where room_id=p_room_id and seat=v_bot.seat;
-    if public.bingo_line_count(v_marked)>=5 then v_winner:=v_bot.seat; end if;
+    if public.bingo_line_count(v_marked)>=1 then v_winner:=v_bot.seat; end if;
   end loop;
   v_auto:=coalesce((v_state.state->>'auto_calling')::boolean,true);
   v_next_state:=jsonb_set(jsonb_set(v_state.state,'{called_numbers}',v_called,true),'{winner_seat}',coalesce(to_jsonb(v_winner),'null'::jsonb),true);
@@ -50,7 +50,7 @@ begin
   v_number:=v_card->>p_tile_index;
   if p_tile_index<>12 and not (coalesce(v_state.state->'called_numbers','[]'::jsonb) @> jsonb_build_array((v_number)::integer)) then raise exception 'That number has not been called'; end if;
   if not (v_marked @> jsonb_build_array(p_tile_index)) then v_marked:=v_marked || jsonb_build_array(p_tile_index); end if;
-  if public.bingo_line_count(v_marked)>=5 then v_winner:=v_seat; end if;
+  if public.bingo_line_count(v_marked)>=1 then v_winner:=v_seat; end if;
   update public.bingo_match_cards set marked=v_marked,updated_at=now() where room_id=p_room_id and seat=v_seat;
   update public.two_player_game_state
   set state=jsonb_set(v_state.state,'{winner_seat}',coalesce(to_jsonb(v_winner),'null'::jsonb),true),

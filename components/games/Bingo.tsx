@@ -165,7 +165,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
 
      setComputerLines(nextLines);
 
-     if (nextLines >= 5) {
+     if (nextLines >= 1) {
        setIsGameOver(true);
        setHasWon(false);
      }
@@ -279,7 +279,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
    const lines = countCompletedLines(nextBoard);
    setCompletedLines(lines);
 
-   if (lines >= 5 && !isGameOver) {
+   if (lines >= 1 && !isGameOver) {
      setHasWon(true);
      setIsGameOver(true);
    }
@@ -470,7 +470,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
 
          {/* Lines & Status Bar */}
          <div className="mt-8 w-full shrink-0 flex items-center justify-between px-6 py-1 max-w-sm mx-auto text-base font-extrabold text-amber-300">
-           <span>Your Lines: {completedLines} / 5</span>
+           <span>{completedLines >= 1 ? "BINGO!" : "Your Lines: 0 / 1"}</span>
            {!roomId && <span className="text-rose-400">Opponent: {computerLines} / 5</span>}
          </div>
 
@@ -633,7 +633,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                ["🎱", "Watch the caller", "When Auto is on, a new Bingo ball is called every 5 seconds."],
                ["👆", "Mark your card", "Find the called number and tap its square. Uncalled numbers cannot be marked."],
                ["⭐", "Use the free space", "The center FREE square starts marked and counts toward every crossing line."],
-               ["🏆", "Beat the computer", "Complete 5 rows, columns, or diagonals before the computer completes 5."],
+               ["🏆", "Call Bingo", "Complete any row, column, or diagonal before your opponent."],
              ].map(([icon, title, description], index) => (
                <div
                  key={title}
