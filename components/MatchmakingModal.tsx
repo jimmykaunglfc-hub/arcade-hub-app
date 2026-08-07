@@ -23,6 +23,17 @@ type FoundMatch = {
   opponent: { name: string; isBot: boolean; avatarIcon?: string; elo?: number };
 };
 
+// Keep bot identities consistent with the rest of the arena.  `isBot` remains
+// true for game logic, while the presentation uses a normal player identity.
+const ARENA_BOT_NAMES = [
+  "ShadowBlade_99",
+  "LunaTick",
+  "BlazeRunner",
+  "NovaStrike",
+  "Aiden",
+  "Mira",
+];
+
 export default function MatchmakingModal({
   gameKey,
   gameName,
@@ -119,7 +130,7 @@ export default function MatchmakingModal({
       await supabase.rpc("reset_matchmaking", { p_user_id: activeUserId });
 
       const checkMatch = async () => {
-        if (isCancelledRef.current || !isMounted) return;
+        if (isCancelledRef.current || !isMounted || settledRef.current) return;
 
         const { data, error } = await supabase.rpc("poll_matchmaking", {
           p_user_id: activeUserId,
@@ -133,6 +144,7 @@ export default function MatchmakingModal({
         }
 
         if (data && data.matched && isMounted) {
+          settledRef.current = true;
           clearInterval(pollInterval);
           await finishMatchmaking({
             matchId: data.match_id,
@@ -147,6 +159,42 @@ export default function MatchmakingModal({
 
       // Loop every 1.5 seconds after the first immediate check
       pollInterval = setInterval(checkMatch, 1500);
+
+      // Legacy games do not use room-backed SQL state, but they still need the
+      // same guaranteed 45-second matchmaking window as the newer games.
+      // Stop polling before resolving the local bot match so a late response
+      // can never overwrite the fallback result.
+      const fallbackTimer = window.setTimeout(async () => {
+        if (isCancelledRef.current || !isMounted || settledRef.current) return;
+
+        settledRef.current = true;
+        clearInterval(pollInterval);
+        await supabase.rpc("reset_matchmaking", {
+          p_user_id: activeUserId,
+        });
+
+        const offset = Math.abs(
+          Array.from(`${activeUserId}:${gameKey}`).reduce(
+            (total, character) => total + character.charCodeAt(0),
+            0
+          )
+        );
+        const botName = ARENA_BOT_NAMES[offset % ARENA_BOT_NAMES.length];
+
+        await finishMatchmaking({
+          matchId: `bot_${gameKey.trim().toLowerCase()}_${Date.now()}`,
+          role: 1,
+          opponent: {
+            name: botName,
+            isBot: true,
+            // Do not expose the fallback as a "computer" in the arena UI.
+            avatarIcon: "person",
+            elo: 1200,
+          },
+        });
+      }, fallbackAfterMs);
+
+      return () => window.clearTimeout(fallbackTimer);
 
     };
 
