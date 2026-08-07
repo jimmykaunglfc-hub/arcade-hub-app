@@ -127,13 +127,19 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
    if (isDrawing || isGameOver) return;
    if (roomId) {
      setIsDrawing(true);
-     const { error } = await supabase.rpc("bingo_draw_number", { p_room_id: roomId, p_expected_version: roomVersion });
+     const { data, error } = await supabase.rpc("bingo_draw_number", { p_room_id: roomId, p_expected_version: roomVersion });
      // The room can have updated a moment before a tap. Reloading is safer
      // than leaving a button that appears broken.
      if (error) {
        console.warn("Bingo draw did not apply:", error.message);
        setCallerError("Ball call did not reach the room. Please retry.");
-     } else setCallerError(null);
+     } else {
+       if (typeof data?.number === "number") {
+         setCalledNumbers((previous) => previous.includes(data.number) ? previous : [...previous, data.number]);
+         if (typeof data?.version === "number") setRoomVersion(data.version);
+       }
+       setCallerError(null);
+     }
      setIsDrawing(false);
      return;
    }
@@ -418,7 +424,9 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
            {/* Rendered 3D Glossy Bingo Balls */}
            <div className="flex min-h-[118px] items-center justify-center gap-3">
              {calledNumbers.length > 0 &&
-               calledNumbers.slice(0, 1).map((num, idx) => {
+               // Online state is append-only, so its newest ball is last.
+               // Local solo state prepends balls, so its newest ball is first.
+               (roomId ? calledNumbers.slice(-1) : calledNumbers.slice(0, 1)).map((num, idx) => {
                  const letter = getBallLetter(num);
                  return (
                    <div key={`${num}-${idx}`} className="flex flex-col items-center gap-1">
