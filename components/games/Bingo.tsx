@@ -82,6 +82,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
  const isSharedCaller = !roomId || seat === 1;
  const [isDrawing, setIsDrawing] = useState(false);
  const [callerError, setCallerError] = useState<string | null>(null);
+ const lastFallbackDrawAt = React.useRef(0);
 
  useEffect(() => {
    if (!roomId) return;
@@ -218,12 +219,26 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
    if (!roomId || appState !== "playing" || isGameOver) return;
    const tick = async () => {
      const { error } = await supabase.rpc("advance_bingo_draws", { p_room_id: roomId });
-     if (error) setCallerError("Shared caller is unavailable. Please ensure the Bingo SQL update is installed.");
+     if (!error) {
+       setCallerError(null);
+       return;
+     }
+
+     // Compatibility path for a deployment where the timer RPC has not yet
+     // refreshed. The host still makes exactly one shared draw every 5s;
+     // the authoritative Bingo draw RPC prevents duplicate numbers.
+     const now = Date.now();
+     if (isAutoCalling && isSharedCaller && now - lastFallbackDrawAt.current >= 5000) {
+       lastFallbackDrawAt.current = now;
+       const { error: drawError } = await supabase.rpc("bingo_draw_number", { p_room_id: roomId, p_expected_version: roomVersion });
+       if (!drawError) { setCallerError(null); return; }
+     }
+     setCallerError("Shared caller is reconnecting. Please retry in a moment.");
    };
    tick();
    const timer = window.setInterval(() => { void tick(); }, 1000);
    return () => window.clearInterval(timer);
- }, [appState, isGameOver, roomId]);
+ }, [appState, isAutoCalling, isGameOver, isSharedCaller, roomId, roomVersion]);
 
  // Handle Tile Click
  const handleTileClick = (index: number) => {

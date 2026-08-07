@@ -183,7 +183,7 @@ export default function MatchmakingModal({
         <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
           {gameName}
         </h3>
-        <p className="text-xs text-neutral-400 font-medium mb-4">{roomBacked ? "Searching for an online player — bot joins after 45 seconds." : "Searching for an online player..."}</p>
+        <p className="text-xs text-neutral-400 font-medium mb-4">Searching for an online player...</p>
 
         <div className="bg-[#09090b] border border-white/10 px-4 py-1.5 rounded-full mb-8 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#CCFF00] animate-pulse"></span>
