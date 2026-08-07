@@ -139,6 +139,7 @@ begin
 end $$;
 
 grant execute on function public.create_four_in_a_row_state(uuid) to authenticated;
+grant execute on function public.start_four_in_a_row_match(uuid) to authenticated;
 grant execute on function public.queue_four_in_a_row_match(text) to authenticated;
 grant execute on function public.fill_four_in_a_row_match_with_bot(text) to authenticated;
 grant execute on function public.cancel_four_in_a_row_matchmaking() to authenticated;

@@ -69,6 +69,26 @@ const hasFour = (board: Board, player: Player) => {
  return false;
 };
 
+const findWinningCells = (board: Board, player: Player): [number, number][] => {
+ const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+ for (let row = 0; row < ROWS; row += 1) {
+   for (let column = 0; column < COLS; column += 1) {
+     if (board[row][column] !== player) continue;
+     for (const [rowStep, columnStep] of directions) {
+       const cells: [number, number][] = [[row, column]];
+       for (let offset = 1; offset < 4; offset += 1) {
+         const nextRow = row + rowStep * offset;
+         const nextColumn = column + columnStep * offset;
+         if (nextRow < 0 || nextRow >= ROWS || nextColumn < 0 || nextColumn >= COLS || board[nextRow][nextColumn] !== player) break;
+         cells.push([nextRow, nextColumn]);
+       }
+       if (cells.length === 4) return cells;
+     }
+   }
+ }
+ return [];
+};
+
 const scoreWindow = (window: (Player | null)[]) => {
  const computerCount = window.filter((cell) => cell === COMPUTER).length;
  const playerCount = window.filter((cell) => cell === PLAYER).length;
@@ -199,6 +219,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  const [winner, setWinner] = useState<Player | "Draw" | null>(null);
  const [winningCells, setWinningCells] = useState<[number, number][]>([]);
  const [showHowToPlay, setShowHowToPlay] = useState(false);
+ const [showResultModal, setShowResultModal] = useState(false);
  const resultReportedRef = useRef(false);
  const [roomVersion, setRoomVersion] = useState(1);
  const online = Boolean(roomId);
@@ -213,7 +234,9 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
      setCurrentPlayer(data.current_seat as Player);
      setRoomVersion(data.version);
      const winnerSeat = Number(data.state?.winner_seat || 0);
-     setWinner(winnerSeat ? winnerSeat as Player : data.state?.draw ? "Draw" : null);
+     const nextWinner = winnerSeat ? winnerSeat as Player : data.state?.draw ? "Draw" : null;
+     setWinner(nextWinner);
+     if (nextBoard && winnerSeat) setWinningCells(findWinningCells(nextBoard, winnerSeat as Player));
    };
    void load();
    const channel = supabase.channel(`four-in-a-row-${roomId}`).on("postgres_changes", { event: "*", schema: "public", table: "two_player_game_state", filter: `room_id=eq.${roomId}` }, load).subscribe();
@@ -239,6 +262,13 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
    }, 2200);
    return () => window.clearTimeout(timer);
  }, [onResult, winner]);
+
+ // Leave the winning four visible before the result modal covers the board.
+ useEffect(() => {
+   if (!winner) { setShowResultModal(false); return; }
+   const timer = window.setTimeout(() => setShowResultModal(true), 1100);
+   return () => window.clearTimeout(timer);
+ }, [winner]);
 
  // Reference to board for dynamic pixel calculation across touch & mouse
  const boardRef = useRef<HTMLDivElement>(null);
@@ -357,6 +387,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
    setCurrentPlayer(1);
    setWinner(null);
    setWinningCells([]);
+   setShowResultModal(false);
    setHoveredCol(null);
  };
 
@@ -592,7 +623,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
      )}
 
      {/* WIN / GAME OVER POPUP MODAL */}
-     {winner && (
+     {winner && showResultModal && (
        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 z-[200]">
          <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-amber-500/80 p-8 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.8)] text-center max-w-sm w-full flex flex-col items-center gap-6 transform transition-all animate-in zoom-in-95 duration-200">
           
