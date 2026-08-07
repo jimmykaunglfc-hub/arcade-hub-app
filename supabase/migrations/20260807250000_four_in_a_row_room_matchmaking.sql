@@ -9,7 +9,9 @@ create or replace function public.four_in_a_row_open_row(p_board jsonb, p_column
 returns integer language plpgsql immutable as $$
 declare r integer;
 begin
-  for r in reverse 0..5 loop
+  -- In PL/pgSQL REVERSE requires descending bounds. `REVERSE 0..5`
+  -- executes zero iterations, which made every column look full.
+  for r in reverse 5..0 loop
     if p_board->r->>p_column is null then return r; end if;
   end loop;
   return -1;
