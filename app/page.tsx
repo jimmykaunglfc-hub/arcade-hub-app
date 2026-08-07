@@ -60,13 +60,15 @@ const NotificationsCenter = dynamic(() => import("../components/NotificationsCen
 type ArenaGameProps = {
   onClose?: () => void;
   onResult?: (result: "Win" | "Loss" | "Draw") => void;
+  roomId?: string;
+  seat?: 1 | 2;
 };
 
 // Source handoffs for the new games are local-game engines. This adapter keeps
 // their UI isolated while making them enter through the same Joe Yoke arena flow.
-const withArenaLobby = (Game: ComponentType<{ onClose?: () => void }>) => {
-  return function ArenaGame({ onClose }: ArenaGameProps) {
-    return <Game onClose={onClose} />;
+const withArenaLobby = (Game: ComponentType<any>) => {
+  return function ArenaGame({ onClose, onResult, roomId, seat }: ArenaGameProps) {
+    return <Game onClose={onClose} onResult={onResult} roomId={roomId} seat={seat} />;
   };
 };
 
