@@ -1029,8 +1029,10 @@ export default function Dominoes({
    }, []);
 
  useEffect(() => {
-   startNewGame();
- }, [startNewGame]);
+   // Online rooms are dealt by the server. Never overwrite their shared
+   // opening hand with a locally generated game after the state loads.
+   if (!roomId) startNewGame();
+ }, [roomId, startNewGame]);
 
  const placeDomino = useCallback(
    (

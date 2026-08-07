@@ -71,8 +71,9 @@ export default function MatchmakingModal({
 
       if (roomBacked) {
         const isFourInARow = gameKey === "four-in-a-row";
-        const queueRpc = isFourInARow ? "queue_four_in_a_row_match" : "queue_bingo_match";
-        const botRpc = isFourInARow ? "fill_four_in_a_row_match_with_bot" : "fill_bingo_match_with_bot";
+        const isDominoes = gameKey === "dominoes";
+        const queueRpc = isFourInARow ? "queue_four_in_a_row_match" : isDominoes ? "queue_dominoes_match" : "queue_bingo_match";
+        const botRpc = isFourInARow ? "fill_four_in_a_row_match_with_bot" : isDominoes ? "fill_dominoes_match_with_bot" : "fill_bingo_match_with_bot";
         const checkBingoRoom = async () => {
           if (isCancelledRef.current || !isMounted || settledRef.current) return;
           const { data, error } = await supabase.rpc(queueRpc, { p_name: username });
@@ -165,7 +166,7 @@ export default function MatchmakingModal({
   // Use the new SQL function to cleanly wipe everything if they cancel
   const cleanUpQueueTicket = async () => {
     if (activeUserRef.current) {
-      if (roomBacked) await supabase.rpc(gameKey === "four-in-a-row" ? "cancel_four_in_a_row_matchmaking" : "cancel_bingo_matchmaking");
+      if (roomBacked) await supabase.rpc(gameKey === "four-in-a-row" ? "cancel_four_in_a_row_matchmaking" : gameKey === "dominoes" ? "cancel_dominoes_matchmaking" : "cancel_bingo_matchmaking");
       else await supabase.rpc("reset_matchmaking", { p_user_id: activeUserRef.current });
     }
   };
