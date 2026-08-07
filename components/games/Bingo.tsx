@@ -233,7 +233,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
        const { error: drawError } = await supabase.rpc("bingo_draw_number", { p_room_id: roomId, p_expected_version: roomVersion });
        if (!drawError) { setCallerError(null); return; }
      }
-     setCallerError("Shared caller is reconnecting. Please retry in a moment.");
+     setCallerError(`Shared caller error: ${error.message}${error.code ? ` (${error.code})` : ""}`);
    };
    tick();
    const timer = window.setInterval(() => { void tick(); }, 1000);
