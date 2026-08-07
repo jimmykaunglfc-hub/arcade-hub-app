@@ -79,6 +79,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
  const [isAutoCalling, setIsAutoCalling] = useState<boolean>(true);
  const resultReportedRef = React.useRef(false);
  const [roomVersion, setRoomVersion] = useState(1);
+ const isSharedCaller = !roomId || seat === 1;
 
  useEffect(() => {
    if (!roomId) return;
@@ -87,8 +88,21 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
        supabase.from("two_player_game_state").select("state,version,status").eq("room_id", roomId).maybeSingle(),
        supabase.from("bingo_match_cards").select("card,marked").eq("room_id", roomId).eq("seat", seat).maybeSingle(),
      ]);
-     if (game) { setCalledNumbers(game.state?.called_numbers || []); setRoomVersion(game.version); const winner = Number(game.state?.winner_seat || 0); setIsGameOver(game.status === "completed"); setHasWon(winner === seat); }
-     if (card?.card) setBoard(card.card.map((number: number | null, index: number) => ({ id: `tile-${index}`, number: index === 12 ? "FREE" : number, marked: (card.marked || []).includes(index) })));
+     if (game) {
+       setCalledNumbers(game.state?.called_numbers || []);
+       setRoomVersion(game.version);
+       const winner = Number(game.state?.winner_seat || 0);
+       setIsGameOver(game.status === "completed");
+       setHasWon(winner === seat);
+       // Online rooms are created server-side.  Never make either player
+       // press the local start button after the second player has joined.
+       if (game.status === "playing" || game.status === "completed") setAppState("playing");
+     }
+     if (card?.card) {
+       const nextBoard = card.card.map((number: number | null, index: number) => ({ id: `tile-${index}`, number: index === 12 ? "FREE" : number, marked: (card.marked || []).includes(index) }));
+       setBoard(nextBoard);
+       setCompletedLines(countCompletedLines(nextBoard));
+     }
    };
    void load();
    const channel = supabase.channel(`bingo-${roomId}`).on("postgres_changes", { event: "*", schema: "public", table: "two_player_game_state", filter: `room_id=eq.${roomId}` }, load).on("postgres_changes", { event: "*", schema: "public", table: "bingo_match_cards", filter: `room_id=eq.${roomId}` }, load).subscribe();
@@ -104,6 +118,9 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
  // Call Next Ball
  const callNextNumber = useCallback(() => {
    if (roomId) {
+     // One shared caller prevents two clients from racing each other to draw
+     // different balls for the same Bingo room.
+     if (seat !== 1) return;
      void supabase.rpc("bingo_draw_number", { p_room_id: roomId, p_expected_version: roomVersion });
      return;
    }
@@ -166,7 +183,11 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
 
  // Handle Tile Click
  const handleTileClick = (index: number) => {
-   if (roomId) { void supabase.rpc("bingo_mark_square", { p_room_id: roomId, p_tile_index: index, p_expected_version: roomVersion }); return; }
+   if (roomId) {
+     if (isGameOver || index === 12) return;
+     void supabase.rpc("bingo_mark_square", { p_room_id: roomId, p_tile_index: index, p_expected_version: roomVersion });
+     return;
+   }
    if (isGameOver) return;
    const tile = board[index];
 
@@ -286,13 +307,14 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                type="button"
                onClick={() => setIsAutoCalling((previous) => !previous)}
                aria-pressed={isAutoCalling}
+               disabled={!isSharedCaller}
                className={`rounded-xl border px-2 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
                  isAutoCalling
                    ? "border-emerald-400 bg-emerald-500/20 text-emerald-300"
                    : "border-slate-600 bg-slate-800 text-slate-400"
                }`}
              >
-               {isAutoCalling ? "Auto On" : "Auto Off"}
+               {isSharedCaller ? (isAutoCalling ? "Auto On" : "Auto Off") : "Caller Active"}
              </button>
 
              <button
@@ -319,7 +341,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                : "Automatic caller is paused"}
            </p>
 
-           {!isAutoCalling && (
+           {!isAutoCalling && isSharedCaller && (
              <button
                type="button"
                onClick={callNextNumber}
@@ -462,7 +484,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                    Match Result
                  </span>
                  <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 drop-shadow">
-                   {hasWon ? "BINGO! YOU WIN!" : "COMPUTER WINS BINGO!"}
+                   {hasWon ? "BINGO! YOU WIN!" : roomId ? "OPPONENT WINS BINGO!" : "COMPUTER WINS BINGO!"}
                  </h2>
                </div>
 

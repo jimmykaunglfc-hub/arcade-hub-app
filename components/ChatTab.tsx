@@ -947,7 +947,10 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                                   const { data: room } = await supabase.from("matchmaking_rooms").select("room_code").eq("id", msg.match_id).maybeSingle();
                                   const { error } = await supabase.rpc("join_two_player_room", { p_code: room?.room_code, p_name: "Player 2" });
                                   if (error) { alert(error.message); return; }
-                                  if (newChallenge.type === "bingo") await supabase.rpc("initialize_bingo_match", { p_room_id: msg.match_id });
+                                  if (newChallenge.type === "bingo") {
+                                    const { error: bingoError } = await supabase.rpc("initialize_bingo_match", { p_room_id: msg.match_id });
+                                    if (bingoError) { alert(bingoError.message); return; }
+                                  }
                                   if (newChallenge.type === "dominoes") await supabase.rpc("initialize_dominoes_match", { p_room_id: msg.match_id });
                                 }
                                 await updateInviteStatus(msg.id, 'accepted');

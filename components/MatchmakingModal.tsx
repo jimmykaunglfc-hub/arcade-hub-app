@@ -14,6 +14,7 @@ interface MatchmakingModalProps {
   }) => void;
   onCancel: () => void;
   fallbackAfterMs?: number;
+  roomBacked?: boolean;
 }
 
 type FoundMatch = {
@@ -29,10 +30,12 @@ export default function MatchmakingModal({
   onMatchFound,
   onCancel,
   fallbackAfterMs = 45000,
+  roomBacked = false,
 }: MatchmakingModalProps) {
   const [searchTime, setSearchTime] = useState(0);
   const isCancelledRef = useRef(false);
   const activeUserRef = useRef<string | null>(null);
+  const settledRef = useRef(false);
 
   const isValidUuid = (id: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -45,6 +48,7 @@ export default function MatchmakingModal({
     let isMounted = true;
     let pollInterval: NodeJS.Timeout;
     isCancelledRef.current = false;
+    settledRef.current = false;
 
     const timer = setInterval(() => {
       if (isMounted) setSearchTime((prev) => prev + 1);
@@ -65,7 +69,41 @@ export default function MatchmakingModal({
 
       if (!isMounted) return;
 
-      // THE FIX: Wipe all previous ghost matches and old tickets before we do anything else!
+      if (roomBacked) {
+        const checkBingoRoom = async () => {
+          if (isCancelledRef.current || !isMounted || settledRef.current) return;
+          const { data, error } = await supabase.rpc("queue_bingo_match", { p_name: username });
+          if (error) { console.error("Bingo matchmaking error:", error); return; }
+          if (data?.matched) {
+            settledRef.current = true;
+            clearInterval(pollInterval);
+            await finishMatchmaking({
+              matchId: data.room_id,
+              role: data.seat as 1 | 2,
+              opponent: { name: data.opponent_name || "Online Player", isBot: Boolean(data.is_bot), avatarIcon: data.is_bot ? "smart_toy" : "person", elo: 1200 },
+            });
+          }
+        };
+
+        await checkBingoRoom();
+        pollInterval = setInterval(checkBingoRoom, 1500);
+        const fallbackTimer = window.setTimeout(async () => {
+          if (isCancelledRef.current || !isMounted || settledRef.current || !activeUserRef.current) return;
+          const { data, error } = await supabase.rpc("fill_bingo_match_with_bot", { p_name: username });
+          if (error || !data?.room_id) { console.error("Bingo bot fallback error:", error); return; }
+          settledRef.current = true;
+          clearInterval(pollInterval);
+          await finishMatchmaking({
+            matchId: data.room_id,
+            role: data.seat as 1 | 2,
+            opponent: { name: data.opponent_name || "Online Player", isBot: true, avatarIcon: "smart_toy", elo: 1200 },
+          });
+        }, fallbackAfterMs);
+
+        return () => window.clearTimeout(fallbackTimer);
+      }
+
+      // Legacy games use the existing queue.
       await supabase.rpc("reset_matchmaking", { p_user_id: activeUserId });
 
       const checkMatch = async () => {
@@ -98,26 +136,26 @@ export default function MatchmakingModal({
       // Loop every 1.5 seconds after the first immediate check
       pollInterval = setInterval(checkMatch, 1500);
 
-      // Ranked search only ever returns a real player. Keep polling after the
-      // initial window instead of silently replacing the opponent with a bot.
-      setTimeout(() => {
-        if (!isCancelledRef.current && isMounted) return;
-      }, fallbackAfterMs);
     };
 
-    startHeartbeat();
+    let releaseRoomFallback: (() => void) | undefined;
+    void startHeartbeat().then((release) => {
+      if (typeof release === "function") releaseRoomFallback = release;
+    });
 
     return () => {
       isMounted = false;
       clearInterval(timer);
       if (pollInterval) clearInterval(pollInterval);
+      releaseRoomFallback?.();
     };
-  }, [fallbackAfterMs, gameKey, userId]);
+  }, [fallbackAfterMs, gameKey, roomBacked, userId]);
 
   // Use the new SQL function to cleanly wipe everything if they cancel
   const cleanUpQueueTicket = async () => {
     if (activeUserRef.current) {
-      await supabase.rpc("reset_matchmaking", { p_user_id: activeUserRef.current });
+      if (roomBacked) await supabase.rpc("cancel_bingo_matchmaking");
+      else await supabase.rpc("reset_matchmaking", { p_user_id: activeUserRef.current });
     }
   };
 
@@ -137,7 +175,7 @@ export default function MatchmakingModal({
         <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
           {gameName}
         </h3>
-        <p className="text-xs text-neutral-400 font-medium mb-4">Searching for an online player...</p>
+        <p className="text-xs text-neutral-400 font-medium mb-4">{roomBacked ? "Searching for an online player — bot joins after 45 seconds." : "Searching for an online player..."}</p>
 
         <div className="bg-[#09090b] border border-white/10 px-4 py-1.5 rounded-full mb-8 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#CCFF00] animate-pulse"></span>
