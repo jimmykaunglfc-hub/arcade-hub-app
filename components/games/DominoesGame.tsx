@@ -793,14 +793,18 @@ export default function Dominoes({
  const boardRef = useRef<PlayedDomino[]>([]);
  const [roomVersion, setRoomVersion] = useState(1);
  const [onlineError, setOnlineError] = useState<string | null>(null);
+ const [opponentName, setOpponentName] = useState("Opponent");
 
  useEffect(() => {
    if (!roomId) return;
    const load = async () => {
-     const [{ data: state, error: stateError }, { data: hand, error: handError }] = await Promise.all([
+     const [{ data: state, error: stateError }, { data: hand, error: handError }, { data: players }] = await Promise.all([
        supabase.from("two_player_game_state").select("state,current_seat,version,status").eq("room_id", roomId).maybeSingle(),
        supabase.from("dominoes_match_hands").select("hand").eq("room_id", roomId).eq("seat", seat).maybeSingle(),
+       supabase.from("matchmaking_room_players").select("seat,display_name").eq("room_id", roomId).is("left_at", null),
      ]);
+     const opponent = (players || []).find((player) => player.seat !== seat);
+     if (opponent?.display_name) setOpponentName(opponent.display_name);
      if (state) {
        setBoard((state.state?.board || []) as PlayedDomino[]);
        setDrawPile((state.state?.draw_pile || []) as Domino[]);
@@ -1561,7 +1565,7 @@ export default function Dominoes({
        <div className="flex items-center justify-between rounded-2xl border border-emerald-800/20 bg-white/65 px-3 py-2 shadow-sm">
          <div className="min-w-[58px]">
            <span className="block text-[9px] font-black uppercase text-slate-500">
-             Computer
+             {roomId ? opponentName : "Computer"}
            </span>
 
            <span className="text-xl font-black">
@@ -1606,7 +1610,7 @@ export default function Dominoes({
          >
            {currentPlayer === "you"
              ? "Your turn"
-             : "Computer turn"}
+             : `${roomId ? opponentName : "Computer"}'s turn`}
          </div>
 
          <div className="min-h-0 flex-1 overflow-hidden rounded-3xl bg-lime-200/65">
@@ -1858,7 +1862,7 @@ export default function Dominoes({
              {winner === "you"
                ? "You Win!"
                : winner === "computer"
-                 ? "Computer Wins"
+                 ? `${roomId ? opponentName : "Computer"} Wins`
                  : "Draw Game"}
            </h2>
 
@@ -1879,7 +1883,7 @@ export default function Dominoes({
 
              <div className="rounded-2xl bg-amber-100 p-3">
                <span className="block text-[9px] font-black uppercase text-amber-700">
-                 Computer pips
+                 {roomId ? `${opponentName} pips` : "Computer pips"}
                </span>
 
                <span className="text-2xl font-black">
