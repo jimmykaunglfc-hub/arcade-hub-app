@@ -16,6 +16,12 @@ type BoardTile = {
  marked: boolean;
 };
 
+type OpponentProgress = {
+ name: string;
+ marked: number[];
+ isBot: boolean;
+};
+
 const generateBingoCard = (): BoardTile[] => {
  const getColNumbers = (min: number, max: number) => {
    const pool = Array.from({ length: max - min + 1 }, (_, i) => min + i);
@@ -83,13 +89,15 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
  const [isDrawing, setIsDrawing] = useState(false);
  const [callerError, setCallerError] = useState<string | null>(null);
  const lastFallbackDrawAt = React.useRef(0);
+ const [opponentProgress, setOpponentProgress] = useState<OpponentProgress | null>(null);
 
  useEffect(() => {
    if (!roomId) return;
    const load = async () => {
-     const [{ data: game }, { data: card }] = await Promise.all([
+     const [{ data: game }, { data: card }, { data: opponentBoard }] = await Promise.all([
        supabase.from("two_player_game_state").select("state,version,status").eq("room_id", roomId).maybeSingle(),
        supabase.from("bingo_match_cards").select("card,marked").eq("room_id", roomId).eq("seat", seat).maybeSingle(),
+       supabase.rpc("get_bingo_opponent_progress", { p_room_id: roomId }),
      ]);
      if (game) {
        setCalledNumbers(game.state?.called_numbers || []);
@@ -107,6 +115,11 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
        setBoard(nextBoard);
        setCompletedLines(countCompletedLines(nextBoard));
      }
+     if (opponentBoard?.marked) setOpponentProgress({
+       name: opponentBoard.name || "Opponent",
+       marked: opponentBoard.marked,
+       isBot: Boolean(opponentBoard.is_bot),
+     });
    };
    void load();
    // Realtime gives immediate updates; this small fallback prevents a delayed
@@ -551,6 +564,21 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
 
            </div>
          </div>
+
+         {roomId && opponentProgress && (
+           <div className="mx-auto mb-6 w-full max-w-[290px] rounded-2xl border border-white/10 bg-slate-900/70 p-3 shadow-lg">
+             <div className="mb-2 flex items-center justify-between">
+               <p className="text-[10px] font-black uppercase tracking-[.16em] text-slate-300">{opponentProgress.name}&apos;s progress</p>
+               <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Hidden card</span>
+             </div>
+             <div className="grid grid-cols-5 gap-1.5">
+               {Array.from({ length: 25 }, (_, index) => {
+                 const marked = opponentProgress.marked.includes(index);
+                 return <div key={index} className={`aspect-square rounded-md border ${marked ? "border-rose-300 bg-rose-600 shadow-[inset_0_-2px_0_rgba(0,0,0,.25)]" : "border-slate-700 bg-slate-800"}`} aria-label={marked ? "Opponent marked square" : "Opponent hidden square"} />;
+               })}
+             </div>
+           </div>
+         )}
 
          {/* Game Over Modal */}
          {isGameOver && (
