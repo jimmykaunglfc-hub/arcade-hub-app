@@ -82,8 +82,19 @@ begin
   if opener is null or coalesce((opener->>'left')::int,-1) < coalesce((select (value->>'left')::int from jsonb_array_elements(h2) value where value->>'left'=value->>'right' order by (value->>'left')::int desc limit 1),-1) then
     select value into opener from jsonb_array_elements(h2) value where value->>'left'=value->>'right' order by (value->>'left')::int desc limit 1; opener_seat:=2;
   end if;
+  -- Place the opening tile automatically. This prevents a client/server turn
+  -- race and makes the first playable turn unambiguous for humans and bots.
+  if opener is null then
+    select value into opener from jsonb_array_elements(h1||h2) value order by ((value->>'left')::int+(value->>'right')::int) desc limit 1;
+    opener_seat:=case when exists(select 1 from jsonb_array_elements(h1) value where value->>'id'=opener->>'id') then 1 else 2 end;
+  end if;
+  if opener_seat=1 then
+    select coalesce(jsonb_agg(value),'[]'::jsonb) into h1 from jsonb_array_elements(h1) value where value->>'id'<>opener->>'id';
+  else
+    select coalesce(jsonb_agg(value),'[]'::jsonb) into h2 from jsonb_array_elements(h2) value where value->>'id'<>opener->>'id';
+  end if;
   insert into public.dominoes_match_hands(room_id,seat,hand) values(p_room_id,1,coalesce(h1,'[]')), (p_room_id,2,coalesce(h2,'[]'));
-  update public.two_player_game_state set state=jsonb_build_object('board','[]'::jsonb,'draw_pile',coalesce(pile,'[]'),'opening_tile_id',opener->>'id','winner_seat',null,'blocked',false,'passes',0),current_seat=opener_seat,status='playing',version=version+1,updated_at=now() where room_id=p_room_id and game_key='dominoes';
+  update public.two_player_game_state set state=jsonb_build_object('board',jsonb_build_array(opener||jsonb_build_object('reversed',false,'playedSide','start')),'draw_pile',coalesce(pile,'[]'),'opening_tile_id',null,'winner_seat',null,'blocked',false,'passes',0),current_seat=case when opener_seat=1 then 2 else 1 end,status='playing',version=version+1,updated_at=now() where room_id=p_room_id and game_key='dominoes';
   return jsonb_build_object('initialized',true,'opening_seat',opener_seat);
 end $$;
 grant execute on function public.initialize_dominoes_match(uuid) to authenticated;
