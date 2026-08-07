@@ -367,10 +367,10 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
        </div>
      ) : (
        /* PLAYING SCREEN - Clears top JOE YOKES bar with pt-20 */
-       <div className="flex-1 w-full flex flex-col relative overflow-y-auto overscroll-none pt-[max(5rem,calc(env(safe-area-inset-top)+4.5rem))] pb-8">
+       <div className="flex h-full w-full flex-col overflow-hidden pt-[max(0.9rem,calc(env(safe-area-inset-top)+0.75rem))] pb-2">
         
          {/* Menu Back Button Row */}
-         <div className="w-full px-4 flex items-center justify-between mb-3">
+         <div className="mb-2 flex w-full items-center justify-between px-4">
            <div className="flex w-20 justify-start">
              <button
                onClick={roomId ? exitGame : () => setAppState("menu")}
@@ -425,7 +425,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
          </div>
 
          {/* Automatically called bingo balls */}
-         <div className="w-full shrink-0 flex flex-col items-center justify-center gap-3 py-2">
+         <div className="flex w-full shrink-0 flex-col items-center justify-center gap-1 py-1">
            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
              {isAutoCalling
                ? "Balls are called every 5 seconds"
@@ -446,49 +446,33 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
            )}
 
            {/* Rendered 3D Glossy Bingo Balls */}
-           <div className="flex min-h-[118px] items-center justify-center gap-3">
-             {calledNumbers.length > 0 &&
-               // Online state is append-only, so its newest ball is last.
-               // Local solo state prepends balls, so its newest ball is first.
-               (roomId ? calledNumbers.slice(-1) : calledNumbers.slice(0, 1)).map((num, idx) => {
-                 const letter = getBallLetter(num);
-                 return (
-                   <div key={`${num}-${idx}`} className="flex flex-col items-center gap-1">
-                     {idx === 0 && (
-                       <span className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">
-                         Current Ball
-                       </span>
-                     )}
-                     <div
-                       className={`rounded-full border-2 ${getBallBg(
-                         letter
-                       )} flex flex-col items-center justify-center font-black shadow-[0_7px_16px_rgba(0,0,0,0.62)] transition-all ${
-                         idx === 0
-                           ? "h-16 w-16 border-4 ring-2 ring-white/70 ring-offset-2 ring-offset-[#0d1527]"
-                           : "h-11 w-11 opacity-65"
-                       }`}
-                     >
-                       <span className={`${idx === 0 ? "text-xs" : "text-[9px]"} leading-none text-white drop-shadow-sm`}>
-                         {letter}
-                       </span>
-                       <span className={`${idx === 0 ? "text-2xl" : "text-sm"} leading-none text-white drop-shadow-md`}>
-                         {num}
-                       </span>
-                     </div>
-                   </div>
-                 );
-               })}
+           <div className="flex w-full max-w-[360px] items-center justify-around gap-3 px-4">
+             <div className="flex min-h-[88px] min-w-[84px] items-center justify-center">
+               {calledNumbers.length > 0 &&
+                 // Online state is append-only, so its newest ball is last.
+                 // Local solo state prepends balls, so its newest ball is first.
+                 (roomId ? calledNumbers.slice(-1) : calledNumbers.slice(0, 1)).map((num, idx) => {
+                   const letter = getBallLetter(num);
+                   return <div key={`${num}-${idx}`} className="flex flex-col items-center gap-1"><span className="text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">Current Ball</span><div className={`flex h-14 w-14 flex-col items-center justify-center rounded-full border-4 ${getBallBg(letter)} font-black shadow-[0_7px_16px_rgba(0,0,0,0.62)] ring-2 ring-white/70 ring-offset-2 ring-offset-[#0d1527]`}><span className="text-[10px] leading-none text-white">{letter}</span><span className="text-xl leading-none text-white">{num}</span></div></div>;
+                 })}
+             </div>
+             {roomId && opponentProgress && (
+               <div className="w-[128px] rounded-xl border border-white/10 bg-slate-900/80 p-2 shadow-lg">
+                 <div className="mb-1 flex items-center justify-between gap-1"><p className="truncate text-[7px] font-black uppercase tracking-[.11em] text-slate-300">{opponentProgress.name}&apos;s progress</p><span className="text-[6px] font-bold uppercase text-slate-500">Hidden</span></div>
+                 <div className="grid grid-cols-5 gap-1">{Array.from({ length: 25 }, (_, index) => { const marked = opponentProgress.marked.includes(index); return <div key={index} className={`aspect-square rounded-[3px] border ${marked ? "border-rose-300 bg-rose-600" : "border-slate-700 bg-slate-800"}`} />; })}</div>
+               </div>
+             )}
            </div>
          </div>
 
          {/* Lines & Status Bar */}
-         <div className="mt-8 w-full shrink-0 flex items-center justify-between px-6 py-1 max-w-sm mx-auto text-base font-extrabold text-amber-300">
+         <div className="mt-1 flex w-full shrink-0 items-center justify-between px-6 py-1 text-sm font-extrabold text-amber-300">
            <span>{completedLines >= 1 ? "BINGO!" : "Your Lines: 0 / 1"}</span>
            {!roomId && <span className="text-rose-400">Opponent: {computerLines} / 5</span>}
          </div>
 
          {/* Main Gameplay Area */}
-         <div className="w-full flex items-center justify-center px-3 pb-6 pt-6 gap-3 max-w-2xl mx-auto">
+         <div className="flex w-full flex-1 items-start justify-center px-3 pb-2 pt-2">
           
            {/* Legacy local preview; online games render only the player’s private card. */}
              {!roomId && <div className="hidden sm:flex flex-col items-center relative shrink-0">
@@ -519,19 +503,19 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
              </div>}
 
            {/* Main Wooden Bingo Board */}
-           <div className="bg-[#4a2311] border-4 border-[#2d1408] rounded-3xl p-3 shadow-[0_15px_30px_rgba(0,0,0,0.8)] w-full max-w-[360px]">
+           <div className="w-full max-w-[340px] rounded-3xl border-4 border-[#2d1408] bg-[#4a2311] p-2 shadow-[0_15px_30px_rgba(0,0,0,0.8)]">
             
              {/* Colored B-I-N-G-O Header */}
-             <div className="grid grid-cols-5 gap-1.5 mb-2 text-center text-xl font-black text-white drop-shadow-md">
-               <div className="bg-gradient-to-b from-pink-500 to-pink-600 py-1.5 rounded-t-xl">B</div>
-               <div className="bg-gradient-to-b from-lime-500 to-lime-600 py-1.5 rounded-t-xl">I</div>
-               <div className="bg-gradient-to-b from-cyan-500 to-cyan-600 py-1.5 rounded-t-xl">N</div>
-               <div className="bg-gradient-to-b from-amber-400 to-amber-500 py-1.5 rounded-t-xl">G</div>
-               <div className="bg-gradient-to-b from-purple-500 to-purple-600 py-1.5 rounded-t-xl">O</div>
+             <div className="mb-1.5 grid grid-cols-5 gap-1 text-center text-lg font-black text-white drop-shadow-md">
+               <div className="rounded-t-xl bg-gradient-to-b from-pink-500 to-pink-600 py-1">B</div>
+               <div className="rounded-t-xl bg-gradient-to-b from-lime-500 to-lime-600 py-1">I</div>
+               <div className="rounded-t-xl bg-gradient-to-b from-cyan-500 to-cyan-600 py-1">N</div>
+               <div className="rounded-t-xl bg-gradient-to-b from-amber-400 to-amber-500 py-1">G</div>
+               <div className="rounded-t-xl bg-gradient-to-b from-purple-500 to-purple-600 py-1">O</div>
              </div>
 
              {/* 5x5 Grid */}
-             <div className="grid grid-cols-5 gap-1.5 aspect-square">
+             <div className="grid aspect-square grid-cols-5 gap-1">
                {board.map((tile, idx) => {
                  const isFree = tile.number === "FREE";
 
@@ -540,7 +524,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                      key={tile.id}
                      onClick={() => void handleTileClick(idx)}
                      className={`
-                       w-full h-full aspect-square flex items-center justify-center rounded-2xl font-black text-xl border-b-4 transition-all duration-150 relative overflow-hidden shadow-md
+                       relative flex h-full w-full aspect-square items-center justify-center overflow-hidden rounded-xl border-b-4 text-lg font-black shadow-md transition-all duration-150
                        ${
                          tile.marked
                            ? "bg-gradient-to-b from-rose-500 to-rose-700 border-rose-900 text-white scale-95 shadow-inner"
@@ -549,7 +533,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                      `}
                    >
                      {tile.marked ? (
-                       <div className="w-8 h-8 rounded-full border-4 border-white flex items-center justify-center font-black text-lg text-white drop-shadow">
+                         <div className="flex h-7 w-7 items-center justify-center rounded-full border-4 border-white text-base font-black text-white drop-shadow">
                          O
                        </div>
                      ) : isFree ? (
@@ -564,21 +548,6 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
 
            </div>
          </div>
-
-         {roomId && opponentProgress && (
-           <div className="mx-auto mb-6 w-full max-w-[290px] rounded-2xl border border-white/10 bg-slate-900/70 p-3 shadow-lg">
-             <div className="mb-2 flex items-center justify-between">
-               <p className="text-[10px] font-black uppercase tracking-[.16em] text-slate-300">{opponentProgress.name}&apos;s progress</p>
-               <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Hidden card</span>
-             </div>
-             <div className="grid grid-cols-5 gap-1.5">
-               {Array.from({ length: 25 }, (_, index) => {
-                 const marked = opponentProgress.marked.includes(index);
-                 return <div key={index} className={`aspect-square rounded-md border ${marked ? "border-rose-300 bg-rose-600 shadow-[inset_0_-2px_0_rgba(0,0,0,.25)]" : "border-slate-700 bg-slate-800"}`} aria-label={marked ? "Opponent marked square" : "Opponent hidden square"} />;
-               })}
-             </div>
-           </div>
-         )}
 
          {/* Game Over Modal */}
          {isGameOver && (
