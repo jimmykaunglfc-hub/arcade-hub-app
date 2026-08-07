@@ -794,6 +794,7 @@ export default function Dominoes({
  const [roomVersion, setRoomVersion] = useState(1);
  const [onlineError, setOnlineError] = useState<string | null>(null);
  const [opponentName, setOpponentName] = useState("Opponent");
+ const [openingTileId, setOpeningTileId] = useState<string | null>(null);
 
  useEffect(() => {
    if (!roomId) return;
@@ -813,6 +814,7 @@ export default function Dominoes({
      if (state) {
        setBoard((state.state?.board || []) as PlayedDomino[]);
        setDrawPile((state.state?.draw_pile || []) as Domino[]);
+       setOpeningTileId(state.state?.opening_tile_id || null);
        setCurrentPlayer(state.current_seat === actualSeat ? "you" : "computer");
        setRoomVersion(state.version);
        const winnerSeat = Number(state.state?.winner_seat || 0);
@@ -1210,6 +1212,11 @@ export default function Dominoes({
      currentPlayer !== "you" ||
      gameOver
    ) {
+     return;
+   }
+
+   if (roomId && board.length === 0 && openingTileId && domino.id !== openingTileId) {
+     setMessage("Play the highlighted opening double first.");
      return;
    }
 
@@ -1689,7 +1696,8 @@ export default function Dominoes({
                  domino,
                  leftEnd,
                  rightEnd
-               );
+               ) &&
+               (!roomId || board.length > 0 || !openingTileId || domino.id === openingTileId);
 
              return (
                <HandDomino
