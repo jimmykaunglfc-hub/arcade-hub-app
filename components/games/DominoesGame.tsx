@@ -792,11 +792,12 @@ export default function Dominoes({
    useState<PlayedDomino[]>([]);
  const boardRef = useRef<PlayedDomino[]>([]);
  const [roomVersion, setRoomVersion] = useState(1);
+ const [onlineError, setOnlineError] = useState<string | null>(null);
 
  useEffect(() => {
    if (!roomId) return;
    const load = async () => {
-     const [{ data: state }, { data: hand }] = await Promise.all([
+     const [{ data: state, error: stateError }, { data: hand, error: handError }] = await Promise.all([
        supabase.from("two_player_game_state").select("state,current_seat,version,status").eq("room_id", roomId).maybeSingle(),
        supabase.from("dominoes_match_hands").select("hand").eq("room_id", roomId).eq("seat", seat).maybeSingle(),
      ]);
@@ -805,12 +806,20 @@ export default function Dominoes({
        setDrawPile((state.state?.draw_pile || []) as Domino[]);
        setCurrentPlayer(state.current_seat === seat ? "you" : "computer");
        setRoomVersion(state.version);
+       const winnerSeat = Number(state.state?.winner_seat || 0);
+       if (state.status === "completed") {
+         setGameOver(true);
+         setWinner(winnerSeat ? (winnerSeat === seat ? "you" : "computer") : "draw");
+         setMessage(winnerSeat ? `${winnerSeat === seat ? "You" : "Opponent"} win${winnerSeat === seat ? "" : "s"}.` : "Blocked game — draw.");
+       }
      }
      if (hand?.hand) setYourHand(hand.hand as Domino[]);
+     if (stateError || handError) setOnlineError(stateError?.message || handError?.message || "Unable to synchronize the match.");
    };
    void load();
+   const poll = window.setInterval(load, 1500);
    const channel = supabase.channel(`dominoes-${roomId}`).on("postgres_changes", { event: "*", schema: "public", table: "two_player_game_state", filter: `room_id=eq.${roomId}` }, load).on("postgres_changes", { event: "*", schema: "public", table: "dominoes_match_hands", filter: `room_id=eq.${roomId}` }, load).subscribe();
-   return () => { void supabase.removeChannel(channel); };
+   return () => { window.clearInterval(poll); void supabase.removeChannel(channel); };
  }, [roomId, seat]);
 
  const [
@@ -837,6 +846,12 @@ export default function Dominoes({
 
  const [gameOver, setGameOver] =
    useState(false);
+
+ useEffect(() => {
+   if (!roomId || currentPlayer !== "computer" || gameOver) return;
+   const timer = window.setTimeout(() => { void supabase.rpc("resolve_dominoes_bot_turn", { p_room_id: roomId }); }, 1400);
+   return () => window.clearTimeout(timer);
+ }, [currentPlayer, gameOver, roomId, roomVersion]);
 
  const [winner, setWinner] = useState<
    Player | "draw" | null
@@ -1041,7 +1056,7 @@ export default function Dominoes({
      player: Player
    ) => {
      if (roomId && player === "you") {
-       void supabase.rpc("dominoes_play", { p_room_id: roomId, p_tile_id: domino.id, p_side: boardRef.current.length === 0 ? "start" : side, p_expected_version: roomVersion });
+       void supabase.rpc("dominoes_play", { p_room_id: roomId, p_tile_id: domino.id, p_side: boardRef.current.length === 0 ? "start" : side, p_expected_version: roomVersion }).then(({ error }) => { if (error) setOnlineError(error.message); });
        setShowSidePicker(false);
        setSelectedDominoId(null);
        return true;
@@ -1251,7 +1266,7 @@ export default function Dominoes({
 
  const drawDomino = () => {
    if (roomId) {
-     if (currentPlayer === "you" && !gameOver) void supabase.rpc("dominoes_draw_or_pass", { p_room_id: roomId, p_expected_version: roomVersion });
+     if (currentPlayer === "you" && !gameOver) void supabase.rpc("dominoes_draw_or_pass", { p_room_id: roomId, p_expected_version: roomVersion }).then(({ error }) => { if (error) setOnlineError(error.message); });
      return;
    }
    if (
@@ -1535,6 +1550,12 @@ export default function Dominoes({
          </button>
        </div>
      </header>
+
+     {onlineError && (
+       <button onClick={() => setOnlineError(null)} className="mx-3 mt-2 rounded-xl bg-red-700/90 px-3 py-2 text-left text-xs font-bold text-white shadow">
+         {onlineError}
+       </button>
+     )}
 
      <section className="shrink-0 px-3 py-2">
        <div className="flex items-center justify-between rounded-2xl border border-emerald-800/20 bg-white/65 px-3 py-2 shadow-sm">
