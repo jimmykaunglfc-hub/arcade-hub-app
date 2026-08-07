@@ -3,6 +3,24 @@
 alter table public.two_player_game_state
   add column if not exists turn_deadline timestamptz;
 
+-- Explicit bounds make a false four-in-a-row impossible: every one of the
+-- four checked board cells must contain the same seat number.
+create or replace function public.four_in_a_row_has_four(p_board jsonb, p_seat integer)
+returns boolean language plpgsql immutable as $$
+declare r integer; c integer;
+begin
+  for r in 0..5 loop
+    for c in 0..6 loop
+      if p_board->r->>c is distinct from p_seat::text then continue; end if;
+      if c <= 3 and p_board->r->>(c+1)=p_seat::text and p_board->r->>(c+2)=p_seat::text and p_board->r->>(c+3)=p_seat::text then return true; end if;
+      if r <= 2 and p_board->(r+1)->>c=p_seat::text and p_board->(r+2)->>c=p_seat::text and p_board->(r+3)->>c=p_seat::text then return true; end if;
+      if r <= 2 and c <= 3 and p_board->(r+1)->>(c+1)=p_seat::text and p_board->(r+2)->>(c+2)=p_seat::text and p_board->(r+3)->>(c+3)=p_seat::text then return true; end if;
+      if r <= 2 and c >= 3 and p_board->(r+1)->>(c-1)=p_seat::text and p_board->(r+2)->>(c-2)=p_seat::text and p_board->(r+3)->>(c-3)=p_seat::text then return true; end if;
+    end loop;
+  end loop;
+  return false;
+end $$;
+
 create or replace function public.start_four_in_a_row_match(p_room_id uuid)
 returns jsonb language plpgsql security definer set search_path=public as $$
 declare v_players integer;
@@ -120,7 +138,16 @@ begin
   where room_id=p_room_id and game_key='four-in-a-row' and status='playing'
     and turn_deadline is not null and turn_deadline<=now();
 
-  perform public.resolve_four_in_a_row_bot_turn(p_room_id);
+  select * into v_state from public.two_player_game_state
+  where room_id=p_room_id and game_key='four-in-a-row';
+
+  -- Bots deliberately wait a moment after a turn changes. This avoids an
+  -- instant, mechanical-looking reply while preserving server authority.
+  if v_state.status='playing'
+     and exists(select 1 from public.matchmaking_room_players p where p.room_id=p_room_id and p.seat=v_state.current_seat and p.is_bot and p.left_at is null)
+     and v_state.updated_at <= now()-interval '1800 milliseconds' then
+    perform public.resolve_four_in_a_row_bot_turn(p_room_id);
+  end if;
 
   select * into v_state from public.two_player_game_state
   where room_id=p_room_id and game_key='four-in-a-row';

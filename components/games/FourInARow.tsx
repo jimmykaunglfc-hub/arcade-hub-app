@@ -248,7 +248,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
          2: players.find((player) => Number(player.seat) === 2)?.name || "Player 2",
        });
      }
-     if (data.status !== "playing" || !data.state?.board || ![1, 2].includes(Number(data.current_seat))) {
+     if (!["playing", "completed"].includes(data.status) || !data.state?.board || ![1, 2].includes(Number(data.current_seat))) {
        setStateReady(false);
        setSyncMessage("Match is still preparing. Please wait a moment.");
        return;
@@ -258,7 +258,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
      setCurrentPlayer(data.current_seat as Player);
      setRoomVersion(data.version);
      setTurnDeadline(data.turn_deadline || null);
-     setStateReady(true);
+     setStateReady(data.status === "playing");
      setSyncMessage(null);
      const winnerSeat = Number(data.state?.winner_seat || 0);
      const nextWinner = winnerSeat ? winnerSeat as Player : data.state?.draw ? "Draw" : null;
@@ -268,7 +268,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
    void load();
    // Polling is intentional: it keeps moves and bot turns synchronized even
    // when the room table has not been added to the Realtime publication.
-   const poll = window.setInterval(load, 1200);
+   const poll = window.setInterval(load, 1500);
    const channel = supabase.channel(`four-in-a-row-${roomId}`).on("postgres_changes", { event: "*", schema: "public", table: "two_player_game_state", filter: `room_id=eq.${roomId}` }, load).subscribe();
    return () => { window.clearInterval(poll); void supabase.removeChannel(channel); };
  }, [roomId]);
