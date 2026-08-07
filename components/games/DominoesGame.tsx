@@ -812,7 +812,9 @@ export default function Dominoes({
      const opponent = (players || []).find((player) => player.seat !== actualSeat);
      if (opponent?.display_name) setOpponentName(opponent.display_name);
      if (state) {
-       setBoard((state.state?.board || []) as PlayedDomino[]);
+       const nextBoard = (state.state?.board || []) as PlayedDomino[];
+       boardRef.current = nextBoard;
+       setBoard(nextBoard);
        setDrawPile((state.state?.draw_pile || []) as Domino[]);
        setOpeningTileId(state.state?.opening_tile_id || null);
        setCurrentPlayer(state.current_seat === actualSeat ? "you" : "computer");
