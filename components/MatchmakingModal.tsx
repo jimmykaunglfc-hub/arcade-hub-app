@@ -87,20 +87,28 @@ export default function MatchmakingModal({
 
         await checkBingoRoom();
         pollInterval = setInterval(checkBingoRoom, 1500);
-        const fallbackTimer = window.setTimeout(async () => {
+        let botFillTimer: number | undefined;
+        const fillWithBot = async () => {
           if (isCancelledRef.current || !isMounted || settledRef.current || !activeUserRef.current) return;
           const { data, error } = await supabase.rpc("fill_bingo_match_with_bot", { p_name: username });
           if (error || !data?.room_id) { console.error("Bingo bot fallback error:", error); return; }
           settledRef.current = true;
           clearInterval(pollInterval);
+          if (botFillTimer) window.clearInterval(botFillTimer);
           await finishMatchmaking({
             matchId: data.room_id,
             role: data.seat as 1 | 2,
             opponent: { name: data.opponent_name || "Online Player", isBot: true, avatarIcon: "smart_toy", elo: 1200 },
           });
+        };
+        const fallbackTimer = window.setTimeout(() => {
+          void fillWithBot();
+          // The database enforces 45 seconds precisely. Retry in case the
+          // browser reaches the threshold a fraction of a second early.
+          botFillTimer = window.setInterval(() => { void fillWithBot(); }, 1500);
         }, fallbackAfterMs);
 
-        return () => window.clearTimeout(fallbackTimer);
+        return () => { window.clearTimeout(fallbackTimer); if (botFillTimer) window.clearInterval(botFillTimer); };
       }
 
       // Legacy games use the existing queue.

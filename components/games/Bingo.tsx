@@ -81,6 +81,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
  const [roomVersion, setRoomVersion] = useState(1);
  const isSharedCaller = !roomId || seat === 1;
  const [isDrawing, setIsDrawing] = useState(false);
+ const [callerError, setCallerError] = useState<string | null>(null);
 
  useEffect(() => {
    if (!roomId) return;
@@ -128,7 +129,10 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
      const { error } = await supabase.rpc("bingo_draw_number", { p_room_id: roomId, p_expected_version: roomVersion });
      // The room can have updated a moment before a tap. Reloading is safer
      // than leaving a button that appears broken.
-     if (error) console.warn("Bingo draw did not apply:", error.message);
+     if (error) {
+       console.warn("Bingo draw did not apply:", error.message);
+       setCallerError("Ball call did not reach the room. Please retry.");
+     } else setCallerError(null);
      setIsDrawing(false);
      return;
    }
@@ -177,6 +181,23 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
    setAppState("playing");
  };
 
+ const exitGame = () => {
+   if (roomId) void supabase.rpc("leave_bingo_match", { p_room_id: roomId });
+   onClose?.();
+ };
+
+ const toggleAutoCaller = async () => {
+   const next = !isAutoCalling;
+   if (!roomId) { setIsAutoCalling(next); return; }
+   setCallerError(null);
+   const { error } = await supabase.rpc("bingo_set_auto_calling", { p_room_id: roomId, p_enabled: next });
+   if (error) {
+     setCallerError("Could not change the shared caller. Please retry.");
+     return;
+   }
+   setIsAutoCalling(next);
+ };
+
  // One shared caller automatically draws a ball every five seconds.
  useEffect(() => {
    if (
@@ -195,9 +216,12 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
  // both devices fire this request at the same time.
  useEffect(() => {
    if (!roomId || appState !== "playing" || isGameOver) return;
-   const tick = () => { void supabase.rpc("advance_bingo_draws", { p_room_id: roomId }); };
+   const tick = async () => {
+     const { error } = await supabase.rpc("advance_bingo_draws", { p_room_id: roomId });
+     if (error) setCallerError("Shared caller is unavailable. Please ensure the Bingo SQL update is installed.");
+   };
    tick();
-   const timer = window.setInterval(tick, 1000);
+   const timer = window.setInterval(() => { void tick(); }, 1000);
    return () => window.clearInterval(timer);
  }, [appState, isGameOver, roomId]);
 
@@ -304,8 +328,8 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
          <div className="w-full px-4 flex items-center justify-between mb-3">
            <div className="flex w-20 justify-start">
              <button
-               onClick={() => setAppState("menu")}
-               aria-label="Back to Bingo menu"
+               onClick={roomId ? exitGame : () => setAppState("menu")}
+               aria-label={roomId ? "Exit Bingo game" : "Back to Bingo menu"}
                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/80 text-slate-300 shadow-sm transition-colors hover:text-amber-400"
              >
                <svg
@@ -327,11 +351,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
            <div className="flex items-center gap-1.5">
              <button
                type="button"
-               onClick={() => {
-                 const next = !isAutoCalling;
-                 setIsAutoCalling(next);
-                 if (roomId) void supabase.rpc("bingo_set_auto_calling", { p_room_id: roomId, p_enabled: next });
-               }}
+               onClick={() => void toggleAutoCaller()}
                aria-pressed={isAutoCalling}
                disabled={roomId ? false : !isSharedCaller}
                className={`rounded-xl border px-2 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
@@ -366,6 +386,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                ? "Balls are called every 5 seconds"
                : "Automatic caller is paused"}
            </p>
+           {callerError && <p className="text-center text-xs font-bold text-rose-300">{callerError}</p>}
 
            {!isAutoCalling && (roomId || isSharedCaller) && (
              <button
@@ -516,16 +537,16 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
 
                <div className="flex flex-col gap-3 w-full pt-2">
                  <button
-                   onClick={startNewGame}
+                   onClick={roomId ? exitGame : startNewGame}
                    className="w-full bg-gradient-to-b from-amber-400 to-amber-600 text-slate-950 py-3.5 rounded-xl font-black text-sm tracking-wider uppercase transition-all shadow-lg active:scale-95"
                  >
-                   Play Again
+                   {roomId ? "Exit Arena" : "Play Again"}
                  </button>
                  <button
-                   onClick={() => setAppState("menu")}
+                   onClick={roomId ? exitGame : () => setAppState("menu")}
                    className="w-full bg-slate-800 text-slate-300 border border-slate-700 py-3.5 rounded-xl font-bold text-sm tracking-wider uppercase transition-all active:scale-95"
                  >
-                   Main Menu
+                   {roomId ? "Exit Game" : "Main Menu"}
                  </button>
                </div>
 
