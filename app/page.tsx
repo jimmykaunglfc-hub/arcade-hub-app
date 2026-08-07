@@ -453,7 +453,7 @@ export default function Home() {
       ) : playingGame === "native://monopoly" ? (
         <MonopolyFourPlayerArena onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://dominoes" ? (
-        <CompetitiveGameLaunch gameKey="dominoes" gameTitle="Dominoes" Game={DominoesArenaGame} onClose={() => setPlayingGame(null)} />
+        <CompetitiveGameLaunch gameKey="dominoes" gameTitle="Dominoes" Game={DominoesArenaGame} preloadedRoomId={activeMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://2048" ? (
         <Game2048 onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://big-two" ? (
