@@ -796,6 +796,21 @@ export default function Dominoes({
  const [opponentName, setOpponentName] = useState("Opponent");
  const [openingTileId, setOpeningTileId] = useState<string | null>(null);
 
+ const quitGame = useCallback(async () => {
+   if (roomId) {
+     const { error } = await supabase.rpc("leave_dominoes_match", {
+       p_room_id: roomId,
+     });
+
+     if (error) {
+       setOnlineError(error.message);
+       return;
+     }
+   }
+
+   onClose?.();
+ }, [onClose, roomId]);
+
  useEffect(() => {
    if (!roomId) return;
    const load = async () => {
@@ -1520,10 +1535,10 @@ export default function Dominoes({
      <header className="flex shrink-0 items-center justify-between border-b border-lime-700/20 bg-lime-100/90 px-3 py-2 shadow-sm">
        <div className="flex items-center gap-2">
          {onClose && (
-           <button
-             type="button"
-             onClick={onClose}
-             aria-label="Back to Arcade Hub"
+         <button
+           type="button"
+           onClick={() => void quitGame()}
+           aria-label={roomId ? "Quit Dominoes match" : "Back to Arcade Hub"}
              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-400/30 bg-slate-900/85 text-white shadow-sm transition active:scale-95"
            >
              <svg
@@ -1554,13 +1569,23 @@ export default function Dominoes({
        </div>
 
        <div className="flex gap-2">
-         <button
-           type="button"
-           onClick={startNewGame}
-           className="rounded-xl bg-amber-400 px-3 py-2 text-xs font-black shadow-sm active:scale-95"
-         >
-           New
-         </button>
+        {roomId ? (
+          <button
+            type="button"
+            onClick={() => void quitGame()}
+            className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white shadow-sm active:scale-95"
+          >
+            Quit
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={startNewGame}
+            className="rounded-xl bg-amber-400 px-3 py-2 text-xs font-black shadow-sm active:scale-95"
+          >
+            New
+          </button>
+        )}
 
          <button
            type="button"
