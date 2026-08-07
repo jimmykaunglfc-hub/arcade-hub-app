@@ -224,6 +224,8 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  const [mySeat, setMySeat] = useState<Player>(seat);
  const [stateReady, setStateReady] = useState(!roomId);
  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+ const [turnDeadline, setTurnDeadline] = useState<string | null>(null);
+ const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
  const resultReportedRef = useRef(false);
  const [roomVersion, setRoomVersion] = useState(1);
  const online = Boolean(roomId);
@@ -231,29 +233,31 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  useEffect(() => {
    if (!roomId) return;
    const load = async () => {
-     const [{ data, error }, { data: players, error: playersError }, { data: auth }] = await Promise.all([
-       supabase.from("two_player_game_state").select("state,current_seat,version,status").eq("room_id", roomId).eq("game_key", "four-in-a-row").maybeSingle(),
-       supabase.from("matchmaking_room_players").select("seat,display_name,user_id").eq("room_id", roomId).is("left_at", null),
-       supabase.auth.getUser(),
-     ]);
-     if (playersError) setSyncMessage("Unable to load player names. Please reopen the match.");
-     if (players) {
-       const mine = players.find((player) => player.user_id === auth.user?.id);
-       if (mine?.seat === 1 || mine?.seat === 2) setMySeat(mine.seat);
+     const { data, error } = await supabase.rpc("get_four_in_a_row_match", { p_room_id: roomId });
+     if (error || !data) {
+       setStateReady(false);
+       setSyncMessage(error?.message || "Unable to load the match. Please reopen it.");
+       return;
+     }
+     const players: Array<{ seat: number; name?: string }> = Array.isArray(data.players) ? data.players : [];
+     if (players.length) {
+       const serverSeat = Number(data.my_seat);
+       if (serverSeat === 1 || serverSeat === 2) setMySeat(serverSeat as Player);
        setPlayerNames({
-         1: players.find((player) => player.seat === 1)?.display_name || "Player 1",
-         2: players.find((player) => player.seat === 2)?.display_name || "Player 2",
+         1: players.find((player) => Number(player.seat) === 1)?.name || "Player 1",
+         2: players.find((player) => Number(player.seat) === 2)?.name || "Player 2",
        });
      }
-     if (error || !data || data.status !== "playing" || !data.state?.board || ![1, 2].includes(Number(data.current_seat))) {
+     if (data.status !== "playing" || !data.state?.board || ![1, 2].includes(Number(data.current_seat))) {
        setStateReady(false);
-       setSyncMessage(error?.message || "Match is still preparing. Please wait a moment.");
+       setSyncMessage("Match is still preparing. Please wait a moment.");
        return;
      }
      const nextBoard = data.state?.board as Board | undefined;
      if (nextBoard) setBoard(nextBoard);
      setCurrentPlayer(data.current_seat as Player);
      setRoomVersion(data.version);
+     setTurnDeadline(data.turn_deadline || null);
      setStateReady(true);
      setSyncMessage(null);
      const winnerSeat = Number(data.state?.winner_seat || 0);
@@ -269,15 +273,13 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
    return () => { window.clearInterval(poll); void supabase.removeChannel(channel); };
  }, [roomId]);
 
- // The server owns bot moves in online rooms. Calling this safely from both
- // clients is harmless; it only acts when the current seat belongs to a bot.
  useEffect(() => {
-   if (!roomId || winner || !stateReady) return;
-   const resolve = () => { void supabase.rpc("resolve_four_in_a_row_bot_turn", { p_room_id: roomId }); };
-   resolve();
-   const timer = window.setInterval(resolve, 1200);
+   if (!turnDeadline) { setSecondsLeft(null); return; }
+   const update = () => setSecondsLeft(Math.max(0, Math.ceil((new Date(turnDeadline).getTime() - Date.now()) / 1000)));
+   update();
+   const timer = window.setInterval(update, 250);
    return () => window.clearInterval(timer);
- }, [roomId, winner, stateReady]);
+ }, [turnDeadline]);
 
  useEffect(() => {
    if (!winner || resultReportedRef.current) return;
@@ -485,6 +487,9 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
 
      {/* Turn Status Card Badge */}
      <div className="flex items-center justify-center gap-3 bg-white border-2 border-blue-400 p-2 px-5 rounded-2xl shadow-lg mb-4">
+       {secondsLeft !== null && !winner && (
+         <span className="rounded-lg bg-slate-950 px-2 py-1 font-mono text-xs font-black text-amber-300">⏱ {secondsLeft}s</span>
+       )}
        <span className="text-xs font-black tracking-wider uppercase text-blue-600">
          {winner
            ? winner === "Draw"
