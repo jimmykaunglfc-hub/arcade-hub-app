@@ -798,23 +798,31 @@ export default function Dominoes({
  useEffect(() => {
    if (!roomId) return;
    const load = async () => {
-     const [{ data: state, error: stateError }, { data: hand, error: handError }, { data: players }] = await Promise.all([
-       supabase.from("two_player_game_state").select("state,current_seat,version,status").eq("room_id", roomId).maybeSingle(),
-       supabase.from("dominoes_match_hands").select("hand").eq("room_id", roomId).eq("seat", seat).maybeSingle(),
-       supabase.from("matchmaking_room_players").select("seat,display_name").eq("room_id", roomId).is("left_at", null),
+     const [{ data: auth }, { data: players }] = await Promise.all([
+       supabase.auth.getUser(),
+       supabase.from("matchmaking_room_players").select("seat,display_name,user_id").eq("room_id", roomId).is("left_at", null),
      ]);
-     const opponent = (players || []).find((player) => player.seat !== seat);
+     const mine = (players || []).find((player) => player.user_id === auth.user?.id);
+     const actualSeat = mine?.seat === 1 || mine?.seat === 2 ? mine.seat : seat;
+     const [{ data: state, error: stateError }, { data: hand, error: handError }] = await Promise.all([
+       supabase.from("two_player_game_state").select("state,current_seat,version,status").eq("room_id", roomId).maybeSingle(),
+       supabase.from("dominoes_match_hands").select("hand").eq("room_id", roomId).eq("seat", actualSeat).maybeSingle(),
+     ]);
+     const opponent = (players || []).find((player) => player.seat !== actualSeat);
      if (opponent?.display_name) setOpponentName(opponent.display_name);
      if (state) {
        setBoard((state.state?.board || []) as PlayedDomino[]);
        setDrawPile((state.state?.draw_pile || []) as Domino[]);
-       setCurrentPlayer(state.current_seat === seat ? "you" : "computer");
+       setCurrentPlayer(state.current_seat === actualSeat ? "you" : "computer");
        setRoomVersion(state.version);
        const winnerSeat = Number(state.state?.winner_seat || 0);
        if (state.status === "completed") {
          setGameOver(true);
-         setWinner(winnerSeat ? (winnerSeat === seat ? "you" : "computer") : "draw");
-         setMessage(winnerSeat ? `${winnerSeat === seat ? "You" : "Opponent"} win${winnerSeat === seat ? "" : "s"}.` : "Blocked game — draw.");
+         setWinner(winnerSeat ? (winnerSeat === actualSeat ? "you" : "computer") : "draw");
+         setMessage(winnerSeat ? `${winnerSeat === actualSeat ? "You" : opponent?.display_name || "Opponent"} win${winnerSeat === actualSeat ? "" : "s"}.` : "Blocked game — draw.");
+       } else {
+         setGameOver(false);
+         setWinner(null);
        }
      }
      if (hand?.hand) setYourHand(hand.hand as Domino[]);

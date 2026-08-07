@@ -174,7 +174,10 @@ begin
  if bot_seat is null then return jsonb_build_object('acted',false); end if;
  select d.hand into v_hand from public.dominoes_match_hands d where d.room_id=p_room_id and d.seat=bot_seat;
  board:=coalesce(s.state->'board','[]'::jsonb);
- select value into tile from jsonb_array_elements(v_hand) value where public.dominoes_tile_playable(value,board) order by ((value->>'left')::int+(value->>'right')::int) desc limit 1;
+ select value into tile from jsonb_array_elements(v_hand) value
+ where public.dominoes_tile_playable(value,board)
+   and (jsonb_array_length(board)>0 or value->>'id'=s.state->>'opening_tile_id')
+ order by ((value->>'left')::int+(value->>'right')::int) desc limit 1;
  if tile is null then
    pile:=coalesce(s.state->'draw_pile','[]'::jsonb);
    if jsonb_array_length(pile)>0 then
