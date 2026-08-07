@@ -801,7 +801,7 @@ export default function Dominoes({
    const load = async () => {
      const [{ data: auth }, { data: players }] = await Promise.all([
        supabase.auth.getUser(),
-       supabase.from("matchmaking_room_players").select("seat,display_name,user_id").eq("room_id", roomId).is("left_at", null),
+       supabase.from("matchmaking_room_players").select("seat,display_name,user_id,is_bot").eq("room_id", roomId).is("left_at", null),
      ]);
      const mine = (players || []).find((player) => player.user_id === auth.user?.id);
      const actualSeat = mine?.seat === 1 || mine?.seat === 2 ? mine.seat : seat;
@@ -827,6 +827,10 @@ export default function Dominoes({
        } else {
          setGameOver(false);
          setWinner(null);
+         setMessage(state.current_seat === actualSeat ? "Your turn. Choose a matching domino." : `${opponent?.display_name || "Opponent"} is thinking...`);
+         if (state.current_seat !== actualSeat && opponent?.is_bot) {
+           void supabase.rpc("resolve_dominoes_bot_turn", { p_room_id: roomId });
+         }
        }
      }
      if (hand?.hand) setYourHand(hand.hand as Domino[]);
