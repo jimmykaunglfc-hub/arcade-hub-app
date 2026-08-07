@@ -247,10 +247,21 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
  }, [appState, isAutoCalling, isGameOver, isSharedCaller, roomId, roomVersion]);
 
  // Handle Tile Click
- const handleTileClick = (index: number) => {
+ const handleTileClick = async (index: number) => {
    if (roomId) {
      if (isGameOver || index === 12) return;
-     void supabase.rpc("bingo_mark_square", { p_room_id: roomId, p_tile_index: index, p_expected_version: roomVersion });
+     const { data, error } = await supabase.rpc("bingo_mark_square", { p_room_id: roomId, p_tile_index: index, p_expected_version: roomVersion });
+     if (error) {
+       setCallerError(`Square cannot be marked: ${error.message}`);
+       return;
+     }
+     setBoard((previous) => {
+       const next = previous.map((tile, tileIndex) => tileIndex === index ? { ...tile, marked: true } : tile);
+       setCompletedLines(countCompletedLines(next));
+       return next;
+     });
+     if (typeof data?.version === "number") setRoomVersion(data.version);
+     setCallerError(null);
      return;
    }
    if (isGameOver) return;
@@ -514,7 +525,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                  return (
                    <button
                      key={tile.id}
-                     onClick={() => handleTileClick(idx)}
+                     onClick={() => void handleTileClick(idx)}
                      className={`
                        w-full h-full aspect-square flex items-center justify-center rounded-2xl font-black text-xl border-b-4 transition-all duration-150 relative overflow-hidden shadow-md
                        ${
