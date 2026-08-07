@@ -220,6 +220,15 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
    return () => { void supabase.removeChannel(channel); };
  }, [roomId]);
 
+ // The server owns bot moves in online rooms. Calling this safely from both
+ // clients is harmless; it only acts when the current seat belongs to a bot.
+ useEffect(() => {
+   if (!roomId || winner) return;
+   const resolve = () => { void supabase.rpc("resolve_four_in_a_row_bot_turn", { p_room_id: roomId }); };
+   const timer = window.setInterval(resolve, 1200);
+   return () => window.clearInterval(timer);
+ }, [roomId, winner]);
+
  useEffect(() => {
    if (!winner || resultReportedRef.current) return;
    resultReportedRef.current = true;

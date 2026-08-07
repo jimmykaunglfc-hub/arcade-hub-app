@@ -70,10 +70,13 @@ export default function MatchmakingModal({
       if (!isMounted) return;
 
       if (roomBacked) {
+        const isFourInARow = gameKey === "four-in-a-row";
+        const queueRpc = isFourInARow ? "queue_four_in_a_row_match" : "queue_bingo_match";
+        const botRpc = isFourInARow ? "fill_four_in_a_row_match_with_bot" : "fill_bingo_match_with_bot";
         const checkBingoRoom = async () => {
           if (isCancelledRef.current || !isMounted || settledRef.current) return;
-          const { data, error } = await supabase.rpc("queue_bingo_match", { p_name: username });
-          if (error) { console.error("Bingo matchmaking error:", error); return; }
+          const { data, error } = await supabase.rpc(queueRpc, { p_name: username });
+          if (error) { console.error("Room matchmaking error:", error); return; }
           if (data?.matched) {
             settledRef.current = true;
             clearInterval(pollInterval);
@@ -90,8 +93,8 @@ export default function MatchmakingModal({
         let botFillTimer: number | undefined;
         const fillWithBot = async () => {
           if (isCancelledRef.current || !isMounted || settledRef.current || !activeUserRef.current) return;
-          const { data, error } = await supabase.rpc("fill_bingo_match_with_bot", { p_name: username });
-          if (error || !data?.room_id) { console.error("Bingo bot fallback error:", error); return; }
+          const { data, error } = await supabase.rpc(botRpc, { p_name: username });
+          if (error || !data?.room_id) { console.error("Room bot fallback error:", error); return; }
           settledRef.current = true;
           clearInterval(pollInterval);
           if (botFillTimer) window.clearInterval(botFillTimer);
@@ -162,7 +165,7 @@ export default function MatchmakingModal({
   // Use the new SQL function to cleanly wipe everything if they cancel
   const cleanUpQueueTicket = async () => {
     if (activeUserRef.current) {
-      if (roomBacked) await supabase.rpc("cancel_bingo_matchmaking");
+      if (roomBacked) await supabase.rpc(gameKey === "four-in-a-row" ? "cancel_four_in_a_row_matchmaking" : "cancel_bingo_matchmaking");
       else await supabase.rpc("reset_matchmaking", { p_user_id: activeUserRef.current });
     }
   };
