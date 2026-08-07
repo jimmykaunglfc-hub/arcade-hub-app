@@ -134,6 +134,7 @@ begin
    return jsonb_build_object('blocked',true,'winner_seat',winner_no);
  end if;
  update public.two_player_game_state set state=jsonb_set(s.state,'{passes}',to_jsonb(passes)),current_seat=case when seat_no=1 then 2 else 1 end,version=version+1,updated_at=now() where room_id=p_room_id;
+ perform public.resolve_dominoes_bot_turn(p_room_id);
  return jsonb_build_object('passed',true);
 end $$;
 grant execute on function public.dominoes_draw_or_pass(uuid,integer) to authenticated;
@@ -169,6 +170,7 @@ begin
  update public.dominoes_match_hands set hand=next_hand where room_id=p_room_id and seat=seat_no;
  update public.two_player_game_state set state=jsonb_set(jsonb_set(jsonb_set(s.state,'{board}',board),'{passes}','0'::jsonb),'{winner_seat}',case when won then to_jsonb(seat_no) else 'null'::jsonb end),current_seat=case when won then seat_no else case when seat_no=1 then 2 else 1 end end,status=case when won then 'completed' else 'playing' end,version=version+1,updated_at=now() where room_id=p_room_id;
  if won then update public.matchmaking_rooms set status='completed' where id=p_room_id; end if;
+ if not won then perform public.resolve_dominoes_bot_turn(p_room_id); end if;
  return jsonb_build_object('played',true,'winner_seat',case when won then seat_no else null end);
 end $$;
 grant execute on function public.dominoes_play(uuid,text,text,integer) to authenticated;
