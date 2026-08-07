@@ -828,7 +828,9 @@ export default function Dominoes({
          setGameOver(false);
          setWinner(null);
          setMessage(state.current_seat === actualSeat ? "Your turn. Choose a matching domino." : `${opponent?.display_name || "Opponent"} is thinking...`);
-         if (state.current_seat !== actualSeat && opponent?.is_bot) {
+         // Let the server decide whether this seat is a bot. Roster flags can
+         // arrive stale, while the resolver is a safe no-op for human turns.
+         if (state.current_seat !== actualSeat) {
            void supabase.rpc("resolve_dominoes_bot_turn", { p_room_id: roomId });
          }
        }
