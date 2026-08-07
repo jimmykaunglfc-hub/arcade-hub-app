@@ -64,7 +64,7 @@ const countCompletedLines = (board: BoardTile[]): number => {
 };
 
 export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, seat = 1 }) => {
- const [appState, setAppState] = useState<"menu" | "playing">("menu");
+ const [appState, setAppState] = useState<"loading" | "menu" | "playing">(roomId ? "loading" : "menu");
  const [board, setBoard] = useState<BoardTile[]>([]);
  const [computerBoard, setComputerBoard] = useState<BoardTile[]>(() =>
    generateBingoCard()
@@ -80,6 +80,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
  const resultReportedRef = React.useRef(false);
  const [roomVersion, setRoomVersion] = useState(1);
  const isSharedCaller = !roomId || seat === 1;
+ const [isDrawing, setIsDrawing] = useState(false);
 
  useEffect(() => {
    if (!roomId) return;
@@ -91,6 +92,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
      if (game) {
        setCalledNumbers(game.state?.called_numbers || []);
        setRoomVersion(game.version);
+       if (typeof game.state?.auto_calling === "boolean") setIsAutoCalling(game.state.auto_calling);
        const winner = Number(game.state?.winner_seat || 0);
        setIsGameOver(game.status === "completed");
        setHasWon(winner === seat);
@@ -105,8 +107,11 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
      }
    };
    void load();
+   // Realtime gives immediate updates; this small fallback prevents a delayed
+   // websocket from leaving either player on an old card/ball state.
+   const refreshTimer = window.setInterval(() => { void load(); }, 2000);
    const channel = supabase.channel(`bingo-${roomId}`).on("postgres_changes", { event: "*", schema: "public", table: "two_player_game_state", filter: `room_id=eq.${roomId}` }, load).on("postgres_changes", { event: "*", schema: "public", table: "bingo_match_cards", filter: `room_id=eq.${roomId}` }, load).subscribe();
-   return () => { void supabase.removeChannel(channel); };
+   return () => { window.clearInterval(refreshTimer); void supabase.removeChannel(channel); };
  }, [roomId, seat]);
 
  useEffect(() => {
@@ -116,12 +121,15 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
  }, [hasWon, isGameOver, onResult]);
 
  // Call Next Ball
- const callNextNumber = useCallback(() => {
+ const callNextNumber = useCallback(async () => {
+   if (isDrawing || isGameOver) return;
    if (roomId) {
-     // One shared caller prevents two clients from racing each other to draw
-     // different balls for the same Bingo room.
-     if (seat !== 1) return;
-     void supabase.rpc("bingo_draw_number", { p_room_id: roomId, p_expected_version: roomVersion });
+     setIsDrawing(true);
+     const { error } = await supabase.rpc("bingo_draw_number", { p_room_id: roomId, p_expected_version: roomVersion });
+     // The room can have updated a moment before a tap. Reloading is safer
+     // than leaving a button that appears broken.
+     if (error) console.warn("Bingo draw did not apply:", error.message);
+     setIsDrawing(false);
      return;
    }
    if (calledNumbers.length >= 75 || isGameOver) return;
@@ -153,7 +161,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
 
      return nextBoard;
    });
- }, [calledNumbers, isGameOver, roomId, roomVersion]);
+ }, [calledNumbers, isDrawing, isGameOver, roomId, roomVersion]);
 
  // Start Game
  const startNewGame = () => {
@@ -172,14 +180,26 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
  // One shared caller automatically draws a ball every five seconds.
  useEffect(() => {
    if (
+     roomId ||
      appState !== "playing" ||
      isGameOver ||
      showHowToPlay ||
      !isAutoCalling
    ) return;
-   const timer = setInterval(() => callNextNumber(), 5000);
+   const timer = setInterval(() => { void callNextNumber(); }, 5000);
    return () => clearInterval(timer);
  }, [appState, isGameOver, showHowToPlay, isAutoCalling, callNextNumber]);
+
+ // In online rooms all clients ask the database to advance the shared timer.
+ // The RPC locks the game row, so one due ball is drawn exactly once even when
+ // both devices fire this request at the same time.
+ useEffect(() => {
+   if (!roomId || appState !== "playing" || isGameOver) return;
+   const tick = () => { void supabase.rpc("advance_bingo_draws", { p_room_id: roomId }); };
+   tick();
+   const timer = window.setInterval(tick, 1000);
+   return () => window.clearInterval(timer);
+ }, [appState, isGameOver, roomId]);
 
  // Handle Tile Click
  const handleTileClick = (index: number) => {
@@ -241,8 +261,10 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
  };
 
  return (
-   <div className="fixed inset-0 flex flex-col w-full h-full bg-[#0d1527] text-white font-sans overflow-y-auto z-[100] select-none">
-     {appState === "menu" ? (
+   <div className="fixed inset-0 flex h-[100dvh] w-full flex-col overflow-hidden bg-[#0d1527] text-white font-sans z-[100] select-none">
+     {appState === "loading" ? (
+       <div className="grid flex-1 place-items-center"><div className="text-center"><div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" /><p className="text-xs font-black uppercase tracking-[.2em] text-emerald-200">Loading Bingo room</p></div></div>
+     ) : appState === "menu" ? (
        /* MENU SCREEN */
        <div className="flex-1 w-full flex flex-col items-center justify-center p-6 pt-20 relative">
          {onClose && (
@@ -276,7 +298,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
        </div>
      ) : (
        /* PLAYING SCREEN - Clears top JOE YOKES bar with pt-20 */
-       <div className="flex-1 w-full flex flex-col relative pt-20 pb-8 overflow-y-auto">
+       <div className="flex-1 w-full flex flex-col relative overflow-y-auto overscroll-none pt-[max(5rem,calc(env(safe-area-inset-top)+4.5rem))] pb-8">
         
          {/* Menu Back Button Row */}
          <div className="w-full px-4 flex items-center justify-between mb-3">
@@ -305,16 +327,20 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
            <div className="flex items-center gap-1.5">
              <button
                type="button"
-               onClick={() => setIsAutoCalling((previous) => !previous)}
+               onClick={() => {
+                 const next = !isAutoCalling;
+                 setIsAutoCalling(next);
+                 if (roomId) void supabase.rpc("bingo_set_auto_calling", { p_room_id: roomId, p_enabled: next });
+               }}
                aria-pressed={isAutoCalling}
-               disabled={!isSharedCaller}
+               disabled={roomId ? false : !isSharedCaller}
                className={`rounded-xl border px-2 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
                  isAutoCalling
                    ? "border-emerald-400 bg-emerald-500/20 text-emerald-300"
                    : "border-slate-600 bg-slate-800 text-slate-400"
                }`}
              >
-               {isSharedCaller ? (isAutoCalling ? "Auto On" : "Auto Off") : "Caller Active"}
+               {isAutoCalling ? "Auto On" : "Auto Off"}
              </button>
 
              <button
@@ -341,11 +367,11 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                : "Automatic caller is paused"}
            </p>
 
-           {!isAutoCalling && isSharedCaller && (
+           {!isAutoCalling && (roomId || isSharedCaller) && (
              <button
                type="button"
-               onClick={callNextNumber}
-               disabled={isGameOver || calledNumbers.length >= 75}
+               onClick={() => void callNextNumber()}
+               disabled={isDrawing || isGameOver || calledNumbers.length >= 75}
                className="flex items-center gap-2 rounded-xl border-2 border-[#ccff00] bg-[#ccff00] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-slate-950 shadow-[0_0_20px_rgba(204,255,0,0.28)] transition-all hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
              >
                <span aria-hidden="true" className="text-base">🎱</span>
@@ -354,9 +380,9 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
            )}
 
            {/* Rendered 3D Glossy Bingo Balls */}
-           <div className="flex min-h-[78px] items-center justify-center gap-3">
+           <div className="flex min-h-[118px] items-center justify-center gap-3">
              {calledNumbers.length > 0 &&
-               calledNumbers.slice(0, 5).map((num, idx) => {
+               calledNumbers.slice(0, 1).map((num, idx) => {
                  const letter = getBallLetter(num);
                  return (
                    <div key={`${num}-${idx}`} className="flex flex-col items-center gap-1">
@@ -388,13 +414,13 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
          </div>
 
          {/* Lines & Status Bar */}
-         <div className="w-full shrink-0 flex items-center justify-between px-6 py-1 max-w-sm mx-auto text-xs font-extrabold text-amber-300">
+         <div className="mt-8 w-full shrink-0 flex items-center justify-between px-6 py-1 max-w-sm mx-auto text-base font-extrabold text-amber-300">
            <span>Your Lines: {completedLines} / 5</span>
            {!roomId && <span className="text-rose-400">Opponent: {computerLines} / 5</span>}
          </div>
 
          {/* Main Gameplay Area */}
-         <div className="w-full flex items-center justify-center p-3 gap-3 max-w-2xl mx-auto">
+         <div className="w-full flex items-center justify-center px-3 pb-6 pt-6 gap-3 max-w-2xl mx-auto">
           
            {/* Legacy local preview; online games render only the player’s private card. */}
              {!roomId && <div className="hidden sm:flex flex-col items-center relative shrink-0">
