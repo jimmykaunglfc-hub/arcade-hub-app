@@ -226,7 +226,10 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  const [syncMessage, setSyncMessage] = useState<string | null>(null);
  const [turnDeadline, setTurnDeadline] = useState<string | null>(null);
  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+ const [pendingMove, setPendingMove] = useState(false);
  const resultReportedRef = useRef(false);
+ const pendingVersionRef = useRef<number | null>(null);
+ const reloadRoomRef = useRef<() => void>(() => undefined);
  const [roomVersion, setRoomVersion] = useState(1);
  const online = Boolean(roomId);
 
@@ -257,6 +260,10 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
      if (nextBoard) setBoard(nextBoard);
      setCurrentPlayer(data.current_seat as Player);
      setRoomVersion(data.version);
+     if (pendingVersionRef.current !== null && Number(data.version) >= pendingVersionRef.current) {
+       pendingVersionRef.current = null;
+       setPendingMove(false);
+     }
      setTurnDeadline(data.turn_deadline || null);
      setStateReady(data.status === "playing");
      setSyncMessage(null);
@@ -265,12 +272,13 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
      setWinner(nextWinner);
      if (nextBoard && winnerSeat) setWinningCells(findWinningCells(nextBoard, winnerSeat as Player));
    };
+   reloadRoomRef.current = () => { void load(); };
    void load();
    // Polling is intentional: it keeps moves and bot turns synchronized even
    // when the room table has not been added to the Realtime publication.
    const poll = window.setInterval(load, 1500);
    const channel = supabase.channel(`four-in-a-row-${roomId}`).on("postgres_changes", { event: "*", schema: "public", table: "two_player_game_state", filter: `room_id=eq.${roomId}` }, load).subscribe();
-   return () => { window.clearInterval(poll); void supabase.removeChannel(channel); };
+   return () => { reloadRoomRef.current = () => undefined; window.clearInterval(poll); void supabase.removeChannel(channel); };
  }, [roomId]);
 
  useEffect(() => {
@@ -364,6 +372,19 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
    return true;
  };
 
+ // Render a legal online move immediately. The following RPC remains the
+ // source of truth and reconciles this preview by its next version.
+ const previewOnlineMove = (colIndex: number, player: Player) => {
+   const rowIndex = getOpenRow(board, colIndex);
+   if (rowIndex < 0) { setSyncMessage("Column is full"); return false; }
+   const nextBoard = board.map((row) => [...row]);
+   nextBoard[rowIndex][colIndex] = player;
+   setBoard(nextBoard);
+   setCurrentPlayer(player === 1 ? 2 : 1);
+   setHoveredCol(null);
+   return true;
+ };
+
  // Helper to dynamically calculate column index from touch/pointer screen position
  const updateHoverFromPos = (clientX: number) => {
    if (!boardRef.current || winner || !stateReady || (!localMode && online ? currentPlayer !== mySeat : !localMode && currentPlayer !== 1)) return;
@@ -386,14 +407,22 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
  };
 
  const handleBoardClick = (e: React.MouseEvent<HTMLDivElement>) => {
-   if (winner || !stateReady || (!localMode && !online && currentPlayer !== 1) || (online && currentPlayer !== mySeat) || !boardRef.current) return;
+   if (winner || pendingMove || !stateReady || (!localMode && !online && currentPlayer !== 1) || (online && currentPlayer !== mySeat) || !boardRef.current) return;
    const rect = boardRef.current.getBoundingClientRect();
    const relativeX = e.clientX - rect.left;
    const colWidth = rect.width / COLS;
    const clickedCol = Math.min(Math.max(Math.floor(relativeX / colWidth), 0), COLS - 1);
    if (online && roomId) {
+     if (!previewOnlineMove(clickedCol, currentPlayer)) return;
+     setPendingMove(true);
+     pendingVersionRef.current = roomVersion + 1;
      void supabase.rpc("four_in_a_row_move", { p_room_id: roomId, p_column: clickedCol, p_expected_version: roomVersion }).then(({ error }) => {
-       if (error) setSyncMessage(error.message);
+       if (error) {
+         pendingVersionRef.current = null;
+         setPendingMove(false);
+         setSyncMessage(error.message);
+         reloadRoomRef.current();
+       }
      });
    } else executeMove(clickedCol, currentPlayer);
  };
