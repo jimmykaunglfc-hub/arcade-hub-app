@@ -50,7 +50,16 @@ interface ChatTabProps {
 
 type ChallengeGame =
   | "checkers" | "carrom" | "chess" | "snooker" | "pool" | "uno" | "tictactoe"
-  | "cup_pong" | "four_in_a_row" | "bingo" | "dominoes" | "ping_pong";
+  | "cup_pong" | "four_in_a_row" | "bingo" | "dominoes" | "ping_pong"
+  | "monopoly" | "big_two" | "ludo";
+
+type FourPlayerChallenge = Extract<ChallengeGame, "monopoly" | "big_two" | "ludo">;
+
+const FOUR_PLAYER_CHALLENGES: Array<{ type: FourPlayerChallenge; name: string; icon: string; accent: string }> = [
+  { type: "monopoly", name: "Monopoly", icon: "account_balance", accent: "text-sky-400" },
+  { type: "big_two", name: "Big Two", icon: "style", accent: "text-amber-400" },
+  { type: "ludo", name: "Ludo", icon: "casino", accent: "text-emerald-400" },
+];
 
 const NEW_CHALLENGE_GAMES: Array<{ type: Extract<ChallengeGame, "cup_pong" | "four_in_a_row" | "bingo" | "dominoes" | "ping_pong">; name: string; icon: string; accent: string }> = [
   { type: "cup_pong", name: "Cup Pong", icon: "sports_baseball", accent: "text-orange-400" },
@@ -102,7 +111,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
     const accepted = messages.find((message) => message.message_type === "game_invite" && message.sender_id === myUserId && message.invite_status === "accepted" && message.match_id && !launchedInviteIds.current.has(message.id));
     if (!accepted) return;
     const name = (accepted.game_name || "").toLowerCase();
-    const route = name.includes("four in a row") ? "native://four-in-a-row" : name.includes("bingo") ? "native://bingo" : name.includes("domino") ? "native://dominoes" : null;
+    const route = name.includes("four in a row") ? "native://four-in-a-row" : name.includes("bingo") ? "native://bingo" : name.includes("domino") ? "native://dominoes" : name === "monopoly" ? "native://monopoly" : name === "big two" ? "native://big-two" : name === "ludo" ? "native://ludo" : null;
     if (!route) return;
     launchedInviteIds.current.add(accepted.id);
     onPlay?.(route, accepted.match_id!);
@@ -118,7 +127,9 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   const [referralBenefits, setReferralBenefits] = useState<Array<{ label: string; detail: string }>>([]);
   
   const [showGameSelector, setShowGameSelector] = useState(false);
-  const [inviteStep, setInviteStep] = useState<"game" | "carrom_mode">("game");
+  const [inviteStep, setInviteStep] = useState<"game" | "carrom_mode" | "four_player">("game");
+  const [fourPlayerGame, setFourPlayerGame] = useState<FourPlayerChallenge | null>(null);
+  const [selectedFourPlayerInvitees, setSelectedFourPlayerInvitees] = useState<string[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [showComposerMenu, setShowComposerMenu] = useState(false);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
@@ -445,6 +456,40 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
         invite_status: "pending"
       }]);
     }
+  };
+
+  const openFourPlayerInvite = (game: FourPlayerChallenge) => {
+    setFourPlayerGame(game);
+    setSelectedFourPlayerInvitees(activeChat ? [activeChat.id] : []);
+    setInviteStep("four_player");
+  };
+
+  const sendFourPlayerInvites = async () => {
+    if (!myUserId || !fourPlayerGame || selectedFourPlayerInvitees.length === 0) return;
+    const game = FOUR_PLAYER_CHALLENGES.find((candidate) => candidate.type === fourPlayerGame);
+    if (!game) return;
+    const { data: room, error: roomError } = await supabase.rpc("create_four_player_host_room", {
+      p_game_key: fourPlayerGame.replace(/_/g, "-"),
+      p_name: myUsername || "Player",
+      p_avatar_url: null,
+    });
+    if (roomError || !room?.room_id) { alert(roomError?.message || "Could not create the four-player room."); return; }
+    const { error: inviteError } = await supabase.from("direct_messages").insert(
+      selectedFourPlayerInvitees.slice(0, 3).map((receiver_id) => ({
+        sender_id: myUserId,
+        receiver_id,
+        content: `Invited you to join ${game.name} — ${selectedFourPlayerInvitees.length} player table`,
+        message_type: "game_invite",
+        match_id: room.room_id,
+        game_name: game.name,
+        invite_status: "pending",
+      }))
+    );
+    if (inviteError) { alert(inviteError.message); return; }
+    setShowGameSelector(false);
+    setInviteStep("game");
+    setFourPlayerGame(null);
+    setSelectedFourPlayerInvitees([]);
   };
 
   const updateInviteStatus = async (msgId: string, newStatus: string) => {
@@ -778,6 +823,13 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                    </div>
                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
+                <p className="px-1 pt-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Four-player tables</p>
+                {FOUR_PLAYER_CHALLENGES.map((game) => (
+                  <button key={game.type} onClick={() => openFourPlayerInvite(game.type)} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
+                    <div className="flex items-center gap-4"><div className={`w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center ${game.accent}`}><span className="material-symbols-outlined text-[20px]">{game.icon}</span></div><span><h4 className="font-headline text-xs font-bold text-on-surface">{game.name}</h4><small className="text-[10px] text-on-surface-variant">Invite up to 3 friends</small></span></div>
+                    <span className="material-symbols-outlined text-on-surface-variant text-base">group_add</span>
+                  </button>
+                ))}
                 {NEW_CHALLENGE_GAMES.map((game) => (
                   <button key={game.type} onClick={() => handleSendGameInvite(game.type)} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
                     <div className="flex items-center gap-4">
@@ -789,6 +841,15 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                     <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                   </button>
                 ))}
+              </>
+            )}
+
+            {inviteStep === "four_player" && fourPlayerGame && (
+              <>
+                <div className="flex items-center justify-between px-1 mb-2"><div className="flex items-center gap-2"><button onClick={() => setInviteStep("game")} className="text-on-surface-variant hover:text-on-surface"><span className="material-symbols-outlined text-base">arrow_back</span></button><div><h3 className="font-headline text-sm font-black uppercase text-on-surface">Invite 3 players</h3><p className="text-[10px] text-on-surface-variant">All accepted invites join one shared table.</p></div></div><span className="rounded-full bg-primary-container px-2 py-1 text-[10px] font-black text-primary">{selectedFourPlayerInvitees.length}/3</span></div>
+                <div className="space-y-2">{friends.filter((friend) => friend.id !== myUserId).map((friend) => { const selected = selectedFourPlayerInvitees.includes(friend.id); return <button key={friend.id} onClick={() => setSelectedFourPlayerInvitees((current) => selected ? current.filter((id) => id !== friend.id) : current.length < 3 ? [...current, friend.id] : current)} className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left ${selected ? "border-primary bg-primary-container/30" : "border-surface-container-highest bg-background"}`}><span className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-surface-container-high font-bold">{friend.avatar_url ? <img src={friend.avatar_url} alt="" className="h-full w-full object-cover" /> : friend.username.slice(0, 1)}</span><span className="min-w-0 flex-1 truncate text-xs font-bold text-on-surface">{friend.username}</span><span className="material-symbols-outlined text-primary">{selected ? "check_circle" : "add_circle"}</span></button>; })}</div>
+                {friends.length === 0 && <p className="rounded-2xl bg-background p-4 text-center text-xs text-on-surface-variant">Add friends before creating a four-player table.</p>}
+                <button disabled={selectedFourPlayerInvitees.length === 0} onClick={() => void sendFourPlayerInvites()} className="mt-3 w-full rounded-2xl bg-primary py-3 text-xs font-black uppercase text-on-primary disabled:opacity-40">Send table invitations</button>
               </>
             )}
 
@@ -854,6 +915,10 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
           const isChess = msg.game_name?.includes("Chess");
           const isSnooker = msg.game_name?.includes("Snooker");
           const isPool = msg.game_name?.includes("Pool");
+          const isMonopoly = msg.game_name === "Monopoly";
+          const isBigTwo = msg.game_name === "Big Two";
+          const isLudo = msg.game_name === "Ludo";
+          const isFourPlayerInvite = isMonopoly || isBigTwo || isLudo;
           const newChallenge = NEW_CHALLENGE_GAMES.find((game) => game.name === msg.game_name);
 
           const gameIcon = newChallenge?.icon || (isUno 
@@ -870,6 +935,12 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
           
           const targetUrl = newChallenge
             ? `native://${newChallenge.type.replace(/_/g, "-")}`
+            : isMonopoly
+              ? "native://monopoly"
+              : isBigTwo
+                ? "native://big-two"
+                : isLudo
+                  ? "native://ludo"
             : isUno 
               ? "native://uno"
             : isTicTacToe
@@ -943,7 +1014,16 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                                   alert("Accept Halted: You cannot accept challenges with 0 credits.");
                                   return;
                                 }
-                                if (newChallenge && msg.match_id) {
+                                if (isFourPlayerInvite && msg.match_id) {
+                                  const { data: profile } = await supabase.from("profiles").select("username,avatar_url").eq("id", myUserId).maybeSingle();
+                                  const { error } = await supabase.rpc("join_four_player_host_room", { p_room_id: msg.match_id, p_name: profile?.username || myUsername || "Player", p_avatar_url: profile?.avatar_url || null });
+                                  if (error) { alert(error.message); return; }
+                                  if (isMonopoly) {
+                                    const { error: fundingError } = await supabase.rpc("fund_monopoly_room", { p_room_id: msg.match_id });
+                                    if (fundingError) { alert(fundingError.message); return; }
+                                    await supabase.rpc("set_matchmaking_seat_ready", { p_room_id: msg.match_id, p_ready: true });
+                                  }
+                                } else if (newChallenge && msg.match_id) {
                                   const { data: room } = await supabase.from("matchmaking_rooms").select("room_code").eq("id", msg.match_id).maybeSingle();
                                   const { error } = await supabase.rpc("join_two_player_room", { p_code: room?.room_code, p_name: myUsername || "Online Player" });
                                   if (error) { alert(error.message); return; }

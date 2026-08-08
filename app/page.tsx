@@ -80,25 +80,25 @@ const Game2048ArenaGame = withArenaLobby(Game2048);
 const BigTwoArenaGame = withArenaLobby(BigTwoGame);
 const BlockPuzzleArenaGame = withArenaLobby(BlockPuzzleGame);
 
-function BigTwoFourPlayerArena({ onClose }: { onClose: () => void }) {
+function BigTwoFourPlayerArena({ onClose, preloadedRoomId }: { onClose: () => void; preloadedRoomId?: string | null }) {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
   if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Big Two matchmaking.</div>;
-  if (!roomId) return <FourPlayerMatchLobby gameKey="big-two" gameName="Big Two" userId={userId} onStart={setRoomId} onCancel={onClose} />;
+  if (!roomId) return <FourPlayerMatchLobby gameKey="big-two" gameName="Big Two" userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
   return <BigTwoGame onClose={onClose} onPlayAgain={() => setRoomId(null)} roomId={roomId} />;
 }
 
-function LudoFourPlayerArena({ onClose }: { onClose: () => void }) {
+function LudoFourPlayerArena({ onClose, preloadedRoomId }: { onClose: () => void; preloadedRoomId?: string | null }) {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
   if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Ludo matchmaking.</div>;
-  if (!roomId) return <FourPlayerMatchLobby gameKey="ludo" gameName="Ludo" userId={userId} onStart={setRoomId} onCancel={onClose} />;
+  if (!roomId) return <FourPlayerMatchLobby gameKey="ludo" gameName="Ludo" userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
   return <LudoGame onClose={onClose} onPlayAgain={() => setRoomId(null)} roomId={roomId} />;
 }
 
-function MonopolyFourPlayerArena({ onClose }: { onClose: () => void }) {
+function MonopolyFourPlayerArena({ onClose, preloadedRoomId }: { onClose: () => void; preloadedRoomId?: string | null }) {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
@@ -113,7 +113,7 @@ function MonopolyFourPlayerArena({ onClose }: { onClose: () => void }) {
     });
   }, [roomId, userId]);
   if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Monopoly matchmaking.</div>;
-  if (!roomId) return <FourPlayerMatchLobby gameKey="monopoly" gameName="Monopoly" userId={userId} onStart={setRoomId} onCancel={onClose} />;
+  if (!roomId) return <FourPlayerMatchLobby gameKey="monopoly" gameName="Monopoly" userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
   return <MonopolyGame userId={userId} roomId={roomId} onClose={onClose} />;
 }
 
@@ -451,15 +451,15 @@ export default function Home() {
       ) : playingGame === "native://sudoku" ? (
         <SudokuGame onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://ludo" ? (
-        <LudoFourPlayerArena onClose={() => setPlayingGame(null)} />
+        <LudoFourPlayerArena preloadedRoomId={activeMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://monopoly" ? (
-        <MonopolyFourPlayerArena onClose={() => setPlayingGame(null)} />
+        <MonopolyFourPlayerArena preloadedRoomId={activeMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://dominoes" ? (
         <CompetitiveGameLaunch gameKey="dominoes" gameTitle="Dominoes" Game={DominoesArenaGame} preloadedRoomId={activeMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://2048" ? (
         <Game2048 onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://big-two" ? (
-        <BigTwoFourPlayerArena onClose={() => setPlayingGame(null)} />
+        <BigTwoFourPlayerArena preloadedRoomId={activeMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://block-puzzle" ? (
         <BlockPuzzleGame onClose={() => setPlayingGame(null)} />
       ) : playingGame ? (
