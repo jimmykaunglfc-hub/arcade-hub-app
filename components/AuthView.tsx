@@ -9,6 +9,8 @@ interface AuthViewProps {
 
 type AuthStage = "email" | "verify";
 type SocialProvider = "google" | "apple" | "telegram";
+const MIN_OTP_LENGTH = 6;
+const MAX_OTP_LENGTH = 10;
 
 const providerDetails: Record<SocialProvider, { label: string; icon: string }> = {
   google: { label: "Continue with Google", icon: "G" },
@@ -124,7 +126,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
           </h2>
           <p className="mx-auto mt-2 max-w-[270px] text-xs leading-5 text-on-surface-variant">
             {stage === "verify"
-              ? `Enter the 6-digit code sent to ${email}.`
+              ? `Enter the verification code sent to ${email}.`
               : "Sign in once to keep your progress, rewards, and game history in sync."}
           </p>
         </div>
@@ -143,9 +145,10 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
                 autoComplete="one-time-code"
                 autoFocus
                 inputMode="numeric"
-                maxLength={6}
+                maxLength={MAX_OTP_LENGTH}
+                minLength={MIN_OTP_LENGTH}
                 onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
-                placeholder="000000"
+                placeholder="Verification code"
                 required
                 value={otp}
                 className="w-full rounded-2xl border border-surface-container-highest bg-background px-4 py-3.5 text-center font-mono text-2xl font-bold tracking-[0.42em] text-on-surface outline-none transition focus:border-primary/70 focus:ring-2 focus:ring-primary/15 placeholder:text-on-surface-variant"
@@ -153,7 +156,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
             </label>
             <button
               type="submit"
-              disabled={loadingProvider === "verify" || otp.length !== 6}
+              disabled={loadingProvider === "verify" || otp.length < MIN_OTP_LENGTH}
               className="w-full rounded-2xl bg-primary py-3.5 font-headline text-sm font-black text-on-primary transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
             >
               {loadingProvider === "verify" ? "Verifying…" : "Verify & continue"}
