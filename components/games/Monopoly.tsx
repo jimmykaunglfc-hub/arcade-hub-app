@@ -826,6 +826,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   const goBonusToastTimerRef = useRef<number | undefined>(undefined);
   const alertResolutionRef = useRef(false);
   const timeoutAdvanceInFlightRef = useRef(false);
+  const jailResolutionInFlightRef = useRef(false);
 
   useEffect(() => {
     const preventPinch = (event: Event) => event.preventDefault();
@@ -1528,9 +1529,31 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     return () => window.clearTimeout(timer);
   }, [gameState.winnerId, phase, roomId, secondsLeft]);
 
-  // Jail Rule: Single skipped turn, OR use card if owned
+  // Jail is resolved by the authoritative room state. Any connected member
+  // may trigger it, so a disconnected jailed player can never freeze a table.
   useEffect(() => {
-    if (gameState.winnerId || !activePlayer.inJail || gameState.hasRolled || isMoving || isRolling || !canDriveActiveTurn) return;
+    if (gameState.winnerId || !activePlayer.inJail || gameState.hasRolled || isMoving || isRolling) return;
+
+    if (roomId) {
+      const timer = window.setTimeout(() => {
+        if (jailResolutionInFlightRef.current) return;
+        jailResolutionInFlightRef.current = true;
+        void supabase.rpc("resolve_monopoly_jail_turn", { p_room_id: roomId }).then(({ data, error }) => {
+          jailResolutionInFlightRef.current = false;
+          if (error || !data?.resolved || !data.state) return;
+          const nextState = data.state as GameState;
+          setGameState(nextState);
+          activeServerPlayerRef.current = data.active_player_id;
+          serverVersionRef.current = Number(data.version);
+          setServerVersion(Number(data.version));
+          setServerTurnDeadline(data.turn_deadline ?? null);
+          lastPublishedStateRef.current = JSON.stringify(nextState);
+        });
+      }, 350);
+      return () => window.clearTimeout(timer);
+    }
+
+    if (!canDriveActiveTurn) return;
     
     const timer = window.setTimeout(() => {
       if (activePlayer.jailFreeCards > 0) {
@@ -1555,8 +1578,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     }, 700);
     
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlayer.id, activePlayer.inJail, activePlayer.jailFreeCards, activePlayer.username, gameState.hasRolled, gameState.winnerId, isMoving, isRolling, canDriveActiveTurn]);
+  }, [activePlayer.id, activePlayer.inJail, activePlayer.jailFreeCards, activePlayer.username, gameState.hasRolled, gameState.winnerId, isMoving, isRolling, canDriveActiveTurn, roomId]);
 
   useEffect(() => {
     const playerId = gameState.autoPassPlayerId;
