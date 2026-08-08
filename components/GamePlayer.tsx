@@ -8,6 +8,7 @@ import SnookerGame from "./games/SnookerGame";
 import TicTacToeGame from "./games/TicTacToeGame";
 import BiometricOverride from "./games/BiometricOverride";
 import PoolGame from "./games/PoolGame";
+import MiniFighter from "./games/MiniFighter";
 
 interface GamePlayerProps {
   gameUrl: string;
@@ -92,6 +93,11 @@ export default function GamePlayer({
           <BiometricOverride 
             onClose={onClose} 
           />
+        );
+      case "mini-fighter":
+      case "minifighter":
+        return (
+          <MiniFighter onClose={onClose} preloadedMatchId={matchId} opponent={opponent} />
         );
       default:
         // Fallback if slug is not matched
