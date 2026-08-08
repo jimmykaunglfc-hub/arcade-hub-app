@@ -339,7 +339,7 @@ const POINT_SETTLE_DELAY_MS = 2400;
 const GAME_SETTLE_DELAY_MS = 2850;
 const DEAD_BALL_MAX_LIFETIME_MS = 3200;
 const NETWORK_INPUT_INTERVAL_MS = 33;
-const NETWORK_SNAPSHOT_INTERVAL_MS = 33;
+const NETWORK_SNAPSHOT_INTERVAL_MS = 50;
 const CAMERA_DEPTH_CURVE = 1.35;
 const NET_TAPE_THICKNESS = 0.035;
 /**
@@ -2968,7 +2968,9 @@ export default function PingPong(props: PingPongProps) {
       const bounds = canvas.getBoundingClientRect();
       const width = Math.max(1, bounds.width);
       const height = Math.max(1, bounds.height);
-      const density = Math.min(window.devicePixelRatio || 1, 1.5);
+      // A 1.25x backing store keeps canvas animation at a stable 60fps on
+      // iPhones without making the GPU paint four times as many pixels.
+      const density = Math.min(window.devicePixelRatio || 1, 1.25);
       const pixelWidth = Math.round(width * density);
       const pixelHeight = Math.round(height * density);
 
@@ -3061,7 +3063,9 @@ export default function PingPong(props: PingPongProps) {
       drawTrail("local", width, height, now);
       drawPaddle("local", paddlesRef.current.local, width, height);
 
-      if (now - lastStatePublishRef.current > 120) {
+      // Canvas owns motion. React only needs occasional telemetry updates;
+      // frequent whole-tree renders were the main native-frame-rate drop.
+      if (now - lastStatePublishRef.current > 500) {
         setBallPosition({ ...ballRef.current });
         setPaddlePositions({
           local: { ...paddlesRef.current.local },
@@ -3124,7 +3128,7 @@ export default function PingPong(props: PingPongProps) {
       />
 
       {/* Native game navigation header */}
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-30 border-b border-white/15 bg-[#073d74]/90 pt-[env(safe-area-inset-top)] shadow-lg backdrop-blur-xl">
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-30 border-b border-white/15 bg-[#073d74]/90 pt-[var(--app-safe-top)] shadow-lg backdrop-blur-xl">
         <div className="relative mx-auto flex h-14 max-w-2xl items-center px-3">
           <button
             type="button"
@@ -3168,7 +3172,7 @@ export default function PingPong(props: PingPongProps) {
       </header>
 
       {/* Scoreboard overlay */}
-      <div className="pointer-events-none absolute inset-x-0 top-[calc(env(safe-area-inset-top)+3.5rem)] z-20 bg-gradient-to-b from-[#052e61]/75 via-[#063969]/25 to-transparent px-3 pb-10 pt-3 sm:px-6">
+      <div className="pointer-events-none absolute inset-x-0 top-[calc(var(--app-safe-top)+3.5rem)] z-20 bg-gradient-to-b from-[#052e61]/75 via-[#063969]/25 to-transparent px-3 pb-10 pt-3 sm:px-6">
         <div className="mx-auto grid max-w-2xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-1.5 sm:gap-3">
           <div className="flex min-w-0 flex-col items-center">
             <Avatar player={localPlayer} fallback="You" accent="#22d3ee" />

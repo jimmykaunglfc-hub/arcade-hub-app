@@ -249,7 +249,7 @@ export default function Game2048Battle({ onClose }: Game2048BattleProps) {
 
  return (
    <div className="fixed inset-x-0 bottom-0 top-0 flex min-h-0 flex-col overflow-hidden overscroll-none bg-[radial-gradient(circle_at_top,#4c1d95_0%,#1e1b4b_48%,#020617_100%)] text-white select-none touch-none">
-     <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-white/10 bg-slate-950/55 px-3 py-2 backdrop-blur">
+     <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-white/10 bg-slate-950/55 px-3 pb-2 pt-[var(--app-safe-top)] backdrop-blur">
        <div className="justify-self-start">
          {onClose && <button type="button" onClick={onClose} aria-label="Back to Arcade Hub" className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-400/30 bg-slate-900/85 active:scale-95"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>}
        </div>
@@ -316,4 +316,3 @@ export default function Game2048Battle({ onClose }: Game2048BattleProps) {
    </div>
  );
 }
-

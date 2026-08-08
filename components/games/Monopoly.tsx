@@ -773,7 +773,7 @@ function CornerPlayerCard({ player, active, empty }: { player?: Player; active?:
 
 function SetupScreen({ count, roundLimit, onCountChange, onRoundLimitChange, onStart, onExit }: { count: number; roundLimit: number; onCountChange: (value: number) => void; onRoundLimitChange: (value: number) => void; onStart: () => void; onExit: () => void }) {
   return (
-    <div className="min-h-[100dvh] overflow-hidden bg-[radial-gradient(circle_at_50%_26%,#163c5d_0%,#07111d_40%,#02060b_100%)] px-4 py-4 text-white">
+    <div className="min-h-[100dvh] overflow-hidden bg-[radial-gradient(circle_at_50%_26%,#163c5d_0%,#07111d_40%,#02060b_100%)] px-4 pb-4 pt-[var(--app-safe-top)] text-white">
       <style jsx global>{`
         @keyframes monopoly-pawn { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-3px) scale(1.06); } }
         @keyframes monopoly-aura { 0%,100% { opacity: .45; transform: scale(.75); } 50% { opacity: 1; transform: scale(1.18); } }
@@ -1617,7 +1617,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
         @keyframes monopoly-aura { 0%,100% { opacity: .45; transform: scale(.75); } 50% { opacity: 1; transform: scale(1.18); } }
         @keyframes monopoly-badge { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-3px); } }
         @media (max-height: 740px) {
-          .portrait-header { height: 40px !important; margin-top: 4px !important; }
+          .portrait-header { height: 40px !important; margin-top: var(--app-safe-top) !important; }
           .portrait-player-card { min-height: 48px !important; padding-top: 4px !important; padding-bottom: 4px !important; }
           .portrait-controls { padding-top: 7px !important; padding-bottom: 8px !important; }
         }
@@ -1629,7 +1629,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
         }
       `}</style>
       <div className="mx-auto flex h-full min-h-0 w-full max-w-xl flex-col">
-        <header className="portrait-header mx-2 mt-2 flex h-12 shrink-0 items-center rounded-xl border border-[#36556e] bg-[#0a131c]/95 px-2 shadow-[0_4px_14px_rgba(0,0,0,.45),inset_0_1px_0_rgba(255,255,255,.08)]">
+        <header className="portrait-header mx-2 mt-[var(--app-safe-top)] flex h-12 shrink-0 items-center rounded-xl border border-[#36556e] bg-[#0a131c]/95 px-2 shadow-[0_4px_14px_rgba(0,0,0,.45),inset_0_1px_0_rgba(255,255,255,.08)]">
           <button type="button" onClick={handleExit} aria-label="Exit Monopoly" className="grid h-9 w-9 place-items-center rounded-lg transition hover:bg-white/10"><ArrowLeft className="h-5 w-5" /></button>
           <div className="min-w-0 flex-1 text-center"><p className="truncate text-[clamp(9px,2.7vw,13px)] font-black tracking-[.08em] text-[#eaf8ff]">{gameState.roundsLeft} / {gameState.roundLimit} ROUNDS · LAST PLAYER TAKES THE POT</p><p className="mt-0.5 text-[7px] font-black tracking-[.2em] text-[#72caff]">SOUTHEAST ASIA EDITION</p></div>
           <button type="button" onClick={() => setShowRules(true)} aria-label="Open rules" className="grid h-9 w-9 place-items-center rounded-lg transition hover:bg-white/10"><ShieldCheck className="h-5 w-5 text-[#76cfff]" /></button>

@@ -374,7 +374,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
    ) as PlayerId | -1;
 
  return (
-   <div className="fixed inset-0 z-[100] flex h-[100dvh] min-h-[100svh] flex-col overflow-hidden overscroll-none touch-none bg-[radial-gradient(circle_at_center,#2563a8_0%,#173b73_58%,#10284f_100%)] p-3 text-white select-none">
+   <div className="fixed inset-0 z-[100] flex h-[100dvh] min-h-[100svh] flex-col overflow-hidden overscroll-none touch-none bg-[radial-gradient(circle_at_center,#2563a8_0%,#173b73_58%,#10284f_100%)] px-3 pb-3 pt-[var(--app-safe-top)] text-white select-none">
      <header className="mx-auto grid w-full max-w-md grid-cols-[1fr_auto_1fr] items-center gap-2">
        <div className="justify-self-start">
          {onClose && (

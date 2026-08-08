@@ -1532,7 +1532,7 @@ export default function Dominoes({
 
  return (
    <div className="fixed inset-0 flex min-h-0 flex-col overflow-hidden overscroll-none bg-gradient-to-b from-lime-300 via-lime-200 to-orange-300 text-slate-950 select-none touch-none">
-     <header className="flex shrink-0 items-center justify-between border-b border-lime-700/20 bg-lime-100/90 px-3 py-2 shadow-sm">
+     <header className="flex shrink-0 items-center justify-between border-b border-lime-700/20 bg-lime-100/90 px-3 pb-2 pt-[var(--app-safe-top)] shadow-sm">
        <div className="flex items-center gap-2">
          {onClose && (
          <button

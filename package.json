@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:ios:production": "node scripts/build-ios-production.mjs",
     "start": "next start",
     "lint": "eslint"
   },

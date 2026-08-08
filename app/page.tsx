@@ -484,8 +484,8 @@ export default function Home() {
         {activeTab !== "Spin" && !chatFullscreen && !gameDetailsFullscreen && <header
           className="fixed top-0 left-0 right-0 z-[100001] bg-background flex justify-between items-center px-5 transition-colors duration-300"
           style={{
-            height: "calc(90px + env(safe-area-inset-top))",
-            paddingTop: "env(safe-area-inset-top)",
+            height: "calc(90px + var(--app-safe-top))",
+            paddingTop: "var(--app-safe-top)",
           }}
         >
           <div className="flex items-center gap-3">
@@ -551,7 +551,7 @@ export default function Home() {
             // Explore starts exactly at the 90px header boundary so its sticky
             // category control touches the navbar instead of inheriting the
             // generic 10px content gutter used by the other tabs.
-            paddingTop: activeTab === "Spin" || chatFullscreen || gameDetailsFullscreen ? "0" : activeTab === "Explore" ? "calc(90px + env(safe-area-inset-top))" : "calc(100px + env(safe-area-inset-top))",
+            paddingTop: chatFullscreen || gameDetailsFullscreen ? "0" : activeTab === "Spin" ? "var(--app-safe-top)" : activeTab === "Explore" ? "calc(90px + var(--app-safe-top))" : "calc(100px + var(--app-safe-top))",
             paddingBottom: "calc(100px + env(safe-area-inset-bottom))",
           }}
         >
@@ -621,7 +621,7 @@ export default function Home() {
           <div
             className="fixed inset-0 z-[100000] flex h-[100dvh] w-screen min-h-0 flex-col bg-background"
             style={{
-              paddingTop: "calc(90px + env(safe-area-inset-top))",
+              paddingTop: "calc(90px + var(--app-safe-top))",
               paddingBottom: "env(safe-area-inset-bottom)",
             }}
           >

@@ -10,7 +10,7 @@ interface AuthViewProps {
 type AuthStage = "email" | "verify";
 type SocialProvider = "google" | "apple" | "telegram";
 const MIN_OTP_LENGTH = 6;
-const MAX_OTP_LENGTH = 10;
+const MAX_OTP_LENGTH = 6;
 
 const providerDetails: Record<SocialProvider, { label: string; icon: string }> = {
   google: { label: "Continue with Google", icon: "G" },
@@ -126,7 +126,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
           </h2>
           <p className="mx-auto mt-2 max-w-[270px] text-xs leading-5 text-on-surface-variant">
             {stage === "verify"
-              ? `Enter the verification code sent to ${email}.`
+              ? `Enter the 6-digit code sent to ${email}.`
               : "Sign in once to keep your progress, rewards, and game history in sync."}
           </p>
         </div>
@@ -148,7 +148,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
                 maxLength={MAX_OTP_LENGTH}
                 minLength={MIN_OTP_LENGTH}
                 onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
-                placeholder="Verification code"
+                placeholder="6-digit code"
                 required
                 value={otp}
                 className="w-full rounded-2xl border border-surface-container-highest bg-background px-4 py-3.5 text-center font-mono text-2xl font-bold tracking-[0.42em] text-on-surface outline-none transition focus:border-primary/70 focus:ring-2 focus:ring-primary/15 placeholder:text-on-surface-variant"

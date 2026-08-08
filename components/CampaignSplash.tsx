@@ -64,7 +64,24 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
   };
   const canSkip = remaining === 0;
   const progress = useMemo(() => !campaign || campaign.display_seconds <= 0 ? 100 : Math.min(100, ((campaign.display_seconds - remaining) / campaign.display_seconds) * 100), [campaign, remaining]);
-  // Do not hold the app behind a network request when there is no campaign.
+  // Cover the app immediately while the launch-only campaign check runs. This
+  // prevents the underlying shell from flashing/reflowing before the splash.
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 z-[500] grid min-h-[100dvh] place-items-center bg-[#070b13] text-white" aria-label="Loading Joe Yoke">
+        <div className="flex flex-col items-center gap-5">
+          <div className="grid h-20 w-20 place-items-center rounded-[24px] border border-white/10 bg-surface shadow-[0_18px_45px_rgba(0,0,0,0.4)]">
+            <span className="material-symbols-outlined text-4xl text-primary">sports_esports</span>
+          </div>
+          <div className="text-center">
+            <p className="font-headline text-xl font-black tracking-wide">JOE YOKE</p>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Loading arena</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!campaign) return null;
 
   return (
@@ -73,7 +90,7 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,8,14,0.26)_0%,rgba(4,8,14,0.34)_38%,rgba(4,8,14,0.94)_100%)]" />
       <div
         className="relative flex h-[100dvh] min-h-[100dvh] w-full flex-col px-6"
-        style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
+        style={{ paddingTop: "max(1.25rem, var(--app-safe-top))", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
       >
         <div className="flex h-12 shrink-0 justify-end">
           <button type="button" onClick={dismiss} className="rounded-full border border-white/15 bg-black/25 px-4 py-2 text-xs font-bold text-white/80 backdrop-blur-md">

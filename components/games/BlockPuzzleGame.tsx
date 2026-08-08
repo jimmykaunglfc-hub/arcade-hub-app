@@ -423,7 +423,7 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
 
  if (mode === "menu") {
    return (
-     <div className="fixed inset-0 z-40 flex h-[100dvh] max-h-[100dvh] flex-col items-center justify-center overflow-hidden overscroll-none touch-pan-x bg-gradient-to-b from-violet-950 via-indigo-950 to-slate-950 p-6 text-white">
+    <div className="fixed inset-0 z-40 flex h-[100dvh] max-h-[100dvh] flex-col items-center justify-center overflow-hidden overscroll-none touch-pan-x bg-gradient-to-b from-violet-950 via-indigo-950 to-slate-950 px-6 pb-6 pt-[var(--app-safe-top)] text-white">
        <div className="absolute left-3 right-3 top-3 flex items-center justify-between">
          <button
            type="button"
@@ -479,6 +479,7 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
    <div
      className="fixed inset-0 flex min-h-0 flex-col overflow-y-auto overscroll-y-contain bg-gradient-to-b from-violet-700 via-indigo-800 to-slate-950 p-3 text-white select-none"
      style={{
+       paddingTop: "var(--app-safe-top)",
        paddingBottom:
          "calc(env(safe-area-inset-bottom) + 160px)",
      }}
