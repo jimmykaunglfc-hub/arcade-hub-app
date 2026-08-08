@@ -2,24 +2,24 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "source": "/((?!joeyokeadmin|_next|assets|joeyoke-logo.png).*)",
+      "source": "/:path((?!joeyokeadmin(?:/|$)|_next(?:/|$)|assets(?:/|$)|joeyoke-logo\\.png$).*)",
       "has": [
         {
           "type": "host",
           "value": "joeyokeadmin.joeyoke.com"
         }
       ],
-      "destination": "/joeyokeadmin/$1"
+      "destination": "/joeyokeadmin/:path*"
     },
     {
-      "source": "/((?!joeyokeadmin|_next|assets|joeyoke-logo.png).*)",
+      "source": "/:path((?!joeyokeadmin(?:/|$)|_next(?:/|$)|assets(?:/|$)|joeyoke-logo\\.png$).*)",
       "has": [
         {
           "type": "host",
           "value": "stagingadmin.joeyoke.com"
         }
       ],
-      "destination": "/joeyokeadmin/$1"
+      "destination": "/joeyokeadmin/:path*"
     }
   ],
   "crons": [
