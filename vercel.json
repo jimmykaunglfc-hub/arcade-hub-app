@@ -1,4 +1,5 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
       "source": "/((?!joeyokeadmin|_next|assets|joeyoke-logo.png).*)",
@@ -6,6 +7,16 @@
         {
           "type": "host",
           "value": "joeyokeadmin.joeyoke.com"
+        }
+      ],
+      "destination": "/joeyokeadmin/$1"
+    },
+    {
+      "source": "/((?!joeyokeadmin|_next|assets|joeyoke-logo.png).*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "stagingadmin.joeyoke.com"
         }
       ],
       "destination": "/joeyokeadmin/$1"

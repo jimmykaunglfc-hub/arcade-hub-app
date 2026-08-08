@@ -39,7 +39,7 @@ export default function AdminLogin() {
       .single();
 
     if (profile && (profile.role === "admin" || profile.role === "super_admin")) {
-      router.push("/"); // Middleware maps "/" on this subdomain to /joeyokeadmin
+      router.replace("/joeyokeadmin");
     } else {
       await supabase.auth.signOut();
       setErrorMsg("Unauthorized: Security clearance rejected.");

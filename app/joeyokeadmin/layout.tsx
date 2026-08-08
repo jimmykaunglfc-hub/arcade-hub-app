@@ -12,12 +12,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname(); 
 
-  const isLoginPage = pathname === "/login" || pathname === "/joeyokeadmin/login";
+  const isLoginPage = pathname === "/joeyokeadmin/login";
 
   useEffect(() => {
     if (isLoginPage) {
-      setLoading(false);
-      setIsAuthorized(true);
       return;
     }
 
@@ -25,7 +23,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        router.push("/login"); 
+        router.replace("/joeyokeadmin/login");
         return;
       }
 
@@ -38,13 +36,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (profile && (profile.role === "admin" || profile.role === "super_admin")) {
         setIsAuthorized(true);
       } else {
-        router.push("/login"); 
+        router.replace("/joeyokeadmin/login");
       }
       setLoading(false);
     };
 
     verifyAdminAccess();
   }, [router, isLoginPage]);
+
+  if (isLoginPage) {
+    return <main className="min-h-screen bg-[#09090b]">{children}</main>;
+  }
 
   if (loading) {
     return (
@@ -57,10 +59,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   if (!isAuthorized) return null;
-
-  if (isLoginPage) {
-    return <main className="min-h-screen bg-[#09090b]">{children}</main>;
-  }
 
   return (
     <div className="flex h-screen w-full bg-[#09090b] text-white font-sans antialiased overflow-hidden">
