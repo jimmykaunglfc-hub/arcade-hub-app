@@ -338,6 +338,8 @@ const DEAD_BALL_RESTITUTION = 0.68;
 const POINT_SETTLE_DELAY_MS = 2400;
 const GAME_SETTLE_DELAY_MS = 2850;
 const DEAD_BALL_MAX_LIFETIME_MS = 3200;
+const NETWORK_INPUT_INTERVAL_MS = 33;
+const NETWORK_SNAPSHOT_INTERVAL_MS = 33;
 const CAMERA_DEPTH_CURVE = 1.35;
 const NET_TAPE_THICKNESS = 0.035;
 /**
@@ -573,6 +575,7 @@ export default function PingPong(props: PingPongProps) {
   const lastPaddleBroadcastRef = useRef(0);
   const reactionTimerRef = useRef<number | null>(null);
   const opponentNetworkActiveUntilRef = useRef(0);
+  const networkOpponentTargetRef = useRef<PaddleState | null>(null);
   const lastTrailStampRef = useRef({ local: 0, opponent: 0 });
   const gameWinnerRef = useRef<Side | null>(null);
   const pointerSampleRef = useRef<SwipeGestureSample | null>(null);
@@ -876,7 +879,7 @@ export default function PingPong(props: PingPongProps) {
         tilt: clamp(worldPosition.tilt || nextVx * 0.06, -0.52, 0.52),
         swingX: clamp(worldPosition.swingX || nextVx / 4, -1, 1),
       };
-      paddlesRef.current.opponent = next;
+      networkOpponentTargetRef.current = next;
       opponentNetworkActiveUntilRef.current = performance.now() + 600;
     },
     []
@@ -1177,7 +1180,7 @@ export default function PingPong(props: PingPongProps) {
         swingX,
       };
 
-      if (now - lastPaddleBroadcastRef.current > 50) {
+      if (now - lastPaddleBroadcastRef.current >= NETWORK_INPUT_INTERVAL_MS) {
         broadcastPaddlePosition({
           ...localPaddleTargetRef.current,
           vx: paddlesRef.current.local.vx,
@@ -2413,7 +2416,27 @@ export default function PingPong(props: PingPongProps) {
 
       // Demo opponent. Any realtime move received through
       // onReceiveOpponentMove takes priority for 600ms.
-      if (now > opponentNetworkActiveUntilRef.current) {
+      if (now <= opponentNetworkActiveUntilRef.current && networkOpponentTargetRef.current) {
+        // Remote input arrives at 30 Hz; critically-damped interpolation keeps
+        // the remote racket moving on every 120 Hz physics tick instead of
+        // visibly stepping once per packet.
+        const opponent = paddlesRef.current.opponent;
+        const targetOpponent = networkOpponentTargetRef.current;
+        const followRemote = 1 - Math.exp(-38 * deltaSeconds);
+        const nextX = opponent.x + (targetOpponent.x - opponent.x) * followRemote;
+        const nextY = opponent.y + (targetOpponent.y - opponent.y) * followRemote;
+        const nextZ = opponent.z + (targetOpponent.z - opponent.z) * followRemote;
+        paddlesRef.current.opponent = {
+          x: nextX,
+          y: nextY,
+          z: nextZ,
+          vx: clamp((nextX - opponent.x) / Math.max(deltaSeconds, 0.001), -10, 10),
+          vy: clamp((nextY - opponent.y) / Math.max(deltaSeconds, 0.001), -8, 8),
+          vz: clamp((nextZ - opponent.z) / Math.max(deltaSeconds, 0.001), -8, 8),
+          tilt: dampRacketTilt(opponent.tilt, targetOpponent.tilt, deltaSeconds, 22),
+          swingX: dampRacketTilt(opponent.swingX, targetOpponent.swingX, deltaSeconds, 22),
+        };
+      } else {
         const opponent = paddlesRef.current.opponent;
         const opponentAssistWindow = assistWindowsRef.current.opponent;
         const opponentWindowActive = Boolean(
@@ -2981,7 +3004,7 @@ export default function PingPong(props: PingPongProps) {
         }
       }
 
-      if (isSimulationAuthority && now - lastNetworkSnapshotRef.current >= 50) {
+      if (isSimulationAuthority && now - lastNetworkSnapshotRef.current >= NETWORK_SNAPSHOT_INTERVAL_MS) {
         publishAuthoritativeSnapshot();
         lastNetworkSnapshotRef.current = now;
       }
