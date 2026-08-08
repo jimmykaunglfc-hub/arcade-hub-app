@@ -825,6 +825,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
   const turnEpochRef = useRef(0);
   const goBonusToastTimerRef = useRef<number | undefined>(undefined);
   const alertResolutionRef = useRef(false);
+  const timeoutAdvanceInFlightRef = useRef(false);
 
   useEffect(() => {
     const preventPinch = (event: Event) => event.preventDefault();
@@ -892,7 +893,35 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
 
   useEffect(() => {
     if (!roomId) return;
-    const timer = window.setInterval(() => { void supabase.rpc("advance_monopoly_timeout", { p_room_id: roomId }); }, 1000);
+    const advanceExpiredTurn = async () => {
+      if (timeoutAdvanceInFlightRef.current) return;
+      timeoutAdvanceInFlightRef.current = true;
+      const { data, error } = await supabase.rpc("advance_monopoly_timeout", { p_room_id: roomId });
+      timeoutAdvanceInFlightRef.current = false;
+      if (error) {
+        // Keep polling: a different device may have won the row lock or the
+        // clock may have crossed the deadline between this tick and the RPC.
+        console.warn("Monopoly timeout advance failed", error.message);
+        return;
+      }
+      if (!data?.advanced) return;
+      // Do not wait for the regular state poll after a timeout. Hydrating the
+      // returned server revision immediately keeps every open board responsive.
+      const { data: latest } = await supabase
+        .from("monopoly_match_state")
+        .select("state,active_player_id,version,turn_deadline")
+        .eq("room_id", roomId)
+        .maybeSingle();
+      if (!latest?.state) return;
+      setGameState(latest.state as GameState);
+      activeServerPlayerRef.current = latest.active_player_id;
+      serverVersionRef.current = latest.version;
+      setServerVersion(latest.version);
+      setServerTurnDeadline(latest.turn_deadline);
+      lastPublishedStateRef.current = JSON.stringify(latest.state);
+    };
+    void advanceExpiredTurn();
+    const timer = window.setInterval(() => { void advanceExpiredTurn(); }, 1000);
     return () => window.clearInterval(timer);
   }, [roomId]);
 
@@ -1497,7 +1526,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       }
     }, 1000);
     return () => window.clearTimeout(timer);
-  }, [gameState.winnerId, phase, secondsLeft]);
+  }, [gameState.winnerId, phase, roomId, secondsLeft]);
 
   // Jail Rule: Single skipped turn, OR use card if owned
   useEffect(() => {
