@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../lib/supabaseClient";
+import { isMiniFighterEnabled } from "../lib/deployment";
 
 interface GamesTabProps {
   currentPoints: number;
@@ -36,8 +37,15 @@ const DEFAULT_GAMES = [
   { id: "big_two", title: "Big Two", category: "Card", entry_fee: 0, rating: "New", icon: "playing_cards" },
   { id: "block_puzzle", title: "Block Puzzle", category: "Puzzle", entry_fee: 0, rating: "New", icon: "extension" },
   { id: "monopoly", title: "Monopoly", category: "Board", entry_fee: 0, rating: "New", icon: "account_balance" },
+];
+
+const STAGING_ONLY_GAMES = [
   { id: "mini_fighter", title: "Mini Fighter", category: "Arcade", entry_fee: 0, rating: "New", icon: "swords", description: "Fast 1v1 fighting with specials, guard breaks, and instant rematches." },
 ];
+
+const catalogGames = isMiniFighterEnabled
+  ? [...DEFAULT_GAMES, ...STAGING_ONLY_GAMES]
+  : DEFAULT_GAMES;
 
 export default function GamesTab({ 
   currentPoints, 
@@ -88,16 +96,19 @@ export default function GamesTab({
       // 2. Fetch Active Games
       const { data: gameData } = await supabase.rpc("get_game_catalog");
       
-      const activeGames = (gameData || []).filter((game: any) => game.status === "active");
+      const activeGames = (gameData || []).filter((game: any) =>
+        game.status === "active" &&
+        (isMiniFighterEnabled || catalogKey(String(game.title)) !== "minifighter")
+      );
       if (activeGames.length > 0) {
         const knownTitles = new Set(activeGames.map((game: any) => catalogKey(String(game.title))));
-        setDbGames([...activeGames, ...DEFAULT_GAMES.filter((game) => !knownTitles.has(catalogKey(game.title)))]);
+        setDbGames([...activeGames, ...catalogGames.filter((game) => !knownTitles.has(catalogKey(game.title)))]);
       } else {
-        setDbGames(DEFAULT_GAMES);
+        setDbGames(catalogGames);
       }
     } catch (e) {
       console.error("Failed to load arcade games from Supabase:", e);
-      setDbGames(DEFAULT_GAMES);
+      setDbGames(catalogGames);
     } finally {
       setLoading(false);
     }
@@ -133,7 +144,7 @@ export default function GamesTab({
   };
 
   // Use DB games if fetched, otherwise use local fallback games
-  const activeGamesList = dbGames.length > 0 ? dbGames : DEFAULT_GAMES;
+  const activeGamesList = dbGames.length > 0 ? dbGames : catalogGames;
 
   // Filter games based on selected category pill
   const filteredGames = activeCategory === "All" 

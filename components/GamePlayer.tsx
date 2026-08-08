@@ -9,6 +9,7 @@ import TicTacToeGame from "./games/TicTacToeGame";
 import BiometricOverride from "./games/BiometricOverride";
 import PoolGame from "./games/PoolGame";
 import MiniFighter from "./games/MiniFighter";
+import { isMiniFighterEnabled } from "@/lib/deployment";
 
 interface GamePlayerProps {
   gameUrl: string;
@@ -96,6 +97,9 @@ export default function GamePlayer({
         );
       case "mini-fighter":
       case "minifighter":
+        if (!isMiniFighterEnabled) {
+          return <GameUnavailable onClose={onClose} />;
+        }
         return (
           <MiniFighter onClose={onClose} preloadedMatchId={matchId} opponent={opponent} />
         );
@@ -146,4 +150,8 @@ export default function GamePlayer({
       </div>
     </div>
   );
+}
+
+function GameUnavailable({ onClose }: { onClose: () => void }) {
+  return <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#09090b] p-6 text-center font-headline text-white"><h2 className="mb-2 text-xl font-bold">Game unavailable</h2><p className="mb-6 text-sm text-neutral-400">This game is currently being tested in the staging arcade.</p><button onClick={onClose} className="rounded-full bg-white/10 px-6 py-3 text-xs font-bold uppercase tracking-wider transition-colors hover:bg-white/20">Back to Arcade</button></div>;
 }
