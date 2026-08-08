@@ -75,7 +75,15 @@ export default function CompetitiveGameLaunch({ gameKey, gameTitle, Game, onClos
     setOpponent(match.opponent);
   };
   const enterRoomBackedMatch = async () => {
-    if (!foundMatch || !room) return;
+    if (!foundMatch) return;
+    // Ping Pong uses the legacy shared-match identifier rather than a
+    // `matchmaking_room_players` row. It still uses this confirmation screen,
+    // so it must not be blocked by the room-only initializers below.
+    if (gameKey === "ping-pong") {
+      await startMatch({ opponent: foundMatch, matchId: matchedId ?? undefined });
+      return;
+    }
+    if (!room) return;
     // Four in a Row must have an authoritative, playing state before the
     // board mounts. A matched room normally already has this state; this
     // guard repairs an older/waiting room without resetting a live match.
