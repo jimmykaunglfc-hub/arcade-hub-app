@@ -140,6 +140,8 @@ interface GameState {
   players: Player[];
   activePlayerId: string;
   roundsLeft: number;
+  roundLimit: number;
+  circulationBalance: number;
   dice: [number, number];
   hasRolled: boolean;
   hasJourneyStarted: boolean;
@@ -264,12 +266,17 @@ function isOwnable(space: BoardSpace) {
   return space.kind === "property" || space.kind === "station" || space.kind === "utility";
 }
 
-function getFinalPoints(player: Player) {
-  return Math.round(player.cash * 0.1);
+function getFinalPoints(player: Player) { return Math.round(player.cash * 0.1); }
+function getNetWorth(player: Player) {
+  return player.cash + player.ownedSpaceIds.reduce((total, spaceId) => total + getPropertyPrice(getSpace(spaceId)) + Array.from({ length: getPropertyLevel(player, spaceId) }, (_, index) => getUpgradeCost(getSpace(spaceId), index + 1)).reduce((sum, cost) => sum + cost, 0), 0);
 }
-
-function awardFinalPoints(players: Player[]) {
-  return players.map((player) => ({ ...player, points: getFinalPoints(player) }));
+function closeMonopolyGame(current: GameState, winnerId: string, title: string): GameState {
+  const winner = current.players.find((player) => player.id === winnerId);
+  if (!winner) return current;
+  const players = current.players.map((player) => player.id === winnerId
+    ? { ...player, cash: current.circulationBalance, points: Math.round(current.circulationBalance * .1), bankrupt: false }
+    : { ...player, cash: 0, points: 0, ownedSpaceIds: [], propertyLevels: {}, mortgagedSpaceIds: [], jailFreeCards: 0, bankrupt: true, inJail: false });
+  return { ...current, players, winnerId, finalPointsAwarded: true, pendingTransactions: [], pendingPurchaseId: null, alert: null, auction: null, actionPanel: null, autoPassPlayerId: null, actionLog: { title, highlight: `${winner.username.toUpperCase()} TAKES ${currency.format(current.circulationBalance)}` } };
 }
 
 function getPropertyLevel(player: Player, spaceId: string) {
@@ -366,7 +373,7 @@ function commitPendingTransactions(current: GameState): GameState {
     if (transaction.kind === "bank-fee") {
       const player = players.find((item) => item.id === transaction.playerId);
       if (!player) return;
-      players = players.map((item) => item.id !== player.id ? item : { ...item, cash: Math.max(0, item.cash - transaction.amount) });
+      players = players.map((item) => item.id !== player.id ? item : player.cash >= transaction.amount ? { ...item, cash: item.cash - transaction.amount } : { ...item, cash: 0, ownedSpaceIds: [], propertyLevels: {}, mortgagedSpaceIds: [], jailFreeCards: 0, bankrupt: true, inJail: false });
       return;
     }
 
@@ -375,8 +382,8 @@ function commitPendingTransactions(current: GameState): GameState {
     if (!payer || !recipient) return;
     if (payer.cash < transaction.amount) {
       players = players.map((player) => {
-        if (player.id === payer.id) return { ...player, cash: 0 };
-        if (player.id === recipient.id) return { ...player, cash: player.cash + payer.cash };
+        if (player.id === payer.id) return { ...player, cash: 0, ownedSpaceIds: [], propertyLevels: {}, mortgagedSpaceIds: [], jailFreeCards: 0, bankrupt: true, inJail: false };
+        if (player.id === recipient.id) return { ...player, cash: player.cash + payer.cash, ownedSpaceIds: [...player.ownedSpaceIds, ...payer.ownedSpaceIds], propertyLevels: { ...player.propertyLevels, ...payer.propertyLevels }, mortgagedSpaceIds: [...new Set([...player.mortgagedSpaceIds, ...payer.mortgagedSpaceIds])] };
         return player;
       });
     } else {
@@ -388,7 +395,9 @@ function commitPendingTransactions(current: GameState): GameState {
     }
   });
 
-  return { ...current, players, pendingTransactions: [], winnerId: getWinner(players)?.id ?? null };
+  const winner = getWinner(players);
+  const settled = { ...current, players, pendingTransactions: [], winnerId: winner?.id ?? null };
+  return winner ? closeMonopolyGame(settled, winner.id, "LAST PLAYER STANDING") : settled;
 }
 
 function getNextTurnState(current: GameState, reason: "timeout" | "system"): GameState {
@@ -397,17 +406,15 @@ function getNextTurnState(current: GameState, reason: "timeout" | "system"): Gam
   const currentIndex = current.players.findIndex((item) => item.id === current.activePlayerId);
   const nextIndex = current.players.findIndex((item) => item.id === nextPlayer.id);
   const roundsLeft = nextIndex <= currentIndex ? Math.max(0, current.roundsLeft - 1) : current.roundsLeft;
-  const endGamePlayers = roundsLeft === 0 ? awardFinalPoints(current.players) : current.players;
-  const timedWinner = roundsLeft === 0 ? [...endGamePlayers].filter((item) => !item.bankrupt).sort((first, second) => second.points - first.points || second.cash - first.cash)[0] : null;
-  const actionLog = timedWinner
-    ? { title: "30 rounds complete", highlight: `${timedWinner.username.toUpperCase()} WINS` }
-    : reason === "timeout"
+  const checkpointWinner = roundsLeft === 0 ? [...current.players].filter((item) => !item.bankrupt).sort((first, second) => getNetWorth(second) - getNetWorth(first))[0] : null;
+  if (checkpointWinner) return closeMonopolyGame({ ...current, roundsLeft }, checkpointWinner.id, `${current.roundLimit}-ROUND CHECKPOINT`);
+  const actionLog = reason === "timeout"
       ? { title: "TURN AUTO-PASSED", highlight: `${nextPlayer.username.toUpperCase()} · TAP THE DICE` }
       : { title: "NEXT PLAYER READY", highlight: `${nextPlayer.username.toUpperCase()} · TAP THE DICE` };
-  return { ...current, players: endGamePlayers, activePlayerId: nextPlayer.id, hasRolled: false, pendingPurchaseId: null, alert: null, auction: null, actionPanel: null, autoPassPlayerId: null, pendingTransactions: [], turnWarning: false, finalPointsAwarded: Boolean(timedWinner), roundsLeft, winnerId: timedWinner?.id ?? null, actionLog };
+  return { ...current, activePlayerId: nextPlayer.id, hasRolled: false, pendingPurchaseId: null, alert: null, auction: null, actionPanel: null, autoPassPlayerId: null, pendingTransactions: [], turnWarning: false, roundsLeft, actionLog };
 }
 
-function createGameState(playerCount: number): GameState {
+function createGameState(playerCount: number, roundLimit = 100): GameState {
   const players = PLAYER_TEMPLATES.slice(0, playerCount).map((template) => ({
     ...template,
     cash: STARTING_CASH,
@@ -425,7 +432,9 @@ function createGameState(playerCount: number): GameState {
   return {
     players,
     activePlayerId: players[0]?.id ?? PLAYER_TEMPLATES[0].id,
-    roundsLeft: 30,
+    roundsLeft: roundLimit,
+    roundLimit,
+    circulationBalance: STARTING_CASH * playerCount,
     dice: [5, 1],
     hasRolled: false,
     hasJourneyStarted: false,
@@ -762,7 +771,7 @@ function CornerPlayerCard({ player, active, empty }: { player?: Player; active?:
   );
 }
 
-function SetupScreen({ count, onCountChange, onStart, onExit }: { count: number; onCountChange: (value: number) => void; onStart: () => void; onExit: () => void }) {
+function SetupScreen({ count, roundLimit, onCountChange, onRoundLimitChange, onStart, onExit }: { count: number; roundLimit: number; onCountChange: (value: number) => void; onRoundLimitChange: (value: number) => void; onStart: () => void; onExit: () => void }) {
   return (
     <div className="min-h-[100dvh] overflow-hidden bg-[radial-gradient(circle_at_50%_26%,#163c5d_0%,#07111d_40%,#02060b_100%)] px-4 py-4 text-white">
       <style jsx global>{`
@@ -784,6 +793,7 @@ function SetupScreen({ count, onCountChange, onStart, onExit }: { count: number;
         </div>
         <div className="mt-5 text-center"><p className="text-[10px] font-black uppercase tracking-[.24em] text-[#7ecfff]">Southeast Asia edition</p><h1 className="mt-1 text-3xl font-black tracking-tight">Choose your players</h1><p className="mt-2 text-sm text-slate-300">Choose 2–4 players. Every toy pawn starts together on <b className="text-[#ffdb32]">GO</b>.</p></div>
         <div className="mt-6 grid grid-cols-3 gap-2">{[2, 3, 4].map((value) => <button key={value} type="button" onClick={() => onCountChange(value)} className={`rounded-2xl border px-2 py-3 text-center transition ${count === value ? "border-[#4ec3ff] bg-[#12639a]/50 shadow-[0_0_16px_rgba(63,184,255,.35)]" : "border-white/12 bg-white/5"}`}><span className="block text-2xl font-black">{value}</span><span className="mt-1 block text-[9px] font-black uppercase tracking-wider text-slate-300">Players</span></button>)}</div>
+        <div className="mt-4"><p className="text-center text-[9px] font-black uppercase tracking-[.16em] text-[#7ecfff]">Final checkpoint</p><div className="mt-2 grid grid-cols-3 gap-2">{[30, 50, 100].map((value) => <button key={value} type="button" onClick={() => onRoundLimitChange(value)} className={`rounded-xl border py-2 text-xs font-black ${roundLimit === value ? "border-[#ffda38] bg-[#6f5310]/45 text-[#fff1ad]" : "border-white/12 bg-white/5 text-slate-300"}`}>{value} ROUNDS</button>)}</div><p className="mt-2 text-center text-[10px] text-slate-400">Play until one player remains. If no one is bankrupt at this checkpoint, the highest net worth wins.</p></div>
         <div className="mt-4 grid grid-cols-4 gap-2">{PLAYER_TEMPLATES.map((player, index) => <div key={player.id} className={`rounded-xl border p-2 text-center ${index < count ? "bg-[#0d2130]" : "border-white/10 bg-black/20 opacity-35"}`} style={{ borderColor: index < count ? player.color : undefined }}><div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: player.color, color: player.color, backgroundColor: player.tint }}><TokenGlyph token={player.token} className="h-5 w-5" /></div><p className="mt-1 truncate text-[8px] font-black" style={{ color: player.color }}>{player.username}</p></div>)}</div>
         <button type="button" onClick={onStart} className="mt-auto rounded-2xl border-b-4 border-[#086ba5] bg-[linear-gradient(180deg,#4fc8ff,#0c82ca)] px-4 py-4 text-sm font-black tracking-[.16em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.7),0_7px_18px_rgba(0,0,0,.4)] active:translate-y-px">START GAME</button>
       </div>
@@ -794,6 +804,7 @@ function SetupScreen({ count, onCountChange, onStart, onExit }: { count: number;
 export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyProps) {
   const [phase, setPhase] = useState<GamePhase>("setup");
   const [selectedPlayerCount, setSelectedPlayerCount] = useState(4);
+  const [selectedRoundLimit, setSelectedRoundLimit] = useState(100);
   const [gameState, setGameState] = useState<GameState>(() => createGameState(4));
   const [isRolling, setIsRolling] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
@@ -870,6 +881,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
         username: room.players[index]?.name || player.username,
         cash: currencyValue,
       }));
+      seeded.circulationBalance = currencyValue * seeded.players.length;
       seeded.activePlayerId = seeded.players[0].id;
       const { error } = await supabase.rpc("initialize_monopoly_match", { p_room_id: roomId, p_state: seeded, p_active_player_id: seeded.activePlayerId });
       if (!error) { setGameState(seeded); lastPublishedStateRef.current = JSON.stringify(seeded); activeServerPlayerRef.current = seeded.activePlayerId; serverVersionRef.current = 1; setServerVersion(1); setPhase("playing"); setRoomReady(true); }
@@ -973,7 +985,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     setSecondsLeft(TURN_DURATION_SECONDS);
     setIsRolling(false);
     setIsMoving(false);
-    setGameState(createGameState(selectedPlayerCount));
+    setGameState(createGameState(selectedPlayerCount, selectedRoundLimit));
     setShowRules(false);
     setPhase("playing");
   };
@@ -1077,7 +1089,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
           const passedGo = mover.position !== 0 && nextPosition === 0;
           const players = current.players.map((player) => player.id === mover.id ? { ...player, position: nextPosition, inJail: false, jailAttempts: 0 } : player);
           const pendingTransactions = passedGo ? [...current.pendingTransactions, { kind: "balance" as const, changes: [{ playerId: mover.id, cashDelta: GO_SALARY }], autoPassAfterConfirmation: false }] : current.pendingTransactions;
-          const movingState: GameState = { ...current, players, pendingTransactions, actionLog: { title: `${mover.username} is moving`, highlight: `STEP ${step} OF ${steps}` } };
+          const movingState: GameState = { ...current, players, pendingTransactions, circulationBalance: current.circulationBalance + (passedGo ? GO_SALARY : 0), actionLog: { title: `${mover.username} is moving`, highlight: `STEP ${step} OF ${steps}` } };
           return step === steps ? resolveLanding(movingState) : movingState;
         });
         if (step === steps && turnEpochRef.current === turnEpoch) setIsMoving(false);
@@ -1518,7 +1530,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
 
   if (roomId && !roomReady) return <div className="fixed inset-0 grid place-items-center bg-[#07111c] text-white">Loading shared Monopoly board…</div>;
   if (phase === "setup") {
-    return <SetupScreen count={selectedPlayerCount} onCountChange={setSelectedPlayerCount} onStart={handleStart} onExit={handleExit} />;
+    return <SetupScreen count={selectedPlayerCount} roundLimit={selectedRoundLimit} onCountChange={setSelectedPlayerCount} onRoundLimitChange={setSelectedRoundLimit} onStart={handleStart} onExit={handleExit} />;
   }
 
   return (
@@ -1548,7 +1560,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       <div className="mx-auto flex h-full min-h-0 w-full max-w-xl flex-col">
         <header className="portrait-header mx-2 mt-2 flex h-12 shrink-0 items-center rounded-xl border border-[#36556e] bg-[#0a131c]/95 px-2 shadow-[0_4px_14px_rgba(0,0,0,.45),inset_0_1px_0_rgba(255,255,255,.08)]">
           <button type="button" onClick={handleExit} aria-label="Exit Monopoly" className="grid h-9 w-9 place-items-center rounded-lg transition hover:bg-white/10"><ArrowLeft className="h-5 w-5" /></button>
-          <div className="min-w-0 flex-1 text-center"><p className="truncate text-[clamp(9px,2.7vw,13px)] font-black tracking-[.08em] text-[#eaf8ff]">{gameState.roundsLeft} ROUNDS LEFT · FINAL POINTS AT GAME END</p><p className="mt-0.5 text-[7px] font-black tracking-[.2em] text-[#72caff]">SOUTHEAST ASIA EDITION</p></div>
+          <div className="min-w-0 flex-1 text-center"><p className="truncate text-[clamp(9px,2.7vw,13px)] font-black tracking-[.08em] text-[#eaf8ff]">{gameState.roundsLeft} / {gameState.roundLimit} ROUNDS · LAST PLAYER TAKES THE POT</p><p className="mt-0.5 text-[7px] font-black tracking-[.2em] text-[#72caff]">SOUTHEAST ASIA EDITION</p></div>
           <button type="button" onClick={() => setShowRules(true)} aria-label="Open rules" className="grid h-9 w-9 place-items-center rounded-lg transition hover:bg-white/10"><ShieldCheck className="h-5 w-5 text-[#76cfff]" /></button>
         </header>
 
@@ -1577,7 +1589,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
 
       {showGoBonusToast && <div className="pointer-events-none absolute left-1/2 top-16 z-[52] rounded-full border border-[#ffe45e] bg-[#2a2107]/95 px-4 py-2 text-center text-xs font-black tracking-[.12em] text-[#fff09a] shadow-[0_0_20px_rgba(255,213,68,.45)] animate-[monopoly-go-bonus-toast_3s_ease-in-out_forwards]">+$200 GO BONUS · CONFIRM TO COLLECT</div>}
 
-      {showRules && <div className="absolute inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm"><section className="w-full max-w-sm rounded-2xl border border-[#56bbff] bg-[linear-gradient(135deg,#12283b,#06101a)] p-5 shadow-[0_16px_44px_rgba(0,0,0,.65)]"><div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.2em] text-[#72caff]">Crystal table rules</p><h2 className="mt-1 text-xl font-black">Neon Monopoly</h2></div><button type="button" onClick={() => setShowRules(false)} className="grid h-8 w-8 place-items-center rounded-full border border-white/20"><X className="h-4 w-4" /></button></div><ol className="mt-4 space-y-2 text-xs leading-relaxed text-slate-200"><li><b className="text-[#ffda2d]">1.</b> Every selected player begins together on GO with {currency.format(STARTING_CASH)}.</li><li><b className="text-[#ffda2d]">2.</b> Roll the two 3D dice, buy available cities, and collect rent on owned cities.</li><li><b className="text-[#ffda2d]">3.</b> Passing GO earns {currency.format(GO_SALARY)}. Being sent to Jail skips your next turn (unless you possess a Jail-Free card).</li><li><b className="text-[#ffda2d]">4.</b> At game end, each surviving player receives final points equal to remaining cash × 10%.</li></ol><button type="button" onClick={() => setShowRules(false)} className="mt-5 w-full rounded-xl bg-gradient-to-b from-[#49c5ff] to-[#0c7fc4] py-3 text-xs font-black uppercase tracking-wider">Got it</button></section></div>}
+      {showRules && <div className="absolute inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm"><section className="w-full max-w-sm rounded-2xl border border-[#56bbff] bg-[linear-gradient(135deg,#12283b,#06101a)] p-5 shadow-[0_16px_44px_rgba(0,0,0,.65)]"><div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.2em] text-[#72caff]">Crystal table rules</p><h2 className="mt-1 text-xl font-black">Neon Monopoly</h2></div><button type="button" onClick={() => setShowRules(false)} className="grid h-8 w-8 place-items-center rounded-full border border-white/20"><X className="h-4 w-4" /></button></div><ol className="mt-4 space-y-2 text-xs leading-relaxed text-slate-200"><li><b className="text-[#ffda2d]">1.</b> Every player starts with their paid entry × 10 as in-game cash.</li><li><b className="text-[#ffda2d]">2.</b> Roll, build, trade, mortgage, and collect rent. A player who cannot pay is bankrupt and transfers their holdings.</li><li><b className="text-[#ffda2d]">3.</b> Passing GO adds {currency.format(GO_SALARY)} to the circulation balance.</li><li><b className="text-[#ffda2d]">4.</b> The last survivor takes the full circulation balance. At the selected checkpoint, highest net worth wins if multiple players remain. The winner receives 10% as points.</li></ol><button type="button" onClick={() => setShowRules(false)} className="mt-5 w-full rounded-xl bg-gradient-to-b from-[#49c5ff] to-[#0c7fc4] py-3 text-xs font-black uppercase tracking-wider">Got it</button></section></div>}
 
       {winner && <div className="absolute inset-0 z-[60] grid place-items-center bg-black/80 p-4 backdrop-blur-sm"><section className="w-full max-w-sm rounded-2xl border-2 bg-[linear-gradient(135deg,#112b40,#061019)] p-6 text-center shadow-[0_0_40px_rgba(44,173,255,.22)]" style={{ borderColor: winner.color }}><Crown className="mx-auto h-10 w-10" style={{ color: winner.color }} fill="currentColor" /><p className="mt-2 text-[10px] font-black uppercase tracking-[.2em]" style={{ color: winner.color }}>Southeast Asia champion</p><h2 className="mt-2 text-3xl font-black">{winner.username}</h2><p className="mt-2 text-sm text-slate-200">Final points: {gameState.finalPointsAwarded ? winner.points : getFinalPoints(winner)} · {currency.format(winner.cash)} cash × 10%</p><div className="mt-4 space-y-1 rounded-xl border border-white/10 bg-black/20 p-2 text-left">{gameState.players.filter((player) => !player.bankrupt).sort((first, second) => getFinalPoints(second) - getFinalPoints(first) || second.cash - first.cash).map((player) => <div key={player.id} className="flex items-center justify-between text-[10px] font-bold"><span style={{ color: player.color }}>{player.username}</span><span className="text-slate-100">{getFinalPoints(player)} PTS · {currency.format(player.cash)}</span></div>)}</div><button type="button" onClick={() => { turnEpochRef.current += 1; setSecondsLeft(TURN_DURATION_SECONDS); setGameState(createGameState(selectedPlayerCount)); }} className="mt-6 w-full rounded-xl bg-white/10 py-3 text-xs font-black uppercase tracking-wider transition hover:bg-white/20"><RotateCcw className="mr-1 inline h-4 w-4" />Play again</button><button type="button" onClick={() => setPhase("setup")} className="mt-2 w-full py-2 text-[10px] font-black uppercase tracking-wider text-[#77cbff]">Change players</button></section></div>}
     </div>
