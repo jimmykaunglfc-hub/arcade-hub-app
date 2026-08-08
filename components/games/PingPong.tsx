@@ -11,6 +11,7 @@ import {
   TableTennisGame,
   type TableTennisBestOf,
   type TableTennisPlayerId,
+  type TableTennisState,
 } from "@/lib/TableTennisGame";
 import {
   applySideSpin,
@@ -56,6 +57,8 @@ export interface PingPongPlayer {
 
 export interface PingPongProps {
   matchId?: string | null;
+  /** Seat one owns the realtime physics simulation for online matches. */
+  seat?: 1 | 2;
   currentUserId?: string | null;
   players?: PingPongPlayer[];
   wager?: number;
@@ -162,12 +165,79 @@ interface BallHitPayload {
   timestamp: number;
 }
 
+/** Compact host-authoritative state sent at 20 Hz; rendering remains at 60 fps. */
+interface NetworkMatchSnapshot {
+  sequence: number;
+  ball: BallState;
+  paddles: PaddlePositions;
+  matchState: TableTennisState;
+  status: string;
+  winner: Side | null;
+}
+
 interface TrailPoint extends Vector3 {
   createdAt: number;
 }
 
 type Side = "local" | "opponent";
 type RacketDirection = "left" | "center" | "right";
+
+const mirrorVector = (vector: Vector3): Vector3 => ({
+  x: -vector.x,
+  y: vector.y,
+  z: -vector.z,
+});
+
+const mirrorPaddle = (paddle: PaddleState): PaddleState => ({
+  ...paddle,
+  ...mirrorVector(paddle),
+  vx: -paddle.vx,
+  vy: paddle.vy,
+  vz: -paddle.vz,
+  tilt: -paddle.tilt,
+  swingX: -paddle.swingX,
+});
+
+const mirrorBall = (ball: BallState): BallState => ({
+  ...ball,
+  ...mirrorVector(ball),
+  vx: -ball.vx,
+  vy: ball.vy,
+  vz: -ball.vz,
+  spin: -ball.spin,
+  serveAimX: -ball.serveAimX,
+});
+
+const mirrorMatchState = (state: TableTennisState): TableTennisState => ({
+  ...state,
+  player1Score: state.player2Score,
+  player2Score: state.player1Score,
+  player1GamesWon: state.player2GamesWon,
+  player2GamesWon: state.player1GamesWon,
+  currentServer: state.currentServer === "player1" ? "player2" : "player1",
+  gameStartingServer:
+    state.gameStartingServer === "player1" ? "player2" : "player1",
+  player1Side: state.player2Side,
+  player2Side: state.player1Side,
+  gameWinner:
+    state.gameWinner === null
+      ? null
+      : state.gameWinner === "player1"
+      ? "player2"
+      : "player1",
+  matchWinner:
+    state.matchWinner === null
+      ? null
+      : state.matchWinner === "player1"
+      ? "player2"
+      : "player1",
+  lastPointWinner:
+    state.lastPointWinner === null
+      ? null
+      : state.lastPointWinner === "player1"
+      ? "player2"
+      : "player1",
+});
 
 interface RacketAssetLayout {
   crop: [x: number, y: number, width: number, height: number];
@@ -471,6 +541,7 @@ export default function PingPong(props: PingPongProps) {
     "local-ping-pong";
   const currentUserId =
     props.currentUserId ?? providedPlayers?.[0]?.id ?? "local-player";
+  const localSeat = props.seat ?? 1;
   const players = useMemo<PingPongPlayer[]>(() => {
     if (providedPlayers?.length) return providedPlayers;
     return [
@@ -516,6 +587,13 @@ export default function PingPong(props: PingPongProps) {
   const opponentSpinReadErrorRef = useRef(0);
   const lastPlayerSwipeAtRef = useRef(0);
   const networkChannelRef = useRef<RealtimeChannel | null>(null);
+  const networkSequenceRef = useRef(0);
+  const lastNetworkSnapshotRef = useRef(0);
+  const lastReceivedSnapshotRef = useRef(-1);
+  const networkReplicaTargetRef = useRef<{
+    ball: BallState;
+    opponent: PaddleState;
+  } | null>(null);
   const matchReadyRef = useRef(
     startsWithConfirmedMatch || !onlineMatchmakingEnabled
   );
@@ -575,6 +653,10 @@ export default function PingPong(props: PingPongProps) {
     useState<PingPongRacketSkin | null>(null);
   const activeLocalRacketSkin = props.localRacketSkin ?? storedRacketSkin;
   const isNetworkMatch = Boolean(matchId && matchId !== "local-ping-pong" && !matchId.startsWith("bot_") && !activeOpponent?.isBot);
+  // Player one is the sole simulation authority. Player two receives compact
+  // snapshots and only transmits input, avoiding competing physics clocks.
+  const isSimulationAuthority = !isNetworkMatch || localSeat === 1;
+  const isNetworkReplica = isNetworkMatch && !isSimulationAuthority;
 
   useEffect(() => {
     if (!gameWinner) return;
@@ -773,17 +855,26 @@ export default function PingPong(props: PingPongProps) {
    */
   const onReceiveOpponentMove = useCallback(
     (position: Vector3 & { tilt?: number; swingX?: number }) => {
+      // The second player sends input in their own near-side camera space.
+      // Mirror it into the host's far-side world before collision tests.
+      const worldPosition = {
+        x: -position.x,
+        y: position.y,
+        z: -position.z,
+        tilt: -(position.tilt ?? 0),
+        swingX: -(position.swingX ?? 0),
+      };
       const previous = paddlesRef.current.opponent;
-      const nextVx = (position.x - previous.x) * 20;
+      const nextVx = (worldPosition.x - previous.x) * 20;
       const next: PaddleState = {
-        x: clamp(position.x, -1.34, 1.34),
-        y: clamp(position.y, 0.28, 1.25),
-        z: clamp(position.z, -2.55, -1.45),
+        x: clamp(worldPosition.x, -1.34, 1.34),
+        y: clamp(worldPosition.y, 0.28, 1.25),
+        z: clamp(worldPosition.z, -2.55, -1.45),
         vx: nextVx,
-        vy: (position.y - previous.y) * 20,
-        vz: (position.z - previous.z) * 20,
-        tilt: clamp(position.tilt ?? nextVx * 0.06, -0.52, 0.52),
-        swingX: clamp(position.swingX ?? nextVx / 4, -1, 1),
+        vy: (worldPosition.y - previous.y) * 20,
+        vz: (worldPosition.z - previous.z) * 20,
+        tilt: clamp(worldPosition.tilt || nextVx * 0.06, -0.52, 0.52),
+        swingX: clamp(worldPosition.swingX || nextVx / 4, -1, 1),
       };
       paddlesRef.current.opponent = next;
       opponentNetworkActiveUntilRef.current = performance.now() + 600;
@@ -791,19 +882,55 @@ export default function PingPong(props: PingPongProps) {
     []
   );
 
+  const publishAuthoritativeSnapshot = useCallback(() => {
+    if (!isNetworkMatch || !isSimulationAuthority || !networkChannelRef.current) return;
+    void networkChannelRef.current.send({
+      type: "broadcast",
+      event: "ping_pong_snapshot",
+      payload: {
+        sequence: ++networkSequenceRef.current,
+        ball: ballRef.current,
+        paddles: paddlesRef.current,
+        matchState: gameEngine.getState(),
+        status,
+        winner: gameWinnerRef.current,
+      } satisfies NetworkMatchSnapshot,
+    });
+  }, [gameEngine, isNetworkMatch, isSimulationAuthority, status]);
+
   useEffect(() => {
     if (!isNetworkMatch) return;
     const channel = supabase.channel(`ping-pong-match-${matchId}`, { config: { broadcast: { self: false } } });
     networkChannelRef.current = channel;
     channel
       .on("broadcast", { event: "ping_pong_paddle" }, ({ payload }) => onReceiveOpponentMove(payload as Vector3 & { tilt?: number; swingX?: number }))
-      .on("broadcast", { event: "ping_pong_ball_hit" }, ({ payload }) => {
-        const hit = payload as BallHitPayload;
-        ballRef.current = { ...ballRef.current, x: hit.position.x, y: hit.position.y, z: hit.position.z, vx: hit.velocity.x, vy: hit.velocity.y, vz: hit.velocity.z, active: true };
+      .on("broadcast", { event: "ping_pong_snapshot" }, ({ payload }) => {
+        if (isSimulationAuthority) return;
+        const snapshot = payload as NetworkMatchSnapshot;
+        if (!Number.isFinite(snapshot.sequence) || snapshot.sequence <= lastReceivedSnapshotRef.current) return;
+        lastReceivedSnapshotRef.current = snapshot.sequence;
+        // Mirror the authority world so each player still sees their own
+        // paddle near the camera. This is visual-only; scoring stays host-side.
+        const hadReplicaTarget = Boolean(networkReplicaTargetRef.current);
+        const mirroredBall = mirrorBall(snapshot.ball);
+        const mirroredOpponent = mirrorPaddle(snapshot.paddles.local);
+        networkReplicaTargetRef.current = {
+          ball: mirroredBall,
+          opponent: mirroredOpponent,
+        };
+        // First packet seeds the renderer immediately; subsequent packets are
+        // interpolated in the animation loop rather than visibly snapping.
+        if (!hadReplicaTarget) {
+          ballRef.current = mirroredBall;
+          paddlesRef.current.opponent = mirroredOpponent;
+        }
+        setMatchState(mirrorMatchState(snapshot.matchState));
+        setStatus(snapshot.status);
+        if (snapshot.winner) setGameWinner(oppositeSide(snapshot.winner));
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); if (networkChannelRef.current === channel) networkChannelRef.current = null; };
-  }, [isNetworkMatch, matchId, onReceiveOpponentMove]);
+  }, [isNetworkMatch, isSimulationAuthority, matchId, onReceiveOpponentMove]);
 
   const resetRound = useCallback(
     (server: Side) => {
@@ -2793,10 +2920,70 @@ export default function PingPong(props: PingPongProps) {
       const previousFrame = lastFrameRef.current ?? now;
       const deltaSeconds = Math.min((now - previousFrame) / 1000, 0.05);
       lastFrameRef.current = now;
-      const physicsSteps = Math.max(1, Math.ceil(deltaSeconds / (1 / 120)));
-      const physicsDelta = deltaSeconds / physicsSteps;
-      for (let step = 0; step < physicsSteps; step += 1) {
-        updatePhysics(physicsDelta, now);
+      if (!isNetworkReplica) {
+        const physicsSteps = Math.max(1, Math.ceil(deltaSeconds / (1 / 120)));
+        const physicsDelta = deltaSeconds / physicsSteps;
+        for (let step = 0; step < physicsSteps; step += 1) {
+          updatePhysics(physicsDelta, now);
+        }
+      } else {
+        // Keep the locally controlled racket immediate between snapshots.
+        const local = paddlesRef.current.local;
+        const target = localPaddleTargetRef.current;
+        const follow = 1 - Math.exp(-30 * deltaSeconds);
+        paddlesRef.current.local = {
+          ...local,
+          x: local.x + (target.x - local.x) * follow,
+          y: local.y + (target.y - local.y) * follow,
+          z: local.z + (target.z - local.z) * follow,
+          tilt: dampRacketTilt(local.tilt, target.tilt, deltaSeconds),
+          swingX: dampRacketTilt(local.swingX, target.swingX, deltaSeconds, 14),
+          vx: (target.x - local.x) / Math.max(deltaSeconds, 0.001),
+          vy: (target.y - local.y) / Math.max(deltaSeconds, 0.001),
+          vz: (target.z - local.z) / Math.max(deltaSeconds, 0.001),
+        };
+        const replicaTarget = networkReplicaTargetRef.current;
+        if (replicaTarget) {
+          // Exponential interpolation absorbs packet jitter without adding a
+          // fixed frame delay. The ball remains fluid at the display refresh
+          // rate even though network snapshots arrive only 20 times/second.
+          const blend = 1 - Math.exp(-24 * deltaSeconds);
+          const ball = ballRef.current;
+          const targetBall = replicaTarget.ball;
+          ball.x += (targetBall.x - ball.x) * blend;
+          ball.y += (targetBall.y - ball.y) * blend;
+          ball.z += (targetBall.z - ball.z) * blend;
+          ball.vx += (targetBall.vx - ball.vx) * blend;
+          ball.vy += (targetBall.vy - ball.vy) * blend;
+          ball.vz += (targetBall.vz - ball.vz) * blend;
+          ball.spin += (targetBall.spin - ball.spin) * blend;
+          ball.active = targetBall.active;
+          ball.netStopped = targetBall.netStopped;
+          ball.servePhase = targetBall.servePhase;
+          ball.serveAimX = targetBall.serveAimX;
+          ball.serveTwistSpin = targetBall.serveTwistSpin;
+          ball.servePower = targetBall.servePower;
+          ball.serveVertical = targetBall.serveVertical;
+          ball.deadAt = targetBall.deadAt;
+
+          const remote = paddlesRef.current.opponent;
+          const targetRemote = replicaTarget.opponent;
+          paddlesRef.current.opponent = {
+            x: remote.x + (targetRemote.x - remote.x) * blend,
+            y: remote.y + (targetRemote.y - remote.y) * blend,
+            z: remote.z + (targetRemote.z - remote.z) * blend,
+            vx: remote.vx + (targetRemote.vx - remote.vx) * blend,
+            vy: remote.vy + (targetRemote.vy - remote.vy) * blend,
+            vz: remote.vz + (targetRemote.vz - remote.vz) * blend,
+            tilt: remote.tilt + (targetRemote.tilt - remote.tilt) * blend,
+            swingX: remote.swingX + (targetRemote.swingX - remote.swingX) * blend,
+          };
+        }
+      }
+
+      if (isSimulationAuthority && now - lastNetworkSnapshotRef.current >= 50) {
+        publishAuthoritativeSnapshot();
+        lastNetworkSnapshotRef.current = now;
       }
 
       context.clearRect(0, 0, width, height);
@@ -2832,7 +3019,7 @@ export default function PingPong(props: PingPongProps) {
       frameRef.current = null;
       lastFrameRef.current = null;
     };
-  }, [broadcastBallHit, currentUserId, isDoubles, resetRound, scorePoint]);
+  }, [broadcastBallHit, currentUserId, isDoubles, isNetworkReplica, isSimulationAuthority, publishAuthoritativeSnapshot, resetRound, scorePoint]);
 
   const localName = getPlayerName(localPlayer, "You");
   const opponentName = getPlayerName(opponentPlayer, "Opponent");
