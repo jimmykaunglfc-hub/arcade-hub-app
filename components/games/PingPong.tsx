@@ -23,6 +23,7 @@ import {
   createPhysicsRally,
   dampRacketTilt,
   predictBallAtZPlane,
+  predictBallAtZPlaneAfterTableBounce,
   predictTableLanding,
   registerPaddleReturn,
   resolveTableBounce,
@@ -33,7 +34,12 @@ import {
   type PhysicsRallyState,
   type SwipeGestureSample,
 } from "@/lib/pingPongPhysics";
+import {
+  getEquippedPingPongRacketSkin,
+  type PingPongRacketSkin,
+} from "@/lib/pingPongCosmetics";
 import { supabase } from "@/lib/supabaseClient";
+import MatchmakingModal from "../MatchmakingModal";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 /**
@@ -62,9 +68,27 @@ export interface PingPongProps {
    */
   preloadedMatchId?: string | null;
   opponent?: { name: string; isBot: boolean } | null;
-  /** Reports the completed competitive match back to Joe Yoke's wallet, XP,
-   * and match-history integration. */
+  /**
+   * Enables the real-player matchmaking overlay. It is opt-in so regular
+   * gameplay always opens immediately without a blocking search screen.
+   */
+  enableOnlineMatchmaking?: boolean;
+  /**
+   * Optional match payload for the local player's equipped racket. When it is
+   * omitted the game reads the currently equipped Ping Pong racket from the
+   * Store Management inventory automatically.
+   */
+  localRacketSkin?: PingPongRacketSkin | null;
+  /** Send the remote player's equipped skin in the multiplayer match payload. */
+  opponentRacketSkin?: PingPongRacketSkin | null;
   onResult?: (result: "Win" | "Loss" | "Draw") => void;
+}
+
+interface PingPongMatchedOpponent {
+  name: string;
+  isBot: boolean;
+  avatarIcon?: string;
+  elo?: number;
 }
 
 interface Vector3 {
@@ -85,6 +109,10 @@ interface BallState extends Vector3 {
   servePhase: "waiting" | "toss" | "flight" | null;
   /** Latched horizontal aim while an official serve toss is in the air. */
   serveAimX: number;
+  /** Circular spin and vertical power captured before the serve toss. */
+  serveTwistSpin: number;
+  servePower: number;
+  serveVertical: number;
   /** Non-zero after the point is final while the ball finishes moving. */
   deadAt: number;
 }
@@ -149,7 +177,13 @@ interface RacketAssetLayout {
   renderScale: number;
 }
 
-type RacketAssetSet = Record<RacketDirection, HTMLImageElement>;
+interface RacketAssetSet {
+  center: HTMLImageElement;
+  left: HTMLImageElement;
+  right: HTMLImageElement;
+  /** Dynamic store skins use a generic, direction-safe crop. */
+  isDynamicSkin: boolean;
+}
 type RacketSpriteSet = Record<RacketDirection, HTMLCanvasElement>;
 
 const RACKET_SPRITE_SIZE = 512;
@@ -246,7 +280,7 @@ const CAMERA_FAR_BASELINE = 0.39;
 const CAMERA_NEAR_BASELINE = 0.675;
 const LOCAL_PADDLE_START: PaddleState = {
   x: 0,
-  y: 0.58,
+  y: 0.46,
   z: 2.3,
   vx: 0,
   vy: 0,
@@ -294,6 +328,28 @@ const createRacketSpriteSet = (
     if (!context) return canvas;
 
     const asset = assets[direction];
+    if (assets.isDynamicSkin) {
+      const angle =
+        direction === "left" ? -0.48 : direction === "right" ? 0.48 : 0;
+      const sourceRatio = asset.naturalWidth / Math.max(asset.naturalHeight, 1);
+      const renderedHeight = RACKET_SPRITE_VISIBLE_HEIGHT * 1.5;
+      const renderedWidth = renderedHeight * sourceRatio;
+      // Store skins normally contain a transparent, upright racket. The head
+      // is anchored to the physics contact point while rotation only changes
+      // its presentation; no collision values are affected.
+      context.save();
+      context.translate(RACKET_SPRITE_SIZE / 2, RACKET_SPRITE_SIZE / 2);
+      context.rotate(angle);
+      context.drawImage(
+        asset,
+        -renderedWidth / 2,
+        -renderedHeight * 0.42,
+        renderedWidth,
+        renderedHeight
+      );
+      context.restore();
+      return canvas;
+    }
     const layout = RACKET_ASSET_LAYOUTS[side][direction];
     const [sourceX, sourceY, sourceWidth, sourceHeight] = layout.crop;
     const renderedHeight = RACKET_SPRITE_VISIBLE_HEIGHT * layout.renderScale;
@@ -342,6 +398,9 @@ const createServe = (server: Side, isDoubles = false): BallState => ({
   netStopped: false,
   servePhase: server === "local" ? "waiting" : "toss",
   serveAimX: 0,
+  serveTwistSpin: 0,
+  servePower: 0,
+  serveVertical: 0,
   deadAt: 0,
 });
 
@@ -390,7 +449,26 @@ export default function PingPong(props: PingPongProps) {
     opponent,
     players: providedPlayers,
   } = props;
-  const matchId = props.matchId ?? preloadedMatchId ?? "local-ping-pong";
+  const onlineMatchmakingEnabled = props.enableOnlineMatchmaking ?? false;
+  const startsWithConfirmedMatch = Boolean(
+    props.matchId ?? preloadedMatchId ?? opponent ?? providedPlayers?.length
+  );
+  const [showMatchmaker, setShowMatchmaker] = useState(
+    onlineMatchmakingEnabled && !startsWithConfirmedMatch
+  );
+  const [isMatchReady, setIsMatchReady] = useState(
+    startsWithConfirmedMatch || !onlineMatchmakingEnabled
+  );
+  const [matchedSession, setMatchedSession] = useState<{
+    matchId: string;
+    opponent: PingPongMatchedOpponent;
+  } | null>(null);
+  const activeOpponent = matchedSession?.opponent ?? opponent;
+  const matchId =
+    matchedSession?.matchId ??
+    props.matchId ??
+    preloadedMatchId ??
+    "local-ping-pong";
   const currentUserId =
     props.currentUserId ?? providedPlayers?.[0]?.id ?? "local-player";
   const players = useMemo<PingPongPlayer[]>(() => {
@@ -399,10 +477,10 @@ export default function PingPong(props: PingPongProps) {
       { id: currentUserId, username: "You" },
       {
         id: "ping-pong-opponent",
-        username: opponent?.name || "Arena Opponent",
+        username: activeOpponent?.name || "Arena Opponent",
       },
     ];
-  }, [currentUserId, opponent?.name, providedPlayers]);
+  }, [activeOpponent?.name, currentUserId, providedPlayers]);
   const isDoubles = players.length >= 4;
   const bestOf = props.bestOf ?? 5;
   const gameEngine = useMemo(() => new TableTennisGame({ bestOf }), [bestOf]);
@@ -428,12 +506,19 @@ export default function PingPong(props: PingPongProps) {
   const gameWinnerRef = useRef<Side | null>(null);
   const pointerSampleRef = useRef<SwipeGestureSample | null>(null);
   const gesturePathRef = useRef<SwipeGestureSample[]>([]);
-  const swingIntentRef = useRef<SwingIntent>({ horizontal: 0, vertical: 0, twist: 0, intensity: 0, expiresAt: 0 });
+  const swingIntentRef = useRef<SwingIntent>({
+    horizontal: 0,
+    vertical: 0,
+    twist: 0,
+    intensity: 0,
+    expiresAt: 0,
+  });
+  const opponentSpinReadErrorRef = useRef(0);
   const lastPlayerSwipeAtRef = useRef(0);
   const networkChannelRef = useRef<RealtimeChannel | null>(null);
-  const networkIdentityRef = useRef<string | null>(null);
-  const opponentSeenRef = useRef(false);
-  const disconnectForfeitRef = useRef<number | null>(null);
+  const matchReadyRef = useRef(
+    startsWithConfirmedMatch || !onlineMatchmakingEnabled
+  );
   const stalledBallSinceRef = useRef(0);
   const assistWindowsRef = useRef<Record<Side, AssistWindow | null>>({
     local: null,
@@ -481,14 +566,20 @@ export default function PingPong(props: PingPongProps) {
       : "Opponent serve — get ready"
   );
   const [gameWinner, setGameWinner] = useState<Side | null>(null);
+  const [showRules, setShowRules] = useState(false);
   const [activeReaction, setActiveReaction] = useState<{
     emoji: string;
     id: number;
   } | null>(null);
-  const [opponentConnected, setOpponentConnected] = useState(false);
-  const isNetworkMatch = Boolean(
-    matchId && matchId !== "local-ping-pong" && !matchId.startsWith("bot_") && !opponent?.isBot
-  );
+  const [storedRacketSkin, setStoredRacketSkin] =
+    useState<PingPongRacketSkin | null>(null);
+  const activeLocalRacketSkin = props.localRacketSkin ?? storedRacketSkin;
+  const isNetworkMatch = Boolean(matchId && matchId !== "local-ping-pong" && !matchId.startsWith("bot_") && !activeOpponent?.isBot);
+
+  useEffect(() => {
+    if (!gameWinner) return;
+    onResult?.(gameWinner === "local" ? "Win" : "Loss");
+  }, [gameWinner, onResult]);
 
   const ballRef = useRef<BallState>({ ...initialBall });
   const paddlesRef = useRef<PaddlePositions>({
@@ -508,14 +599,66 @@ export default function PingPong(props: PingPongProps) {
   }, [gameWinner]);
 
   useEffect(() => {
+    matchReadyRef.current = isMatchReady;
+  }, [isMatchReady]);
+
+  useEffect(() => {
+    // Cosmetic images are presentation-only. Loading or changing a skin does
+    // not reset the rally, paddle transform, physics state, or score.
+    if (props.localRacketSkin) {
+      return;
+    }
+
+    let disposed = false;
+    let unsubscribe = () => undefined;
+    const start = async () => {
+      const { data } = await supabase.auth.getUser();
+      const userId = data.user?.id;
+      if (!userId || disposed) return;
+      const refreshEquippedSkin = async () => {
+        const skin = await getEquippedPingPongRacketSkin(userId);
+        if (!disposed) setStoredRacketSkin(skin);
+      };
+      await refreshEquippedSkin();
+      if (disposed) return;
+
+      // Subscribe once. The previous version of this integration accidentally
+      // subscribed again after each inventory update, which would multiply
+      // callbacks after several equips.
+      const channel = supabase
+        .channel(`ping-pong-racket-${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "user_inventory",
+            filter: `user_id=eq.${userId}`,
+          },
+          () => void refreshEquippedSkin()
+        )
+        .subscribe();
+      unsubscribe = () => void supabase.removeChannel(channel);
+    };
+    void start();
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [props.localRacketSkin]);
+
+  useEffect(() => {
     let cancelled = false;
     const loadRacketSet = (
       center: string,
       left: string,
-      right: string
+      right: string,
+      isDynamicSkin = false
     ): RacketAssetSet => {
       const createAsset = (source: string) => {
         const image = new Image();
+        image.crossOrigin = "anonymous";
         image.src = source;
         return image;
       };
@@ -523,36 +666,62 @@ export default function PingPong(props: PingPongProps) {
         center: createAsset(center),
         left: createAsset(left),
         right: createAsset(right),
+        isDynamicSkin,
       };
     };
 
     const logo = new Image();
     logo.src = "/joe-yoke-board-logo.png";
     boardLogoRef.current = logo;
-    const localAssets = loadRacketSet(
-      "/ping-pong-racket-black-center.png",
-      "/ping-pong-racket-black-left.png",
-      "/ping-pong-racket-black-right.png"
-    );
-    const opponentAssets = loadRacketSet(
-      "/ping-pong-racket-red-center.png",
-      "/ping-pong-racket-red-left.png",
-      "/ping-pong-racket-red-right.png"
-    );
+    const localAssets = activeLocalRacketSkin
+      ? loadRacketSet(
+          activeLocalRacketSkin.centerImageUrl ?? activeLocalRacketSkin.imageUrl,
+          activeLocalRacketSkin.leftImageUrl ?? activeLocalRacketSkin.imageUrl,
+          activeLocalRacketSkin.rightImageUrl ?? activeLocalRacketSkin.imageUrl,
+          true
+        )
+      : loadRacketSet(
+          "/ping-pong-racket-black-center.png",
+          "/ping-pong-racket-black-left.png",
+          "/ping-pong-racket-black-right.png"
+        );
+    const opponentAssets = props.opponentRacketSkin
+      ? loadRacketSet(
+          props.opponentRacketSkin.centerImageUrl ??
+            props.opponentRacketSkin.imageUrl,
+          props.opponentRacketSkin.leftImageUrl ?? props.opponentRacketSkin.imageUrl,
+          props.opponentRacketSkin.rightImageUrl ?? props.opponentRacketSkin.imageUrl,
+          true
+        )
+      : loadRacketSet(
+          "/ping-pong-racket-red-center.png",
+          "/ping-pong-racket-red-left.png",
+          "/ping-pong-racket-red-right.png"
+        );
     localRacketAssetsRef.current = localAssets;
     opponentRacketAssetsRef.current = opponentAssets;
 
     const buildSpriteCache = async () => {
       await Promise.allSettled(
-        [...Object.values(localAssets), ...Object.values(opponentAssets)].map(
-          (image) => image.decode()
-        )
+        [
+          localAssets.center,
+          localAssets.left,
+          localAssets.right,
+          opponentAssets.center,
+          opponentAssets.left,
+          opponentAssets.right,
+        ].map((image) => image.decode())
       );
       if (
         cancelled ||
-        [...Object.values(localAssets), ...Object.values(opponentAssets)].some(
-          (image) => image.naturalWidth <= 0
-        )
+        [
+          localAssets.center,
+          localAssets.left,
+          localAssets.right,
+          opponentAssets.center,
+          opponentAssets.left,
+          opponentAssets.right,
+        ].some((image) => image.naturalWidth <= 0)
       ) {
         return;
       }
@@ -570,11 +739,13 @@ export default function PingPong(props: PingPongProps) {
       opponentRacketAssetsRef.current = null;
       racketSpritesRef.current = null;
     };
-  }, []);
+  }, [activeLocalRacketSkin, props.opponentRacketSkin]);
 
-  // Realtime input channel. The existing physics stays local-authoritative for
-  // the host; remote paddle/ball snapshots keep the second device in sync.
-  // This replaces the handoff source's placeholder extension points.
+  /**
+   * MULTIPLAYER HOOK 1
+   * Replace this body with a Supabase broadcast or backendEngine call.
+   * A 20 Hz throttle is already applied by the pointer handler.
+   */
   const broadcastPaddlePosition = useCallback(
     (position: PaddleState) => {
       if (!isNetworkMatch || !networkChannelRef.current) return;
@@ -622,55 +793,17 @@ export default function PingPong(props: PingPongProps) {
 
   useEffect(() => {
     if (!isNetworkMatch) return;
-    let alive = true;
-    const connect = async () => {
-      const { data } = await supabase.auth.getUser();
-      const identity = data.user?.id ?? currentUserId;
-      if (!alive) return;
-      networkIdentityRef.current = identity;
-      const channel = supabase.channel(`ping-pong-match-${matchId}`, {
-        config: { broadcast: { self: false }, presence: { key: identity } },
-      });
-      networkChannelRef.current = channel;
-      channel
-        .on("broadcast", { event: "ping_pong_paddle" }, ({ payload }) => onReceiveOpponentMove(payload as Vector3 & { tilt?: number; swingX?: number }))
-        .on("broadcast", { event: "ping_pong_ball_hit" }, ({ payload }) => {
-          const hit = payload as BallHitPayload;
-          ballRef.current = { ...ballRef.current, x: hit.position.x, y: hit.position.y, z: hit.position.z, vx: hit.velocity.x, vy: hit.velocity.y, vz: hit.velocity.z, active: true };
-        })
-        .on("presence", { event: "sync" }, () => {
-          const connected = Object.keys(channel.presenceState()).length > 1;
-          setOpponentConnected(connected);
-          if (connected) {
-            opponentSeenRef.current = true;
-            if (disconnectForfeitRef.current) window.clearTimeout(disconnectForfeitRef.current);
-            disconnectForfeitRef.current = null;
-          } else if (opponentSeenRef.current && !disconnectForfeitRef.current) {
-            disconnectForfeitRef.current = window.setTimeout(() => {
-              setStatus("Opponent disconnected — you win by forfeit");
-              setGameWinner("local");
-              gameWinnerRef.current = "local";
-              onResult?.("Win");
-              disconnectForfeitRef.current = null;
-            }, 30_000);
-          }
-        })
-        .subscribe(async (status) => {
-          if (status === "SUBSCRIBED") await channel.track({ online_at: new Date().toISOString() });
-        });
-    };
-    void connect();
-    return () => {
-      alive = false;
-      if (disconnectForfeitRef.current) window.clearTimeout(disconnectForfeitRef.current);
-      disconnectForfeitRef.current = null;
-      if (networkChannelRef.current) {
-        void networkChannelRef.current.untrack();
-        void supabase.removeChannel(networkChannelRef.current);
-      }
-      networkChannelRef.current = null;
-    };
-  }, [currentUserId, isNetworkMatch, matchId, onReceiveOpponentMove, onResult]);
+    const channel = supabase.channel(`ping-pong-match-${matchId}`, { config: { broadcast: { self: false } } });
+    networkChannelRef.current = channel;
+    channel
+      .on("broadcast", { event: "ping_pong_paddle" }, ({ payload }) => onReceiveOpponentMove(payload as Vector3 & { tilt?: number; swingX?: number }))
+      .on("broadcast", { event: "ping_pong_ball_hit" }, ({ payload }) => {
+        const hit = payload as BallHitPayload;
+        ballRef.current = { ...ballRef.current, x: hit.position.x, y: hit.position.y, z: hit.position.z, vx: hit.velocity.x, vy: hit.velocity.y, vz: hit.velocity.z, active: true };
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); if (networkChannelRef.current === channel) networkChannelRef.current = null; };
+  }, [isNetworkMatch, matchId, onReceiveOpponentMove]);
 
   const resetRound = useCallback(
     (server: Side) => {
@@ -681,7 +814,15 @@ export default function PingPong(props: PingPongProps) {
         opponentServeAimRef.current = createOpponentServeAim();
       }
       opponentReturnAimRef.current = createOpponentReturnAim();
-      swingIntentRef.current = { horizontal: 0, vertical: 0, twist: 0, intensity: 0, expiresAt: 0 };
+      swingIntentRef.current = {
+        horizontal: 0,
+        vertical: 0,
+        twist: 0,
+        intensity: 0,
+        expiresAt: 0,
+      };
+      gesturePathRef.current = [];
+      opponentSpinReadErrorRef.current = 0;
       lastPlayerSwipeAtRef.current = 0;
       stalledBallSinceRef.current = 0;
       assistWindowsRef.current = { local: null, opponent: null };
@@ -721,7 +862,6 @@ export default function PingPong(props: PingPongProps) {
       if (pointResult.matchEnded) {
         gameWinnerRef.current = winner;
         setGameWinner(winner);
-        onResult?.(winner === "local" ? "Win" : "Loss");
         setStatus(`${reason} · Match complete`);
       } else if (pointResult.gameEnded) {
         setStatus(`${reason} · Game won — changing ends`);
@@ -752,7 +892,7 @@ export default function PingPong(props: PingPongProps) {
         );
       }
     },
-    [gameEngine, onResult, resetRound]
+    [gameEngine, resetRound]
   );
 
   const sendReaction = useCallback((emoji: string) => {
@@ -776,27 +916,58 @@ export default function PingPong(props: PingPongProps) {
 
       const bounds = canvas.getBoundingClientRect();
       const normalizedX = clamp((clientX - bounds.left) / bounds.width, 0, 1);
-      const normalizedY = clamp(((clientY - bounds.top) / bounds.height - 0.16) / 0.84, 0, 1);
+      const normalizedPointerY = clamp(
+        (clientY - bounds.top) / bounds.height,
+        0,
+        1
+      );
+      // Both gesture axes use canvas-width units so a drawn circle remains a
+      // circle on a tall phone screen instead of being flattened vertically.
+      const gestureY = (clientY - bounds.top) / Math.max(bounds.width, 1);
       const now = performance.now();
       const previousSample = pointerSampleRef.current;
+      const sampleDuration = previousSample
+        ? Math.max(now - previousSample.at, 8)
+        : 8;
       const pointerVelocityX = previousSample
-        ? ((normalizedX - previousSample.x) * 1000) /
-          Math.max(now - previousSample.at, 8)
+        ? ((normalizedX - previousSample.x) * 1000) / sampleDuration
         : 0;
-      const measuredSwing = clamp(pointerVelocityX / 3.2, -1, 1);
-      // Preserve the last deliberate swipe long enough for the incoming ball
-      // to reach the racket. Tiny stationary pointer samples must not erase a
-      // shot direction selected a fraction of a second earlier.
-      if (Math.abs(measuredSwing) >= 0.08) {
-        const signedStrength =
-          Math.sign(measuredSwing) *
-          clamp(0.38 + Math.abs(measuredSwing) * 0.62, 0.38, 1);
+      const pointerVelocityY = previousSample
+        ? ((previousSample.y - gestureY) * 1000) / sampleDuration
+        : 0;
+      const measuredHorizontal = clamp(pointerVelocityX / 3.2, -1, 1);
+      const measuredVertical = clamp(pointerVelocityY / 3.2, -1, 1);
+      const sample: SwipeGestureSample = { x: normalizedX, y: gestureY, at: now };
+      gesturePathRef.current = [...gesturePathRef.current, sample]
+        .filter((entry) => now - entry.at <= 240)
+        .slice(-20);
+      const circularTwist = calculateCircularSwipeTwist(
+        gesturePathRef.current
+      );
+      const swipeIntensity = clamp(
+        Math.hypot(pointerVelocityX, pointerVelocityY) / 3.4,
+        0,
+        1
+      );
+      const deliberateGesture = Math.max(
+        Math.abs(measuredHorizontal),
+        Math.abs(measuredVertical),
+        Math.abs(circularTwist)
+      );
+      // Preserve the complete stroke long enough for an incoming ball to reach
+      // the racket. Stationary pointer samples cannot erase the chosen intent.
+      if (deliberateGesture >= 0.08) {
+        const horizontalStrength =
+          Math.abs(measuredHorizontal) >= 0.05
+            ? Math.sign(measuredHorizontal) *
+              clamp(0.22 + Math.abs(measuredHorizontal) * 0.78, 0.22, 1)
+            : 0;
         swingIntentRef.current = {
-          horizontal: signedStrength,
-          vertical: previousSample ? clamp((normalizedY - previousSample.y) * -5, -1, 1) : 0,
-          twist: calculateCircularSwipeTwist([...gesturePathRef.current, { x: normalizedX, y: normalizedY, at: now }]),
-          intensity: clamp(Math.abs(measuredSwing), 0, 1),
-          expiresAt: now + 650,
+          horizontal: horizontalStrength,
+          vertical: measuredVertical,
+          twist: circularTwist,
+          intensity: swipeIntensity,
+          expiresAt: now + 820,
         };
         lastPlayerSwipeAtRef.current = now;
 
@@ -808,29 +979,72 @@ export default function PingPong(props: PingPongProps) {
           // A swipe starts the regulation vertical toss. The selected aim is
           // held until the ball descends and the virtual racket strikes it.
           ball.servePhase = "toss";
-          ball.serveAimX = signedStrength;
+          ball.serveAimX = horizontalStrength;
+          ball.servePower = calculateSwipeShotPower(
+            measuredVertical,
+            swipeIntensity
+          );
+          ball.serveVertical = measuredVertical;
+          ball.serveTwistSpin = calculateTwistSpin(
+            circularTwist,
+            swipeIntensity
+          );
           ball.vx = 0;
           ball.vy = 2.05;
           ball.vz = 0;
           ball.spin = 0;
           setStatus(
-            signedStrength < 0
-              ? "Toss up — serve aimed left"
-              : "Toss up — serve aimed right"
+            Math.abs(circularTwist) >= 0.24
+              ? "Twist serve - toss up!"
+              : horizontalStrength < -0.08
+              ? "Toss up - serve aimed left"
+              : horizontalStrength > 0.08
+              ? "Toss up - serve aimed right"
+              : "Toss up - power serve"
           );
+        } else if (
+          ball.servePhase === "toss" &&
+          rallyRef.current.server === "local"
+        ) {
+          // Keep sampling while the toss is airborne. A circular serve gesture
+          // needs several pointer samples, so freezing intent on its first
+          // segment would discard the actual twist before contact.
+          const updatedPower = calculateSwipeShotPower(
+            measuredVertical,
+            swipeIntensity
+          );
+          const updatedTwistSpin = calculateTwistSpin(
+            circularTwist,
+            swipeIntensity
+          );
+          if (Math.abs(horizontalStrength) >= 0.08) {
+            ball.serveAimX = horizontalStrength;
+          }
+          ball.servePower = Math.max(ball.servePower, updatedPower);
+          ball.serveVertical = measuredVertical;
+          if (Math.abs(updatedTwistSpin) > Math.abs(ball.serveTwistSpin)) {
+            ball.serveTwistSpin = updatedTwistSpin;
+          }
+          if (Math.abs(ball.serveTwistSpin) >= 1.5) {
+            setStatus("Twist loaded - strike on descent");
+          }
         }
       }
       const swingX =
         now < swingIntentRef.current.expiresAt
           ? swingIntentRef.current.horizontal
           : 0;
-      pointerSampleRef.current = { x: normalizedX, y: normalizedY, at: now };
-      gesturePathRef.current = [...gesturePathRef.current, pointerSampleRef.current].slice(-12);
-      // Keep the header area free for navigation while mapping the rest of the
-      // screen to the player's half of the table.
+      pointerSampleRef.current = sample;
+      // The lower bound reaches beneath a near-edge bounce, giving the player
+      // enough downward travel without moving the header or reaction controls.
+      const normalizedY = clamp(
+        (normalizedPointerY - 0.14) / 0.86,
+        0,
+        1
+      );
       localPaddleTargetRef.current = {
         x: (normalizedX - 0.5) * 2.7,
-        y: 0.32 + (1 - normalizedY) * 0.92,
+        y: 0.16 + (1 - normalizedY) * 1.02,
         z: 1.55 + normalizedY * 0.92,
         tilt: calculateRacketTilt(swingX, normalizedX - 0.5),
         swingX,
@@ -928,92 +1142,83 @@ export default function PingPong(props: PingPongProps) {
       context.fillStyle = sky;
       context.fillRect(0, 0, width, height);
 
-      // Shadowed indoor stadium tiers.
-      context.fillStyle = "#11182a";
+      // Broadcast-arena lighting: a truss, soft cones and warm seat spill add
+      // depth without becoming game objects or affecting the table/ball layer.
+      context.save();
+      context.strokeStyle = "rgba(124, 145, 170, 0.38)";
+      context.lineWidth = Math.max(1, width * 0.004);
       context.beginPath();
-      context.moveTo(0, height * 0.25);
-      context.quadraticCurveTo(
-        width * 0.13,
-        height * 0.12,
-        width * 0.28,
-        height * 0.26
-      );
-      context.quadraticCurveTo(
-        width * 0.45,
-        height * 0.08,
-        width * 0.62,
-        height * 0.26
-      );
-      context.quadraticCurveTo(
-        width * 0.78,
-        height * 0.13,
-        width,
-        height * 0.25
-      );
-      context.lineTo(width, height * 0.43);
-      context.lineTo(0, height * 0.43);
-      context.closePath();
-      context.fill();
-
-      // Dark roof sections and spotlit ceiling panels.
-      context.fillStyle = "rgba(8, 11, 20, 0.98)";
-      context.beginPath();
-      context.moveTo(-width * 0.04, height * 0.12);
-      context.quadraticCurveTo(
-        width * 0.15,
-        height * 0.015,
-        width * 0.32,
-        height * 0.12
-      );
-      context.quadraticCurveTo(
-        width * 0.22,
-        height * 0.18,
-        width * 0.02,
-        height * 0.19
-      );
-      context.closePath();
-      context.fill();
-      context.beginPath();
-      context.moveTo(width * 0.27, height * 0.1);
-      context.quadraticCurveTo(
-        width * 0.5,
-        -height * 0.025,
-        width * 0.73,
-        height * 0.1
-      );
-      context.quadraticCurveTo(
-        width * 0.61,
-        height * 0.17,
-        width * 0.39,
-        height * 0.17
-      );
-      context.closePath();
-      context.fill();
-      context.beginPath();
-      context.moveTo(width * 0.68, height * 0.12);
-      context.quadraticCurveTo(
-        width * 0.86,
-        height * 0.015,
-        width * 1.04,
-        height * 0.12
-      );
-      context.lineTo(width, height * 0.19);
-      context.quadraticCurveTo(
-        width * 0.82,
-        height * 0.18,
-        width * 0.68,
-        height * 0.12
-      );
-      context.fill();
-
-      context.strokeStyle = "#354665";
-      context.lineWidth = Math.max(3, width * 0.008);
-      [0.08, 0.34, 0.66, 0.92].forEach((x) => {
+      context.moveTo(-width * 0.08, height * 0.105);
+      context.lineTo(width * 1.08, height * 0.105);
+      context.stroke();
+      for (let index = 0; index < 7; index += 1) {
+        const x = width * (0.08 + index * 0.14);
+        const beam = context.createLinearGradient(x, height * 0.11, x, height * 0.43);
+        beam.addColorStop(0, "rgba(191, 224, 255, 0.16)");
+        beam.addColorStop(1, "rgba(191, 224, 255, 0)");
+        context.fillStyle = beam;
         context.beginPath();
-        context.moveTo(width * x, height * 0.1);
-        context.lineTo(width * x, height * 0.34);
-        context.stroke();
-      });
+        context.moveTo(x - width * 0.025, height * 0.112);
+        context.lineTo(x + width * 0.025, height * 0.112);
+        context.lineTo(x + width * 0.14, height * 0.43);
+        context.lineTo(x - width * 0.14, height * 0.43);
+        context.closePath();
+        context.fill();
+        context.fillStyle = "#dff3ff";
+        context.shadowColor = "#9ddcff";
+        context.shadowBlur = Math.max(5, width * 0.022);
+        context.beginPath();
+        context.arc(x, height * 0.105, Math.max(1.8, width * 0.006), 0, Math.PI * 2);
+        context.fill();
+      }
+      context.restore();
+
+      // A clean arena end-wall inspired by broadcast table-tennis venues.
+      // It intentionally has no decorative stripes or structural bars.
+      const arenaWall = context.createLinearGradient(0, height * 0.12, 0, height * 0.39);
+      arenaWall.addColorStop(0, "#151c2b");
+      arenaWall.addColorStop(0.54, "#090e18");
+      arenaWall.addColorStop(1, "#04070c");
+      context.fillStyle = arenaWall;
+      context.fillRect(0, height * 0.125, width, height * 0.275);
+
+      // Receding LED walls frame the far end, leaving a quiet central space
+      // behind the score rather than an abstract pattern.
+      const leftWall = context.createLinearGradient(0, 0, width * 0.34, 0);
+      leftWall.addColorStop(0, "#092f51");
+      leftWall.addColorStop(1, "#0d1220");
+      context.fillStyle = leftWall;
+      context.beginPath();
+      context.moveTo(0, height * 0.17);
+      context.lineTo(width * 0.34, height * 0.14);
+      context.lineTo(width * 0.27, height * 0.35);
+      context.lineTo(0, height * 0.385);
+      context.closePath();
+      context.fill();
+      const rightWall = context.createLinearGradient(width, 0, width * 0.66, 0);
+      rightWall.addColorStop(0, "#411b37");
+      rightWall.addColorStop(1, "#0d1220");
+      context.fillStyle = rightWall;
+      context.beginPath();
+      context.moveTo(width, height * 0.17);
+      context.lineTo(width * 0.66, height * 0.14);
+      context.lineTo(width * 0.73, height * 0.35);
+      context.lineTo(width, height * 0.385);
+      context.closePath();
+      context.fill();
+
+      context.save();
+      context.fillStyle = "rgba(204, 255, 0, 0.72)";
+      context.fillRect(width * 0.34, height * 0.146, width * 0.32, 2);
+      context.fillStyle = "rgba(255,255,255,0.76)";
+      context.font = `900 ${Math.max(7, width * 0.027)}px Arial`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText("JOE YOKE ARENA", width / 2, height * 0.174);
+      context.font = `700 ${Math.max(4.5, width * 0.014)}px Arial`;
+      context.fillStyle = "rgba(214, 225, 238, 0.7)";
+      context.fillText("TABLE TENNIS CLUB", width / 2, height * 0.192);
+      context.restore();
 
       // Tiered arena seating.
       context.fillStyle = "#11151b";
@@ -1087,6 +1292,7 @@ export default function PingPong(props: PingPongProps) {
       floor.addColorStop(1, "#020304");
       context.fillStyle = floor;
       context.fillRect(0, height * 0.43, width, height * 0.57);
+
 
       // Freestanding, fabric-covered arena barriers with metal rails. The
       // darker treatment reads like real event signage instead of neon tiles.
@@ -1658,7 +1864,7 @@ export default function PingPong(props: PingPongProps) {
       // A stationary on-screen racket is only a visual ready position. Requiring
       // a recent deliberate stroke prevents an untouched incoming ball from
       // overlapping the generous mobile hitbox and becoming a false volley.
-      if (side === "local" && now - lastPlayerSwipeAtRef.current > 650) {
+      if (side === "local" && now - lastPlayerSwipeAtRef.current > 850) {
         return false;
       }
 
@@ -1690,6 +1896,16 @@ export default function PingPong(props: PingPongProps) {
       // The overlap fallback also catches a player moving the racket sideways
       // into a slow ball while both remain close to the contact plane.
       const closeInDepth = Math.abs(ball.z - paddle.z) < 0.42;
+      const opponentContactPlane = paddle.z + BALL_RADIUS;
+      const assistedOpponentPlaneContact =
+        side === "opponent" &&
+        assisted &&
+        Boolean(nextRally) &&
+        previousBallPosition.z >= opponentContactPlane &&
+        ball.z <= opponentContactPlane &&
+        ball.y >= TABLE_HEIGHT + BALL_RADIUS * 0.5 &&
+        ball.y <= 1.5 &&
+        Math.abs(ball.x) <= TABLE_HALF_WIDTH + 0.12;
       const contactX = sweptImpact?.x ?? ball.x;
       const contactY = sweptImpact?.y ?? ball.y;
       const contactPaddleX = sweptImpact?.paddleX ?? paddle.x;
@@ -1709,7 +1925,9 @@ export default function PingPong(props: PingPongProps) {
 
       if (
         !movingTowardPaddle ||
-        (!sweptImpact && (!closeInDepth || !closeToFace))
+        (!sweptImpact &&
+          !assistedOpponentPlaneContact &&
+          (!closeInDepth || !closeToFace))
       ) {
         return false;
       }
@@ -1745,10 +1963,24 @@ export default function PingPong(props: PingPongProps) {
       ball.x = contactX;
       ball.y = contactY;
       ball.z = contactPaddleZ + (side === "local" ? -0.24 : 0.24);
-      const latchedLocalSwing =
-        side === "local" && now < swingIntentRef.current.expiresAt
-          ? swingIntentRef.current.horizontal
-          : paddle.swingX;
+      const localIntentActive =
+        side === "local" && now < swingIntentRef.current.expiresAt;
+      const latchedLocalSwing = localIntentActive
+        ? swingIntentRef.current.horizontal
+        : paddle.swingX;
+      const latchedVerticalSwing = localIntentActive
+        ? swingIntentRef.current.vertical
+        : 0;
+      const latchedTwist = localIntentActive
+        ? swingIntentRef.current.twist
+        : 0;
+      const latchedIntensity = localIntentActive
+        ? swingIntentRef.current.intensity
+        : 0;
+      const shotPower =
+        side === "local"
+          ? calculateSwipeShotPower(latchedVerticalSwing, latchedIntensity)
+          : 0;
       const effectiveTilt = calculateRacketTilt(
         latchedLocalSwing,
         paddle.x / (TABLE_HALF_WIDTH * 2)
@@ -1758,19 +1990,37 @@ export default function PingPong(props: PingPongProps) {
         effectiveTilt,
         paddle.vx
       );
-      ball.spin = calculateSwipeSpin(
-        latchedLocalSwing,
-        effectiveTilt,
-        paddle.vx
-      ) + (side === "local" ? calculateTwistSpin(swingIntentRef.current.twist, swingIntentRef.current.intensity) : 0);
-      ball.vy = clamp(
-        1.82 +
-          Math.abs(ball.vy) * 0.2 +
-          paddle.vy * 0.06 +
-          Math.abs(latchedLocalSwing) * 0.34 + (side === "local" ? calculateSwipeShotPower(swingIntentRef.current.vertical, swingIntentRef.current.intensity) * .45 : 0),
-        1.65,
-        3.15
+      const twistSpin =
+        side === "local"
+          ? calculateTwistSpin(latchedTwist, latchedIntensity)
+          : 0;
+      ball.spin = clamp(
+        calculateSwipeSpin(
+          latchedLocalSwing,
+          effectiveTilt,
+          paddle.vx
+        ) + twistSpin,
+        -7.2,
+        7.2
       );
+      ball.vy =
+        side === "local"
+          ? clamp(
+              2.38 -
+                shotPower * 0.78 +
+                latchedVerticalSwing * 0.22 +
+                Math.abs(ball.vy) * 0.1,
+              1.35,
+              2.85
+            )
+          : clamp(
+              1.82 +
+                Math.abs(ball.vy) * 0.2 +
+                paddle.vy * 0.06 +
+                Math.abs(latchedLocalSwing) * 0.34,
+              1.65,
+              3.15
+            );
 
       // Aim at an in-bounds receiver-side landing point. Swipe direction
       // selects the target; it no longer becomes an unbounded world velocity.
@@ -1787,7 +2037,11 @@ export default function PingPong(props: PingPongProps) {
                 0.82
               )
           : opponentReturnAimRef.current;
-      const targetLandingZ = side === "local" ? -1.72 : 1.72;
+      // Keep powerful shots fast without placing their bounce almost directly
+      // on the opponent's racket plane. That depth previously left the AI only
+      // a few milliseconds to complete an otherwise valid return.
+      const targetLandingZ =
+        side === "local" ? -1.58 - shotPower * 0.12 : 1.72;
       const landingVelocity = solveRallyLandingVelocity(
         ball,
         clamp(targetLandingX, -1.18, 1.18),
@@ -1797,18 +2051,34 @@ export default function PingPong(props: PingPongProps) {
         GRAVITY
       );
       if (landingVelocity) {
-        ball.vx = clamp(landingVelocity.vx, -3.4, 3.4);
-        ball.vz = clamp(
-          landingVelocity.vz,
-          side === "local" ? -6.2 : 3.8,
-          side === "local" ? -3.8 : 6.2
-        );
+        const lateralLimit = 3.4 + Math.abs(latchedTwist) * 0.8;
+        ball.vx = clamp(landingVelocity.vx, -lateralLimit, lateralLimit);
+        if (side === "local") {
+          const minimumDrive = 3.8 + shotPower * 0.55;
+          const maximumDrive = 6.2 + shotPower * 1.05;
+          ball.vz = clamp(
+            landingVelocity.vz,
+            -maximumDrive,
+            -minimumDrive
+          );
+        } else {
+          ball.vz = clamp(landingVelocity.vz, 3.8, 6.2);
+        }
       } else {
         ball.vx = clamp(swipeSteering * 0.55, -2.4, 2.4);
-        ball.vz = side === "local" ? -4.7 : 4.7;
+        ball.vz =
+          side === "local" ? -(4.7 + shotPower * 1.15) : 4.7;
       }
       if (side === "opponent") {
         opponentReturnAimRef.current = createOpponentReturnAim();
+        opponentSpinReadErrorRef.current = 0;
+      } else {
+        const readDifficulty =
+          Math.abs(latchedTwist) * (0.14 + latchedIntensity * 0.18);
+        opponentSpinReadErrorRef.current =
+          readDifficulty > 0.025
+            ? (Math.random() * 2 - 1) * readDifficulty
+            : 0;
       }
 
       if (side === "local") {
@@ -1821,7 +2091,15 @@ export default function PingPong(props: PingPongProps) {
       rallyRef.current = nextRally;
 
       trailsRef.current[side].push({ ...paddle, createdAt: now });
-      setStatus(side === "local" ? "Clean return!" : "Opponent returns");
+      setStatus(
+        side === "local"
+          ? Math.abs(latchedTwist) >= 0.24
+            ? "Twist spin!"
+            : shotPower >= 0.68
+            ? "Power drive!"
+            : "Clean return!"
+          : "Opponent returns"
+      );
 
       if (side === "local") {
         broadcastBallHit({
@@ -1892,6 +2170,9 @@ export default function PingPong(props: PingPongProps) {
     };
 
     const updatePhysics = (deltaSeconds: number, now: number) => {
+      // Matchmaking intentionally pauses the simulation. A point cannot start
+      // or score while a real-player search is still in progress.
+      if (!matchReadyRef.current) return;
       const ball = ballRef.current;
       if (!ball.active) {
         return;
@@ -1927,13 +2208,13 @@ export default function PingPong(props: PingPongProps) {
       const localGestureReady = Boolean(
         localAssistWindow &&
           now < localAssistWindow.expiresAt &&
-          now - lastPlayerSwipeAtRef.current < 600
+          now - lastPlayerSwipeAtRef.current < 780
       );
       const localAssistActive = Boolean(
         localGestureReady &&
           localPrediction &&
           localPrediction.time < 0.55 &&
-          localPrediction.y >= 0.22 &&
+          localPrediction.y >= 0.14 &&
           localPrediction.y <= 1.36
       );
       const hasLatchedSwing = now < swingIntentRef.current.expiresAt;
@@ -1959,7 +2240,7 @@ export default function PingPong(props: PingPongProps) {
         : target.x;
       const assistedTargetY = localAssistActive
         ? target.y +
-          (clamp(localPrediction!.y, 0.3, 1.18) - target.y) * 0.72
+          (clamp(localPrediction!.y, 0.18, 1.18) - target.y) * 0.72
         : target.y;
       const nextLocal = {
         x: local.x + (assistedTargetX - local.x) * follow,
@@ -2008,29 +2289,51 @@ export default function PingPong(props: PingPongProps) {
       if (now > opponentNetworkActiveUntilRef.current) {
         const opponent = paddlesRef.current.opponent;
         const opponentAssistWindow = assistWindowsRef.current.opponent;
-        const opponentPrediction =
-          ball.vz < 0 && rallyRef.current.validBounce
-            ? predictBallAtZPlane(
-                ball,
-                opponent.z + BALL_RADIUS,
-                GRAVITY
-              )
-            : null;
         const opponentWindowActive = Boolean(
           opponentAssistWindow && now < opponentAssistWindow.expiresAt
+        );
+        const opponentPrediction =
+          ball.vz < 0
+            ? rallyRef.current.validBounce
+              ? predictBallAtZPlane(
+                  ball,
+                  opponent.z + BALL_RADIUS,
+                  GRAVITY
+                )
+              : opponentWindowActive
+              ? predictBallAtZPlaneAfterTableBounce(
+                  ball,
+                  opponent.z + BALL_RADIUS,
+                  TABLE_HEIGHT,
+                  BALL_RADIUS,
+                  GRAVITY,
+                  TABLE_RESTITUTION
+                )
+              : null
+            : null;
+        const predictionIsBeforeBounce = Boolean(
+          opponentPrediction && !rallyRef.current.validBounce
         );
         const opponentAssistActive = Boolean(
           opponentWindowActive &&
             opponentPrediction &&
-            opponentPrediction.time < 0.62 &&
-            opponentPrediction.y >= 0.22 &&
-            opponentPrediction.y <= 1.36
+            opponentPrediction.time <
+              (predictionIsBeforeBounce ? 1.25 : 0.72) &&
+            opponentPrediction.y >= TABLE_HEIGHT + BALL_RADIUS * 0.5 &&
+            opponentPrediction.y <= 1.42
         );
+        // Twist spin may fool the AI early in the shot, but the error must
+        // converge to zero before contact or a visible racket overlap can miss
+        // the physical collision ellipse.
+        const spinReadError = opponentPrediction
+          ? opponentSpinReadErrorRef.current *
+            clamp((opponentPrediction.time - 0.14) / 0.5, 0, 1)
+          : 0;
         const targetX =
           ball.vz < 0
             ? clamp(
                 opponentAssistActive
-                  ? opponentPrediction!.x
+                  ? opponentPrediction!.x + spinReadError
                   : opponentWindowActive
                   ? opponentAssistWindow!.landingX
                   : ball.x,
@@ -2042,18 +2345,39 @@ export default function PingPong(props: PingPongProps) {
           ball.vz < 0
             ? clamp(
                 opponentAssistActive ? opponentPrediction!.y : ball.y,
-                0.34,
-                1.05
+                0.14,
+                1.22
               )
             : 0.58;
+        const imminentContact = Boolean(
+          opponentPrediction && opponentPrediction.time < 0.2
+        );
+        const opponentMoveSpeedX = predictionIsBeforeBounce
+          ? 4.6
+          : imminentContact
+          ? 5.4
+          : 3.2;
+        const opponentMoveSpeedY = predictionIsBeforeBounce
+          ? 3.4
+          : imminentContact
+          ? 4.1
+          : 2.5;
         const nextX =
           opponent.x +
-          clamp(targetX - opponent.x, -2.5 * deltaSeconds, 2.5 * deltaSeconds);
+          clamp(
+            targetX - opponent.x,
+            -opponentMoveSpeedX * deltaSeconds,
+            opponentMoveSpeedX * deltaSeconds
+          );
         const nextY =
           opponent.y +
-          clamp(targetY - opponent.y, -1.9 * deltaSeconds, 1.9 * deltaSeconds);
+          clamp(
+            targetY - opponent.y,
+            -opponentMoveSpeedY * deltaSeconds,
+            opponentMoveSpeedY * deltaSeconds
+          );
         const nextVx = (nextX - opponent.x) / Math.max(deltaSeconds, 0.001);
-        const opponentSwingX = clamp(nextVx / 2.5, -1, 1);
+        const opponentSwingX = clamp(nextVx / opponentMoveSpeedX, -1, 1);
         const targetTilt = calculateRacketTilt(
           opponentSwingX,
           nextX / 2.56,
@@ -2109,7 +2433,16 @@ export default function PingPong(props: PingPongProps) {
       if (ball.servePhase === "toss" && ball.vy < 0 && ball.y <= 0.57) {
         const server = rallyRef.current.server;
         ball.servePhase = "flight";
-        ball.vy = -1.6;
+        ball.vy =
+          server === "local"
+            ? clamp(
+                -1.45 -
+                  ball.servePower * 0.38 +
+                  ball.serveVertical * 0.08,
+                -1.9,
+                -1.35
+              )
+            : -1.6;
         const aim =
           server === "local" ? ball.serveAimX : opponentServeAimRef.current;
         if (server === "opponent") {
@@ -2123,13 +2456,16 @@ export default function PingPong(props: PingPongProps) {
           opponentPaddle.vy = 0;
         }
         ball.spin =
-          server === "local" ? ball.serveAimX * 0.32 : aim * 0.28;
+          server === "local"
+            ? clamp(ball.serveAimX * 0.32 + ball.serveTwistSpin, -7.2, 7.2)
+            : aim * 0.28;
         const targetSecondBounceX = isDoubles
           ? server === "local"
             ? -0.68
             : 0.68
           : clamp(aim * 1.02, -1.08, 1.08);
-        const targetSecondBounceZ = server === "local" ? -1.78 : 1.78;
+        const targetSecondBounceZ =
+          server === "local" ? -1.58 - ball.servePower * 0.14 : 1.78;
         const serveVelocity = solveServeLandingVelocity(
           ball,
           targetSecondBounceX,
@@ -2570,6 +2906,15 @@ export default function PingPong(props: PingPongProps) {
               Joe Yoke Arena
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowRules(true)}
+            className="pointer-events-auto ml-auto grid size-10 place-items-center rounded-full border border-[#ccff00]/70 bg-[#ccff00]/10 text-[#ccff00] shadow-[0_0_18px_rgba(204,255,0,0.18)] transition hover:bg-[#ccff00]/20 active:scale-95"
+            aria-label="How to play Ping Pong"
+          >
+            <span className="text-lg font-black" aria-hidden="true">?</span>
+          </button>
         </div>
       </header>
 
@@ -2718,6 +3063,79 @@ export default function PingPong(props: PingPongProps) {
             </button>
           </div>
         </div>
+      )}
+
+      {showRules && (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ping-pong-rules-title"
+        >
+          <div className="max-h-[82dvh] w-full max-w-md overflow-y-auto rounded-[2rem] border-2 border-[#ccff00]/75 bg-[#091526] p-5 shadow-[0_0_42px_rgba(204,255,0,0.16)]">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="grid size-12 place-items-center rounded-full border-2 border-[#ccff00] bg-[#ccff00]/10 text-2xl font-black text-[#ccff00]">?</div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ccff00]">Ping Pong</p>
+                  <h2 id="ping-pong-rules-title" className="text-2xl font-black">How to play</h2>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRules(false)}
+                className="grid size-10 place-items-center rounded-full bg-white/10 text-xl font-bold text-white transition hover:bg-white/20"
+                aria-label="Close rules"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3 text-sm">
+              {[
+                ["🏆", "Score & serve", "Score 11 points and lead by two to win. Serve changes every two points, then every point from 10–10."],
+                ["🎾", "Start a legal serve", "Swipe to toss and strike. The ball must bounce on your side first, then on the receiver’s side."],
+                ["↩", "Bounce, then return", "Do not volley. Let the ball bounce once on your side, then swipe your racket to return it."],
+                ["⚡", "Aim, pace & spin", "Swipe left or right to aim. A fast up/down swipe adds pace; a circular stroke adds twist spin."],
+                ["⚠", "Win points", "Two bounces, an out ball, a wrong-side bounce, or a net fault gives the point away. A net-touching legal serve is replayed."],
+              ].map(([icon, title, description]) => (
+                <div key={title} className="flex gap-3 rounded-2xl border border-white/10 bg-white/5 p-3.5">
+                  <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-black/25 text-xl" aria-hidden="true">
+                    {icon}
+                  </div>
+                  <div>
+                    <h3 className="font-black text-[#f7df73]">{title}</h3>
+                    <p className="mt-1 leading-relaxed text-white/70">{description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMatchmaker && (
+        <MatchmakingModal
+          gameKey="ping-pong"
+          gameName="Ping Pong"
+          userId={currentUserId}
+          fallbackAfterMs={45_000}
+          onMatchFound={(matchData) => {
+            setMatchedSession({
+              matchId: matchData.matchId,
+              opponent: matchData.opponent,
+            });
+            matchReadyRef.current = true;
+            setIsMatchReady(true);
+            setShowMatchmaker(false);
+            setStatus(
+              matchData.opponent.isBot
+                ? "No player found — arena bot joined"
+                : `${matchData.opponent.name} joined the arena`
+            );
+          }}
+          onCancel={handleBack}
+        />
       )}
     </section>
   );

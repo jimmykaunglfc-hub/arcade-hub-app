@@ -62,6 +62,7 @@ export interface LandingVelocitySolution {
 }
 
 export interface SwipeGestureSample {
+  /** Pointer coordinates normalized against the canvas width. */
   x: number;
   y: number;
   at: number;
@@ -279,26 +280,92 @@ export function resolveTableBounce(
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
-/** Measures a deliberate curved swipe; straight swipes intentionally return 0. */
-export function calculateCircularSwipeTwist(samples: readonly SwipeGestureSample[]): number {
+/**
+ * Measures the signed turning in a short pointer path. Straight or jittery
+ * swipes return almost zero; a deliberate clockwise/counter-clockwise arc
+ * approaches +/-1. Coordinates must use the same scale on both axes.
+ */
+export function calculateCircularSwipeTwist(
+  samples: readonly SwipeGestureSample[]
+): number {
   if (samples.length < 4) return 0;
-  let length = 0; let turn = 0;
-  for (let index = 1; index < samples.length; index += 1) length += Math.hypot(samples[index].x - samples[index - 1].x, samples[index].y - samples[index - 1].y);
-  if (length < .06) return 0;
-  for (let index = 2; index < samples.length; index += 1) {
-    const ax = samples[index - 1].x - samples[index - 2].x; const ay = samples[index - 1].y - samples[index - 2].y;
-    const bx = samples[index].x - samples[index - 1].x; const by = samples[index].y - samples[index - 1].y;
-    if (Math.hypot(ax, ay) > .006 && Math.hypot(bx, by) > .006) turn += Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
+
+  const compact: SwipeGestureSample[] = [samples[0]];
+  for (let index = 1; index < samples.length; index += 1) {
+    const previous = compact[compact.length - 1];
+    const sample = samples[index];
+    if (Math.hypot(sample.x - previous.x, sample.y - previous.y) >= 0.006) {
+      compact.push(sample);
+    }
   }
-  return clamp(Math.sign(turn) * Math.abs(turn) / Math.PI * clamp((length - .06) / .2, 0, 1), -1, 1);
+  if (compact.length < 4) return 0;
+
+  let pathLength = 0;
+  let signedTurn = 0;
+  for (let index = 1; index < compact.length; index += 1) {
+    pathLength += Math.hypot(
+      compact[index].x - compact[index - 1].x,
+      compact[index].y - compact[index - 1].y
+    );
+  }
+  if (pathLength < 0.06) return 0;
+
+  for (let index = 2; index < compact.length; index += 1) {
+    const firstX = compact[index - 1].x - compact[index - 2].x;
+    const firstY = compact[index - 1].y - compact[index - 2].y;
+    const secondX = compact[index].x - compact[index - 1].x;
+    const secondY = compact[index].y - compact[index - 1].y;
+    const firstLength = Math.hypot(firstX, firstY);
+    const secondLength = Math.hypot(secondX, secondY);
+    if (firstLength < 0.006 || secondLength < 0.006) continue;
+
+    const cross = firstX * secondY - firstY * secondX;
+    const dot = firstX * secondX + firstY * secondY;
+    const turn = Math.atan2(cross, dot);
+    // Ignore single-frame reversals; they are usually touch-sampling noise.
+    if (Math.abs(turn) < Math.PI * 0.72) signedTurn += turn;
+  }
+
+  const directDistance = Math.hypot(
+    compact[compact.length - 1].x - compact[0].x,
+    compact[compact.length - 1].y - compact[0].y
+  );
+  const loopiness = clamp(1 - directDistance / pathLength, 0, 1);
+  const pathStrength = clamp((pathLength - 0.06) / 0.2, 0, 1);
+  const turnStrength = clamp(Math.abs(signedTurn) / Math.PI, 0, 1);
+
+  return (
+    Math.sign(signedTurn) *
+    turnStrength *
+    pathStrength *
+    (0.62 + loopiness * 0.38)
+  );
 }
 
-export function calculateSwipeShotPower(verticalSwing: number, intensity: number): number {
-  return clamp(Math.abs(clamp(verticalSwing, -1, 1)) * .62 + clamp(intensity, 0, 1) * .52, 0, 1);
+/** Converts vertical motion and total gesture speed into normalized shot power. */
+export function calculateSwipeShotPower(
+  verticalSwing: number,
+  swipeIntensity: number
+): number {
+  return clamp(
+    Math.abs(clamp(verticalSwing, -1, 1)) * 0.62 +
+      clamp(swipeIntensity, 0, 1) * 0.52,
+    0,
+    1
+  );
 }
 
-export function calculateTwistSpin(twist: number, intensity: number): number {
-  return clamp(clamp(twist, -1, 1) * (4.4 + clamp(intensity, 0, 1) * 2.2), -6.6, 6.6);
+/** Converts a circular gesture into stronger Magnus-style side-spin. */
+export function calculateTwistSpin(
+  circularTwist: number,
+  swipeIntensity: number
+): number {
+  return clamp(
+    clamp(circularTwist, -1, 1) *
+      (4.4 + clamp(swipeIntensity, 0, 1) * 2.2),
+    -6.6,
+    6.6
+  );
 }
 
 export function calculateRacketTilt(
@@ -405,6 +472,60 @@ export function predictTableLanding(
     z: ball.z + ball.vz * time,
     time,
   };
+}
+
+/**
+ * Predicts the racket contact point after the ball's next legal table bounce.
+ *
+ * A fast, deep return can leave only a few milliseconds between the bounce and
+ * the receiver's racket plane. Waiting for that bounce before moving an AI
+ * paddle makes the artwork appear to touch the ball while its physics hitbox is
+ * still one frame behind. This two-stage prediction lets the receiver prepare
+ * before the bounce while preserving the no-volley rule.
+ */
+export function predictBallAtZPlaneAfterTableBounce(
+  ball: BallisticState,
+  planeZ: number,
+  tableHeight: number,
+  ballRadius: number,
+  gravity: number,
+  tableRestitution: number
+): PredictedTrajectoryPoint | null {
+  const landing = predictTableLanding(
+    ball,
+    tableHeight,
+    ballRadius,
+    gravity
+  );
+  if (!landing) return null;
+
+  // Match the small horizontal damping applied by the live table bounce.
+  const postBounceVz = ball.vz * 0.994;
+  if (Math.abs(postBounceVz) < 0.0001) return null;
+  const postBounceTime = (planeZ - landing.z) / postBounceVz;
+  if (postBounceTime <= 0 || postBounceTime > 1.5) return null;
+
+  const impactVy = ball.vy + gravity * landing.time;
+  const reboundVy = Math.abs(impactVy) * tableRestitution;
+  const spinAtBounce =
+    ball.spin * Math.exp(-0.55 * landing.time) * 0.86;
+  const vxAtBounce =
+    (ball.vx + ball.spin * 0.18 * landing.time) * 0.992;
+  const x =
+    landing.x +
+    vxAtBounce * postBounceTime +
+    0.5 * spinAtBounce * 0.18 * postBounceTime * postBounceTime;
+  const y =
+    tableHeight +
+    ballRadius +
+    reboundVy * postBounceTime +
+    0.5 * gravity * postBounceTime * postBounceTime;
+  const time = landing.time + postBounceTime;
+
+  if (!Number.isFinite(x) || !Number.isFinite(y) || time > 2) return null;
+  if (y < tableHeight + ballRadius * 0.5) return null;
+
+  return { x, y, z: planeZ, time };
 }
 
 /**
