@@ -36,7 +36,7 @@ const DEFAULT_GAMES = [
   { id: "big_two", title: "Big Two", category: "Card", entry_fee: 0, rating: "New", icon: "playing_cards" },
   { id: "block_puzzle", title: "Block Puzzle", category: "Puzzle", entry_fee: 0, rating: "New", icon: "extension" },
   { id: "monopoly", title: "Monopoly", category: "Board", entry_fee: 0, rating: "New", icon: "account_balance" },
-  { id: "mini_fighter", title: "Mini Fighter", category: "Arcade", entry_fee: 0, rating: "New", icon: "swords" },
+  { id: "mini_fighter", title: "Mini Fighter", category: "Arcade", entry_fee: 0, rating: "New", icon: "swords", description: "Fast 1v1 fighting with specials, guard breaks, and instant rematches." },
 ];
 
 export default function GamesTab({ 

@@ -20,6 +20,7 @@ import {
 // lets admins control their category, imagery, fee, status and featured state
 // without relying on a client-side fallback list.
 const NATIVE_GAME_CATALOG = [
+  { title: "Mini Fighter", description: "Fast 1v1 arcade fighting with fighter specials, guard breaks, and rematches.", category: "Arcade", entry_fee: 0, status: "active", display_weight: 100, catalog_label: "new" },
   { title: "Cup Pong", description: "Arcade cup-toss challenge.", category: "Uncategorized", entry_fee: 0, status: "active" },
   { title: "Four in a Row", description: "Classic four-in-a-row strategy match.", category: "Uncategorized", entry_fee: 0, status: "active" },
   { title: "Bingo", description: "Fast-paced bingo card challenge.", category: "Uncategorized", entry_fee: 0, status: "active" },
