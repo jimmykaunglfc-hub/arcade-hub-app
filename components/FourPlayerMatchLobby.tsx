@@ -28,15 +28,19 @@ export default function FourPlayerMatchLobby({ gameKey, gameName, userId, onStar
     return { p_name: data?.username || "Player", p_avatar_url: data?.avatar_url || null };
   };
 
+  const fundAndReady = async (targetRoomId: string) => {
+    const { error: fundingError } = await supabase.rpc("fund_four_player_room", { p_room_id: targetRoomId });
+    if (fundingError) throw new Error(fundingError.message);
+    const { error: readyError } = await supabase.rpc("set_matchmaking_seat_ready", { p_room_id: targetRoomId, p_ready: true });
+    if (readyError) throw new Error(readyError.message);
+  };
+
   const beginOnline = async () => {
     setError(null);
     const profile = await profilePayload();
     const { data, error: queueError } = await supabase.rpc("join_four_player_queue", { p_game_key: gameKey, ...profile });
     if (queueError || !data) { setError(queueError?.message || "Could not join matchmaking."); return; }
-    if (gameKey === "monopoly") {
-      const { error: fundingError } = await supabase.rpc("fund_monopoly_room", { p_room_id: data });
-      if (fundingError) { setError(fundingError.message); return; }
-    }
+    try { await fundAndReady(data); } catch (fundingError) { setError(fundingError instanceof Error ? fundingError.message : "Could not fund the match."); return; }
     setMode("online");
     setRoomId(data);
   };
@@ -46,10 +50,7 @@ export default function FourPlayerMatchLobby({ gameKey, gameName, userId, onStar
     const profile = await profilePayload();
     const { data, error: hostError } = await supabase.rpc("create_four_player_host_room", { p_game_key: gameKey, ...profile });
     if (hostError || !data?.room_id) { setError(hostError?.message || "Could not create the room."); return; }
-    if (gameKey === "monopoly") {
-      const { error: fundingError } = await supabase.rpc("fund_monopoly_room", { p_room_id: data.room_id });
-      if (fundingError) { setError(fundingError.message); return; }
-    }
+    try { await fundAndReady(data.room_id); } catch (fundingError) { setError(fundingError instanceof Error ? fundingError.message : "Could not fund the match."); return; }
     setHostCode(data.room_code || "");
     setMode("host");
     setRoomId(data.room_id);
@@ -61,10 +62,7 @@ export default function FourPlayerMatchLobby({ gameKey, gameName, userId, onStar
     const { data, error: joinError } = await supabase.rpc("join_four_player_host_room_by_code", { p_room_code: roomCode, ...profile });
     if (joinError || !data?.room_id) { setError(joinError?.message || "Could not join that room."); return; }
     if (gameKey !== data.game_key) { setError("That code belongs to a different game."); return; }
-    if (gameKey === "monopoly") {
-      const { error: fundingError } = await supabase.rpc("fund_monopoly_room", { p_room_id: data.room_id });
-      if (fundingError) { setError(fundingError.message); return; }
-    }
+    try { await fundAndReady(data.room_id); } catch (fundingError) { setError(fundingError instanceof Error ? fundingError.message : "Could not fund the match."); return; }
     setMode("room");
     setRoomId(data.room_id);
   };
@@ -114,8 +112,7 @@ export default function FourPlayerMatchLobby({ gameKey, gameName, userId, onStar
   const enter = async () => {
     if (!roomId || entering) return;
     setEntering(true);
-    const { error: readyError } = await supabase.rpc("set_matchmaking_seat_ready", { p_room_id: roomId, p_ready: true });
-    if (readyError) { setEntering(false); setError(readyError.message); }
+    try { await fundAndReady(roomId); } catch (readyError) { setEntering(false); setError(readyError instanceof Error ? readyError.message : "Could not enter the match."); }
   };
 
   const gameVisual = gameKey === "monopoly"

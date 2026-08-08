@@ -474,6 +474,10 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
       p_avatar_url: null,
     });
     if (roomError || !room?.room_id) { alert(roomError?.message || "Could not create the four-player room."); return; }
+    const { error: fundingError } = await supabase.rpc("fund_four_player_room", { p_room_id: room.room_id });
+    if (fundingError) { alert(fundingError.message); return; }
+    const { error: readyError } = await supabase.rpc("set_matchmaking_seat_ready", { p_room_id: room.room_id, p_ready: true });
+    if (readyError) { alert(readyError.message); return; }
     const { error: inviteError } = await supabase.from("direct_messages").insert(
       selectedFourPlayerInvitees.slice(0, 3).map((receiver_id) => ({
         sender_id: myUserId,
@@ -1018,11 +1022,10 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                                   const { data: profile } = await supabase.from("profiles").select("username,avatar_url").eq("id", myUserId).maybeSingle();
                                   const { error } = await supabase.rpc("join_four_player_host_room", { p_room_id: msg.match_id, p_name: profile?.username || myUsername || "Player", p_avatar_url: profile?.avatar_url || null });
                                   if (error) { alert(error.message); return; }
-                                  if (isMonopoly) {
-                                    const { error: fundingError } = await supabase.rpc("fund_monopoly_room", { p_room_id: msg.match_id });
-                                    if (fundingError) { alert(fundingError.message); return; }
-                                    await supabase.rpc("set_matchmaking_seat_ready", { p_room_id: msg.match_id, p_ready: true });
-                                  }
+                                  const { error: fundingError } = await supabase.rpc("fund_four_player_room", { p_room_id: msg.match_id });
+                                  if (fundingError) { alert(fundingError.message); return; }
+                                  const { error: readyError } = await supabase.rpc("set_matchmaking_seat_ready", { p_room_id: msg.match_id, p_ready: true });
+                                  if (readyError) { alert(readyError.message); return; }
                                 } else if (newChallenge && msg.match_id) {
                                   const { data: room } = await supabase.from("matchmaking_rooms").select("room_code").eq("id", msg.match_id).maybeSingle();
                                   const { error } = await supabase.rpc("join_two_player_room", { p_code: room?.room_code, p_name: myUsername || "Online Player" });
