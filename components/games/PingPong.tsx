@@ -589,6 +589,7 @@ export default function PingPong(props: PingPongProps) {
   });
   const opponentSpinReadErrorRef = useRef(0);
   const lastPlayerSwipeAtRef = useRef(0);
+  const lastOpponentSwipeAtRef = useRef(0);
   const networkChannelRef = useRef<RealtimeChannel | null>(null);
   const networkSequenceRef = useRef(0);
   const lastNetworkSnapshotRef = useRef(0);
@@ -832,7 +833,7 @@ export default function PingPong(props: PingPongProps) {
    * A 20 Hz throttle is already applied by the pointer handler.
    */
   const broadcastPaddlePosition = useCallback(
-    (position: PaddleState) => {
+    (position: PaddleState & { strokeActive?: boolean }) => {
       if (!isNetworkMatch || !networkChannelRef.current) return;
       void networkChannelRef.current.send({ type: "broadcast", event: "ping_pong_paddle", payload: position });
     },
@@ -857,7 +858,7 @@ export default function PingPong(props: PingPongProps) {
    * Recent network input temporarily takes control away from the demo AI.
    */
   const onReceiveOpponentMove = useCallback(
-    (position: Vector3 & { tilt?: number; swingX?: number }) => {
+    (position: Vector3 & { tilt?: number; swingX?: number; strokeActive?: boolean }) => {
       // The second player sends input in their own near-side camera space.
       // Mirror it into the host's far-side world before collision tests.
       const worldPosition = {
@@ -880,9 +881,27 @@ export default function PingPong(props: PingPongProps) {
         swingX: clamp(worldPosition.swingX || nextVx / 4, -1, 1),
       };
       networkOpponentTargetRef.current = next;
+      if (position.strokeActive) {
+        lastOpponentSwipeAtRef.current = performance.now();
+        // A seat-two serve is requested by an actual swipe and then resolved
+        // by the authority. This prevents the old automatic opponent serve.
+        const ball = ballRef.current;
+        if (
+          isSimulationAuthority &&
+          ball.servePhase === "waiting" &&
+          rallyRef.current.server === "opponent"
+        ) {
+          ball.servePhase = "toss";
+          ball.vx = 0;
+          ball.vy = 2.05;
+          ball.vz = 0;
+          ball.spin = 0;
+          setStatus("Opponent tosses the ball");
+        }
+      }
       opponentNetworkActiveUntilRef.current = performance.now() + 600;
     },
-    []
+    [isSimulationAuthority]
   );
 
   const publishAuthoritativeSnapshot = useCallback(() => {
@@ -906,7 +925,7 @@ export default function PingPong(props: PingPongProps) {
     const channel = supabase.channel(`ping-pong-match-${matchId}`, { config: { broadcast: { self: false } } });
     networkChannelRef.current = channel;
     channel
-      .on("broadcast", { event: "ping_pong_paddle" }, ({ payload }) => onReceiveOpponentMove(payload as Vector3 & { tilt?: number; swingX?: number }))
+      .on("broadcast", { event: "ping_pong_paddle" }, ({ payload }) => onReceiveOpponentMove(payload as Vector3 & { tilt?: number; swingX?: number; strokeActive?: boolean }))
       .on("broadcast", { event: "ping_pong_snapshot" }, ({ payload }) => {
         if (isSimulationAuthority) return;
         const snapshot = payload as NetworkMatchSnapshot;
@@ -1068,6 +1087,12 @@ export default function PingPong(props: PingPongProps) {
       const measuredHorizontal = clamp(pointerVelocityX / 3.2, -1, 1);
       const measuredVertical = clamp(pointerVelocityY / 3.2, -1, 1);
       const sample: SwipeGestureSample = { x: normalizedX, y: gestureY, at: now };
+      const swipeDistance = previousSample
+        ? Math.hypot(
+            (normalizedX - previousSample.x) * bounds.width,
+            (gestureY - previousSample.y) * bounds.width
+          )
+        : 0;
       gesturePathRef.current = [...gesturePathRef.current, sample]
         .filter((entry) => now - entry.at <= 240)
         .slice(-20);
@@ -1079,11 +1104,15 @@ export default function PingPong(props: PingPongProps) {
         0,
         1
       );
-      const deliberateGesture = Math.max(
-        Math.abs(measuredHorizontal),
-        Math.abs(measuredVertical),
-        Math.abs(circularTwist)
-      );
+      // Pointer-capture commonly emits a 1–2px move after a tap. It must not
+      // count as a serve or return stroke; a real swipe needs visible travel.
+      const deliberateGesture = swipeDistance >= 10
+        ? Math.max(
+            Math.abs(measuredHorizontal),
+            Math.abs(measuredVertical),
+            Math.abs(circularTwist)
+          )
+        : 0;
       // Preserve the complete stroke long enough for an incoming ball to reach
       // the racket. Stationary pointer samples cannot erase the chosen intent.
       if (deliberateGesture >= 0.08) {
@@ -1186,6 +1215,7 @@ export default function PingPong(props: PingPongProps) {
           vx: paddlesRef.current.local.vx,
           vy: paddlesRef.current.local.vy,
           vz: paddlesRef.current.local.vz,
+          strokeActive: now - lastPlayerSwipeAtRef.current <= 850,
         });
         lastPaddleBroadcastRef.current = now;
       }
@@ -1997,6 +2027,15 @@ export default function PingPong(props: PingPongProps) {
       if (side === "local" && now - lastPlayerSwipeAtRef.current > 850) {
         return false;
       }
+      // In a human online match the authority never substitutes an AI return
+      // for the remote player. Their racket must have received a real swipe.
+      if (
+        side === "opponent" &&
+        isNetworkMatch &&
+        now - lastOpponentSwipeAtRef.current > 850
+      ) {
+        return false;
+      }
 
       const movingTowardPaddle = side === "local" ? ball.vz > 0 : ball.vz < 0;
       const nextRally = registerPaddleReturn(rallyRef.current, side);
@@ -2436,7 +2475,7 @@ export default function PingPong(props: PingPongProps) {
           tilt: dampRacketTilt(opponent.tilt, targetOpponent.tilt, deltaSeconds, 22),
           swingX: dampRacketTilt(opponent.swingX, targetOpponent.swingX, deltaSeconds, 22),
         };
-      } else {
+      } else if (!isNetworkMatch) {
         const opponent = paddlesRef.current.opponent;
         const opponentAssistWindow = assistWindowsRef.current.opponent;
         const opponentWindowActive = Boolean(
@@ -3042,7 +3081,7 @@ export default function PingPong(props: PingPongProps) {
       frameRef.current = null;
       lastFrameRef.current = null;
     };
-  }, [broadcastBallHit, currentUserId, isDoubles, isNetworkReplica, isSimulationAuthority, publishAuthoritativeSnapshot, resetRound, scorePoint]);
+  }, [broadcastBallHit, currentUserId, isDoubles, isNetworkMatch, isNetworkReplica, isSimulationAuthority, publishAuthoritativeSnapshot, resetRound, scorePoint]);
 
   const localName = getPlayerName(localPlayer, "You");
   const opponentName = getPlayerName(opponentPlayer, "Opponent");
