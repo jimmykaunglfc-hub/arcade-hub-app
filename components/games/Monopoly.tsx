@@ -938,6 +938,20 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
         setServerTurnDeadline(data?.turn_deadline ?? null);
         activeServerPlayerRef.current = gameState.activePlayerId;
         pendingCommandRef.current = "state_sync";
+      } else {
+        // Revert optimistic UI immediately; a rejected move must never leave
+        // one device showing a different active player from the table state.
+        pendingCommandRef.current = "state_sync";
+        lastPublishedStateRef.current = null;
+        void supabase.from("monopoly_match_state").select("state,active_player_id,version,turn_deadline").eq("room_id", roomId).maybeSingle().then(({ data: latest }) => {
+          if (!latest?.state) return;
+          setGameState(latest.state as GameState);
+          activeServerPlayerRef.current = latest.active_player_id;
+          serverVersionRef.current = latest.version;
+          setServerVersion(latest.version);
+          setServerTurnDeadline(latest.turn_deadline);
+          lastPublishedStateRef.current = JSON.stringify(latest.state);
+        });
       }
     });
   }, [gameState, roomId, serverVersion, userId, isRolling, isMoving]);
@@ -1428,7 +1442,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
 
   const handleEndTurn = useCallback(() => {
     if (!canDriveActiveTurn) return;
-    markCommand("end_turn");
+    markCommand("state_sync");
     registerPlayerActivity();
     setGameState((current) => getNextTurnState(current, "system"));
   }, [canDriveActiveTurn, registerPlayerActivity]);
@@ -1491,17 +1505,23 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     
     const timer = window.setTimeout(() => {
       if (activePlayer.jailFreeCards > 0) {
-        markCommand("use_jail_card");
+        markCommand("state_sync");
         setGameState((current) => ({
           ...current,
           players: current.players.map((player) => player.id === activePlayer.id ? { ...player, inJail: false, jailFreeCards: player.jailFreeCards - 1 } : player),
           actionLog: { title: `${activePlayer.username} used a Jail-Free card`, highlight: "ESCAPED JAIL · CAN ROLL" }
         }));
       } else {
-        markCommand("jail_skip");
-        setGameState((current) => current.activePlayerId === activePlayer.id && current.players.find((player) => player.id === activePlayer.id)?.inJail
-          ? { ...current, players: current.players.map((player) => player.id === activePlayer.id ? { ...player, inJail: false, jailAttempts: 0 } : player), autoPassPlayerId: activePlayer.id, actionLog: { title: `${activePlayer.username} serves a Jail turn`, highlight: "TURN SKIPPED" } }
-          : current);
+        if (roomId) {
+          void supabase.rpc("skip_monopoly_jail_turn", { p_room_id: roomId, p_expected_version: serverVersionRef.current }).then(({ error }) => {
+            if (!error) serverVersionRef.current = null;
+          });
+        } else {
+          markCommand("state_sync");
+          setGameState((current) => current.activePlayerId === activePlayer.id && current.players.find((player) => player.id === activePlayer.id)?.inJail
+            ? { ...current, players: current.players.map((player) => player.id === activePlayer.id ? { ...player, inJail: false, jailAttempts: 0 } : player), autoPassPlayerId: activePlayer.id, actionLog: { title: `${activePlayer.username} serves a Jail turn`, highlight: "TURN SKIPPED" } }
+            : current);
+        }
       }
     }, 700);
     
