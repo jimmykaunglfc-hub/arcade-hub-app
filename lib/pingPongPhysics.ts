@@ -61,6 +61,12 @@ export interface LandingVelocitySolution {
   time: number;
 }
 
+export interface SwipeGestureSample {
+  x: number;
+  y: number;
+  at: number;
+}
+
 export type PhysicsSide = "local" | "opponent";
 
 /**
@@ -272,6 +278,28 @@ export function resolveTableBounce(
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+/** Measures a deliberate curved swipe; straight swipes intentionally return 0. */
+export function calculateCircularSwipeTwist(samples: readonly SwipeGestureSample[]): number {
+  if (samples.length < 4) return 0;
+  let length = 0; let turn = 0;
+  for (let index = 1; index < samples.length; index += 1) length += Math.hypot(samples[index].x - samples[index - 1].x, samples[index].y - samples[index - 1].y);
+  if (length < .06) return 0;
+  for (let index = 2; index < samples.length; index += 1) {
+    const ax = samples[index - 1].x - samples[index - 2].x; const ay = samples[index - 1].y - samples[index - 2].y;
+    const bx = samples[index].x - samples[index - 1].x; const by = samples[index].y - samples[index - 1].y;
+    if (Math.hypot(ax, ay) > .006 && Math.hypot(bx, by) > .006) turn += Math.atan2(ax * by - ay * bx, ax * bx + ay * by);
+  }
+  return clamp(Math.sign(turn) * Math.abs(turn) / Math.PI * clamp((length - .06) / .2, 0, 1), -1, 1);
+}
+
+export function calculateSwipeShotPower(verticalSwing: number, intensity: number): number {
+  return clamp(Math.abs(clamp(verticalSwing, -1, 1)) * .62 + clamp(intensity, 0, 1) * .52, 0, 1);
+}
+
+export function calculateTwistSpin(twist: number, intensity: number): number {
+  return clamp(clamp(twist, -1, 1) * (4.4 + clamp(intensity, 0, 1) * 2.2), -6.6, 6.6);
+}
 
 export function calculateRacketTilt(
   horizontalSwingIntent: number,

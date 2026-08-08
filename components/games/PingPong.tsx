@@ -14,9 +14,12 @@ import {
 } from "@/lib/TableTennisGame";
 import {
   applySideSpin,
+  calculateCircularSwipeTwist,
   calculateRacketTilt,
+  calculateSwipeShotPower,
   calculateSwipeSpin,
   calculateSwipeSteering,
+  calculateTwistSpin,
   createPhysicsRally,
   dampRacketTilt,
   predictBallAtZPlane,
@@ -28,6 +31,7 @@ import {
   sweepSphereAgainstPaddle,
   sweepSphereAgainstNet,
   type PhysicsRallyState,
+  type SwipeGestureSample,
 } from "@/lib/pingPongPhysics";
 import { supabase } from "@/lib/supabaseClient";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -101,7 +105,10 @@ interface PaddleTarget extends Vector3 {
 }
 
 interface SwingIntent {
-  value: number;
+  horizontal: number;
+  vertical: number;
+  twist: number;
+  intensity: number;
   expiresAt: number;
 }
 
@@ -419,8 +426,9 @@ export default function PingPong(props: PingPongProps) {
   const opponentNetworkActiveUntilRef = useRef(0);
   const lastTrailStampRef = useRef({ local: 0, opponent: 0 });
   const gameWinnerRef = useRef<Side | null>(null);
-  const pointerSampleRef = useRef<{ x: number; at: number } | null>(null);
-  const swingIntentRef = useRef<SwingIntent>({ value: 0, expiresAt: 0 });
+  const pointerSampleRef = useRef<SwipeGestureSample | null>(null);
+  const gesturePathRef = useRef<SwipeGestureSample[]>([]);
+  const swingIntentRef = useRef<SwingIntent>({ horizontal: 0, vertical: 0, twist: 0, intensity: 0, expiresAt: 0 });
   const lastPlayerSwipeAtRef = useRef(0);
   const networkChannelRef = useRef<RealtimeChannel | null>(null);
   const networkIdentityRef = useRef<string | null>(null);
@@ -673,7 +681,7 @@ export default function PingPong(props: PingPongProps) {
         opponentServeAimRef.current = createOpponentServeAim();
       }
       opponentReturnAimRef.current = createOpponentReturnAim();
-      swingIntentRef.current = { value: 0, expiresAt: 0 };
+      swingIntentRef.current = { horizontal: 0, vertical: 0, twist: 0, intensity: 0, expiresAt: 0 };
       lastPlayerSwipeAtRef.current = 0;
       stalledBallSinceRef.current = 0;
       assistWindowsRef.current = { local: null, opponent: null };
@@ -768,6 +776,7 @@ export default function PingPong(props: PingPongProps) {
 
       const bounds = canvas.getBoundingClientRect();
       const normalizedX = clamp((clientX - bounds.left) / bounds.width, 0, 1);
+      const normalizedY = clamp(((clientY - bounds.top) / bounds.height - 0.16) / 0.84, 0, 1);
       const now = performance.now();
       const previousSample = pointerSampleRef.current;
       const pointerVelocityX = previousSample
@@ -783,7 +792,10 @@ export default function PingPong(props: PingPongProps) {
           Math.sign(measuredSwing) *
           clamp(0.38 + Math.abs(measuredSwing) * 0.62, 0.38, 1);
         swingIntentRef.current = {
-          value: signedStrength,
+          horizontal: signedStrength,
+          vertical: previousSample ? clamp((normalizedY - previousSample.y) * -5, -1, 1) : 0,
+          twist: calculateCircularSwipeTwist([...gesturePathRef.current, { x: normalizedX, y: normalizedY, at: now }]),
+          intensity: clamp(Math.abs(measuredSwing), 0, 1),
           expiresAt: now + 650,
         };
         lastPlayerSwipeAtRef.current = now;
@@ -810,16 +822,12 @@ export default function PingPong(props: PingPongProps) {
       }
       const swingX =
         now < swingIntentRef.current.expiresAt
-          ? swingIntentRef.current.value
+          ? swingIntentRef.current.horizontal
           : 0;
-      pointerSampleRef.current = { x: normalizedX, at: now };
+      pointerSampleRef.current = { x: normalizedX, y: normalizedY, at: now };
+      gesturePathRef.current = [...gesturePathRef.current, pointerSampleRef.current].slice(-12);
       // Keep the header area free for navigation while mapping the rest of the
       // screen to the player's half of the table.
-      const normalizedY = clamp(
-        ((clientY - bounds.top) / bounds.height - 0.16) / 0.84,
-        0,
-        1
-      );
       localPaddleTargetRef.current = {
         x: (normalizedX - 0.5) * 2.7,
         y: 0.32 + (1 - normalizedY) * 0.92,
@@ -844,6 +852,7 @@ export default function PingPong(props: PingPongProps) {
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     draggingRef.current = true;
     pointerSampleRef.current = null;
+    gesturePathRef.current = [];
     event.currentTarget.setPointerCapture(event.pointerId);
     moveLocalPaddle(event.clientX, event.clientY);
   };
@@ -856,6 +865,7 @@ export default function PingPong(props: PingPongProps) {
   const handlePointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
     draggingRef.current = false;
     pointerSampleRef.current = null;
+    gesturePathRef.current = [];
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -1737,7 +1747,7 @@ export default function PingPong(props: PingPongProps) {
       ball.z = contactPaddleZ + (side === "local" ? -0.24 : 0.24);
       const latchedLocalSwing =
         side === "local" && now < swingIntentRef.current.expiresAt
-          ? swingIntentRef.current.value
+          ? swingIntentRef.current.horizontal
           : paddle.swingX;
       const effectiveTilt = calculateRacketTilt(
         latchedLocalSwing,
@@ -1752,12 +1762,12 @@ export default function PingPong(props: PingPongProps) {
         latchedLocalSwing,
         effectiveTilt,
         paddle.vx
-      );
+      ) + (side === "local" ? calculateTwistSpin(swingIntentRef.current.twist, swingIntentRef.current.intensity) : 0);
       ball.vy = clamp(
         1.82 +
           Math.abs(ball.vy) * 0.2 +
           paddle.vy * 0.06 +
-          Math.abs(latchedLocalSwing) * 0.34,
+          Math.abs(latchedLocalSwing) * 0.34 + (side === "local" ? calculateSwipeShotPower(swingIntentRef.current.vertical, swingIntentRef.current.intensity) * .45 : 0),
         1.65,
         3.15
       );
@@ -1928,7 +1938,7 @@ export default function PingPong(props: PingPongProps) {
       );
       const hasLatchedSwing = now < swingIntentRef.current.expiresAt;
       if (hasLatchedSwing) {
-        target.swingX = swingIntentRef.current.value;
+        target.swingX = swingIntentRef.current.horizontal;
         target.tilt = calculateRacketTilt(target.swingX, target.x / 2.7);
       } else if (
         !draggingRef.current ||
