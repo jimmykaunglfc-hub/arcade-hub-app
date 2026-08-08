@@ -424,7 +424,7 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
  if (mode === "menu") {
    return (
     <div className="fixed inset-0 z-40 flex h-[100dvh] max-h-[100dvh] flex-col items-center justify-center overflow-hidden overscroll-none touch-pan-x bg-gradient-to-b from-violet-950 via-indigo-950 to-slate-950 px-6 pb-6 pt-[var(--app-safe-top)] text-white">
-       <div className="absolute left-3 right-3 top-3 flex items-center justify-between">
+       <div className="absolute left-3 right-3 top-[calc(var(--app-safe-top)+0.75rem)] flex items-center justify-between">
          <button
            type="button"
            onClick={handleBack}
