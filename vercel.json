@@ -1,27 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [
-    {
-      "source": "/:path((?!joeyokeadmin(?:/|$)|_next(?:/|$)|assets(?:/|$)|joeyoke-logo\\.png$).*)",
-      "has": [
-        {
-          "type": "host",
-          "value": "joeyokeadmin.joeyoke.com"
-        }
-      ],
-      "destination": "/joeyokeadmin/:path*"
-    },
-    {
-      "source": "/:path((?!joeyokeadmin(?:/|$)|_next(?:/|$)|assets(?:/|$)|joeyoke-logo\\.png$).*)",
-      "has": [
-        {
-          "type": "host",
-          "value": "stagingadmin.joeyoke.com"
-        }
-      ],
-      "destination": "/joeyokeadmin/:path*"
-    }
-  ],
   "crons": [
     {
       "path": "/api/cron/reset-points",
