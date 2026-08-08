@@ -1138,6 +1138,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
   const handleExitGame = () => {
     soundEngine.playSFX("click");
+    if (!winner) void recordMatchResult({ game_id: "carrom", game_title: "Carrom", opponent_name: localOpponent?.name || opponent?.name || "Online Opponent", result: "Loss", points_change: 0 });
     onClose();
   };
 

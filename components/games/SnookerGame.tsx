@@ -1539,6 +1539,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
   const handleExitToHome = () => {
     soundEngine.playSFX("click");
+    if (!winner) void recordMatchResult({ game_id: "snooker", game_title: "Snooker", opponent_name: localOpponent?.name || opponent?.name || "Online Opponent", result: "Loss", points_change: 0 });
     if (onClose) {
       onClose();
     } else if (typeof window !== "undefined") {

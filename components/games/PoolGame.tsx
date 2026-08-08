@@ -453,6 +453,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
   const handleExitToHome = () => {
     soundEngine.playSFX("click");
+    if (!winner) void recordMatchResult({ game_id: "pool", game_title: "Pool", opponent_name: localOpponent?.name || opponent?.name || "Online Opponent", result: "Loss", points_change: 0 });
     if (onClose) {
       onClose();
     } else {

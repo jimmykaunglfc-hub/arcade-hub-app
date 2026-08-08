@@ -684,6 +684,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
 
   const handleExit = () => {
     soundEngine.playSFX("click");
+    if (!gameOver.isOver) void recordMatchResult({ game_id: "chess", game_title: "Chess", opponent_name: localOpponent?.name || opponent?.name || "Online Opponent", result: "Loss", points_change: 0 });
     if (matchId) setMatchId(null);
     setView("menu");
   };

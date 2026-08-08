@@ -520,6 +520,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
 
   const handleExit = () => {
     soundEngine.playSFX("click");
+    if (!winner) void recordMatchResult({ game_id: "tictactoe", game_title: "TicTacToe", opponent_name: localOpponent?.name || opponent?.name || "Online Opponent", result: "Loss", points_change: 0 });
     if (matchId) setMatchId(null);
     if (onClose) {
       onClose();

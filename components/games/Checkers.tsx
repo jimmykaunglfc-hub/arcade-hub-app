@@ -701,6 +701,7 @@ export default function Checkers({
 
   const handleExitGame = () => {
     soundEngine.playSFX("click");
+    if (!winner) void recordMatchResult({ game_id: "checkers", game_title: "Checkers", opponent_name: localOpponent?.name || opponent?.name || "Online Opponent", result: "Loss", points_change: 0 });
     onClose();
   };
 

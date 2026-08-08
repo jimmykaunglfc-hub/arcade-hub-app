@@ -390,6 +390,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
   const handleExit = () => {
     soundEngine.playSFX("click");
+    if (winnerTeam === null) void recordMatchResult({ game_id: "uno", game_title: "Uno", opponent_name: localOpponent?.name || opponent?.name || "Online Opponent", result: "Loss", points_change: 0 });
     if (matchId) setMatchId(null);
     if (onClose) onClose();
     else setView("menu");

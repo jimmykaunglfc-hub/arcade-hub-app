@@ -17,6 +17,7 @@ interface MatchResultPayload {
 }
 
 const matchTimerKey = (gameTitle: string) => `joeyoke_match_started_${gameTitle.toLowerCase()}`;
+const activeStakeKey = (gameTitle: string) => `joeyoke_competitive_stake_${gameTitle.toLowerCase()}`;
 
 function beginMatchTimer(gameTitle: string) {
   if (typeof window !== "undefined") {
@@ -46,79 +47,35 @@ export async function processGameEntry({
 }> {
   try {
     const cleanOpponentName = opponentName || "Online Opponent";
+    const existingStakeId = typeof window === "undefined"
+      ? null
+      : window.sessionStorage.getItem(activeStakeKey(gameTitle));
 
-    // 1. Attempt RPC call
-    const { data, error } = await supabase.rpc("join_game_match", {
+    if (existingStakeId) {
+      beginMatchTimer(gameTitle);
+      return { success: true, matchId: existingStakeId };
+    }
+
+    const { data, error } = await supabase.rpc("enter_competitive_match", {
       p_game_title: gameTitle,
       p_entry_fee: Number(entryFee),
       p_opponent_name: cleanOpponentName,
     });
 
-    if (!error && data && data.success) {
+    if (!error && data?.success) {
+      const stakeId = data.stake_id || data.match_id;
+      if (stakeId && typeof window !== "undefined") {
+        window.sessionStorage.setItem(activeStakeKey(gameTitle), stakeId);
+      }
       beginMatchTimer(gameTitle);
       return {
         success: true,
         updatedPoints: data.updatedPoints ?? data.new_points,
-        matchId: data.match_id,
+        matchId: stakeId,
       };
     }
 
-    if (error) {
-      console.warn("RPC join_game_match warning, attempting client fallback:", error.message);
-    }
-
-    // 🛡️ 2. Fallback: Deduct points and record initial match directly via Client
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData?.user) {
-      return { success: false, error: "UNAUTHORIZED" };
-    }
-
-    const userId = userData.user.id;
-
-    // Fetch current user balance
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("points")
-      .eq("id", userId)
-      .single();
-
-    const currentPoints = profile?.points ?? 0;
-    if (currentPoints < entryFee) {
-      return { success: false, error: "INSUFFICIENT_POINTS" };
-    }
-
-    const newPoints = currentPoints - entryFee;
-
-    // Deduct entry fee
-    await supabase
-      .from("profiles")
-      .update({ points: newPoints })
-      .eq("id", userId);
-
-    // Create match entry
-    const { data: insertedMatch, error: insertError } = await supabase
-      .from("match_history")
-      .insert({
-        user_id: userId,
-        game_title: gameTitle,
-        opponent_name: cleanOpponentName,
-        result: "Played",
-        points_change: -entryFee,
-      })
-      .select("id")
-      .single();
-
-    if (insertError) {
-      console.error("Client fallback match insertion failed:", insertError.message);
-    }
-
-    beginMatchTimer(gameTitle);
-
-    return {
-      success: true,
-      updatedPoints: newPoints,
-      matchId: insertedMatch?.id,
-    };
+    return { success: false, error: error?.message || "Could not secure the match stake." };
   } catch (err: any) {
     console.error("Match entry error:", err);
     return { success: false, error: err.message || "Network Error" };
@@ -130,53 +87,27 @@ export async function processGameEntry({
  */
 export async function recordMatchResult(payload: MatchResultPayload) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
     const durationSeconds = payload.duration_seconds ?? getMatchDuration(payload.game_title);
+    const stakeId = typeof window === "undefined"
+      ? null
+      : window.sessionStorage.getItem(activeStakeKey(payload.game_title));
 
-    // 1. Award Points to the User's Profile if they won (points_change > 0)
-    if (payload.points_change > 0) {
-      // Attempt the secure RPC first
-      const { error: rpcError } = await supabase.rpc("award_winner", {
-        winner_id: user.id,
-        reward: payload.points_change,
-      });
+    if (!stakeId) return;
 
-      // 🛡️ Fallback: Update points directly via Client if RPC fails
-      if (rpcError) {
-        console.warn("RPC award_winner warning, attempting client fallback:", rpcError.message);
+    const { error } = await supabase.rpc("settle_competitive_match", {
+      p_stake_id: stakeId,
+      p_result: payload.result,
+      p_game_id: payload.game_id,
+      p_duration_seconds: durationSeconds,
+    });
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("points")
-          .eq("id", user.id)
-          .single();
-
-        if (profile) {
-          const newBalance = profile.points + payload.points_change;
-          await supabase
-            .from("profiles")
-            .update({ points: newBalance })
-            .eq("id", user.id);
-        }
-      }
+    if (error) {
+      console.error("Failed to settle competitive match:", error.message);
+      return;
     }
 
-    // 2. Insert the visual match result into history
-    const { error: insertError } = await supabase
-      .from("match_history")
-      .insert({
-        user_id: user.id,
-        game_id: payload.game_id,
-        game_title: payload.game_title,
-        opponent_name: payload.opponent_name,
-        result: payload.result,
-        points_change: payload.points_change,
-        duration_seconds: durationSeconds,
-      });
-
-    if (insertError) {
-      console.error("Failed to insert match history:", insertError.message);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(activeStakeKey(payload.game_title));
     }
   } catch (err) {
     console.error("Failed to record match result:", err);
