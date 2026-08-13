@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 interface AuthViewProps {
@@ -28,6 +28,11 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
 
   const clearFeedback = () => setErrorMsg(null);
 
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("ref");
+    if (code?.trim()) setReferralCode(code.trim().toUpperCase());
+  }, []);
+
   const handleRequestOtp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoadingProvider("email");
@@ -36,7 +41,14 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { shouldCreateUser: true },
+        options: {
+          shouldCreateUser: true,
+          // This reaches the new-auth-user database trigger, so a referral is
+          // recorded and rewarded even if the app is closed before OTP entry.
+          data: referralCode.trim()
+            ? { referral_code: referralCode.trim().toUpperCase() }
+            : undefined,
+        },
       });
 
       if (error) throw error;
@@ -65,8 +77,18 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
         const { error: profileError } = await supabase.rpc("ensure_my_profile");
         if (profileError) throw profileError;
         if (referralCode.trim()) {
-          const { error: referralError } = await supabase.rpc("apply_referral_code", { p_referral_code: referralCode.trim() });
-          if (referralError) throw referralError;
+          // Fresh OTP accounts are credited by the signup trigger. Existing
+          // accounts still use the RPC, but never receive a duplicate reward.
+          const { data: referralProfile, error: referralProfileError } = await supabase
+            .from("profiles")
+            .select("referred_by")
+            .eq("id", data.session.user.id)
+            .maybeSingle();
+          if (referralProfileError) throw referralProfileError;
+          if (!referralProfile?.referred_by) {
+            const { error: referralError } = await supabase.rpc("apply_referral_code", { p_referral_code: referralCode.trim() });
+            if (referralError) throw referralError;
+          }
         }
       }
       onAuthSuccess();

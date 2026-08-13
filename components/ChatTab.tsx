@@ -584,7 +584,13 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
     setTimeout(() => setCopied(false), 2000);
   };
   const handleShareReferral = async () => {
-    const shareData = { title: "Join me on Joe Yoke", text: `Use my referral code: ${myReferralCode || myUsername}` };
+    const referralCode = myReferralCode || myUsername;
+    const referralUrl = `${window.location.origin}/?ref=${encodeURIComponent(referralCode)}`;
+    const shareData = {
+      title: "Join me on Joe Yoke",
+      text: `Join Joe Yoke with my referral code ${referralCode} and receive your new-player reward.`,
+      url: referralUrl,
+    };
     if (navigator.share) {
       try { await navigator.share(shareData); } catch { /* User dismissed the native sheet. */ }
       return;
