@@ -132,13 +132,66 @@ export default function Home() {
 
   const [rankData, setRankData] = useState<any>(null);
 
-  const [playingGame, setPlayingGame] = useState<string | null>(null);
+  const [playingGame, setPlayingGameState] = useState<string | null>(null);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
+  const [gameReturn, setGameReturn] = useState<{
+    gameUrl: string;
+    matchId: string | null;
+    expiresAt: number;
+  } | null>(null);
+  const [gameReturnSeconds, setGameReturnSeconds] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   const [chatFullscreen, setChatFullscreen] = useState(false);
   const [gameDetailsFullscreen, setGameDetailsFullscreen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+
+  // Do not unmount a game immediately when a player taps its back/close
+  // button. Keeping the mounted game hidden for 30 seconds preserves its
+  // in-memory board, physics, and realtime state on H5 and Capacitor builds.
+  const setPlayingGame = (nextGame: string | null) => {
+    if (nextGame === null && playingGame) {
+      const expiresAt = Date.now() + 30_000;
+      setGameReturn({ gameUrl: playingGame, matchId: activeMatchId, expiresAt });
+      setGameReturnSeconds(30);
+      return;
+    }
+    setGameReturn(null);
+    setGameReturnSeconds(0);
+    setPlayingGameState(nextGame);
+  };
+
+  const resumeGame = () => {
+    if (!gameReturn) return;
+    setActiveMatchId(gameReturn.matchId);
+    setGameReturn(null);
+    setGameReturnSeconds(0);
+  };
+
+  const endSuspendedGame = () => {
+    setGameReturn(null);
+    setGameReturnSeconds(0);
+    setPlayingGameState(null);
+    setActiveMatchId(null);
+  };
+
+  useEffect(() => {
+    if (!gameReturn) return;
+    const updateCountdown = () => {
+      const seconds = Math.max(0, Math.ceil((gameReturn.expiresAt - Date.now()) / 1000));
+      setGameReturnSeconds(seconds);
+      if (seconds === 0) endSuspendedGame();
+    };
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 250);
+    return () => window.clearInterval(timer);
+  }, [gameReturn]);
+
+  const gameMatchId = gameReturn?.matchId ?? activeMatchId;
+  const pausedGameName = (gameReturn?.gameUrl ?? "game")
+    .replace(/^native:\/\//, "")
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
   // Safari also supports the CSS feature used by WKWebView, so CSS alone
   // cannot tell an H5 browser from the native iOS package. Only Capacitor iOS
@@ -370,6 +423,7 @@ export default function Home() {
       )}
 
       {/* 🎮 NATIVE ENGINE ROUTER */}
+      <div className={gameReturn ? "invisible pointer-events-none" : undefined}>
       {playingGame === "native://glitch-deck" ? (
         <GlitchDeck
           onClose={() => {
@@ -383,7 +437,7 @@ export default function Home() {
             setPlayingGame(null);
             setActiveMatchId(null);
           }}
-          preloadedMatchId={activeMatchId}
+          preloadedMatchId={gameMatchId}
         />
       ) : playingGame === "native://tictactoe" ||
         playingGame === "native://tic-tac-toe" ? (
@@ -392,7 +446,7 @@ export default function Home() {
             setPlayingGame(null);
             setActiveMatchId(null);
           }}
-          preloadedMatchId={activeMatchId}
+          preloadedMatchId={gameMatchId}
         />
       ) : playingGame === "native://uno" ? (
         <UnoGame
@@ -400,7 +454,7 @@ export default function Home() {
             setPlayingGame(null);
             setActiveMatchId(null);
           }}
-          preloadedMatchId={activeMatchId}
+          preloadedMatchId={gameMatchId}
         />
       ) : playingGame === "native://checkers" ? (
         <Checkers
@@ -408,7 +462,7 @@ export default function Home() {
             setPlayingGame(null);
             setActiveMatchId(null);
           }}
-          preloadedMatchId={activeMatchId}
+          preloadedMatchId={gameMatchId}
         />
       ) : playingGame === "native://carrom" ? (
         <Carrom
@@ -416,7 +470,7 @@ export default function Home() {
             setPlayingGame(null);
             setActiveMatchId(null);
           }}
-          preloadedMatchId={activeMatchId}
+          preloadedMatchId={gameMatchId}
         />
       ) : playingGame === "native://snooker" ? (
         <SnookerGame
@@ -424,7 +478,7 @@ export default function Home() {
             setPlayingGame(null);
             setActiveMatchId(null);
           }}
-          preloadedMatchId={activeMatchId}
+          preloadedMatchId={gameMatchId}
         />
       ) : playingGame === "native://nexus-breach" ? (
         <NexusBreach
@@ -457,45 +511,58 @@ export default function Home() {
       ) : playingGame === "native://cup-pong" ? (
         <CompetitiveGameLaunch gameKey="cup-pong" gameTitle="Cup Pong" Game={CupPong} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://four-in-a-row" ? (
-        <CompetitiveGameLaunch gameKey="four-in-a-row" gameTitle="Four in a Row" Game={FourInARow} preloadedRoomId={activeMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <CompetitiveGameLaunch gameKey="four-in-a-row" gameTitle="Four in a Row" Game={FourInARow} preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://bingo" ? (
-        <CompetitiveGameLaunch gameKey="bingo" gameTitle="Bingo" Game={Bingo} preloadedRoomId={activeMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <CompetitiveGameLaunch gameKey="bingo" gameTitle="Bingo" Game={Bingo} preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://ping-pong" || playingGame === "native://table-tennis" ? (
-        <CompetitiveGameLaunch gameKey="ping-pong" gameTitle="Ping Pong" Game={PingPong} allowLocal={false} preloadedRoomId={activeMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <CompetitiveGameLaunch gameKey="ping-pong" gameTitle="Ping Pong" Game={PingPong} allowLocal={false} preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://wordbox" || playingGame === "native://word-box" ? (
         <WordBoxGame onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://sudoku" ? (
         <SudokuGame onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://ludo" ? (
-        <LudoFourPlayerArena preloadedRoomId={activeMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <LudoFourPlayerArena preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://monopoly" ? (
-        <MonopolyFourPlayerArena preloadedRoomId={activeMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <MonopolyFourPlayerArena preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://dominoes" ? (
-        <CompetitiveGameLaunch gameKey="dominoes" gameTitle="Dominoes" Game={DominoesArenaGame} preloadedRoomId={activeMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <CompetitiveGameLaunch gameKey="dominoes" gameTitle="Dominoes" Game={DominoesArenaGame} preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://2048" ? (
         <Game2048 onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://big-two" ? (
-        <BigTwoFourPlayerArena preloadedRoomId={activeMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <BigTwoFourPlayerArena preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://block-puzzle" ? (
         <BlockPuzzleGame onClose={() => setPlayingGame(null)} />
       ) : playingGame ? (
         <GamePlayer
           gameUrl={playingGame}
+          matchId={gameMatchId}
           onClose={() => {
             setPlayingGame(null);
             setActiveMatchId(null);
           }}
         />
       ) : null}
+      </div>
 
       {/* 📱 SOLID APP SHELL */}
       <div
         className={
-          playingGame
+          playingGame && !gameReturn
             ? "hidden"
             : "fixed inset-0 flex flex-col w-full max-w-full bg-background text-on-background font-body overflow-hidden transition-colors duration-300"
         }
       >
+        {gameReturn && (
+          <aside className="fixed inset-x-4 top-[calc(var(--app-safe-top)+0.75rem)] z-[100002] mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-primary/35 bg-surface px-3 py-3 shadow-2xl backdrop-blur-xl">
+            <span className="material-symbols-outlined grid size-9 shrink-0 place-items-center rounded-xl bg-primary-container text-primary">sports_esports</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-black text-on-surface">{pausedGameName} is still open</p>
+              <p className="text-[11px] text-on-surface-variant">Return within {gameReturnSeconds}s to continue where you left off.</p>
+            </div>
+            <button type="button" onClick={resumeGame} className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-black text-on-primary active:scale-95">Return</button>
+            <button type="button" onClick={endSuspendedGame} aria-label="End game" className="grid size-8 shrink-0 place-items-center rounded-lg text-on-surface-variant active:bg-surface-container-high"><span className="material-symbols-outlined text-lg">close</span></button>
+          </aside>
+        )}
         {/* HEADER */}
         {activeTab !== "Spin" && !chatFullscreen && !gameDetailsFullscreen && <header
           className="fixed top-0 left-0 right-0 z-[100001] bg-background flex justify-between items-center px-5 transition-colors duration-300"
