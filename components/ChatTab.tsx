@@ -774,6 +774,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
                 </div>
+                <p className="px-1 pb-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Two-player challenges</p>
                 
                 {/* 1. Uno Card Battle */}
                 <button onClick={() => handleSendGameInvite("uno")} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
@@ -847,24 +848,24 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                      </div>
                      <h4 className="font-headline text-xs font-bold text-on-surface">Neon Checkers</h4>
                    </div>
-                   <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
+                  <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
-                <p className="px-1 pt-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Four-player tables</p>
-                {FOUR_PLAYER_CHALLENGES.map((game) => (
-                  <button key={game.type} onClick={() => openFourPlayerInvite(game.type)} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
-                    <div className="flex items-center gap-4"><div className={`w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center ${game.accent}`}><span className="material-symbols-outlined text-[20px]">{game.icon}</span></div><span><h4 className="font-headline text-xs font-bold text-on-surface">{game.name}</h4><small className="text-[10px] text-on-surface-variant">Invite up to 3 friends</small></span></div>
-                    <span className="material-symbols-outlined text-on-surface-variant text-base">group_add</span>
-                  </button>
-                ))}
                 {NEW_CHALLENGE_GAMES.map((game) => (
                   <button key={game.type} onClick={() => handleSendGameInvite(game.type)} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center ${game.accent}`}>
                         <span className="material-symbols-outlined text-[20px]">{game.icon}</span>
                       </div>
-                      <h4 className="font-headline text-xs font-bold text-on-surface">{game.name}</h4>
+                      <span><h4 className="font-headline text-xs font-bold text-on-surface">{game.name}</h4><small className="text-[10px] text-on-surface-variant">Challenge one friend</small></span>
                     </div>
                     <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
+                  </button>
+                ))}
+                <p className="px-1 pt-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Four-player tables</p>
+                {FOUR_PLAYER_CHALLENGES.map((game) => (
+                  <button key={game.type} onClick={() => openFourPlayerInvite(game.type)} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
+                    <div className="flex items-center gap-4"><div className={`w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center ${game.accent}`}><span className="material-symbols-outlined text-[20px]">{game.icon}</span></div><span><h4 className="font-headline text-xs font-bold text-on-surface">{game.name}</h4><small className="text-[10px] text-on-surface-variant">Invite up to 3 friends</small></span></div>
+                    <span className="material-symbols-outlined text-on-surface-variant text-base">group_add</span>
                   </button>
                 ))}
               </>

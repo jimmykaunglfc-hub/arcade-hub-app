@@ -1,8 +1,14 @@
 "use client";
 
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
+import { Capacitor } from "@capacitor/core";
+import {
+  Camera,
+  EncodingType,
+  MediaTypeSelection,
+} from "@capacitor/camera";
 import { supabase } from "../lib/supabaseClient";
 import { soundEngine } from "../lib/soundManager";
 import { LANGUAGES, LanguageCode, useTranslation } from "../lib/i18n";
@@ -86,8 +92,10 @@ export default function ProfileTab({
   const [modal, setModal] = useState<Modal>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [name, setName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [profileEditConfig, setProfileEditConfig] = useState<ProfileEditConfig>({
     profile_edit_cost: 100,
     profile_edit_currency: "points",
@@ -272,8 +280,7 @@ export default function ProfileTab({
     );
   };
 
-  const uploadAvatar = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const uploadAvatarFile = async (file: File | null | undefined) => {
     if (!profile || !file) return;
     if (!file.type.startsWith("image/")) {
       showMessage("Please choose an image file.");
@@ -293,6 +300,77 @@ export default function ProfileTab({
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
     setAvatarUrl(data.publicUrl);
     setSaving(false);
+  };
+
+  const uploadAvatar = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    await uploadAvatarFile(file);
+    event.target.value = "";
+  };
+
+  const uploadNativePhoto = async (webPath: string | undefined) => {
+    if (!webPath) {
+      showMessage("The selected photo could not be read. Please try again.");
+      return;
+    }
+    const response = await fetch(webPath);
+    const blob = await response.blob();
+    await uploadAvatarFile(
+      new File([blob], `profile-photo-${Date.now()}.jpeg`, {
+        type: blob.type || "image/jpeg",
+      })
+    );
+  };
+
+  const takeAvatarPhoto = async () => {
+    setAvatarPickerOpen(false);
+    try {
+      const permissions = await Camera.requestPermissions({
+        permissions: ["camera"],
+      });
+      if (permissions.camera !== "granted") {
+        showMessage("Camera permission is needed to take a profile photo.");
+        return;
+      }
+      const photo = await Camera.takePhoto({
+        quality: 85,
+        correctOrientation: true,
+        encodingType: EncodingType.JPEG,
+        editable: "no",
+        saveToGallery: false,
+      });
+      await uploadNativePhoto(photo.webPath);
+    } catch (error) {
+      if ((error as { code?: string }).code !== "OS-PLUG-CAMR-0001") {
+        showMessage("Unable to take a photo. Please try again.");
+      }
+    }
+  };
+
+  const chooseAvatarFromLibrary = async () => {
+    setAvatarPickerOpen(false);
+    try {
+      const result = await Camera.chooseFromGallery({
+        mediaType: MediaTypeSelection.Photo,
+        allowMultipleSelection: false,
+        quality: 85,
+        correctOrientation: true,
+        editable: "no",
+      });
+      await uploadNativePhoto(result.results[0]?.webPath);
+    } catch (error) {
+      if ((error as { code?: string }).code !== "OS-PLUG-CAMR-0001") {
+        showMessage("Unable to choose a photo. Please try again.");
+      }
+    }
+  };
+
+  const openAvatarPicker = () => {
+    if (Capacitor.isNativePlatform()) {
+      setAvatarPickerOpen(true);
+      return;
+    }
+    avatarInputRef.current?.click();
   };
 
   const setPushEnabled = async (enabled: boolean) => {
@@ -827,15 +905,21 @@ export default function ProfileTab({
                         className="rounded-full object-cover"
                         unoptimized
                       />
-                      <label className="text-xs font-bold text-primary cursor-pointer">
+                      <button
+                        type="button"
+                        onClick={openAvatarPicker}
+                        disabled={saving}
+                        className="text-xs font-bold text-primary disabled:opacity-50"
+                      >
                         Upload photo
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={uploadAvatar}
-                        />
-                      </label>
+                      </button>
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={uploadAvatar}
+                      />
                       {avatarUrl && (
                         <button
                           type="button"
@@ -969,6 +1053,62 @@ export default function ProfileTab({
                     {legal?.content}
                   </p>
                 )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+      {avatarPickerOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[210] flex items-end bg-black/70 p-4 backdrop-blur-sm sm:items-center sm:justify-center">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="avatar-source-title"
+              className="w-full max-w-sm rounded-[28px] border border-surface-container-highest bg-surface p-5 shadow-2xl"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h3 id="avatar-source-title" className="font-headline text-lg font-black">
+                  Upload profile photo
+                </h3>
+                <button
+                  type="button"
+                  aria-label="Close photo options"
+                  onClick={() => setAvatarPickerOpen(false)}
+                  className="rounded-full p-1 text-on-surface-variant transition hover:bg-surface-container-high"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => void chooseAvatarFromLibrary()}
+                  className="flex w-full items-center gap-3 rounded-xl bg-surface-container-high px-4 py-3 text-left text-sm font-bold"
+                >
+                  <span className="material-symbols-outlined text-primary">photo_library</span>
+                  Photo Library
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void takeAvatarPhoto()}
+                  className="flex w-full items-center gap-3 rounded-xl bg-surface-container-high px-4 py-3 text-left text-sm font-bold"
+                >
+                  <span className="material-symbols-outlined text-primary">photo_camera</span>
+                  Take Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAvatarPickerOpen(false);
+                    avatarInputRef.current?.click();
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl bg-surface-container-high px-4 py-3 text-left text-sm font-bold"
+                >
+                  <span className="material-symbols-outlined text-primary">folder_open</span>
+                  Choose File
+                </button>
               </div>
             </div>
           </div>,
