@@ -20,6 +20,7 @@ interface ChatGroup { id: string; name: string; description: string; created_by:
 type ChatNetworkSnapshot = {
   userId: string;
   username: string;
+  referralCode: string;
   friends: Friend[];
   pendingRequests: FriendRequest[];
   groups: ChatGroup[];
@@ -86,6 +87,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
 
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [myUsername, setMyUsername] = useState<string>("");
+  const [myReferralCode, setMyReferralCode] = useState<string>("");
   const [friends, setFriends] = useState<Friend[]>([]);
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
   const [groups, setGroups] = useState<ChatGroup[]>([]);
@@ -140,27 +142,30 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   const loadNetwork = useCallback(async (id: string) => {
     setNetworkLoading(true);
     const [{ data: myProfile }, { data: links }, { data: allGroups }, { data: memberships }, { data: unread }] = await Promise.all([
-      supabase.from("profiles").select("username, network_id").eq("id", id).single(),
+      supabase.from("profiles").select("username, network_id, referral_code").eq("id", id).single(),
       supabase.from("friendships").select("id, requester_id, receiver_id, status").or(`requester_id.eq.${id},receiver_id.eq.${id}`),
       supabase.from("chat_groups").select("id, name, description, created_by").order("created_at", { ascending: false }).limit(30),
       supabase.from("chat_group_members").select("group_id").eq("user_id", id),
       supabase.from("direct_messages").select("sender_id").eq("receiver_id", id).is("read_at", null),
     ]);
-    const [{ data: referralData }, { data: referralConfig }, { data: milestones }, { data: purchases }] = await Promise.all([
-      supabase.rpc("get_my_referral_dashboard"),
-      supabase.from("platform_config").select("referral_inviter_points, referral_inviter_gems").eq("id", 1).maybeSingle(),
+    const [{ data: referralProgram }, { data: milestones }, { data: purchases }] = await Promise.all([
+      supabase.rpc("get_my_referral_program"),
       supabase.from("referral_milestone_rules").select("invitee_target,reward_points,reward_gems").eq("is_active", true).order("invitee_target"),
       supabase.from("referral_purchase_rules").select("minimum_purchase_amount,reward_points,reward_gems").eq("is_active", true).order("minimum_purchase_amount"),
     ]);
-    if (referralData) setReferralStats(Array.isArray(referralData) ? referralData[0] : referralData);
+    const referralData = Array.isArray(referralProgram) ? referralProgram[0] : referralProgram;
+    if (referralData) setReferralStats({ invited: Number(referralData.invited || 0), earned: Number(referralData.earned || 0) });
     setReferralBenefits([
-      referralConfig ? { label: "Every successful invite", detail: `+${Number(referralConfig.referral_inviter_points || 0).toLocaleString()} points · +${Number(referralConfig.referral_inviter_gems || 0)} gems` } : null,
+      referralData ? { label: "Every successful invite", detail: `You receive +${Number(referralData.inviter_points || 0).toLocaleString()} points · +${Number(referralData.inviter_gems || 0)} gems. New player receives +${Number(referralData.new_user_points || 0).toLocaleString()} points.` } : null,
       ...(milestones || []).map((rule: any) => ({ label: `${rule.invitee_target} invitee milestone`, detail: `+${Number(rule.reward_points || 0).toLocaleString()} points · +${Number(rule.reward_gems || 0)} gems` })),
       ...(purchases || []).map((rule: any) => ({ label: `Invitee spends $${Number(rule.minimum_purchase_amount).toFixed(2)}+`, detail: `+${Number(rule.reward_points || 0).toLocaleString()} points · +${Number(rule.reward_gems || 0)} gems` })),
     ].filter(Boolean) as Array<{ label: string; detail: string }>);
     const { data: invitees } = await supabase.rpc("get_my_referral_invitees");
     if (invitees) setReferralInvitees(invitees as Array<{ username: string; network_id: string; created_at: string }>);
-    if (myProfile) setMyUsername(myProfile.network_id || myProfile.username);
+    if (myProfile) {
+      setMyUsername(myProfile.network_id || myProfile.username);
+      setMyReferralCode(myProfile.referral_code || "");
+    }
     const accepted = (links || []).filter((link) => link.status === "accepted");
     const requested = (links || []).filter((link) => link.status === "pending" && link.receiver_id === id);
     const profileIds = [...new Set([...accepted.map((link) => link.requester_id === id ? link.receiver_id : link.requester_id), ...requested.map((link) => link.requester_id)])];
@@ -181,7 +186,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
     const counts: Record<string, number> = {};
     (unread || []).forEach((message) => { counts[message.sender_id] = (counts[message.sender_id] || 0) + 1; });
     setUnreadByFriend(counts);
-    chatNetworkSnapshot = { userId: id, username: myProfile?.network_id || myProfile?.username || "", friends: resolvedFriends, pendingRequests: resolvedRequests, groups: resolvedGroups, joinedGroupIds: resolvedGroupIds, unreadByFriend: counts };
+    chatNetworkSnapshot = { userId: id, username: myProfile?.network_id || myProfile?.username || "", referralCode: myProfile?.referral_code || "", friends: resolvedFriends, pendingRequests: resolvedRequests, groups: resolvedGroups, joinedGroupIds: resolvedGroupIds, unreadByFriend: counts };
     setNetworkLoading(false);
   }, []);
 
@@ -193,6 +198,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
       setMyUserId(user.id);
       if (chatNetworkSnapshot?.userId === user.id) {
         setMyUsername(chatNetworkSnapshot.username);
+        setMyReferralCode(chatNetworkSnapshot.referralCode);
         setFriends(chatNetworkSnapshot.friends);
         setPendingRequests(chatNetworkSnapshot.pendingRequests);
         setGroups(chatNetworkSnapshot.groups);
@@ -558,12 +564,12 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   const isOnline = (friend: Friend) => Boolean(friend.is_online);
 
   const handleCopyId = () => {
-    navigator.clipboard.writeText(myUsername);
+    navigator.clipboard.writeText(myReferralCode || myUsername);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
   const handleShareReferral = async () => {
-    const shareData = { title: "Join me on Joe Yoke", text: `Use my referral code: ${myUsername}` };
+    const shareData = { title: "Join me on Joe Yoke", text: `Use my referral code: ${myReferralCode || myUsername}` };
     if (navigator.share) {
       try { await navigator.share(shareData); } catch { /* User dismissed the native sheet. */ }
       return;
@@ -694,7 +700,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
               <h3 className="font-headline text-xl font-black mb-1">Invite &amp; Earn!</h3>
               <p className="max-w-[250px] text-xs font-semibold">Share your referral code and earn rewards when friends join.</p>
               <div className="flex items-end justify-between relative z-10">
-                <p className="mt-4 font-headline text-sm font-black tracking-tight">{myUsername || "Loading..."}</p>
+                <p className="mt-4 font-headline text-sm font-black tracking-tight">{myReferralCode || "Loading..."}</p>
                 <button onClick={(event) => { event.stopPropagation(); handleCopyId(); }} className="h-10 rounded-xl bg-black px-4 text-xs font-black text-white active:scale-95 transition-all">
                   <span className="material-symbols-outlined text-base">{copied ? "check" : "content_copy"}</span>
                 </button>
@@ -717,7 +723,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
               {inviteStatus && <p className="font-body text-[11px] text-primary font-bold mt-3">{inviteStatus}</p>}
             </div>
             {pendingRequests.length > 0 && <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm"><h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3">Connection requests</h3><div className="space-y-3">{pendingRequests.map((request) => <div key={request.requestId} className="flex items-center gap-3"><div className="w-9 h-9 rounded-full overflow-hidden relative bg-surface-container-high"><Image src={request.avatar_url} alt="" fill className="object-cover" unoptimized /></div><span className="flex-1 text-sm font-bold text-on-surface">{request.username}</span><button onClick={() => respondToFriendRequest(request.requestId, false)} className="text-xs font-bold text-on-surface-variant">Decline</button><button onClick={() => respondToFriendRequest(request.requestId, true)} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary">Accept</button></div>)}</div></div>}
-            {showShareSheet && <div className="fixed inset-0 z-[100101] flex items-end bg-black/60 backdrop-blur-sm"><div className="w-full rounded-t-[30px] bg-surface px-5 pb-[calc(22px+env(safe-area-inset-bottom))] pt-3 shadow-2xl"><div className="mx-auto h-1.5 w-10 rounded-full bg-on-surface-variant/40" /><div className="mt-4 flex items-center justify-between"><h3 className="font-headline text-xl font-black">Share referral code</h3><button onClick={() => setShowShareSheet(false)} className="grid h-9 w-9 place-items-center rounded-full bg-surface-container-high"><span className="material-symbols-outlined">close</span></button></div><p className="mt-1 text-xs text-on-surface-variant">Copy your code to share it in any app.</p><button onClick={() => { handleCopyId(); setShowShareSheet(false); }} className="mt-5 flex w-full items-center gap-4 rounded-2xl bg-surface-container-high p-4 text-left"><span className="grid h-12 w-12 place-items-center rounded-full bg-primary text-on-primary"><span className="material-symbols-outlined">content_copy</span></span><span><b className="block text-sm">Copy referral code</b><small className="text-xs text-on-surface-variant">{myUsername}</small></span></button></div></div>}
+            {showShareSheet && <div className="fixed inset-0 z-[100101] flex items-end bg-black/60 backdrop-blur-sm"><div className="w-full rounded-t-[30px] bg-surface px-5 pb-[calc(22px+env(safe-area-inset-bottom))] pt-3 shadow-2xl"><div className="mx-auto h-1.5 w-10 rounded-full bg-on-surface-variant/40" /><div className="mt-4 flex items-center justify-between"><h3 className="font-headline text-xl font-black">Share referral code</h3><button onClick={() => setShowShareSheet(false)} className="grid h-9 w-9 place-items-center rounded-full bg-surface-container-high"><span className="material-symbols-outlined">close</span></button></div><p className="mt-1 text-xs text-on-surface-variant">Copy your code to share it in any app.</p><button onClick={() => { handleCopyId(); setShowShareSheet(false); }} className="mt-5 flex w-full items-center gap-4 rounded-2xl bg-surface-container-high p-4 text-left"><span className="grid h-12 w-12 place-items-center rounded-full bg-primary text-on-primary"><span className="material-symbols-outlined">content_copy</span></span><span><b className="block text-sm">Copy referral code</b><small className="text-xs text-on-surface-variant">{myReferralCode || myUsername}</small></span></button></div></div>}
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/i18n";
+import GuestActionGate from "@/components/GuestActionGate";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -53,7 +54,7 @@ export default function RootLayout({
       <body
         className={`${inter.className} bg-background text-on-background min-h-screen font-body overflow-x-hidden transition-colors duration-300`}
       >
-        <LanguageProvider>{children}</LanguageProvider>
+        <LanguageProvider><GuestActionGate>{children}</GuestActionGate></LanguageProvider>
       </body>
     </html>
   );
