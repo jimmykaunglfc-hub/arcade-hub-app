@@ -11,16 +11,18 @@ export default function GuestActionGate({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
   const isAdminRoute = pathname.startsWith("/joeyokeadmin");
+  const isAccountSession = (session: { user?: { is_anonymous?: boolean } } | null) =>
+    Boolean(session && !session.user?.is_anonymous);
 
   useEffect(() => {
     let mounted = true;
     void supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
-      setIsAuthenticated(Boolean(data.session));
+      setIsAuthenticated(isAccountSession(data.session));
       setReady(true);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(Boolean(session));
+      setIsAuthenticated(isAccountSession(session));
       setReady(true);
       if (session) setShowSignIn(false);
     });
@@ -35,7 +37,10 @@ export default function GuestActionGate({ children }: { children: ReactNode }) {
     const interceptGuestAction = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target : null;
       if (!target || target.closest("[data-guest-auth-dialog]")) return;
-      if (!target.closest("button, a[href], [role='button'], input[type='submit']")) return;
+      // Browsing and local play remain available to guests. Only actions that
+      // spend/earn wallet value or start an online match ask the player to
+      // sign in; components opt in with this explicit marker.
+      if (!target.closest("[data-requires-auth]")) return;
       event.preventDefault();
       event.stopPropagation();
       setShowSignIn(true);
@@ -47,12 +52,25 @@ export default function GuestActionGate({ children }: { children: ReactNode }) {
   return <>
     {children}
     {showSignIn && !isAuthenticated && !isAdminRoute && (
-      <div data-guest-auth-dialog className="fixed inset-0 z-[200000] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-background/95 px-5 py-6 backdrop-blur-sm">
+      <div
+        data-guest-auth-dialog
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="guest-login-title"
+        className="fixed inset-0 z-[200000] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-[#070A12]/85 px-5 py-6 backdrop-blur-md"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setShowSignIn(false);
+        }}
+      >
         <div className="w-full max-w-sm">
-          <p role="alert" className="mb-3 rounded-xl border border-primary/30 bg-primary-container px-4 py-3 text-center text-xs font-bold text-on-primary-container">
-            Sign in is required to use Joe Yoke features.
+          <p role="status" className="mb-3 rounded-xl border border-primary/30 bg-primary-container px-4 py-3 text-center text-xs font-bold text-on-surface">
+            Sign in to claim rewards and play online.
           </p>
-          <AuthView onAuthSuccess={() => setShowSignIn(false)} />
+          <AuthView
+            onAuthSuccess={() => setShowSignIn(false)}
+            onCancel={() => setShowSignIn(false)}
+            dialogTitleId="guest-login-title"
+          />
         </div>
       </div>
     )}

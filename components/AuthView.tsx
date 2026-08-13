@@ -5,6 +5,8 @@ import { supabase } from "../lib/supabaseClient";
 
 interface AuthViewProps {
   onAuthSuccess: () => void;
+  onCancel?: () => void;
+  dialogTitleId?: string;
 }
 
 type AuthStage = "email" | "verify";
@@ -18,7 +20,7 @@ const providerDetails: Record<SocialProvider, { label: string; icon: string }> =
   telegram: { label: "Continue with Telegram", icon: "➤" },
 };
 
-export default function AuthView({ onAuthSuccess }: AuthViewProps) {
+export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: AuthViewProps) {
   const [stage, setStage] = useState<AuthStage>("email");
   const [email, setEmail] = useState("");
   const [referralCode, setReferralCode] = useState("");
@@ -136,6 +138,17 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
       <div className="relative w-full max-w-sm overflow-hidden rounded-[30px] border border-surface-container-highest bg-surface p-5 text-on-surface shadow-[0_28px_80px_rgba(0,0,0,0.22)] sm:p-7">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(ellipse_at_top,rgba(86,112,255,0.24),transparent_70%)]" />
 
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Cancel sign in"
+            className="absolute right-4 top-4 z-20 grid h-9 w-9 place-items-center rounded-full border border-surface-container-highest bg-surface-container text-on-surface-variant transition hover:text-on-surface active:scale-95"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        )}
+
         <div className="relative z-10 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-primary shadow-[0_0_30px_rgba(204,255,0,0.10)]">
             <span className="material-symbols-outlined text-[27px]" aria-hidden="true">
@@ -143,7 +156,7 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
             </span>
           </div>
           <p className="font-caps text-[10px] font-bold uppercase tracking-[0.22em] text-primary">Joe Yoke account</p>
-          <h2 className="mt-2 font-headline text-2xl font-black tracking-tight text-on-surface">
+          <h2 id={dialogTitleId} className="mt-2 font-headline text-2xl font-black tracking-tight text-on-surface">
             {stage === "verify" ? "Check your inbox" : "Play with your account"}
           </h2>
           <p className="mx-auto mt-2 max-w-[270px] text-xs leading-5 text-on-surface-variant">
@@ -186,6 +199,16 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
             <button type="button" onClick={returnToEmail} disabled={isBusy} className="w-full py-1 text-xs font-semibold text-on-surface-variant transition hover:text-on-surface disabled:opacity-50">
               Use a different email
             </button>
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={isBusy}
+                className="w-full py-1 text-xs font-semibold text-on-surface-variant transition hover:text-on-surface disabled:opacity-50"
+              >
+                Not now
+              </button>
+            )}
           </form>
         ) : (
           <div className="relative z-10 mt-7">
@@ -246,6 +269,16 @@ export default function AuthView({ onAuthSuccess }: AuthViewProps) {
             <p className="mt-5 text-center text-[11px] leading-4 text-white/35">
               New here? Your account is created automatically the first time you continue.
             </p>
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={isBusy}
+                className="mt-4 w-full py-2 text-xs font-semibold text-on-surface-variant transition hover:text-on-surface disabled:opacity-50"
+              >
+                Not now
+              </button>
+            )}
           </div>
         )}
       </div>

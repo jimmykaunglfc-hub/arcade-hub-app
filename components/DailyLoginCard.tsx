@@ -168,6 +168,7 @@ export default function DailyLoginCard({ userId, onClaimSuccess }: DailyLoginCar
           <button
             onClick={handleClaim}
             disabled={claiming}
+            data-requires-auth
             className="bg-surface text-on-surface font-headline font-black text-xs uppercase px-5 py-2.5 rounded-full hover:bg-surface-variant transition-all shadow-md active:scale-95 disabled:opacity-50 border border-surface-container-highest"
           >
             {claiming ? "Claiming..." : "Claim"}

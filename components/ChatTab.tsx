@@ -126,7 +126,11 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   const [copied, setCopied] = useState(false);
   const [showReferralDashboard, setShowReferralDashboard] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
-  const [referralStats, setReferralStats] = useState({ invited: 0, earned: 0 });
+  const [referralStats, setReferralStats] = useState({
+    invited: 0,
+    points: 0,
+    gems: 0,
+  });
   const [referralInvitees, setReferralInvitees] = useState<Array<{ username: string; network_id: string; created_at: string }>>([]);
   const [referralBenefits, setReferralBenefits] = useState<Array<{ label: string; detail: string }>>([]);
   
@@ -157,7 +161,14 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
       supabase.rpc("get_my_group_creation_policy"),
     ]);
     const referralData = Array.isArray(referralProgram) ? referralProgram[0] : referralProgram;
-    if (referralData) setReferralStats({ invited: Number(referralData.invited || 0), earned: Number(referralData.earned || 0) });
+    if (referralData) {
+      const invited = Number(referralData.invited || 0);
+      setReferralStats({
+        invited,
+        points: Number(referralData.earned || 0),
+        gems: invited * Number(referralData.inviter_gems || 0),
+      });
+    }
     const policy = Array.isArray(groupPolicy) ? groupPolicy[0] : groupPolicy;
     if (policy) setGroupCreationPolicy({
       free_creations_remaining: Number(policy.free_creations_remaining || 0),
@@ -832,7 +843,42 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   }
 
   if (activeView === "referral") {
-    return <div className="fixed inset-0 z-[100002] overflow-y-auto bg-background px-5 pb-8 pt-[calc(18px+env(safe-area-inset-top))] text-on-surface"><header className="flex items-center gap-3"><button onClick={() => { setActiveView("hub"); onChatOpenChange?.(false); }} className="grid h-10 w-10 place-items-center rounded-full"><span className="material-symbols-outlined">arrow_back</span></button><h1 className="font-headline text-lg font-black">Invite dashboard</h1></header><section className="mt-7 rounded-[28px] bg-primary-container p-6"><p className="text-xs font-bold text-primary">REFERRAL PERFORMANCE</p><h2 className="mt-2 font-headline text-2xl font-black">Your invite summary</h2><p className="mt-2 text-xs text-on-surface-variant">Track invitees and see the rewards available in the current program.</p></section><div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-surface-container-high p-5"><b className="text-3xl text-primary">{referralStats.invited}</b><p className="mt-1 text-xs text-on-surface-variant">Total invitees</p></div><div className="rounded-2xl bg-surface-container-high p-5"><b className="text-3xl text-primary">{referralStats.earned}</b><p className="mt-1 text-xs text-on-surface-variant">Points earned</p></div></div><h2 className="mt-7 font-headline text-base font-black">Available benefits</h2><div className="mt-3 space-y-2">{referralBenefits.length ? referralBenefits.map((benefit) => <div key={benefit.label} className="rounded-xl border border-surface-container-highest bg-surface p-3"><b className="block text-xs">{benefit.label}</b><small className="text-primary">{benefit.detail}</small></div>) : <p className="rounded-xl bg-surface p-4 text-xs text-on-surface-variant">Rewards will appear when the referral program is configured.</p>}</div><h2 className="mt-7 font-headline text-base font-black">Invitee information</h2><div className="mt-3 space-y-3">{referralInvitees.length ? referralInvitees.map((invitee) => <div key={invitee.network_id} className="flex items-center gap-3 rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="grid h-10 w-10 place-items-center rounded-full bg-primary-container font-black text-primary">{invitee.username.slice(0,1)}</span><span className="min-w-0 flex-1"><b className="block text-sm">{invitee.username}</b><small className="text-xs text-on-surface-variant">{invitee.network_id} · Joined {new Date(invitee.created_at).toLocaleDateString()}</small></span><span className="rounded-full bg-primary-container px-2 py-1 text-[10px] font-bold text-primary">Active</span></div>) : <p className="rounded-2xl bg-surface p-5 text-center text-xs text-on-surface-variant">No invitees yet. Share your code to get started.</p>}</div></div>;
+    return (
+      <div className="fixed inset-0 z-[100002] overflow-y-auto bg-background px-5 pb-8 pt-[calc(18px+env(safe-area-inset-top))] text-on-surface">
+        <header className="flex items-center gap-3">
+          <button onClick={() => { setActiveView("hub"); onChatOpenChange?.(false); }} className="grid h-10 w-10 place-items-center rounded-full">
+            <span className="material-symbols-outlined">arrow_back</span>
+          </button>
+          <h1 className="font-headline text-lg font-black">Invite dashboard</h1>
+        </header>
+        <section className="mt-7 rounded-[28px] bg-primary-container p-6">
+          <p className="text-xs font-bold text-primary">REFERRAL PERFORMANCE</p>
+          <h2 className="mt-2 font-headline text-2xl font-black">Your invite summary</h2>
+          <p className="mt-2 text-xs text-on-surface-variant">Track invitees and see the rewards available in the current program.</p>
+        </section>
+        <div className="mt-5 grid grid-cols-3 gap-3">
+          <div className="rounded-2xl bg-surface-container-high p-4">
+            <span className="material-symbols-outlined text-lg text-primary">group</span>
+            <b className="mt-2 block text-2xl text-primary">{referralStats.invited}</b>
+            <p className="mt-1 text-[10px] font-bold text-on-surface-variant">Invitees</p>
+          </div>
+          <div className="rounded-2xl bg-surface-container-high p-4">
+            <span className="material-symbols-outlined text-lg text-primary">bolt</span>
+            <b className="mt-2 block text-2xl text-primary">{referralStats.points.toLocaleString()}</b>
+            <p className="mt-1 text-[10px] font-bold text-on-surface-variant">Points earned</p>
+          </div>
+          <div className="rounded-2xl bg-secondary-container p-4">
+            <span className="material-symbols-outlined text-lg text-secondary">diamond</span>
+            <b className="mt-2 block text-2xl text-secondary">{referralStats.gems.toLocaleString()}</b>
+            <p className="mt-1 text-[10px] font-bold text-on-surface-variant">Gems earned</p>
+          </div>
+        </div>
+        <h2 className="mt-7 font-headline text-base font-black">Available benefits</h2>
+        <div className="mt-3 space-y-2">{referralBenefits.length ? referralBenefits.map((benefit) => <div key={benefit.label} className="rounded-xl border border-surface-container-highest bg-surface p-3"><b className="block text-xs">{benefit.label}</b><small className="text-primary">{benefit.detail}</small></div>) : <p className="rounded-xl bg-surface p-4 text-xs text-on-surface-variant">Rewards will appear when the referral program is configured.</p>}</div>
+        <h2 className="mt-7 font-headline text-base font-black">Invitee information</h2>
+        <div className="mt-3 space-y-3">{referralInvitees.length ? referralInvitees.map((invitee) => <div key={invitee.network_id} className="flex items-center gap-3 rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="grid h-10 w-10 place-items-center rounded-full bg-primary-container font-black text-primary">{invitee.username.slice(0,1)}</span><span className="min-w-0 flex-1"><b className="block text-sm">{invitee.username}</b><small className="text-xs text-on-surface-variant">{invitee.network_id} · Joined {new Date(invitee.created_at).toLocaleDateString()}</small></span><span className="rounded-full bg-primary-container px-2 py-1 text-[10px] font-bold text-primary">Active</span></div>) : <p className="rounded-2xl bg-surface p-5 text-center text-xs text-on-surface-variant">No invitees yet. Share your code to get started.</p>}</div>
+      </div>
+    );
   }
 
   // ============================================================================
