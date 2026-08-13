@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, type ComponentType } from "react";
+import { useState, useEffect, useLayoutEffect, type ComponentType } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import { Capacitor } from "@capacitor/core";
 import { supabase } from "../lib/supabaseClient";
 
 // 👇 Ranking utilities
@@ -138,6 +139,15 @@ export default function Home() {
   const [chatFullscreen, setChatFullscreen] = useState(false);
   const [gameDetailsFullscreen, setGameDetailsFullscreen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+
+  // Safari also supports the CSS feature used by WKWebView, so CSS alone
+  // cannot tell an H5 browser from the native iOS package. Only Capacitor iOS
+  // needs the 44px fallback for a transparent, overlaying status bar.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("capacitor-ios", Capacitor.getPlatform() === "ios");
+    return () => root.classList.remove("capacitor-ios");
+  }, []);
 
   useEffect(() => {
     const savedLaunch = sessionStorage.getItem("tournament_match_launch");

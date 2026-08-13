@@ -162,13 +162,15 @@ body:has(textarea:focus) [data-bottom-nav] {
   }
 }
 
-/* Capacitor's WKWebView can report a zero CSS safe-area inset while its
-   transparent status bar still overlays the document. Keep touch targets below
-   that bar on iOS, including devices without a notch. */
+/* Use the browser's actual inset by default. Safari implements the same CSS
+   feature as Capacitor's WKWebView, so a WebKit feature query cannot be used
+   to distinguish H5 from the native app. */
 :root { --app-safe-top: env(safe-area-inset-top, 0px); }
-@supports (-webkit-touch-callout: none) {
-  :root { --app-safe-top: max(44px, env(safe-area-inset-top, 0px)); }
-}
+
+/* Only the Capacitor iOS app needs a fallback because its transparent status
+   bar can overlay the WebView while reporting a zero CSS inset. This class is
+   applied at runtime after Capacitor identifies the native platform. */
+:root.capacitor-ios { --app-safe-top: max(44px, env(safe-area-inset-top, 0px)); }
 
 
 /* Native game safe-area helpers. Tailwind has no built-in safe-area utilities. */
