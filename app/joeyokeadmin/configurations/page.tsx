@@ -355,7 +355,65 @@ export default function SiteSettingsPage() {
           </div>
         </div>
 
-        {/* SECTION 4: PLATFORM METADATA */}
+        {/* SECTION 4: COMMUNITY GROUP CREATION */}
+        <section id="group-creation" className="scroll-mt-8 bg-[#18181b] border border-[#CCFF00]/25 rounded-[24px] p-6 shadow-xl">
+          <div className="flex flex-col gap-4 border-b border-white/5 pb-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#CCFF00]/20 bg-[#CCFF00]/10 text-[#CCFF00]">
+                <UserPlus className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-headline text-lg font-black text-white">Community Group Creation Pricing</h3>
+                <p className="text-xs text-neutral-400">Configure the free allowance and the cost charged for every additional player-created group.</p>
+              </div>
+            </div>
+            <span className="w-fit rounded-full border border-[#CCFF00]/25 bg-[#CCFF00]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#CCFF00]">
+              Server enforced
+            </span>
+          </div>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <label className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Free groups per player
+              <input
+                type="number"
+                min="0"
+                value={groupCreationFreeLimit}
+                onChange={(e) => setGroupCreationFreeLimit(e.target.value === "" ? "" : Number(e.target.value))}
+                className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-mono text-white outline-none focus:border-[#CCFF00]"
+              />
+              <span className="mt-2 block normal-case tracking-normal text-neutral-500">Set to 0 to charge from the first group.</span>
+            </label>
+            <label className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Cost after free allowance
+              <input
+                type="number"
+                min="0"
+                value={groupCreationCost}
+                onChange={(e) => setGroupCreationCost(e.target.value === "" ? "" : Number(e.target.value))}
+                className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-mono text-white outline-none focus:border-[#CCFF00]"
+              />
+              <span className="mt-2 block normal-case tracking-normal text-neutral-500">Set to 0 to allow unlimited free groups.</span>
+            </label>
+            <label className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Charge currency
+              <select
+                value={groupCreationCurrency}
+                onChange={(e) => setGroupCreationCurrency(e.target.value as "points" | "gems")}
+                className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-[#CCFF00]"
+              >
+                <option value="points">Points</option>
+                <option value="gems">Gems</option>
+              </select>
+              <span className="mt-2 block normal-case tracking-normal text-neutral-500">Applied only after the free allowance is used.</span>
+            </label>
+          </div>
+          <p className="mt-4 rounded-xl border border-sky-400/15 bg-sky-400/[0.06] px-4 py-3 text-[11px] leading-relaxed text-sky-200">
+            The backend records every created group and debits the selected wallet automatically, so deleting a group does not restore a player&apos;s free allowance. Save Settings to publish changes.
+          </p>
+        </section>
+
+        {/* SECTION 5: PLATFORM METADATA */}
         <div className="bg-[#18181b] border border-white/10 rounded-[24px] p-6 shadow-xl space-y-6">
           <div className="flex items-center gap-3 pb-4 border-b border-white/5">
             <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
@@ -426,27 +484,6 @@ export default function SiteSettingsPage() {
             Wheel rules shown to players
             <textarea value={wheelSpinRules} onChange={(e) => setWheelSpinRules(e.target.value)} maxLength={180} rows={2} className="mt-1.5 w-full resize-none bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs normal-case tracking-normal text-white focus:outline-none focus:border-[#CCFF00]" />
           </label>
-          <div className="border-t border-white/5 pt-5">
-            <p className="text-xs font-black text-white">Community group creation</p>
-            <p className="mt-1 text-[10px] text-neutral-500">Each player receives the configured lifetime free allowance. Every later group is charged automatically by the backend.</p>
-            <div className="mt-3 grid gap-3 md:grid-cols-3">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-                Free groups per player
-                <input type="number" min="0" value={groupCreationFreeLimit} onChange={(e) => setGroupCreationFreeLimit(e.target.value === "" ? "" : Number(e.target.value))} className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]" />
-              </label>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-                Later group cost
-                <input type="number" min="0" value={groupCreationCost} onChange={(e) => setGroupCreationCost(e.target.value === "" ? "" : Number(e.target.value))} className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]" />
-              </label>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-                Charge currency
-                <select value={groupCreationCurrency} onChange={(e) => setGroupCreationCurrency(e.target.value as "points" | "gems")} className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]">
-                  <option value="points">Points</option>
-                  <option value="gems">Gems</option>
-                </select>
-              </label>
-            </div>
-          </div>
         </div>
 
       </form>
