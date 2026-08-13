@@ -188,15 +188,20 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
     }
     const accepted = (links || []).filter((link) => link.status === "accepted");
     const requested = (links || []).filter((link) => link.status === "pending" && link.receiver_id === id);
-    const profileIds = [...new Set([...accepted.map((link) => link.requester_id === id ? link.receiver_id : link.requester_id), ...requested.map((link) => link.requester_id)])];
+    const acceptedFriendIds = [...new Set(accepted.map((link) => link.requester_id === id ? link.receiver_id : link.requester_id))];
+    const requestedFriendIds = [...new Set(requested.map((link) => link.requester_id))];
+    const profileIds = [...new Set([...acceptedFriendIds, ...requestedFriendIds])];
     const [{ data: profiles }, publicCards] = await Promise.all([
       profileIds.length ? supabase.from("profiles").select("id, username, avatar_url, last_seen_at").in("id", profileIds) : Promise.resolve({ data: [] as Friend[] }),
       Promise.all(profileIds.map((userId) => supabase.rpc("get_public_profile_card", { target_user_id: userId }).single())),
     ]);
     const frameByUser = new Map(publicCards.flatMap(({ data }) => data ? [[(data as { user_id: string; avatar_frame_url: string | null }).user_id, (data as { avatar_frame_url: string | null }).avatar_frame_url] as [string, string | null]] : []));
     const profileById = new Map((profiles || []).map((profile) => [profile.id, { ...profile, avatar_frame_url: frameByUser.get(profile.id) || null, is_online: Boolean(profile.last_seen_at && Date.now() - new Date(profile.last_seen_at).getTime() < 3 * 60 * 1000) }]));
-    const resolvedFriends = (accepted.map((link) => profileById.get(link.requester_id === id ? link.receiver_id : link.requester_id)).filter(Boolean) as Friend[]).sort((a, b) => Number(Boolean(b.is_online)) - Number(Boolean(a.is_online)) || a.username.localeCompare(b.username));
-    const resolvedRequests = requested.map((link) => ({ ...(profileById.get(link.requester_id) as Friend), requestId: link.id })).filter((request) => request.id);
+    const resolvedFriends = (acceptedFriendIds.map((friendId) => profileById.get(friendId)).filter(Boolean) as Friend[]).sort((a, b) => Number(Boolean(b.is_online)) - Number(Boolean(a.is_online)) || a.username.localeCompare(b.username));
+    const resolvedRequests = requestedFriendIds.map((friendId) => {
+      const request = requested.find((link) => link.requester_id === friendId);
+      return { ...(profileById.get(friendId) as Friend), requestId: request?.id || "" };
+    }).filter((request) => request.id && request.requestId);
     const resolvedGroups = (allGroups || []) as ChatGroup[];
     const resolvedGroupIds = (memberships || []).map((membership) => membership.group_id);
     setFriends(resolvedFriends);
