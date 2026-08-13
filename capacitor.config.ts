@@ -3,7 +3,12 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.joeyoke.app',
   appName: 'Joe Yoke',
-  webDir: 'out'
+  webDir: 'out',
+  plugins: {
+    PushNotifications: {
+      presentationOptions: ['sound', 'alert'],
+    },
+  },
 };
 
 export default config;

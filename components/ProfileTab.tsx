@@ -11,6 +11,11 @@ import {
 } from "@capacitor/camera";
 import { supabase } from "../lib/supabaseClient";
 import { soundEngine } from "../lib/soundManager";
+import {
+  isAndroidNativeApp,
+  registerAndroidPushNotifications,
+  unregisterAndroidPushNotifications,
+} from "../lib/androidPushNotifications";
 import { LANGUAGES, LanguageCode, useTranslation } from "../lib/i18n";
 
 type Profile = {
@@ -396,7 +401,19 @@ export default function ProfileTab({
 
   const setPushEnabled = async (enabled: boolean) => {
     if (!profile) return;
-    if (enabled && "Notification" in window) {
+    if (enabled && isAndroidNativeApp()) {
+      try {
+        const registration = await registerAndroidPushNotifications();
+        if (registration.supported && !registration.granted) {
+          showMessage("Notification permission was not granted.");
+          return;
+        }
+      } catch (error) {
+        console.error("[FCM] Android registration failed", error);
+        showMessage("Could not register this device for notifications.");
+        return;
+      }
+    } else if (enabled && "Notification" in window) {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
         showMessage("Notification permission was not granted.");
@@ -410,6 +427,18 @@ export default function ProfileTab({
     if (error) {
       showMessage(error.message);
       return;
+    }
+    if (!enabled && isAndroidNativeApp()) {
+      try {
+        const token = localStorage.getItem("joeyoke_fcm_registration_token");
+        if (token) {
+          const { error: disableError } = await supabase.rpc("disable_my_push_device", { p_token: token });
+          if (disableError) throw disableError;
+        }
+        await unregisterAndroidPushNotifications();
+      } catch (unregisterError) {
+        console.warn("[FCM] Android unregister failed", unregisterError);
+      }
     }
     setProfile({ ...profile, push_enabled: enabled });
   };

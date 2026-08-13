@@ -75,14 +75,14 @@ export default function PushNotificationsPage() {
     setSending(true);
 
     try {
-      const { error } = await supabase.from("push_broadcasts").insert({
-        title,
-        message,
-        audience,
-        category,
-        action_url: actionUrl,
-        recipients_count: audience === "all" ? 12450 : 3200,
-        status: "delivered",
+      const { error } = await supabase.functions.invoke("send-push-broadcast", {
+        body: {
+          title,
+          message,
+          audience,
+          category,
+          actionUrl,
+        },
       });
 
       if (error) throw error;

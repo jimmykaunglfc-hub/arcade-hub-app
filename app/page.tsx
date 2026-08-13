@@ -428,7 +428,7 @@ export default function Home() {
               setPlayingGame(gameUrl);
             }}
           />
-          <GlobalNotificationListener userId={session.user.id} />
+          <GlobalNotificationListener userId={session.user.id} onPushAction={handleDeepLink} />
         </>
       )}
 

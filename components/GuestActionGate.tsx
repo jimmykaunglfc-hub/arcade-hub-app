@@ -57,7 +57,11 @@ export default function GuestActionGate({ children }: { children: ReactNode }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="guest-login-title"
-        className="fixed inset-0 z-[200000] flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-[#070A12]/85 px-5 py-6 backdrop-blur-md"
+        className="fixed inset-0 z-[200000] flex min-h-[100dvh] items-start justify-center overflow-y-auto bg-[#070A12]/85 px-5 backdrop-blur-md"
+        style={{
+          paddingTop: "max(1rem, calc(var(--app-safe-top) + 0.75rem))",
+          paddingBottom: "max(1rem, calc(env(safe-area-inset-bottom) + 0.75rem))",
+        }}
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) setShowSignIn(false);
         }}
