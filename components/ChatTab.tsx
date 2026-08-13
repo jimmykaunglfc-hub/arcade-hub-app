@@ -52,14 +52,15 @@ interface ChatTabProps {
 type ChallengeGame =
   | "checkers" | "carrom" | "chess" | "snooker" | "pool" | "uno" | "tictactoe"
   | "cup_pong" | "four_in_a_row" | "bingo" | "dominoes" | "ping_pong"
-  | "monopoly" | "big_two" | "ludo";
+  | "monopoly" | "big_two" | "ludo" | "shan_koe_mee";
 
-type FourPlayerChallenge = Extract<ChallengeGame, "monopoly" | "big_two" | "ludo">;
+type FourPlayerChallenge = Extract<ChallengeGame, "monopoly" | "big_two" | "ludo" | "shan_koe_mee">;
 
 const FOUR_PLAYER_CHALLENGES: Array<{ type: FourPlayerChallenge; name: string; icon: string; accent: string }> = [
   { type: "monopoly", name: "Monopoly", icon: "account_balance", accent: "text-sky-400" },
   { type: "big_two", name: "Big Two", icon: "style", accent: "text-amber-400" },
   { type: "ludo", name: "Ludo", icon: "casino", accent: "text-emerald-400" },
+  { type: "shan_koe_mee", name: "Shan Koe Mee", icon: "style", accent: "text-amber-300" },
 ];
 
 const NEW_CHALLENGE_GAMES: Array<{ type: Extract<ChallengeGame, "cup_pong" | "four_in_a_row" | "bingo" | "dominoes" | "ping_pong">; name: string; icon: string; accent: string }> = [
@@ -115,7 +116,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
     const accepted = messages.find((message) => message.message_type === "game_invite" && message.sender_id === myUserId && message.invite_status === "accepted" && message.match_id && !launchedInviteIds.current.has(message.id));
     if (!accepted) return;
     const name = (accepted.game_name || "").toLowerCase();
-    const route = name.includes("four in a row") ? "native://four-in-a-row" : name.includes("bingo") ? "native://bingo" : name.includes("domino") ? "native://dominoes" : name === "monopoly" ? "native://monopoly" : name === "big two" ? "native://big-two" : name === "ludo" ? "native://ludo" : null;
+    const route = name.includes("four in a row") ? "native://four-in-a-row" : name.includes("bingo") ? "native://bingo" : name.includes("domino") ? "native://dominoes" : name === "monopoly" ? "native://monopoly" : name === "big two" ? "native://big-two" : name === "ludo" ? "native://ludo" : name === "shan koe mee" ? "native://shan-koe-mee" : null;
     if (!route) return;
     launchedInviteIds.current.add(accepted.id);
     onPlay?.(route, accepted.match_id!);
@@ -1081,7 +1082,8 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
           const isMonopoly = msg.game_name === "Monopoly";
           const isBigTwo = msg.game_name === "Big Two";
           const isLudo = msg.game_name === "Ludo";
-          const isFourPlayerInvite = isMonopoly || isBigTwo || isLudo;
+          const isShanKoeMee = msg.game_name === "Shan Koe Mee";
+          const isFourPlayerInvite = isMonopoly || isBigTwo || isLudo || isShanKoeMee;
           const newChallenge = NEW_CHALLENGE_GAMES.find((game) => game.name === msg.game_name);
 
           const gameIcon = newChallenge?.icon || (isUno 
@@ -1104,6 +1106,8 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                 ? "native://big-two"
                 : isLudo
                   ? "native://ludo"
+                : isShanKoeMee
+                  ? "native://shan-koe-mee"
             : isUno 
               ? "native://uno"
             : isTicTacToe

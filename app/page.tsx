@@ -42,6 +42,7 @@ const LudoGame = dynamic(() => import("../components/games/LudoGame"), { ssr: fa
 const DominoesGame = dynamic(() => import("../components/games/DominoesGame"), { ssr: false });
 const Game2048 = dynamic(() => import("../components/games/Game2048"), { ssr: false });
 const BigTwoGame = dynamic(() => import("../components/games/BigTwoGame"), { ssr: false });
+const ShanKoeMeeGame = dynamic(() => import("../components/games/ShanKoeMeeGame"), { ssr: false });
 const BlockPuzzleGame = dynamic(() => import("../components/games/BlockPuzzleGame"), { ssr: false });
 const MonopolyGame = dynamic(() => import("../components/games/Monopoly"), { ssr: false });
 import AuthView from "../components/AuthView";
@@ -97,6 +98,15 @@ function LudoFourPlayerArena({ onClose, preloadedRoomId }: { onClose: () => void
   if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Ludo matchmaking.</div>;
   if (!roomId) return <FourPlayerMatchLobby gameKey="ludo" gameName="Ludo" userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
   return <LudoGame onClose={onClose} onPlayAgain={() => setRoomId(null)} roomId={roomId} />;
+}
+
+function ShanKoeMeeFourPlayerArena({ onClose, preloadedRoomId }: { onClose: () => void; preloadedRoomId?: string | null }) {
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
+  if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Shan Koe Mee matchmaking.</div>;
+  if (!roomId) return <FourPlayerMatchLobby gameKey="shan-koe-mee" gameName="Shan Koe Mee" userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
+  return <ShanKoeMeeGame onClose={onClose} onPlayAgain={() => setRoomId(null)} roomId={roomId} />;
 }
 
 function MonopolyFourPlayerArena({ onClose, preloadedRoomId }: { onClose: () => void; preloadedRoomId?: string | null }) {
@@ -522,6 +532,8 @@ export default function Home() {
         <SudokuGame onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://ludo" ? (
         <LudoFourPlayerArena preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+      ) : playingGame === "native://shan-koe-mee" ? (
+        <ShanKoeMeeFourPlayerArena preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://monopoly" ? (
         <MonopolyFourPlayerArena preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://dominoes" ? (
