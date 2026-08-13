@@ -567,6 +567,10 @@ export default function PingPong(props: PingPongProps) {
   const opponentServeAimRef = useRef(createOpponentServeAim());
   const opponentReturnAimRef = useRef(createOpponentReturnAim());
   const draggingRef = useRef(false);
+  // iOS can deliver a delayed pointercancel for an old touch after a new
+  // swipe starts. Track the owning pointer so that stale native WebView
+  // events cannot stop the player's current racket gesture.
+  const activePointerIdRef = useRef<number | null>(null);
   const roundLockedRef = useRef(false);
   const serveTimerRef = useRef<number | null>(null);
   const frameRef = useRef<number | null>(null);
@@ -1224,24 +1228,47 @@ export default function PingPong(props: PingPongProps) {
   );
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!event.isPrimary) return;
+    event.preventDefault();
+    activePointerIdRef.current = event.pointerId;
     draggingRef.current = true;
     pointerSampleRef.current = null;
     gesturePathRef.current = [];
-    event.currentTarget.setPointerCapture(event.pointerId);
+    // Pointer capture occasionally fails on the first touch after an iOS
+    // Capacitor WebView resumes. The canvas can still receive its normal
+    // pointer events, so capture failure must not abort the shot.
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Continue without capture.
+    }
     moveLocalPaddle(event.clientX, event.clientY);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!draggingRef.current) return;
+    if (
+      !draggingRef.current ||
+      activePointerIdRef.current !== event.pointerId
+    ) {
+      return;
+    }
+    event.preventDefault();
     moveLocalPaddle(event.clientX, event.clientY);
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (activePointerIdRef.current !== event.pointerId) return;
+    event.preventDefault();
     draggingRef.current = false;
+    activePointerIdRef.current = null;
     pointerSampleRef.current = null;
     gesturePathRef.current = [];
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // iOS may have already released capture after pointercancel.
     }
   };
 
@@ -3121,10 +3148,12 @@ export default function PingPong(props: PingPongProps) {
         ref={canvasRef}
         aria-label="London perspective table tennis arena"
         className="absolute inset-0 z-10 size-full touch-none select-none"
+        style={{ touchAction: "none", WebkitUserSelect: "none" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onContextMenu={(event) => event.preventDefault()}
       />
 
       {/* Native game navigation header */}
