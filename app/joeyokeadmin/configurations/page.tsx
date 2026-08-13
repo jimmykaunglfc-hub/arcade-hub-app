@@ -38,6 +38,9 @@ export default function SiteSettingsPage() {
   const [wheelSpinCurrency, setWheelSpinCurrency] = useState<"points" | "gems">("points");
   const [wheelSpinCooldownHours, setWheelSpinCooldownHours] = useState<number | "">(24);
   const [wheelSpinRules, setWheelSpinRules] = useState("One spin every 24 hours.");
+  const [groupCreationFreeLimit, setGroupCreationFreeLimit] = useState<number | "">(1);
+  const [groupCreationCost, setGroupCreationCost] = useState<number | "">(100);
+  const [groupCreationCurrency, setGroupCreationCurrency] = useState<"points" | "gems">("points");
 
   useEffect(() => {
     fetchConfig();
@@ -68,6 +71,9 @@ export default function SiteSettingsPage() {
         setWheelSpinCurrency(data.wheel_spin_currency === "gems" ? "gems" : "points");
         setWheelSpinCooldownHours(data.wheel_spin_cooldown_hours ?? 24);
         setWheelSpinRules(data.wheel_spin_rules || "One spin every 24 hours.");
+        setGroupCreationFreeLimit(data.group_creation_free_limit ?? 1);
+        setGroupCreationCost(data.group_creation_cost ?? 100);
+        setGroupCreationCurrency(data.group_creation_currency === "gems" ? "gems" : "points");
       }
     } catch (err: any) {
       console.error("Error fetching platform config:", err.message);
@@ -97,6 +103,9 @@ export default function SiteSettingsPage() {
         wheel_spin_currency: wheelSpinCurrency,
         wheel_spin_cooldown_hours: Math.min(168, Math.max(0, Number(wheelSpinCooldownHours || 0))),
         wheel_spin_rules: wheelSpinRules.trim(),
+        group_creation_free_limit: Math.max(0, Number(groupCreationFreeLimit || 0)),
+        group_creation_cost: Math.max(0, Number(groupCreationCost || 0)),
+        group_creation_currency: groupCreationCurrency,
         updated_at: new Date().toISOString(),
       };
 
@@ -417,6 +426,27 @@ export default function SiteSettingsPage() {
             Wheel rules shown to players
             <textarea value={wheelSpinRules} onChange={(e) => setWheelSpinRules(e.target.value)} maxLength={180} rows={2} className="mt-1.5 w-full resize-none bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs normal-case tracking-normal text-white focus:outline-none focus:border-[#CCFF00]" />
           </label>
+          <div className="border-t border-white/5 pt-5">
+            <p className="text-xs font-black text-white">Community group creation</p>
+            <p className="mt-1 text-[10px] text-neutral-500">Each player receives the configured lifetime free allowance. Every later group is charged automatically by the backend.</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                Free groups per player
+                <input type="number" min="0" value={groupCreationFreeLimit} onChange={(e) => setGroupCreationFreeLimit(e.target.value === "" ? "" : Number(e.target.value))} className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]" />
+              </label>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                Later group cost
+                <input type="number" min="0" value={groupCreationCost} onChange={(e) => setGroupCreationCost(e.target.value === "" ? "" : Number(e.target.value))} className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]" />
+              </label>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                Charge currency
+                <select value={groupCreationCurrency} onChange={(e) => setGroupCreationCurrency(e.target.value as "points" | "gems")} className="mt-1.5 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00]">
+                  <option value="points">Points</option>
+                  <option value="gems">Gems</option>
+                </select>
+              </label>
+            </div>
+          </div>
         </div>
 
       </form>

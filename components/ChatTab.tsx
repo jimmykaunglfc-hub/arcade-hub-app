@@ -98,6 +98,8 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   const [groupDescription, setGroupDescription] = useState("");
   const [groupStatus, setGroupStatus] = useState("");
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [groupCreationPolicy, setGroupCreationPolicy] = useState({ free_creations_remaining: 0, paid_cost: 0, paid_currency: "points" });
   const [activeChat, setActiveChat] = useState<Friend | null>(null);
   const [activeGroup, setActiveGroup] = useState<ChatGroup | null>(null);
   const [groupMessages, setGroupMessages] = useState<Array<{ id: string; content: string; created_at: string; sender_id: string; profiles?: { username?: string } | null }>>([]);
@@ -148,13 +150,20 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
       supabase.from("chat_group_members").select("group_id").eq("user_id", id),
       supabase.from("direct_messages").select("sender_id").eq("receiver_id", id).is("read_at", null),
     ]);
-    const [{ data: referralProgram }, { data: milestones }, { data: purchases }] = await Promise.all([
+    const [{ data: referralProgram }, { data: milestones }, { data: purchases }, { data: groupPolicy }] = await Promise.all([
       supabase.rpc("get_my_referral_program"),
       supabase.from("referral_milestone_rules").select("invitee_target,reward_points,reward_gems").eq("is_active", true).order("invitee_target"),
       supabase.from("referral_purchase_rules").select("minimum_purchase_amount,reward_points,reward_gems").eq("is_active", true).order("minimum_purchase_amount"),
+      supabase.rpc("get_my_group_creation_policy"),
     ]);
     const referralData = Array.isArray(referralProgram) ? referralProgram[0] : referralProgram;
     if (referralData) setReferralStats({ invited: Number(referralData.invited || 0), earned: Number(referralData.earned || 0) });
+    const policy = Array.isArray(groupPolicy) ? groupPolicy[0] : groupPolicy;
+    if (policy) setGroupCreationPolicy({
+      free_creations_remaining: Number(policy.free_creations_remaining || 0),
+      paid_cost: Number(policy.paid_cost || 0),
+      paid_currency: policy.paid_currency === "gems" ? "gems" : "points",
+    });
     setReferralBenefits([
       referralData ? { label: "Every successful invite", detail: `You receive +${Number(referralData.inviter_points || 0).toLocaleString()} points · +${Number(referralData.inviter_gems || 0)} gems. New player receives +${Number(referralData.new_user_points || 0).toLocaleString()} points.` } : null,
       ...(milestones || []).map((rule: any) => ({ label: `${rule.invitee_target} invitee milestone`, detail: `+${Number(rule.reward_points || 0).toLocaleString()} points · +${Number(rule.reward_gems || 0)} gems` })),
@@ -554,11 +563,17 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   const createGroup = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!myUserId || groupName.trim().length < 3) return setGroupStatus("Enter a group name of at least 3 characters.");
-    const { data, error } = await supabase.from("chat_groups").insert({ name: groupName.trim(), description: groupDescription.trim(), created_by: myUserId }).select("id").single();
-    if (error || !data) return setGroupStatus(error?.message || "Could not create group.");
-    const { error: memberError } = await supabase.from("chat_group_members").insert({ group_id: data.id, user_id: myUserId, role: "owner" });
-    setGroupStatus(memberError ? memberError.message : "Group created.");
-    if (!memberError) { setGroupName(""); setGroupDescription(""); await loadNetwork(myUserId); }
+    setCreatingGroup(true);
+    const { data, error } = await supabase.rpc("create_chat_group", { p_name: groupName.trim(), p_description: groupDescription.trim() });
+    setCreatingGroup(false);
+    const result = Array.isArray(data) ? data[0] : data;
+    if (error || !result?.group_id) return setGroupStatus(error?.message || "Could not create group.");
+    const charge = Number(result.charged_amount || 0);
+    setGroupStatus(charge ? `Group created. ${charge.toLocaleString()} ${result.charged_currency} charged.` : "Group created with your free allowance.");
+    setGroupName("");
+    setGroupDescription("");
+    setShowCreateGroup(false);
+    await loadNetwork(myUserId);
   };
 
   const isOnline = (friend: Friend) => Boolean(friend.is_online);
@@ -675,11 +690,12 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
 
         {hubTab === "groups" && (
           <div className="flex flex-col gap-3">
-            {!showCreateGroup ? <button onClick={() => setShowCreateGroup(true)} className="flex w-full items-center gap-3 rounded-2xl border border-primary/30 bg-primary-container/35 p-4 text-left shadow-sm"><span className="grid h-11 w-11 place-items-center rounded-xl bg-primary text-on-primary shadow-sm"><span className="material-symbols-outlined">add</span></span><span><b className="block text-sm">Create a new group</b><small className="text-xs text-on-surface-variant">Start a community for your friends</small></span><span className="ml-auto material-symbols-outlined text-primary">arrow_forward</span></button> : <form onSubmit={createGroup} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 space-y-2 shadow-sm">
+            {!showCreateGroup ? <button onClick={() => setShowCreateGroup(true)} className="flex w-full items-center gap-3 rounded-2xl border border-primary/30 bg-primary-container/35 p-4 text-left shadow-sm"><span className="grid h-11 w-11 place-items-center rounded-xl bg-primary text-on-primary shadow-sm"><span className="material-symbols-outlined">add</span></span><span><b className="block text-sm">Create a new group</b><small className="text-xs text-on-surface-variant">{groupCreationPolicy.free_creations_remaining > 0 ? `${groupCreationPolicy.free_creations_remaining} free creation${groupCreationPolicy.free_creations_remaining === 1 ? "" : "s"} remaining` : groupCreationPolicy.paid_cost ? `${groupCreationPolicy.paid_cost.toLocaleString()} ${groupCreationPolicy.paid_currency} per group` : "Free group creation"}</small></span><span className="ml-auto material-symbols-outlined text-primary">arrow_forward</span></button> : <form onSubmit={createGroup} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 space-y-2 shadow-sm">
               <h3 className="font-headline text-sm font-extrabold text-on-surface">Create a group</h3>
+              <p className="text-xs text-on-surface-variant">{groupCreationPolicy.free_creations_remaining > 0 ? `This group is free. ${groupCreationPolicy.free_creations_remaining - 1} free creation${groupCreationPolicy.free_creations_remaining === 1 ? "" : "s"} will remain.` : groupCreationPolicy.paid_cost ? `This group costs ${groupCreationPolicy.paid_cost.toLocaleString()} ${groupCreationPolicy.paid_currency}.` : "This group is free."}</p>
               <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Group name" className="w-full rounded-xl border border-surface-container-highest bg-background px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" />
               <input value={groupDescription} onChange={(event) => setGroupDescription(event.target.value)} placeholder="Description (optional)" className="w-full rounded-xl border border-surface-container-highest bg-background px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" />
-              <div className="flex gap-2"><button className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-on-primary">Create group</button><button type="button" onClick={() => setShowCreateGroup(false)} className="rounded-xl bg-surface-container-high px-4 py-2 text-xs font-bold">Cancel</button></div>
+              <div className="flex gap-2"><button disabled={creatingGroup} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-on-primary disabled:opacity-50">{creatingGroup ? "Creating…" : "Create group"}</button><button type="button" disabled={creatingGroup} onClick={() => setShowCreateGroup(false)} className="rounded-xl bg-surface-container-high px-4 py-2 text-xs font-bold disabled:opacity-50">Cancel</button></div>
               {groupStatus && <p className="text-[11px] font-medium text-on-surface-variant">{groupStatus}</p>}
             </form>}
             {groups.map((group) => (
