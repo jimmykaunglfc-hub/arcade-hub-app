@@ -566,7 +566,9 @@ export default function Home() {
       >
         {gameReturn && (
           <aside className="fixed inset-x-4 top-[calc(var(--app-safe-top)+0.75rem)] z-[100002] mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-primary/35 bg-surface px-3 py-3 shadow-2xl backdrop-blur-xl">
-            <span className="material-symbols-outlined grid size-9 shrink-0 place-items-center rounded-xl bg-primary-container text-primary">sports_esports</span>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-container text-primary">
+              <span className="material-symbols-outlined block leading-none">sports_esports</span>
+            </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-black text-on-surface">{pausedGameName} is still open</p>
               <p className="text-[11px] text-on-surface-variant">Return within {gameReturnSeconds}s to continue where you left off.</p>
