@@ -37,7 +37,7 @@ create or replace function public.get_my_referral_invitees()
 returns table(
   username text,
   network_id text,
-  created_at timestamptz
+  created_at timestamptzD
 )
 language sql
 security definer
