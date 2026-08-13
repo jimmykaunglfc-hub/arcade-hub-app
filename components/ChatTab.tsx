@@ -625,7 +625,86 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   // VIEW 1: CONVERSATION HUB DIAL FEED
   // ============================================================================
   if (activeGroup) {
-    return <div className="fixed inset-0 z-[100002] flex flex-col bg-background text-on-surface" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}><header className="flex items-center gap-3 border-b border-surface-container-highest px-5 py-4"><button onClick={() => { setActiveGroup(null); onChatOpenChange?.(false); }} className="grid h-10 w-10 place-items-center rounded-full bg-surface-container-high"><span className="material-symbols-outlined">arrow_back</span></button><span className="grid h-10 w-10 place-items-center rounded-xl bg-primary-container text-primary"><span className="material-symbols-outlined">groups</span></span><span className="min-w-0"><b className="block truncate font-headline">{activeGroup.name}</b><small className="text-xs text-on-surface-variant">Group conversation</small></span></header><div className="flex-1 space-y-3 overflow-y-auto px-5 py-5">{groupMessages.length ? groupMessages.map((message) => <div key={message.id} className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${message.sender_id === myUserId ? "ml-auto bg-primary text-on-primary" : "bg-surface-container-high"}`}><b className="mb-1 block text-[10px] opacity-70">{message.sender_id === myUserId ? "You" : message.profiles?.username || "Member"}</b>{message.content}</div>) : <p className="pt-12 text-center text-sm text-on-surface-variant">No messages yet. Say hello to the group.</p>}</div><div className="flex gap-2 border-t border-surface-container-highest bg-background px-5 py-3"><input value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void sendGroupMessage(); }} placeholder="Message the community…" className="min-w-0 flex-1 rounded-xl bg-surface-container-high px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-primary"/><button onClick={() => void sendGroupMessage()} className="grid h-11 w-11 place-items-center rounded-xl bg-primary text-on-primary"><span className="material-symbols-outlined">send</span></button></div></div>;
+    return (
+      <div
+        className="fixed inset-0 z-[100002] flex flex-col bg-background text-on-surface"
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
+      >
+        <header className="flex items-center gap-3 border-b border-surface-container-highest bg-surface px-5 py-4 shadow-sm">
+          <button
+            onClick={() => {
+              setActiveGroup(null);
+              onChatOpenChange?.(false);
+            }}
+            className="grid h-10 w-10 place-items-center rounded-full bg-surface-container-high"
+          >
+            <span className="material-symbols-outlined">arrow_back</span>
+          </button>
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary-container text-primary">
+            <span className="material-symbols-outlined">groups</span>
+          </span>
+          <span className="min-w-0">
+            <b className="block truncate font-headline">{activeGroup.name}</b>
+            <small className="text-xs text-on-surface-variant">
+              Group conversation
+            </small>
+          </span>
+        </header>
+
+        <div className="flex-1 space-y-3 overflow-y-auto bg-surface-container/40 px-5 py-5">
+          {groupMessages.length ? (
+            groupMessages.map((message) => {
+              const isOwnMessage = message.sender_id === myUserId;
+              return (
+                <div
+                  key={message.id}
+                  className={`max-w-[82%] rounded-2xl border px-4 py-3 text-sm shadow-sm ${
+                    isOwnMessage
+                      ? "ml-auto border-primary bg-primary text-on-primary shadow-primary/20"
+                      : "border-[#d6dee8] bg-[#e9eef5] text-on-surface dark:border-surface-container-highest dark:bg-surface-container-high"
+                  }`}
+                >
+                  <b className="mb-1 block text-[10px] opacity-70">
+                    {isOwnMessage
+                      ? "You"
+                      : message.profiles?.username || "Member"}
+                  </b>
+                  <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                </div>
+              );
+            })
+          ) : (
+            <p className="pt-12 text-center text-sm text-on-surface-variant">
+              No messages yet. Say hello to the group.
+            </p>
+          )}
+        </div>
+
+        <div className="flex gap-3 border-t border-surface-container-highest bg-surface px-5 py-3 shadow-[0_-4px_16px_rgba(15,23,42,0.04)]">
+          <input
+            value={groupDraft}
+            onChange={(event) => setGroupDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void sendGroupMessage();
+            }}
+            placeholder="Message the community…"
+            aria-label="Group message"
+            className="min-w-0 flex-1 rounded-2xl border-2 border-surface-container-highest bg-background px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+          <button
+            onClick={() => void sendGroupMessage()}
+            disabled={!groupDraft.trim()}
+            aria-label="Send group message"
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary text-on-primary shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <span className="material-symbols-outlined">send</span>
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (activeView === "hub") {

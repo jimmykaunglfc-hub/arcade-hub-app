@@ -95,7 +95,7 @@ export default function SpinTab({ userId, onBack, onWalletUpdated }: { userId?: 
     const winnerIndex = Math.max(0, slots.findIndex((slot) => String(slot.id) === String(winner.id)));
     const segment = 360 / slots.length;
     // The pointer is at 12 o'clock; land the center of the winning segment beneath it.
-    const target = 360 * 5 + 270 - (winnerIndex * segment + segment / 2);
+    const target = 360 * 5 - (winnerIndex * segment + segment / 2);
     setRotation(target);
     soundEngine.playSFX("dice_roll");
     window.setTimeout(() => {

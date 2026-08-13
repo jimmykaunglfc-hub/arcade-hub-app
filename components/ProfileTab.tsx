@@ -56,7 +56,15 @@ type InventoryItem = {
   id: string;
   cosmetic_id: string;
   is_equipped: boolean;
-  cosmetics?: { name?: string; game_category?: string; image_url?: string | null; profile_card_layout?: "centered" | "avatar_left" | null; modifiers?: { background_color?: string } | null } | null;
+  cosmetics?: {
+    name?: string;
+    game_category?: string;
+    cosmetic_type?: "game_cosmetic" | "profile_card" | "avatar_frame" | string;
+    game_target?: string | null;
+    image_url?: string | null;
+    profile_card_layout?: "centered" | "avatar_left" | null;
+    modifiers?: { background_color?: string } | null;
+  } | null;
 };
 
 type ProfileEditConfig = {
@@ -155,7 +163,7 @@ export default function ProfileTab({
       supabase.from("platform_config").select("profile_edit_cost, profile_edit_currency").eq("id", 1).maybeSingle(),
       supabase.from("user_inventory").select("id, cosmetic_id, is_equipped").eq("user_id", user.id),
       supabase.from("store_items").select("*"),
-      supabase.from("cosmetics").select("id, name, game_category, image_url, modifiers"),
+      supabase.from("cosmetics").select("id, name, game_category, cosmetic_type, game_target, image_url, modifiers"),
       supabase.from("game_favorites").select("game_id").eq("user_id", user.id),
       supabase.rpc("get_game_catalog"),
     ]);
@@ -173,7 +181,9 @@ export default function ProfileTab({
     const cosmeticById = new Map((cosmetics || []).map((item) => [item.id, item]));
     const resolvedInventory = (rawInventory || []).map((item) => {
       const source = cosmeticById.get(item.cosmetic_id) || storeById.get(item.cosmetic_id);
-      const sourceCategory = source?.cosmetic_type || source?.game_category || source?.category || "other";
+      const sourceCategory = source?.cosmetic_type === "game_cosmetic"
+        ? source?.game_target || source?.game_category || "game_cosmetic"
+        : source?.cosmetic_type || source?.game_category || source?.category || "other";
       const cosmeticName = String(source?.name || "").toLowerCase();
       const category = ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame", "avatar_border"].includes(sourceCategory)
         ? sourceCategory
@@ -220,18 +230,29 @@ export default function ProfileTab({
     setActivityLedger((data || []) as LedgerEntry[]);
     setModal("activity");
   };
-  const equipProfileCosmetic = async (item: InventoryItem) => {
+  const getCosmeticSlot = (item: InventoryItem) => {
+    const cosmetic = item.cosmetics;
+    if (!cosmetic) return null;
+    const category = cosmetic.game_category || "other";
+    if (["profile_card", "profile_card_theme"].includes(category) || cosmetic.cosmetic_type === "profile_card") return "profile_card";
+    if (["avatar_frame", "profile_avatar_frame", "avatar_border"].includes(category) || cosmetic.cosmetic_type === "avatar_frame") return "avatar_frame";
+    // Game cosmetics replace only a cosmetic for the same game. Legacy items
+    // fall back to their assigned game category, and otherwise stay independent.
+    const gameTarget = cosmetic.game_target || (
+      category !== "game_cosmetic" && category !== "other" ? category : item.id
+    );
+    return `game:${gameTarget}`;
+  };
+
+  const equipCosmetic = async (item: InventoryItem) => {
     if (!profile || !item.cosmetics?.game_category) return;
-    const category = item.cosmetics.game_category;
-    const isCard = ["profile_card", "profile_card_theme"].includes(category);
-    const isFrame = ["avatar_frame", "profile_avatar_frame", "avatar_border"].includes(category);
-    if (!isCard && !isFrame) return showMessage("This cosmetic is used inside its game.");
+    const slot = getCosmeticSlot(item);
+    if (!slot) return;
+    const isCard = slot === "profile_card";
+    const isFrame = slot === "avatar_frame";
     setSaving(true);
-    const categories = isCard
-      ? ["profile_card", "profile_card_theme"]
-      : ["avatar_frame", "profile_avatar_frame", "avatar_border"];
     const sameTypeInventoryIds = inventory
-      .filter((entry) => categories.includes(entry.cosmetics?.game_category || ""))
+      .filter((entry) => getCosmeticSlot(entry) === slot)
       .map((entry) => entry.id);
     if (sameTypeInventoryIds.length) {
       const { error: slotError } = await supabase.from("user_inventory").update({ is_equipped: false }).eq("user_id", profile.id).in("id", sameTypeInventoryIds);
@@ -243,7 +264,7 @@ export default function ProfileTab({
     setInventory((current) => current.map((entry) => ({ ...entry, is_equipped: entry.id === item.id ? true : sameTypeInventoryIds.includes(entry.id) ? false : entry.is_equipped })));
     if (isCard) setProfileCardCosmetic(item.cosmetics);
     if (isFrame) setAvatarFrameCosmetic(item.cosmetics);
-    showMessage(`${item.cosmetics.name || "Cosmetic"} equipped.`);
+    showMessage(`${item.cosmetics.name || "Cosmetic"} equipped${isCard || isFrame ? "." : " for its game."}`);
   };
   const updateLanguage = async (code: LanguageCode) => {
     setLanguage(code);
@@ -882,13 +903,13 @@ export default function ProfileTab({
                     <p className="text-xs text-on-surface-variant">All cosmetics you have purchased. Equip profile card backgrounds and avatar borders here; equipping one automatically replaces the currently equipped cosmetic of that same type.</p>
                     {inventory.length ? <div className="grid grid-cols-2 gap-3">{inventory.map((item) => {
                       const category = item.cosmetics?.game_category || "other";
-                      const isProfileEquippable = ["profile_card", "profile_card_theme", "avatar_frame", "profile_avatar_frame", "avatar_border"].includes(category);
+                      const isEquippable = Boolean(item.cosmetics);
                       return <div key={item.id} className={`relative overflow-hidden rounded-2xl border p-3 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"}`}>
                         <div className="mb-3 flex h-20 items-center justify-center overflow-hidden rounded-xl bg-surface">{item.cosmetics?.image_url ? <img src={item.cosmetics.image_url} alt="" className="h-full w-full object-cover" /> : <span className="material-symbols-outlined text-3xl text-primary">palette</span>}</div>
                         <b className="block truncate text-xs">{item.cosmetics?.name || "Purchased cosmetic"}</b>
                         <small className="mt-1 block capitalize text-on-surface-variant">{category.replaceAll("_", " ")}</small>
                         {item.is_equipped && <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-1 text-[9px] font-black text-on-primary">EQUIPPED</span>}
-                        {isProfileEquippable && <button type="button" disabled={saving || item.is_equipped} onClick={() => void equipProfileCosmetic(item)} className="mt-3 w-full rounded-lg bg-primary px-2 py-2 text-[10px] font-black text-on-primary disabled:cursor-default disabled:opacity-70">{item.is_equipped ? "EQUIPPED" : "EQUIP"}</button>}
+                        {isEquippable && <button type="button" disabled={saving || item.is_equipped} onClick={() => void equipCosmetic(item)} className="mt-3 w-full rounded-lg bg-primary px-2 py-2 text-[10px] font-black text-on-primary disabled:cursor-default disabled:opacity-70">{item.is_equipped ? "EQUIPPED" : "EQUIP"}</button>}
                       </div>;
                     })}</div> : <p className="py-8 text-center text-sm text-on-surface-variant">No cosmetics purchased yet. Visit the Shop to unlock some.</p>}
                   </div>
@@ -952,7 +973,7 @@ export default function ProfileTab({
                     <div className="border-t border-surface-container-highest pt-4">
                       <b className="text-xs">Profile card design</b>
                       <p className="mt-1 text-xs text-on-surface-variant">Choose a purchased avatar border or card background.</p>
-                      {profileDesignItems.length ? <div className="mt-3 grid grid-cols-2 gap-2">{profileDesignItems.map((item) => <button key={item.id} disabled={saving} onClick={() => void equipProfileCosmetic(item)} className={`rounded-xl border p-2 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"}`}><div className="h-14 overflow-hidden rounded-lg bg-surface">{item.cosmetics?.image_url ? <img src={item.cosmetics.image_url} alt="" className="h-full w-full object-cover" /> : null}</div><span className="mt-2 block truncate text-[10px] font-bold">{item.cosmetics?.name || "Profile cosmetic"}</span><span className="mt-2 block rounded-lg bg-primary px-2 py-1 text-center text-[9px] font-black text-on-primary">{item.is_equipped ? "EQUIPPED" : "EQUIP DESIGN"}</span></button>)}</div> : <p className="mt-3 text-xs text-on-surface-variant">No profile designs purchased yet.</p>}
+                      {profileDesignItems.length ? <div className="mt-3 grid grid-cols-2 gap-2">{profileDesignItems.map((item) => <button key={item.id} disabled={saving} onClick={() => void equipCosmetic(item)} className={`rounded-xl border p-2 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"}`}><div className="h-14 overflow-hidden rounded-lg bg-surface">{item.cosmetics?.image_url ? <img src={item.cosmetics.image_url} alt="" className="h-full w-full object-cover" /> : null}</div><span className="mt-2 block truncate text-[10px] font-bold">{item.cosmetics?.name || "Profile cosmetic"}</span><span className="mt-2 block rounded-lg bg-primary px-2 py-1 text-center text-[9px] font-black text-on-primary">{item.is_equipped ? "EQUIPPED" : "EQUIP DESIGN"}</span></button>)}</div> : <p className="mt-3 text-xs text-on-surface-variant">No profile designs purchased yet.</p>}
                     </div>
                     <p className="text-xs text-on-surface-variant">
                       Your first profile edit is free. Later edits cost {profileEditConfig.profile_edit_cost} {profileEditConfig.profile_edit_currency.toUpperCase()}, as set by the game team.
