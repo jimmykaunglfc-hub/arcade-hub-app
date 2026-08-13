@@ -22,6 +22,8 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [fixtures, setFixtures] = useState<any[]>([]);
   const [findingGame, setFindingGame] = useState<string | null>(null);
+  const [pendingFixture, setPendingFixture] = useState<any | null>(null);
+  const [confirmedMatch, setConfirmedMatch] = useState<any | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [gameCards, setGameCards] = useState<any[]>([]);
   const [shareMessage, setShareMessage] = useState("");
@@ -135,6 +137,14 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
 
   const startTournamentMatchmaking = (gameName: string) => {
     if (!currentUserId) return setMessage("Sign in to play tournament games.");
+    if (!joined) return setMessage("Join the tournament before playing.");
+    const fixture = fixtures.find((item) =>
+      ["scheduled", "in_progress"].includes(item.status) &&
+      [item.player_one_id, item.player_two_id].includes(currentUserId) &&
+      item.game_name.toLowerCase().replace(/[^a-z0-9]/g, "") === gameName.toLowerCase().replace(/[^a-z0-9]/g, "")
+    );
+    if (!fixture) return setMessage("No active fixture is assigned for this game yet. Wait for the organizer to create the round.");
+    setPendingFixture(fixture);
     setFindingGame(gameName);
   };
   const shareTournamentRank = async () => {
@@ -377,13 +387,23 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
           userId={currentUserId}
           onCancel={() => setFindingGame(null)}
           onMatchFound={(match) => {
-            sessionStorage.setItem(
-              "tournament_match_launch",
-              JSON.stringify({ game: findingGame, matchId: match.matchId })
-            );
-            router.push("/");
+            setFindingGame(null);
+            setConfirmedMatch({ game: findingGame, match, fixtureId: pendingFixture?.id });
           }}
         />
+      )}
+      {confirmedMatch && (
+        <div className="fixed inset-0 z-[10000] flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#08090b] p-6 text-center text-white">
+          <div className="w-full max-w-sm">
+            <div className="mx-auto mb-16 inline-flex items-center gap-2 rounded-full border border-[#ccff00]/35 bg-[#ccff00]/10 px-5 py-3 text-xs font-black uppercase tracking-[.16em] text-[#ccff00]"><span>✦</span>Tournament match</div>
+            <div className="relative mx-auto mb-10 flex h-28 w-48 items-center justify-center"><div className="absolute left-1 top-3 grid h-24 w-24 -rotate-6 place-items-center rounded-[25px] border border-white/15 bg-[#17171b] text-3xl text-neutral-400 shadow-2xl">♙</div><div className="absolute right-1 top-3 grid h-24 w-24 rotate-6 place-items-center rounded-[25px] border border-indigo-400/50 bg-indigo-500/20 text-3xl text-indigo-300 shadow-2xl">♙</div><div className="z-10 grid h-12 w-12 place-items-center rounded-full bg-[#ccff00] text-3xl text-black">×</div></div>
+            <p className="text-[11px] font-black uppercase tracking-[.22em] text-neutral-500">Opposing player</p>
+            <h1 className="mt-2 truncate text-4xl font-black tracking-tight">{confirmedMatch.match.opponent.name}</h1>
+            <p className="mt-3 text-lg text-neutral-400"><span className="mr-2 text-[#ccff00]">●</span>{confirmedMatch.match.opponent.isBot ? "Arena opponent" : "Tournament opponent"}</p>
+            <button onClick={() => { sessionStorage.setItem("tournament_match_launch", JSON.stringify({ game: confirmedMatch.game, matchId: confirmedMatch.match.matchId, tournamentMatchId: confirmedMatch.fixtureId })); router.push("/"); }} className="mt-16 w-full rounded-[24px] bg-[#ccff00] py-5 text-2xl font-black text-black shadow-[0_14px_36px_rgba(204,255,0,.2)] active:scale-[.98]">Enter Match&nbsp; →</button>
+            <button onClick={() => setConfirmedMatch(null)} className="mt-4 text-xs font-bold text-neutral-400">Cancel</button>
+          </div>
+        </div>
       )}
     </main>
   );

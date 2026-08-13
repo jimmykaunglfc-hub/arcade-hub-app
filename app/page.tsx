@@ -144,12 +144,18 @@ export default function Home() {
     if (!savedLaunch) return;
     sessionStorage.removeItem("tournament_match_launch");
     try {
-      const { game, matchId } = JSON.parse(savedLaunch);
+      const { game, matchId, tournamentMatchId } = JSON.parse(savedLaunch);
       const slug = String(game)
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
       setActiveMatchId(matchId || null);
+      if (tournamentMatchId) {
+        sessionStorage.setItem(
+          "joeyoke_active_tournament_match",
+          JSON.stringify({ id: tournamentMatchId, game })
+        );
+      }
       setPlayingGame(`native://${slug}`);
     } catch {
       // Ignore a malformed one-time tournament launch request.

@@ -1,3 +1,7 @@
+import { Capacitor } from "@capacitor/core";
+import { Directory, Filesystem } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
+
 export type SocialShareCard = {
   eyebrow: string;
   title: string;
@@ -15,7 +19,16 @@ const paletteFor = (accent: SocialShareCard["accent"]) => ({
 
 const roundedRect = (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => {
   context.beginPath();
-  context.roundRect(x, y, width, height, radius);
+  context.moveTo(x + radius, y);
+  context.lineTo(x + width - radius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + radius);
+  context.lineTo(x + width, y + height - radius);
+  context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  context.lineTo(x + radius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - radius);
+  context.lineTo(x, y + radius);
+  context.quadraticCurveTo(x, y, x + radius, y);
+  context.closePath();
 };
 
 async function loadProjectLogo() {
@@ -72,11 +85,13 @@ async function achievementPng(card: SocialShareCard) {
   context.fillStyle = "#b7ff001c";
   context.beginPath(); context.moveTo(0, 540); context.quadraticCurveTo(260, 390, 520, 590); context.quadraticCurveTo(820, 720, 1200, 400); context.lineTo(1200, 630); context.lineTo(0, 630); context.fill();
 
-  const logo = await loadProjectLogo();
-  context.save();
-  roundedRect(context, 64, 56, 72, 72, 20); context.clip();
-  context.drawImage(logo, 64, 56, 72, 72);
-  context.restore();
+  const logo = await loadProjectLogo().catch(() => null);
+  if (logo) {
+    context.save();
+    roundedRect(context, 64, 56, 72, 72, 20); context.clip();
+    context.drawImage(logo, 64, 56, 72, 72);
+    context.restore();
+  }
   context.fillStyle = "#ffffff"; context.font = "800 32px Arial, sans-serif"; context.fillText("JOE YOKE", 154, 99);
   context.fillStyle = accent; context.font = "800 22px Arial, sans-serif"; context.letterSpacing = "4px"; context.fillText(card.eyebrow.toUpperCase(), 64, 214); context.letterSpacing = "0px";
   context.fillStyle = "#ffffff"; context.font = "800 64px Arial, sans-serif"; drawText(context, card.title, 64, 306, 1000);
@@ -88,9 +103,64 @@ async function achievementPng(card: SocialShareCard) {
   return await new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Could not create a PNG share card")), "image/png"));
 }
 
+async function blobToBase64(blob: Blob) {
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        reject(new Error("Could not encode the PNG share card"));
+        return;
+      }
+      resolve(result.slice(result.indexOf(",") + 1));
+    };
+    reader.onerror = () => reject(reader.error || new Error("Could not encode the PNG share card"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function shareNativeImage(blob: Blob, text: string) {
+  if (!Capacitor.isNativePlatform()) return false;
+
+  const path = `shares/joe-yoke-achievement-${Date.now()}.png`;
+  try {
+    const file = await Filesystem.writeFile({
+      path,
+      data: await blobToBase64(blob),
+      directory: Directory.Cache,
+      recursive: true,
+    });
+    await Share.share({
+      title: "Joe Yoke achievement",
+      text,
+      files: [file.uri],
+      dialogTitle: "Share achievement",
+    });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await Filesystem.deleteFile({ path, directory: Directory.Cache }).catch(() => undefined);
+  }
+}
+
+async function downloadImage(blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "joe-yoke-achievement.png";
+  anchor.style.display = "none";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export async function shareAchievement(card: SocialShareCard): Promise<"shared" | "downloaded" | "copied"> {
   const copy = `${card.title} — ${card.subtitle} ${card.stat} | Joe Yoke`;
   const blob = await achievementPng(card);
+  if (await shareNativeImage(blob, copy)) return "shared";
+
   const file = new File([blob], "joe-yoke-achievement.png", { type: "image/png" });
   const shareData: ShareData = { title: "Joe Yoke achievement", text: copy, files: [file] };
   try {
@@ -101,12 +171,7 @@ export async function shareAchievement(card: SocialShareCard): Promise<"shared" 
   } catch (error) {
     if ((error as DOMException).name === "AbortError") return "copied";
   }
-  if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(copy);
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = "joe-yoke-achievement.png";
-  anchor.click();
-  URL.revokeObjectURL(url);
+  await navigator.clipboard?.writeText(copy).catch(() => undefined);
+  await downloadImage(blob);
   return "downloaded";
 }

@@ -18,6 +18,9 @@ interface MatchResultPayload {
 
 const matchTimerKey = (gameTitle: string) => `joeyoke_match_started_${gameTitle.toLowerCase()}`;
 const activeStakeKey = (gameTitle: string) => `joeyoke_competitive_stake_${gameTitle.toLowerCase()}`;
+const activeTournamentMatchKey = "joeyoke_active_tournament_match";
+
+const gameKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 function beginMatchTimer(gameTitle: string) {
   if (typeof window !== "undefined") {
@@ -87,6 +90,29 @@ export async function processGameEntry({
  */
 export async function recordMatchResult(payload: MatchResultPayload) {
   try {
+    const tournamentMatch = typeof window === "undefined"
+      ? null
+      : (() => {
+          try {
+            return JSON.parse(window.sessionStorage.getItem(activeTournamentMatchKey) || "null") as { id?: string; game?: string } | null;
+          } catch {
+            return null;
+          }
+        })();
+
+    if (tournamentMatch?.id && tournamentMatch.game && gameKey(tournamentMatch.game) === gameKey(payload.game_title)) {
+      const { error } = await supabase.rpc("settle_my_tournament_match", {
+        target_match: tournamentMatch.id,
+        my_result: payload.result,
+      });
+      if (error) {
+        console.error("Failed to settle tournament match:", error.message);
+        return;
+      }
+      window.sessionStorage.removeItem(activeTournamentMatchKey);
+      return;
+    }
+
     const durationSeconds = payload.duration_seconds ?? getMatchDuration(payload.game_title);
     const stakeId = typeof window === "undefined"
       ? null
