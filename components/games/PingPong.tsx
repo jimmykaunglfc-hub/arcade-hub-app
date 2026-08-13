@@ -2365,19 +2365,45 @@ export default function PingPong(props: PingPongProps) {
       }
     };
 
+    // Input presentation is intentionally independent from rally physics.
+    // This keeps the racket responsive in Capacitor while matchmaking, a
+    // point-settle animation, or a completed match has paused the ball.
+    const followLocalPaddleWhilePaused = (deltaSeconds: number) => {
+      const local = paddlesRef.current.local;
+      const target = localPaddleTargetRef.current;
+      const follow = 1 - Math.exp(-30 * deltaSeconds);
+      const nextLocal = {
+        x: local.x + (target.x - local.x) * follow,
+        y: local.y + (target.y - local.y) * follow,
+        z: local.z + (target.z - local.z) * follow,
+        tilt: dampRacketTilt(local.tilt, target.tilt, deltaSeconds),
+        swingX: dampRacketTilt(local.swingX, target.swingX, deltaSeconds, 14),
+      };
+      paddlesRef.current.local = {
+        ...nextLocal,
+        vx: (nextLocal.x - local.x) / Math.max(deltaSeconds, 0.001),
+        vy: (nextLocal.y - local.y) / Math.max(deltaSeconds, 0.001),
+        vz: (nextLocal.z - local.z) / Math.max(deltaSeconds, 0.001),
+      };
+    };
+
     const updatePhysics = (deltaSeconds: number, now: number) => {
       // Matchmaking intentionally pauses the simulation. A point cannot start
-      // or score while a real-player search is still in progress.
-      if (!matchReadyRef.current) return;
+      // or score while a real-player search is still in progress, but touch
+      // input must remain visible rather than appearing frozen.
+      if (!matchReadyRef.current) { followLocalPaddleWhilePaused(deltaSeconds); return; }
       const ball = ballRef.current;
       if (!ball.active) {
+        followLocalPaddleWhilePaused(deltaSeconds);
         return;
       }
       if (roundLockedRef.current) {
+        followLocalPaddleWhilePaused(deltaSeconds);
         updateDeadBall(deltaSeconds, now);
         return;
       }
       if (gameWinnerRef.current) {
+        followLocalPaddleWhilePaused(deltaSeconds);
         return;
       }
 
