@@ -12,10 +12,11 @@ import {
 import { supabase } from "../lib/supabaseClient";
 import { soundEngine } from "../lib/soundManager";
 import {
-  isAndroidNativeApp,
-  registerAndroidPushNotifications,
-  unregisterAndroidPushNotifications,
-} from "../lib/androidPushNotifications";
+  isNativePushApp,
+  PUSH_TOKEN_STORAGE_KEY,
+  registerNativePushNotifications,
+  unregisterNativePushNotifications,
+} from "../lib/firebasePushNotifications";
 import { LANGUAGES, LanguageCode, useTranslation } from "../lib/i18n";
 
 type Profile = {
@@ -401,15 +402,23 @@ export default function ProfileTab({
 
   const setPushEnabled = async (enabled: boolean) => {
     if (!profile) return;
-    if (enabled && isAndroidNativeApp()) {
+    if (enabled && isNativePushApp()) {
       try {
-        const registration = await registerAndroidPushNotifications();
+        const registration = await registerNativePushNotifications();
         if (registration.supported && !registration.granted) {
           showMessage("Notification permission was not granted.");
           return;
         }
+        if (registration.token && registration.platform) {
+          localStorage.setItem(PUSH_TOKEN_STORAGE_KEY, registration.token);
+          const { error: tokenError } = await supabase.rpc("upsert_my_push_device", {
+            p_token: registration.token,
+            p_platform: registration.platform,
+          });
+          if (tokenError) throw tokenError;
+        }
       } catch (error) {
-        console.error("[FCM] Android registration failed", error);
+        console.error("[FCM] native registration failed", error);
         showMessage("Could not register this device for notifications.");
         return;
       }
@@ -428,16 +437,16 @@ export default function ProfileTab({
       showMessage(error.message);
       return;
     }
-    if (!enabled && isAndroidNativeApp()) {
+    if (!enabled && isNativePushApp()) {
       try {
-        const token = localStorage.getItem("joeyoke_fcm_registration_token");
+        const token = localStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
         if (token) {
           const { error: disableError } = await supabase.rpc("disable_my_push_device", { p_token: token });
           if (disableError) throw disableError;
         }
-        await unregisterAndroidPushNotifications();
+        await unregisterNativePushNotifications();
       } catch (unregisterError) {
-        console.warn("[FCM] Android unregister failed", unregisterError);
+        console.warn("[FCM] native unregister failed", unregisterError);
       }
     }
     setProfile({ ...profile, push_enabled: enabled });

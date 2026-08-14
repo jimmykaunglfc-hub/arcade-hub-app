@@ -5,8 +5,8 @@ const config: CapacitorConfig = {
   appName: 'Joe Yoke',
   webDir: 'out',
   plugins: {
-    PushNotifications: {
-      presentationOptions: ['sound', 'alert'],
+    FirebaseMessaging: {
+      presentationOptions: ['alert', 'badge', 'sound'],
     },
   },
 };

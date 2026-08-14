@@ -42,3 +42,4 @@ next-env.d.ts
 # Firebase Android client configuration is required locally for native builds.
 # Keep it out of source control; download it again from Firebase when needed.
 android/app/google-services.json
+ios/App/App/GoogleService-Info.plist

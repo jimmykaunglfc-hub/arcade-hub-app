@@ -2,9 +2,14 @@
 
 import { useEffect, useRef } from "react";
 import type { PluginListenerHandle } from "@capacitor/core";
-import { PushNotifications } from "@capacitor/push-notifications";
+import { FirebaseMessaging } from "@capacitor-firebase/messaging";
 import { supabase } from "../lib/supabaseClient";
-import { isAndroidNativeApp, registerAndroidPushNotifications } from "../lib/androidPushNotifications";
+import {
+  getNativePushPlatform,
+  isNativePushApp,
+  PUSH_TOKEN_STORAGE_KEY,
+  registerNativePushNotifications,
+} from "../lib/firebasePushNotifications";
 
 type Props = {
   userId: string;
@@ -30,28 +35,29 @@ export default function GlobalNotificationListener({ userId, onPushAction }: Pro
       if (actionUrl) onPushActionRef.current?.(actionUrl);
     };
 
-    const configureAndroidPush = async () => {
-      if (!isAndroidNativeApp()) return;
+    const syncNativeToken = (token: string) => {
+      const platform = getNativePushPlatform();
+      if (!platform || !token) return;
+      localStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token);
+      console.info("[FCM] registration token:", token);
+      void supabase.rpc("upsert_my_push_device", {
+        p_token: token,
+        p_platform: platform,
+      }).then(({ error }) => {
+        if (error) console.error("[FCM] device token sync failed:", error.message);
+        else console.info(`[FCM] ${platform} device token synced for this account.`);
+      });
+    };
+
+    const configureNativePush = async () => {
+      if (!isNativePushApp()) return;
       nativeListeners.push(
-        await PushNotifications.addListener("registration", (token) => {
-          localStorage.setItem("joeyoke_fcm_registration_token", token.value);
-          console.info("[FCM] registration token:", token.value);
-          void supabase.rpc("upsert_my_push_device", {
-            p_token: token.value,
-            p_platform: "android",
-          }).then(({ error }) => {
-            if (error) console.error("[FCM] device token sync failed:", error.message);
-            else console.info("[FCM] device token synced for this account.");
-          });
-        }),
-        await PushNotifications.addListener("registrationError", (error) => {
-          console.error("[FCM] registration error:", error.error);
-        }),
-        await PushNotifications.addListener("pushNotificationReceived", (notification) => {
+        await FirebaseMessaging.addListener("tokenReceived", ({ token }) => syncNativeToken(token)),
+        await FirebaseMessaging.addListener("notificationReceived", ({ notification }) => {
           console.info("[FCM] foreground notification received:", notification);
         }),
-        await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-          routePushAction(action.notification);
+        await FirebaseMessaging.addListener("notificationActionPerformed", ({ notification }) => {
+          routePushAction(notification);
         }),
       );
     };
@@ -59,33 +65,43 @@ export default function GlobalNotificationListener({ userId, onPushAction }: Pro
     const loadPreference = async () => {
       const { data } = await supabase.from("profiles").select("push_enabled").eq("id", userId).maybeSingle();
       enabled = Boolean(data?.push_enabled);
-      if (enabled && !disposed) {
-        try {
-          const registration = await registerAndroidPushNotifications();
-          if (registration.supported && !registration.granted) {
-            console.warn("[FCM] Android notification permission is not granted.");
-          }
-        } catch (error) {
-          console.error("[FCM] Android registration failed", error);
+      if (!enabled || disposed) return;
+      try {
+        const registration = await registerNativePushNotifications();
+        if (registration.token) syncNativeToken(registration.token);
+        if (registration.supported && !registration.granted) {
+          console.warn("[FCM] Native notification permission is not granted.");
         }
+      } catch (error) {
+        console.error("[FCM] native registration failed", error);
       }
     };
+
     const startNativePush = async () => {
-      // Attach native listeners before registration, otherwise a fast FCM
-      // registration response can arrive before the token handler exists.
-      await configureAndroidPush();
+      // Attach listeners before requesting a token, otherwise an immediate
+      // refresh could arrive before the token handler exists.
+      await configureNativePush();
       if (!disposed) await loadPreference();
     };
+
     void startNativePush();
-    const channel = supabase.channel(`broadcast_notifications_${userId}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "push_broadcasts" }, (event) => {
-      const payload = event.new as { title?: string; message?: string };
-      if (enabled && "Notification" in window && Notification.permission === "granted") new Notification(payload.title || "Joe Yoke", { body: payload.message || "You have a new update." });
-    }).subscribe();
+    const channel = supabase.channel(`broadcast_notifications_${userId}`).on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "push_broadcasts" },
+      (event) => {
+        const payload = event.new as { title?: string; message?: string };
+        if (enabled && "Notification" in window && Notification.permission === "granted") {
+          new Notification(payload.title || "Joe Yoke", { body: payload.message || "You have a new update." });
+        }
+      },
+    ).subscribe();
+
     return () => {
       disposed = true;
       supabase.removeChannel(channel);
       void Promise.all(nativeListeners.map((listener) => listener.remove()));
     };
   }, [userId]);
+
   return null;
 }

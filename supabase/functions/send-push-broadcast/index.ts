@@ -117,8 +117,7 @@ serve(async (request) => {
 
     const { data: devices, error: deviceError } = await adminClient
       .from("push_device_tokens")
-      .select("id, token, user_id, profiles!inner(xp, gems)")
-      .eq("platform", "android")
+      .select("id, token, platform, user_id, profiles!inner(xp, gems)")
       .eq("enabled", true);
     if (deviceError) throw deviceError;
     const filteredDevices = (devices || []).filter((device: { profiles: { xp?: number; gems?: number } }) =>
@@ -141,7 +140,7 @@ serve(async (request) => {
 
     for (let index = 0; index < filteredDevices.length; index += 20) {
       const batch = filteredDevices.slice(index, index + 20);
-      const results = await Promise.all(batch.map(async (device: { id: string; token: string }) => {
+      const results = await Promise.all(batch.map(async (device: { id: string; token: string; platform: "android" | "ios" }) => {
         const response = await fetch(endpoint, {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -150,10 +149,19 @@ serve(async (request) => {
               token: device.token,
               notification: { title, body: message },
               data: { action_url: actionUrl || "", broadcast_id: broadcast.id },
-              android: {
-                priority: "high",
-                notification: { channel_id: "joe_yoke_updates", sound: "default" },
-              },
+              ...(device.platform === "android"
+                ? {
+                    android: {
+                      priority: "high",
+                      notification: { channel_id: "joe_yoke_updates", sound: "default" },
+                    },
+                  }
+                : {
+                    apns: {
+                      headers: { "apns-priority": "10" },
+                      payload: { aps: { sound: "default" } },
+                    },
+                  }),
             },
           }),
         });
