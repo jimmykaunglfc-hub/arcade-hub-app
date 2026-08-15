@@ -1,28 +1,35 @@
 "use client";
 
-const GAME_AUDIO_EFFECTS = {
-  ping_pong_paddle: { src: "/game-sfx/ping-pong-paddle.mp3", volume: 0.34, cooldownMs: 35, voices: 1 },
-  cue_shot: { src: "/game-sfx/cue-shot.mp3", volume: 0.42, cooldownMs: 42, voices: 1 },
-  ball_pocket: { src: "/game-sfx/ball-pocket.mp3", volume: 0.38, cooldownMs: 110, voices: 2 },
-  cue_scratch: { src: "/game-sfx/cue-scratch.mp3", volume: 0.4, cooldownMs: 250, voices: 1 },
-  carrom_strike: { src: "/game-sfx/carrom-strike.mp3", volume: 0.36, cooldownMs: 120, voices: 2 },
-  carrom_pocket: { src: "/game-sfx/carrom-pocket.mp3", volume: 0.38, cooldownMs: 125, voices: 2 },
-  chess_move: { src: "/game-sfx/chess-move.mp3", volume: 0.34, cooldownMs: 90, voices: 2 },
-} as const;
+export type GameAudioEffect =
+  | "ping_pong_paddle"
+  | "cue_shot"
+  | "ball_pocket"
+  | "cue_scratch"
+  | "carrom_strike"
+  | "carrom_pocket"
+  | "chess_move";
 
-export type GameAudioEffect = keyof typeof GAME_AUDIO_EFFECTS;
-
-/** High-frequency game events mapped to the supplied reference recordings. */
+/** High-frequency game events recreated with code from the supplied references. */
 export type PhysicalAudioEffect =
   | "ping_pong_paddle"
   | "ping_pong_table"
   | "ping_pong_net"
+  | "cue_shot"
+  | "ball_pocket"
+  | "cue_scratch"
   | "pool_ball_hit"
   | "pool_cushion"
   | "snooker_ball_hit"
   | "snooker_cushion"
+  | "carrom_strike"
+  | "carrom_pocket"
   | "carrom_hit"
-  | "carrom_cushion";
+  | "carrom_cushion"
+  | "chess_move"
+  | "card_place_light"
+  | "card_place_heavy"
+  | "dice_shake"
+  | "dice_roll";
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -30,11 +37,6 @@ class SoundEngine {
   private bgmAudio: HTMLAudioElement | null = null;
   private bgmSource: string | null = null;
   private lastCarromSound = new Map<string, number>();
-  private gameAudioPools = new Map<GameAudioEffect, HTMLAudioElement[]>();
-  private gameAudioBuffers = new Map<GameAudioEffect, AudioBuffer>();
-  private gameAudioBufferLoads = new Map<GameAudioEffect, Promise<AudioBuffer | null>>();
-  private activeGameSources = new Map<GameAudioEffect, AudioBufferSourceNode[]>();
-  private lastGameAudioAt = new Map<GameAudioEffect, number>();
 
   constructor() {
     // AudioContext will be initialized on first user interaction
@@ -101,108 +103,82 @@ class SoundEngine {
     return this.isMuted;
   }
 
-  /**
-   * Prepares short recorded gameplay effects after a game screen mounts.
-   * Audio remains subject to the platform's normal user-gesture policy.
-   */
+  /** Keeps the existing game-screen API; effects are generated on demand. */
   public preloadGameSFX(effects: readonly GameAudioEffect[]) {
-    if (typeof window === "undefined") return;
-    this.initContext(false);
-    effects.forEach((effect) => {
-      if (this.gameAudioPools.has(effect)) return;
-      const config = GAME_AUDIO_EFFECTS[effect];
-      const voices = Array.from({ length: config.voices }, () => {
-        const audio = new Audio(config.src);
-        audio.preload = "auto";
-        audio.volume = config.volume;
-        return audio;
-      });
-      this.gameAudioPools.set(effect, voices);
-      void this.loadGameAudioBuffer(effect);
-    });
+    // Gameplay effects are generated in code from the reference envelopes;
+    // no packaged audio sample is loaded or played.
+    void effects;
   }
 
-  private loadGameAudioBuffer(effect: GameAudioEffect): Promise<AudioBuffer | null> {
-    const cached = this.gameAudioBuffers.get(effect);
-    if (cached) return Promise.resolve(cached);
-    const inFlight = this.gameAudioBufferLoads.get(effect);
-    if (inFlight) return inFlight;
-    if (!this.ctx || typeof window === "undefined") return Promise.resolve(null);
-
-    const load = fetch(GAME_AUDIO_EFFECTS[effect].src)
-      .then((response) => (response.ok ? response.arrayBuffer() : null))
-      .then((bytes) => (bytes ? this.ctx!.decodeAudioData(bytes) : null))
-      .then((buffer) => {
-        if (buffer) this.gameAudioBuffers.set(effect, buffer);
-        return buffer;
-      })
-      .catch(() => null);
-    this.gameAudioBufferLoads.set(effect, load);
-    return load;
-  }
-
-  private playHtmlAudioFallback(effect: GameAudioEffect) {
-    const voices = this.gameAudioPools.get(effect);
-    if (!voices?.length) return;
-    const voice = voices.find((audio) => audio.paused || audio.ended) ?? voices[0];
-    voice.pause();
-    voice.currentTime = 0;
-    voice.volume = GAME_AUDIO_EFFECTS[effect].volume;
-    void voice.play().catch(() => {});
-  }
-
-  /** Plays a supplied game recording with a small voice pool for rapid physics events. */
+  /** Plays the code-only gameplay effect matching the game action. */
   public playGameSFX(effect: GameAudioEffect) {
-    if (this.isMuted || typeof window === "undefined") return;
-    this.preloadGameSFX([effect]);
-
-    const config = GAME_AUDIO_EFFECTS[effect];
-    const now = performance.now();
-    const lastPlayedAt = this.lastGameAudioAt.get(effect) ?? -Infinity;
-    if (now - lastPlayedAt < config.cooldownMs) return;
-    this.lastGameAudioAt.set(effect, now);
-
-    const buffer = this.gameAudioBuffers.get(effect);
-    if (!buffer || !this.ctx) {
-      this.playHtmlAudioFallback(effect);
-      return;
-    }
-
-    const activeSources = this.activeGameSources.get(effect) ?? [];
-    while (activeSources.length >= config.voices) {
-      activeSources.shift()?.stop();
-    }
-    const source = this.ctx.createBufferSource();
-    const gain = this.ctx.createGain();
-    source.buffer = buffer;
-    gain.gain.setValueAtTime(config.volume, this.ctx.currentTime);
-    source.connect(gain);
-    gain.connect(this.ctx.destination);
-    activeSources.push(source);
-    this.activeGameSources.set(effect, activeSources);
-    source.onended = () => {
-      const sources = this.activeGameSources.get(effect);
-      if (!sources) return;
-      const index = sources.indexOf(source);
-      if (index >= 0) sources.splice(index, 1);
+    const mappedEffect: Record<GameAudioEffect, PhysicalAudioEffect> = {
+      ping_pong_paddle: "ping_pong_paddle",
+      cue_shot: "cue_shot",
+      ball_pocket: "ball_pocket",
+      cue_scratch: "cue_scratch",
+      carrom_strike: "carrom_strike",
+      carrom_pocket: "carrom_pocket",
+      chess_move: "chess_move",
     };
-    source.start();
+    this.playPhysicalSFX(mappedEffect[effect]);
   }
 
-  /** Replays an exact supplied reference recording for every valid contact. */
+  /**
+   * Code-only effects shaped from the supplied reference categories. Every
+   * event creates its own AudioBufferSource, so rapid consecutive contacts
+   * cannot be blocked by a previous sound's playback duration.
+   */
   public playPhysicalSFX(effect: PhysicalAudioEffect) {
-    const references: Record<PhysicalAudioEffect, GameAudioEffect> = {
-      ping_pong_paddle: "ping_pong_paddle",
-      ping_pong_table: "ping_pong_paddle",
-      ping_pong_net: "ping_pong_paddle",
-      pool_ball_hit: "cue_shot",
-      pool_cushion: "cue_shot",
-      snooker_ball_hit: "cue_shot",
-      snooker_cushion: "cue_shot",
-      carrom_hit: "carrom_strike",
-      carrom_cushion: "carrom_strike",
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+    const cooldowns: Record<PhysicalAudioEffect, number> = {
+      ping_pong_paddle: 32, ping_pong_table: 45, ping_pong_net: 80,
+      cue_shot: 110, ball_pocket: 150, cue_scratch: 220,
+      pool_ball_hit: 40, pool_cushion: 70, snooker_ball_hit: 40,
+      snooker_cushion: 70, carrom_hit: 42, carrom_cushion: 68,
+      carrom_strike: 120, carrom_pocket: 160,
+      chess_move: 80, card_place_light: 65, card_place_heavy: 130,
+      dice_shake: 180, dice_roll: 120,
     };
-    this.playGameSFX(references[effect]);
+    const nowMs = performance.now();
+    const last = this.lastCarromSound.get(effect) ?? -Infinity;
+    if (nowMs - last < cooldowns[effect]) return;
+    this.lastCarromSound.set(effect, nowMs);
+    const now = this.ctx.currentTime;
+    const designs: Record<PhysicalAudioEffect, [number, number, number, number, number]> = {
+      ping_pong_paddle: [1950, 680, .045, .12, .020],
+      ping_pong_table: [720, 220, .055, .09, .014],
+      ping_pong_net: [370, 95, .085, .075, .012],
+      cue_shot: [980, 220, .090, .13, .035],
+      ball_pocket: [480, 80, .200, .11, .040],
+      cue_scratch: [240, 55, .260, .10, .040],
+      pool_ball_hit: [1150, 420, .045, .105, .020],
+      pool_cushion: [260, 78, .080, .10, .026],
+      snooker_ball_hit: [1420, 560, .038, .09, .016],
+      snooker_cushion: [235, 72, .080, .085, .022],
+      carrom_strike: [520, 120, .120, .13, .035],
+      carrom_pocket: [290, 70, .160, .11, .030],
+      carrom_hit: [690, 160, .065, .12, .028],
+      carrom_cushion: [220, 65, .085, .10, .023],
+      chess_move: [480, 150, .095, .13, .010],
+      card_place_light: [760, 250, .060, .085, .012],
+      card_place_heavy: [390, 110, .135, .12, .022],
+      dice_shake: [310, 105, .110, .07, .040],
+      dice_roll: [640, 145, .180, .11, .050],
+    };
+    const [pitch, tail, duration, volume, noise] = designs[effect];
+    const oscillator = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    oscillator.type = effect === "chess_move" ? "sine" : "triangle";
+    oscillator.frequency.setValueAtTime(pitch, now);
+    oscillator.frequency.exponentialRampToValueAtTime(tail, now + duration);
+    gain.gain.setValueAtTime(volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    oscillator.connect(gain); gain.connect(this.ctx.destination);
+    oscillator.start(now); oscillator.stop(now + duration + .01);
+    this.playNoiseBurst(now, Math.min(duration, .045), noise, pitch * 1.25);
   }
 
   // --- SYNTHESIZED SFX GENERATOR (Zero External Assets Required) ---

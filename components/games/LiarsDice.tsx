@@ -148,14 +148,14 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
     // Snap physics based on release position
     if (cupY < -60) {
       setCupY(-220); 
-      if (!isCupOpen) soundEngine.playSFX("card_flip");
+      if (!isCupOpen) soundEngine.playPhysicalSFX("dice_shake");
       setIsCupOpen(true);
       if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
         window.navigator.vibrate(30);
       }
     } else {
       setCupY(0); 
-      if (isCupOpen) soundEngine.playSFX("card_flip");
+      if (isCupOpen) soundEngine.playPhysicalSFX("dice_shake");
       setIsCupOpen(false);
     }
     e.currentTarget.releasePointerCapture(e.pointerId);
@@ -168,7 +168,7 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
     setCupY(0);
     setIsCupOpen(false);
 
-    soundEngine.playSFX("dice_roll");
+    soundEngine.playPhysicalSFX("dice_roll");
     if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
       window.navigator.vibrate([40, 30, 40, 30, 80]);
     }
@@ -180,7 +180,7 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
   };
 
   const toggleCup = () => {
-    soundEngine.playSFX("card_flip");
+    soundEngine.playPhysicalSFX("dice_shake");
     if (isCupOpen) {
       setCupY(0);
       setIsCupOpen(false);

@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { soundEngine } from "@/lib/soundManager";
 
 interface LudoGameProps { onClose?: () => void; onPlayAgain?: () => void; roomId?: string | null; }
 type PlayerId = 0 | 1 | 2 | 3;
@@ -289,11 +290,19 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
  }, [finishTurn, roomId, tokens]);
 
  const rollDice = useCallback((player: PlayerId) => {
-   if (roomId) { if (player === mySeatIndex) void supabase.rpc("ludo_roll", { p_room_id: roomId }).then(({ error }) => { if (error) setMessage(error.message); }); return; }
+   if (roomId) {
+     if (player === mySeatIndex) {
+       soundEngine.playPhysicalSFX("dice_shake");
+       void supabase.rpc("ludo_roll", { p_room_id: roomId }).then(({ error }) => { if (error) setMessage(error.message); });
+     }
+     return;
+   }
    if (rolling || winner !== null || dice !== null) return;
+   soundEngine.playPhysicalSFX("dice_shake");
    setRolling(true); setMessage(`${PLAYERS[player].name} is rolling...`);
    window.setTimeout(() => {
      const roll = Math.floor(Math.random() * 6) + 1;
+     soundEngine.playPhysicalSFX("dice_roll");
      const moves = movableTokens(tokens[player], roll);
      setDice(roll);
      if (moves.length === 0) {

@@ -405,7 +405,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
   };
 
   const drawCardForPlayer = (pId: number, count = 1) => {
-    soundEngine.playSFX("card_flip");
+    soundEngine.playPhysicalSFX("card_place_light");
     if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) window.navigator.vibrate(30);
     
     // Consume the shared deck reference immediately. State updates are async;
@@ -467,7 +467,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
       soundEngine.playSFX("laser");
       if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) window.navigator.vibrate([100, 50, 100]);
     } else {
-      soundEngine.playSFX("card_flip");
+      soundEngine.playPhysicalSFX("card_place_heavy");
       if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) window.navigator.vibrate(30);
     }
 

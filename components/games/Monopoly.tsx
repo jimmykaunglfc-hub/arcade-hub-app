@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
+import { soundEngine } from "@/lib/soundManager";
 import {
   Anchor,
   ArrowLeft,
@@ -1156,6 +1157,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
       dice = [Number(data.die_one), Number(data.die_two)];
     }
     markCommand("roll");
+    soundEngine.playPhysicalSFX("dice_shake");
     const dieTotal = dice[0] + dice[1];
     const rollingPlayer = activePlayer;
     const turnEpoch = turnEpochRef.current;
@@ -1164,6 +1166,7 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
 
     window.setTimeout(() => {
       if (turnEpochRef.current !== turnEpoch) return;
+      soundEngine.playPhysicalSFX("dice_roll");
       setIsRolling(false);
       movePlayerStepByStep(dieTotal, rollingPlayer.id, turnEpoch, rollingPlayer.position);
     }, 680);
