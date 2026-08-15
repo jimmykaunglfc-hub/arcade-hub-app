@@ -323,7 +323,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
     if (!result.success) {
       if (result.error === "INSUFFICIENT_POINTS") {
-        soundEngine.playSFX("carrom_foul");
         setShowNoPointsModal(true);
       }
       return false;
@@ -443,7 +442,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
   const handleTimeOut = () => {
     if (isMovingRef.current || winner) return;
-    soundEngine.playSFX("carrom_foul");
 
     if (playMode === "bot" && turn === 2) {
       setToast({ msg: `${localOpponent?.name || "Bot"} timed out! Auto shooting...`, type: 'foul' });
@@ -635,7 +633,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           disconnectForfeitTimerRef.current = window.setTimeout(() => {
             setToast({ msg: "Opponent did not reconnect. You win by forfeit.", type: "success" });
             setWinner(myPlayerRoleRef.current);
-            soundEngine.playSFX("carrom_win");
             disconnectForfeitTimerRef.current = null;
           }, 30_000);
         }
@@ -677,7 +674,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         setP1Slider(500); 
         setP2Slider(500);
         if (msg) setToast({ msg, type: msgType });
-        if (win) soundEngine.playSFX("carrom_win");
         setRenderTrigger(prev => prev + 1);
       })
       .on('broadcast', { event: 'emoji' }, (payload) => {
@@ -811,14 +807,10 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       if (Math.abs(c1.vx) > 0.08 || Math.abs(c1.vy) > 0.08) moving = true;
       else { c1.vx = 0; c1.vy = 0; }
 
-      let hitWall = false;
-      if (c1.x - c1.radius < BOUND_MIN) { c1.x = BOUND_MIN + c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
-      if (c1.x + c1.radius > BOUND_MAX) { c1.x = BOUND_MAX - c1.radius; c1.vx *= -RESTITUTION; hitWall = true; }
-      if (c1.y - c1.radius < BOUND_MIN) { c1.y = BOUND_MIN + c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
-      if (c1.y + c1.radius > BOUND_MAX) { c1.y = BOUND_MAX - c1.radius; c1.vy *= -RESTITUTION; hitWall = true; }
-      if (hitWall && Math.hypot(c1.vx, c1.vy) > 2) {
-        soundEngine.playSFX("carrom_cushion");
-      }
+      if (c1.x - c1.radius < BOUND_MIN) { c1.x = BOUND_MIN + c1.radius; c1.vx *= -RESTITUTION; }
+      if (c1.x + c1.radius > BOUND_MAX) { c1.x = BOUND_MAX - c1.radius; c1.vx *= -RESTITUTION; }
+      if (c1.y - c1.radius < BOUND_MIN) { c1.y = BOUND_MIN + c1.radius; c1.vy *= -RESTITUTION; }
+      if (c1.y + c1.radius > BOUND_MAX) { c1.y = BOUND_MAX - c1.radius; c1.vy *= -RESTITUTION; }
 
       const pockets = [
         {x: HOLE_POS, y: HOLE_POS}, 
@@ -832,8 +824,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         if (dist < POCKET_TRIGGER && !c1.falling) {
           c1.falling = true;
           if (c1.type === "striker") strikerPocketedThisTurnRef.current = true;
-          if (c1.type === "striker") soundEngine.playSFX("carrom_foul");
-          else soundEngine.playGameSFX("carrom_pocket");
+          if (c1.type !== "striker") soundEngine.playGameSFX("carrom_pocket");
         }
       }
 
@@ -866,9 +857,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           c2.vx += p * c1.mass * nx * RESTITUTION; 
           c2.vy += p * c1.mass * ny * RESTITUTION;
           
-          if (Math.abs(p) > 1) {
-            soundEngine.playSFX("carrom_hit");
-          }
         }
       }
     }
@@ -954,7 +942,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         ? "Foul! Striker pocketed: -5 points and turn lost."
         : "Foul! Turn Lost.";
       msgType = "foul";
-      soundEngine.playSFX("carrom_foul");
       nextTurn = turnRef.current === 1 ? 2 : 1;
     } else if (validPocket) {
       turnMsg = "Good Shot! Extra Turn.";
@@ -995,7 +982,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     }
 
     if (win) {
-      soundEngine.playSFX("carrom_win");
     }
 
     if (turnMsg) setToast({ msg: turnMsg, type: msgType });

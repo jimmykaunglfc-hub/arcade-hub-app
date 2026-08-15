@@ -701,7 +701,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           soundEngine.playSFX("defeat");
         } else if (tracking.redsPotted > 0) {
           newScores[turnVal] += tracking.redsPotted;
-          soundEngine.playSFX("capture");
           if (redsLeft === 0) {
             newPhase = "LAST_RED_COLOR";
             newNextReq = "Color";
@@ -720,7 +719,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
           const colorName = tracking.colorsPotted[0];
           const pts = BALL_TYPES[colorName as keyof typeof BALL_TYPES]?.points || 2;
           newScores[turnVal] += pts;
-          soundEngine.playSFX("capture");
           respotColorBall(colorName);
           newNextReq = "Red";
         }
@@ -738,7 +736,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
         const colorName = tracking.colorsPotted[0];
         const pts = BALL_TYPES[colorName as keyof typeof BALL_TYPES]?.points || 2;
         newScores[turnVal] += pts;
-        soundEngine.playSFX("capture");
         respotColorBall(colorName);
         newPhase = "COLORS_SEQUENCE";
         colorSeqIndexRef.current = 0;
@@ -754,7 +751,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
       } else if (tracking.colorsPotted.length === 1 && tracking.colorsPotted[0] === targetColor) {
         const pts = BALL_TYPES[targetColor as keyof typeof BALL_TYPES]?.points || 2;
         newScores[turnVal] += pts;
-        soundEngine.playSFX("capture");
         const nextIdx = seqIdxVal + 1;
         colorSeqIndexRef.current = nextIdx;
         setColorSeqIndex(nextIdx);
@@ -1035,21 +1031,15 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
           const boundX = 25 + ballRadius;
           const boundY = 25 + ballRadius;
-          let hitWall = false;
           if (ball.x < boundX || ball.x > tableWidth - boundX) {
             ball.vx *= -1;
             if (ball.isCue && ball.spinX) ball.vy += ball.spinX * 0.8;
             ball.x = ball.x < boundX ? boundX : tableWidth - boundX;
-            hitWall = true;
           }
           if (ball.y < boundY || ball.y > tableHeight - boundY) {
             ball.vy *= -1;
             if (ball.isCue && ball.spinX) ball.vx += ball.spinX * 0.8;
             ball.y = ball.y < boundY ? boundY : tableHeight - boundY;
-            hitWall = true;
-          }
-          if (hitWall && Math.hypot(ball.vx, ball.vy) > 2) {
-            soundEngine.playSFX("snooker_cushion");
           }
         });
 
@@ -1088,7 +1078,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
               b2.vx += impulse * Math.cos(angle);
               b2.vy += impulse * Math.sin(angle);
 
-              if (Math.abs(impulse) > 1) soundEngine.playSFX("snooker_hit");
             }
           }
         }
