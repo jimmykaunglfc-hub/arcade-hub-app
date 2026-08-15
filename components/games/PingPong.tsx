@@ -40,6 +40,7 @@ import {
   type PingPongRacketSkin,
 } from "@/lib/pingPongCosmetics";
 import { supabase } from "@/lib/supabaseClient";
+import { soundEngine } from "@/lib/soundManager";
 import MatchmakingModal from "../MatchmakingModal";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -665,6 +666,10 @@ export default function PingPong(props: PingPongProps) {
   // snapshots and only transmits input, avoiding competing physics clocks.
   const isSimulationAuthority = !isNetworkMatch || localSeat === 1;
   const isNetworkReplica = isNetworkMatch && !isSimulationAuthority;
+
+  useEffect(() => {
+    soundEngine.preloadGameSFX(["ping_pong_paddle"]);
+  }, []);
 
   useEffect(() => {
     if (!gameWinner) return;
@@ -2285,6 +2290,7 @@ export default function PingPong(props: PingPongProps) {
       assistWindowsRef.current[side] = null;
 
       rallyRef.current = nextRally;
+      soundEngine.playGameSFX("ping_pong_paddle");
 
       trailsRef.current[side].push({ ...paddle, createdAt: now });
       setStatus(

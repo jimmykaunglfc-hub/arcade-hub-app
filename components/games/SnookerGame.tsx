@@ -50,6 +50,10 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const { modifiers } = useEquippedCosmetic("snooker");
   const isCyberTable = !!modifiers;
 
+  useEffect(() => {
+    soundEngine.preloadGameSFX(["cue_shot", "ball_pocket", "cue_scratch"]);
+  }, []);
+
   // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [entryFee, setEntryFee] = useState<number>(100);
@@ -132,12 +136,9 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
   const turnTrackingRef = useRef({ redsPotted: 0, colorsPotted: [] as string[], firstHitBallType: "" });
   const wasMovingRef = useRef(false);
   const didIShootRef = useRef(false);
-  const hasOpeningBreakOccurredRef = useRef(false);
 
   const playCueShotSound = useCallback(() => {
-    const isOpeningBreak = !hasOpeningBreakOccurredRef.current;
-    hasOpeningBreakOccurredRef.current = true;
-    soundEngine.playSFX(isOpeningBreak ? "snooker_break" : "snooker_hit");
+    soundEngine.playGameSFX("cue_shot");
   }, []);
 
   // Synchronized State Refs to eliminate closure bugs inside Engine Loop
@@ -841,7 +842,6 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
     balls.push({ id: idCounter++, x: tableWidth / 2, y: 50, vx: 0, vy: 0, type: "Black", scale: 1, isPotted: false });
 
     ballsRef.current = balls;
-    hasOpeningBreakOccurredRef.current = false;
     setScores({ player1: 0, player2: 0 });
     setCurrentTurn("player1");
     setGamePhase("REDS");
@@ -971,7 +971,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
               ball.y = p.y;
 
               // A scratch is still a physical pocket drop; the foul feedback is handled separately.
-              soundEngine.playSFX("snooker_pocket");
+              soundEngine.playGameSFX(ball.isCue ? "cue_scratch" : "ball_pocket");
 
               if (ball.isCue) {
                 turnTrackingRef.current.firstHitBallType = "FOUL_SCRATCH";

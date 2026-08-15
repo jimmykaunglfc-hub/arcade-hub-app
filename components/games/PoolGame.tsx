@@ -138,6 +138,10 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
   const { modifiers } = useEquippedCosmetic("pool");
   const isCyberTable = !!modifiers;
 
+  useEffect(() => {
+    soundEngine.preloadGameSFX(["cue_shot", "ball_pocket", "cue_scratch"]);
+  }, []);
+
   // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [entryFee, setEntryFee] = useState<number>(100);
@@ -411,7 +415,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           setIsMoving(true);
           didIShootRef.current = false;
           turnTrackingRef.current = { pottedNum: [], firstHitNum: -1, cueScratch: false };
-          soundEngine.playSFX("strike");
+          soundEngine.playGameSFX("cue_shot");
         }
       })
       .on("broadcast", { event: "turn_sync" }, (payload) => {
@@ -652,7 +656,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           cueBall.vy = Math.sin(aim) * power;
           
           setIsMoving(true);
-          soundEngine.playSFX("strike");
+          soundEngine.playGameSFX("cue_shot");
         }
       }, 2000);
       return () => clearTimeout(timer);
@@ -827,6 +831,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               ball.y = p.y;
 
               if (ball.num === 0) {
+                soundEngine.playGameSFX("cue_scratch");
                 // The remote player animates the same shot for visual feedback,
                 // but only the shooter may turn a locally simulated pocket into
                 // a real scratch/ball-in-hand result.
@@ -846,6 +851,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                   }
                 }, 700);
               } else {
+                soundEngine.playGameSFX("ball_pocket");
                 turnTrackingRef.current.pottedNum.push(ball.num);
               }
             }
@@ -1458,7 +1464,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     setIsMoving(true);
     setUiPower(0);
     didIShootRef.current = true;
-    soundEngine.playSFX("strike");
+    soundEngine.playGameSFX("cue_shot");
 
     if (playMode === "online" && channelRef.current) {
       channelRef.current.send({

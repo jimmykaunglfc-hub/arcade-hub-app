@@ -1,11 +1,25 @@
 "use client";
 
+const GAME_AUDIO_EFFECTS = {
+  ping_pong_paddle: { src: "/game-sfx/ping-pong-paddle.mp3", volume: 0.34, cooldownMs: 75, voices: 3 },
+  cue_shot: { src: "/game-sfx/cue-shot.mp3", volume: 0.42, cooldownMs: 120, voices: 2 },
+  ball_pocket: { src: "/game-sfx/ball-pocket.mp3", volume: 0.38, cooldownMs: 110, voices: 2 },
+  cue_scratch: { src: "/game-sfx/cue-scratch.mp3", volume: 0.4, cooldownMs: 250, voices: 1 },
+  carrom_strike: { src: "/game-sfx/carrom-strike.mp3", volume: 0.36, cooldownMs: 120, voices: 2 },
+  carrom_pocket: { src: "/game-sfx/carrom-pocket.mp3", volume: 0.38, cooldownMs: 125, voices: 2 },
+  chess_move: { src: "/game-sfx/chess-move.mp3", volume: 0.34, cooldownMs: 90, voices: 2 },
+} as const;
+
+export type GameAudioEffect = keyof typeof GAME_AUDIO_EFFECTS;
+
 class SoundEngine {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
   private bgmAudio: HTMLAudioElement | null = null;
   private bgmSource: string | null = null;
   private lastCarromSound = new Map<string, number>();
+  private gameAudioPools = new Map<GameAudioEffect, HTMLAudioElement[]>();
+  private lastGameAudioAt = new Map<GameAudioEffect, number>();
 
   constructor() {
     // AudioContext will be initialized on first user interaction
@@ -68,6 +82,47 @@ class SoundEngine {
 
   public getMutedState(): boolean {
     return this.isMuted;
+  }
+
+  /**
+   * Prepares short recorded gameplay effects after a game screen mounts.
+   * Audio remains subject to the platform's normal user-gesture policy.
+   */
+  public preloadGameSFX(effects: readonly GameAudioEffect[]) {
+    if (typeof window === "undefined") return;
+    effects.forEach((effect) => {
+      if (this.gameAudioPools.has(effect)) return;
+      const config = GAME_AUDIO_EFFECTS[effect];
+      const voices = Array.from({ length: config.voices }, () => {
+        const audio = new Audio(config.src);
+        audio.preload = "auto";
+        audio.volume = config.volume;
+        return audio;
+      });
+      this.gameAudioPools.set(effect, voices);
+    });
+  }
+
+  /** Plays a supplied game recording with a small voice pool for rapid physics events. */
+  public playGameSFX(effect: GameAudioEffect) {
+    if (this.isMuted || typeof window === "undefined") return;
+    this.preloadGameSFX([effect]);
+
+    const config = GAME_AUDIO_EFFECTS[effect];
+    const now = performance.now();
+    const lastPlayedAt = this.lastGameAudioAt.get(effect) ?? -Infinity;
+    if (now - lastPlayedAt < config.cooldownMs) return;
+    this.lastGameAudioAt.set(effect, now);
+
+    const voices = this.gameAudioPools.get(effect);
+    if (!voices?.length) return;
+    const voice = voices.find((audio) => audio.paused || audio.ended) ?? voices[0];
+    voice.pause();
+    voice.currentTime = 0;
+    voice.volume = config.volume;
+    void voice.play().catch(() => {
+      // The first effect can be blocked until the player interacts with the game.
+    });
   }
 
   // --- SYNTHESIZED SFX GENERATOR (Zero External Assets Required) ---

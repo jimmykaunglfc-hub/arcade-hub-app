@@ -210,6 +210,10 @@ const getBestMove = (chessGame: Chess) => {
 export default function ChessGame({ onClose, preloadedMatchId, opponent }: ChessGameProps) {
   const boardRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    soundEngine.preloadGameSFX(["chess_move"]);
+  }, []);
+
   // 🛍️ LIVE DATABASE COSMETICS ENGINE SYNC
   const { modifiers } = useEquippedCosmetic("chess");
   // If modifiers exist, the user has equipped a cosmetic board
@@ -405,7 +409,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
           const isWinner = (playerColor === "white" && updatedGame.turn() === "b") || (playerColor === "black" && updatedGame.turn() === "w");
           soundEngine.playSFX(isWinner ? "victory" : "defeat");
         } else {
-          soundEngine.playSFX("move");
+          soundEngine.playGameSFX("chess_move");
         }
       })
       .on("broadcast", { event: "reaction" }, (payload) => {
@@ -472,9 +476,9 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
           : gameCopy.turn() === "b";
         soundEngine.playSFX(isWinner ? "victory" : "defeat");
       } else if (move.captured) {
-        soundEngine.playSFX("capture");
+        soundEngine.playGameSFX("chess_move");
       } else {
-        soundEngine.playSFX("move");
+        soundEngine.playGameSFX("chess_move");
       }
 
       setGame(gameCopy);

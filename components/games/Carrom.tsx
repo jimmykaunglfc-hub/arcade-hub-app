@@ -117,6 +117,10 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
   const { modifiers } = useEquippedCosmetic("carrom");
   const isNeonStriker = !!modifiers;
 
+  useEffect(() => {
+    soundEngine.preloadGameSFX(["carrom_strike", "carrom_pocket"]);
+  }, []);
+
   // 🛍️ DIRECT SUPABASE EQUIPPED COSMETIC FETCH ENGINE
   const [customStrikerImage, setCustomStrikerImage] = useState<string | null>(null);
   const [customBoardImage, setCustomBoardImage] = useState<string | null>(null);
@@ -527,7 +531,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       isMovingRef.current = true;
       didIShootRef.current = true; 
       
-      soundEngine.playSFX("carrom_strike");
+      soundEngine.playGameSFX("carrom_strike");
       requestAnimationFrame(physicsLoop);
 
       if (Math.random() <= 0.25) {
@@ -644,7 +648,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         const { vx, vy, startX } = payload.payload;
         const strikerObj = coinsRef.current.find(c => c.type === "striker");
         if (strikerObj) {
-          soundEngine.playSFX("carrom_strike");
+          soundEngine.playGameSFX("carrom_strike");
           strikerObj.x = startX;
           strikerObj.y = turnRef.current === 1 ? 840 : 160;
           strikerObj.vx = vx;
@@ -828,7 +832,8 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         if (dist < POCKET_TRIGGER && !c1.falling) {
           c1.falling = true;
           if (c1.type === "striker") strikerPocketedThisTurnRef.current = true;
-          soundEngine.playSFX(c1.type === "striker" ? "carrom_foul" : "carrom_pocket");
+          if (c1.type === "striker") soundEngine.playSFX("carrom_foul");
+          else soundEngine.playGameSFX("carrom_pocket");
         }
       }
 
@@ -954,7 +959,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     } else if (validPocket) {
       turnMsg = "Good Shot! Extra Turn.";
       msgType = "success";
-      soundEngine.playSFX("carrom_pocket");
+      soundEngine.playGameSFX("carrom_pocket");
       nextTurn = turnRef.current;
     } else {
       nextTurn = turnRef.current === 1 ? 2 : 1;
@@ -1080,7 +1085,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       strikerObj.vy = vy;
       isMovingRef.current = true;
       didIShootRef.current = true; 
-      soundEngine.playSFX("carrom_strike");
+      soundEngine.playGameSFX("carrom_strike");
       
       if (playMode === "online" && channelRef.current) {
         channelRef.current.send({
