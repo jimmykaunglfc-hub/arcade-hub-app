@@ -1,8 +1,8 @@
 "use client";
 
 const GAME_AUDIO_EFFECTS = {
-  ping_pong_paddle: { src: "/game-sfx/ping-pong-paddle.mp3", volume: 0.34, cooldownMs: 75, voices: 3 },
-  cue_shot: { src: "/game-sfx/cue-shot.mp3", volume: 0.42, cooldownMs: 120, voices: 2 },
+  ping_pong_paddle: { src: "/game-sfx/ping-pong-paddle.mp3", volume: 0.34, cooldownMs: 35, voices: 1 },
+  cue_shot: { src: "/game-sfx/cue-shot.mp3", volume: 0.42, cooldownMs: 42, voices: 1 },
   ball_pocket: { src: "/game-sfx/ball-pocket.mp3", volume: 0.38, cooldownMs: 110, voices: 2 },
   cue_scratch: { src: "/game-sfx/cue-scratch.mp3", volume: 0.4, cooldownMs: 250, voices: 1 },
   carrom_strike: { src: "/game-sfx/carrom-strike.mp3", volume: 0.36, cooldownMs: 120, voices: 2 },
@@ -12,10 +12,7 @@ const GAME_AUDIO_EFFECTS = {
 
 export type GameAudioEffect = keyof typeof GAME_AUDIO_EFFECTS;
 
-/**
- * Original, synthesized effects for high-frequency physics events.  These do
- * not replay a long MP3, so every valid collision can be heard in a rally.
- */
+/** High-frequency game events mapped to the supplied reference recordings. */
 export type PhysicalAudioEffect =
   | "ping_pong_paddle"
   | "ping_pong_table"
@@ -34,22 +31,26 @@ class SoundEngine {
   private bgmSource: string | null = null;
   private lastCarromSound = new Map<string, number>();
   private gameAudioPools = new Map<GameAudioEffect, HTMLAudioElement[]>();
+  private gameAudioBuffers = new Map<GameAudioEffect, AudioBuffer>();
+  private gameAudioBufferLoads = new Map<GameAudioEffect, Promise<AudioBuffer | null>>();
+  private activeGameSources = new Map<GameAudioEffect, AudioBufferSourceNode[]>();
   private lastGameAudioAt = new Map<GameAudioEffect, number>();
-  private lastPhysicalAudioAt = new Map<PhysicalAudioEffect, number>();
 
   constructor() {
     // AudioContext will be initialized on first user interaction
   }
 
-  private initContext() {
+  private initContext(resume = true) {
     if (!this.ctx && typeof window !== "undefined") {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
       }
     }
-    if (this.ctx && this.ctx.state === "suspended") {
-      this.ctx.resume();
+    if (resume && this.ctx && this.ctx.state === "suspended") {
+      void this.ctx.resume().catch(() => {
+        // The first physical user gesture will resume audio on mobile browsers.
+      });
     }
   }
 
@@ -106,6 +107,7 @@ class SoundEngine {
    */
   public preloadGameSFX(effects: readonly GameAudioEffect[]) {
     if (typeof window === "undefined") return;
+    this.initContext(false);
     effects.forEach((effect) => {
       if (this.gameAudioPools.has(effect)) return;
       const config = GAME_AUDIO_EFFECTS[effect];
@@ -116,7 +118,37 @@ class SoundEngine {
         return audio;
       });
       this.gameAudioPools.set(effect, voices);
+      void this.loadGameAudioBuffer(effect);
     });
+  }
+
+  private loadGameAudioBuffer(effect: GameAudioEffect): Promise<AudioBuffer | null> {
+    const cached = this.gameAudioBuffers.get(effect);
+    if (cached) return Promise.resolve(cached);
+    const inFlight = this.gameAudioBufferLoads.get(effect);
+    if (inFlight) return inFlight;
+    if (!this.ctx || typeof window === "undefined") return Promise.resolve(null);
+
+    const load = fetch(GAME_AUDIO_EFFECTS[effect].src)
+      .then((response) => (response.ok ? response.arrayBuffer() : null))
+      .then((bytes) => (bytes ? this.ctx!.decodeAudioData(bytes) : null))
+      .then((buffer) => {
+        if (buffer) this.gameAudioBuffers.set(effect, buffer);
+        return buffer;
+      })
+      .catch(() => null);
+    this.gameAudioBufferLoads.set(effect, load);
+    return load;
+  }
+
+  private playHtmlAudioFallback(effect: GameAudioEffect) {
+    const voices = this.gameAudioPools.get(effect);
+    if (!voices?.length) return;
+    const voice = voices.find((audio) => audio.paused || audio.ended) ?? voices[0];
+    voice.pause();
+    voice.currentTime = 0;
+    voice.volume = GAME_AUDIO_EFFECTS[effect].volume;
+    void voice.play().catch(() => {});
   }
 
   /** Plays a supplied game recording with a small voice pool for rapid physics events. */
@@ -130,105 +162,47 @@ class SoundEngine {
     if (now - lastPlayedAt < config.cooldownMs) return;
     this.lastGameAudioAt.set(effect, now);
 
-    const voices = this.gameAudioPools.get(effect);
-    if (!voices?.length) return;
-    const voice = voices.find((audio) => audio.paused || audio.ended) ?? voices[0];
-    voice.pause();
-    voice.currentTime = 0;
-    voice.volume = config.volume;
-    void voice.play().catch(() => {
-      // The first effect can be blocked until the player interacts with the game.
-    });
-  }
-
-  private playPhysicalImpact(
-    now: number,
-    {
-      pitch,
-      tailPitch,
-      duration,
-      volume,
-      noiseVolume,
-    }: {
-      pitch: number;
-      tailPitch: number;
-      duration: number;
-      volume: number;
-      noiseVolume: number;
+    const buffer = this.gameAudioBuffers.get(effect);
+    if (!buffer || !this.ctx) {
+      this.playHtmlAudioFallback(effect);
+      return;
     }
-  ) {
-    if (!this.ctx) return;
-    const oscillator = this.ctx.createOscillator();
+
+    const activeSources = this.activeGameSources.get(effect) ?? [];
+    while (activeSources.length >= config.voices) {
+      activeSources.shift()?.stop();
+    }
+    const source = this.ctx.createBufferSource();
     const gain = this.ctx.createGain();
-    oscillator.type = "triangle";
-    oscillator.frequency.setValueAtTime(pitch, now);
-    oscillator.frequency.exponentialRampToValueAtTime(Math.max(35, tailPitch), now + duration);
-    gain.gain.setValueAtTime(volume, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-    oscillator.connect(gain);
+    source.buffer = buffer;
+    gain.gain.setValueAtTime(config.volume, this.ctx.currentTime);
+    source.connect(gain);
     gain.connect(this.ctx.destination);
-    oscillator.start(now);
-    oscillator.stop(now + duration + 0.01);
-    if (noiseVolume > 0) this.playNoiseBurst(now, Math.min(duration, 0.045), noiseVolume, pitch * 1.4);
+    activeSources.push(source);
+    this.activeGameSources.set(effect, activeSources);
+    source.onended = () => {
+      const sources = this.activeGameSources.get(effect);
+      if (!sources) return;
+      const index = sources.indexOf(source);
+      if (index >= 0) sources.splice(index, 1);
+    };
+    source.start();
   }
 
-  /**
-   * Plays an original, short effect for every confirmed physics contact.
-   * Slight pitch variation keeps repeated impacts natural without affecting
-   * the simulation or the player's Sound Effects preference.
-   */
+  /** Replays an exact supplied reference recording for every valid contact. */
   public playPhysicalSFX(effect: PhysicalAudioEffect) {
-    if (this.isMuted) return;
-    this.initContext();
-    if (!this.ctx) return;
-
-    const cooldownMs: Record<PhysicalAudioEffect, number> = {
-      ping_pong_paddle: 35,
-      ping_pong_table: 48,
-      ping_pong_net: 90,
-      pool_ball_hit: 42,
-      pool_cushion: 65,
-      snooker_ball_hit: 42,
-      snooker_cushion: 65,
-      carrom_hit: 45,
-      carrom_cushion: 65,
+    const references: Record<PhysicalAudioEffect, GameAudioEffect> = {
+      ping_pong_paddle: "ping_pong_paddle",
+      ping_pong_table: "ping_pong_paddle",
+      ping_pong_net: "ping_pong_paddle",
+      pool_ball_hit: "cue_shot",
+      pool_cushion: "cue_shot",
+      snooker_ball_hit: "cue_shot",
+      snooker_cushion: "cue_shot",
+      carrom_hit: "carrom_strike",
+      carrom_cushion: "carrom_strike",
     };
-    const nowMs = performance.now();
-    const last = this.lastPhysicalAudioAt.get(effect) ?? -Infinity;
-    if (nowMs - last < cooldownMs[effect]) return;
-    this.lastPhysicalAudioAt.set(effect, nowMs);
-
-    const now = this.ctx.currentTime;
-    const variation = 0.92 + Math.random() * 0.16;
-    switch (effect) {
-      case "ping_pong_paddle":
-        this.playPhysicalImpact(now, { pitch: 1850 * variation, tailPitch: 720, duration: 0.048, volume: 0.12, noiseVolume: 0.022 });
-        break;
-      case "ping_pong_table":
-        this.playPhysicalImpact(now, { pitch: 620 * variation, tailPitch: 210, duration: 0.055, volume: 0.09, noiseVolume: 0.012 });
-        break;
-      case "ping_pong_net":
-        this.playPhysicalImpact(now, { pitch: 360 * variation, tailPitch: 115, duration: 0.09, volume: 0.08, noiseVolume: 0.01 });
-        break;
-      case "pool_ball_hit":
-        this.playPhysicalImpact(now, { pitch: 1260 * variation, tailPitch: 490, duration: 0.042, volume: 0.1, noiseVolume: 0.018 });
-        break;
-      case "pool_cushion":
-        this.playPhysicalImpact(now, { pitch: 290 * variation, tailPitch: 92, duration: 0.075, volume: 0.1, noiseVolume: 0.025 });
-        break;
-      case "snooker_ball_hit":
-        this.playPhysicalImpact(now, { pitch: 1450 * variation, tailPitch: 610, duration: 0.036, volume: 0.085, noiseVolume: 0.014 });
-        break;
-      case "snooker_cushion":
-        this.playPhysicalImpact(now, { pitch: 255 * variation, tailPitch: 78, duration: 0.078, volume: 0.085, noiseVolume: 0.02 });
-        break;
-      case "carrom_hit":
-        this.playPhysicalImpact(now, { pitch: 700 * variation, tailPitch: 180, duration: 0.065, volume: 0.115, noiseVolume: 0.025 });
-        break;
-      case "carrom_cushion":
-        this.playPhysicalImpact(now, { pitch: 230 * variation, tailPitch: 70, duration: 0.085, volume: 0.1, noiseVolume: 0.02 });
-        break;
-    }
+    this.playGameSFX(references[effect]);
   }
 
   // --- SYNTHESIZED SFX GENERATOR (Zero External Assets Required) ---

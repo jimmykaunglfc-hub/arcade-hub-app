@@ -668,6 +668,10 @@ export default function PingPong(props: PingPongProps) {
   const isNetworkReplica = isNetworkMatch && !isSimulationAuthority;
 
   useEffect(() => {
+    soundEngine.preloadGameSFX(["ping_pong_paddle"]);
+  }, []);
+
+  useEffect(() => {
     if (!gameWinner) return;
     onResult?.(gameWinner === "local" ? "Win" : "Loss");
   }, [gameWinner, onResult]);
