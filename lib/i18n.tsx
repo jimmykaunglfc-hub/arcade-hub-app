@@ -1,6 +1,16 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import de from "./locales/de.json";
+import en from "./locales/en.json";
+import es from "./locales/es.json";
+import fr from "./locales/fr.json";
+import km from "./locales/km.json";
+import lo from "./locales/lo.json";
+import my from "./locales/my.json";
+import th from "./locales/th.json";
+import zh from "./locales/zh.json";
+import glossaryIndex from "./locales/glossary-index.json";
 
 export const LANGUAGES = [
   { code: "en", label: "English", flag: "🇬🇧" },
@@ -13,261 +23,107 @@ export const LANGUAGES = [
   { code: "de", label: "Deutsch", flag: "🇩🇪" },
   { code: "es", label: "Español", flag: "🇪🇸" },
 ] as const;
-export type LanguageCode = (typeof LANGUAGES)[number]["code"];
 
-const en = {
-  home: "Home",
-  explore: "Explore",
-  store: "Store",
-  chats: "Chats",
-  profile: "Profile",
-  notifications: "Notifications",
-  back: "Back",
-  language: "Language",
-  appLanguage: "App language",
-  activityHistory: "Activity history",
-  general: "General",
-  system: "System",
-  promotion: "Promotion",
-  save: "Save",
-  cancel: "Cancel",
-  points: "Points",
-  gems: "Gems",
-  settings: "Settings",
-  darkAppearance: "Dark appearance",
-  soundEffects: "Sound Effects",
-  hapticFeedback: "Haptic Feedback",
-  pushNotifications: "Push Notifications",
-  logout: "Logout Session",
-  loading: "Loading…",
-  cosmetics: "Cosmetics",
-  profileActivity: "Profile activity",
-  recentWalletActivities: "recent wallet activities",
-  appPreferences: "App preferences",
-  adjustAppearance: "Adjust interface appearance",
-  inGameAudio: "In-game audio cues",
-  vibrationInteractions: "Vibration on interactions",
-  adminAlerts: "Admin alerts, game invites and messages",
-  accountLegal: "Account & legal",
-  manageAccount: "Manage Account",
-  helpSupport: "Help & Support",
-  privacyPolicy: "Privacy Policy",
-  termsService: "Terms of Service",
-  editNamePhoto: "Edit Profile",
+export type LanguageCode = (typeof LANGUAGES)[number]["code"];
+export type TranslationVariables = Record<string, unknown>;
+export type TranslationKey = keyof typeof en;
+
+const resources: Record<LanguageCode, Record<string, string>> = { en, my, th, zh, km, lo, fr, de, es };
+const localeNames: Record<LanguageCode, string> = {
+  en: "en-US", my: "my-MM", th: "th-TH", zh: "zh-CN", km: "km-KH", lo: "lo-LA", fr: "fr-FR", de: "de-DE", es: "es-ES",
 };
-const translations: Record<LanguageCode, Record<string, string>> = {
-  en,
-  my: {
-    ...en,
-    home: "ပင်မ",
-    explore: "ရှာဖွေ",
-    store: "စတိုး",
-    chats: "စကားပြော",
-    profile: "ပရိုဖိုင်",
-    notifications: "အသိပေးချက်များ",
-    back: "နောက်သို့",
-    language: "ဘာသာစကား",
-    appLanguage: "အက်ပ်ဘာသာစကား",
-    activityHistory: "လှုပ်ရှားမှုမှတ်တမ်း",
-    general: "အထွေထွေ",
-    system: "စနစ်",
-    promotion: "ပရိုမိုးရှင်း",
-    points: "ပွိုင့်",
-    gems: "ကျောက်မျက်",
-    settings: "ဆက်တင်များ",
-    logout: "ထွက်ရန်",
-    loading: "ဖွင့်နေသည်…",
-  },
-  th: {
-    ...en,
-    home: "หน้าแรก",
-    explore: "สำรวจ",
-    store: "ร้านค้า",
-    chats: "แชต",
-    profile: "โปรไฟล์",
-    notifications: "การแจ้งเตือน",
-    back: "กลับ",
-    language: "ภาษา",
-    appLanguage: "ภาษาแอป",
-    activityHistory: "ประวัติกิจกรรม",
-    general: "ทั่วไป",
-    system: "ระบบ",
-    promotion: "โปรโมชั่น",
-    points: "คะแนน",
-    gems: "เพชร",
-    settings: "การตั้งค่า",
-    logout: "ออกจากระบบ",
-    loading: "กำลังโหลด…",
-  },
-  zh: {
-    ...en,
-    home: "首页",
-    explore: "探索",
-    store: "商店",
-    chats: "聊天",
-    profile: "个人资料",
-    notifications: "通知",
-    back: "返回",
-    language: "语言",
-    appLanguage: "应用语言",
-    activityHistory: "活动记录",
-    general: "通用",
-    system: "系统",
-    promotion: "推广",
-    points: "积分",
-    gems: "宝石",
-    settings: "设置",
-    logout: "退出登录",
-    loading: "加载中…",
-  },
-  km: {
-    ...en,
-    home: "ទំព័រដើម",
-    explore: "រុករក",
-    store: "ហាង",
-    chats: "ជជែក",
-    profile: "ប្រវត្តិរូប",
-    notifications: "ការជូនដំណឹង",
-    back: "ត្រឡប់",
-    language: "ភាសា",
-    appLanguage: "ភាសាកម្មវិធី",
-    activityHistory: "ប្រវត្តិសកម្មភាព",
-    general: "ទូទៅ",
-    system: "ប្រព័ន្ធ",
-    promotion: "ប្រូម៉ូសិន",
-    points: "ពិន្ទុ",
-    gems: "ត្បូង",
-    settings: "ការកំណត់",
-    logout: "ចាកចេញ",
-    loading: "កំពុងផ្ទុក…",
-  },
-  lo: {
-    ...en,
-    home: "ໜ້າຫຼັກ",
-    explore: "ສຳຫຼວດ",
-    store: "ຮ້ານ",
-    chats: "ສົນທະນາ",
-    profile: "ໂປຣໄຟລ໌",
-    notifications: "ການແຈ້ງເຕືອນ",
-    back: "ກັບຄືນ",
-    language: "ພາສາ",
-    appLanguage: "ພາສາແອັບ",
-    activityHistory: "ປະຫວັດກິດຈະກຳ",
-    general: "ທົ່ວໄປ",
-    system: "ລະບົບ",
-    promotion: "ໂປຣໂມຊັນ",
-    points: "ຄະແນນ",
-    gems: "ເພັດ",
-    settings: "ການຕັ້ງຄ່າ",
-    logout: "ອອກຈາກລະບົບ",
-    loading: "ກຳລັງໂຫຼດ…",
-  },
-  fr: {
-    ...en,
-    home: "Accueil",
-    explore: "Explorer",
-    store: "Boutique",
-    chats: "Discussions",
-    profile: "Profil",
-    notifications: "Notifications",
-    back: "Retour",
-    language: "Langue",
-    appLanguage: "Langue de l’application",
-    activityHistory: "Historique d’activité",
-    general: "Général",
-    system: "Système",
-    promotion: "Promotion",
-    points: "Points",
-    gems: "Gemmes",
-    settings: "Paramètres",
-    logout: "Déconnexion",
-    loading: "Chargement…",
-  },
-  de: {
-    ...en,
-    home: "Startseite",
-    explore: "Entdecken",
-    store: "Shop",
-    chats: "Chats",
-    profile: "Profil",
-    notifications: "Benachrichtigungen",
-    back: "Zurück",
-    language: "Sprache",
-    appLanguage: "App-Sprache",
-    activityHistory: "Aktivitätsverlauf",
-    general: "Allgemein",
-    system: "System",
-    promotion: "Aktion",
-    points: "Punkte",
-    gems: "Edelsteine",
-    settings: "Einstellungen",
-    logout: "Abmelden",
-    loading: "Laden…",
-  },
-  es: {
-    ...en,
-    home: "Inicio",
-    explore: "Explorar",
-    store: "Tienda",
-    chats: "Chats",
-    profile: "Perfil",
-    notifications: "Notificaciones",
-    back: "Volver",
-    language: "Idioma",
-    appLanguage: "Idioma de la aplicación",
-    activityHistory: "Historial de actividad",
-    general: "General",
-    system: "Sistema",
-    promotion: "Promoción",
-    points: "Puntos",
-    gems: "Gemas",
-    settings: "Configuración",
-    logout: "Cerrar sesión",
-    loading: "Cargando…",
-    cosmetics: "Cosméticos",
-    profileActivity: "Actividad del perfil",
-    recentWalletActivities: "actividades recientes de billetera",
-    appPreferences: "Preferencias de la aplicación",
-    adjustAppearance: "Ajustar apariencia de la interfaz",
-    inGameAudio: "Señales de audio en el juego",
-    vibrationInteractions: "Vibración en interacciones",
-    adminAlerts: "Alertas de administración, invitaciones y mensajes",
-    accountLegal: "Cuenta y legal",
-    manageAccount: "Gestionar cuenta",
-    helpSupport: "Ayuda y soporte",
-    privacyPolicy: "Política de privacidad",
-    termsService: "Términos del servicio",
-    editNamePhoto: "Editar perfil",
-  },
+
+// Existing Profile/navigation callers retain these aliases. New code should
+// always reference the permanent glossary key (for example, t("UI_0039")).
+const legacyKeyAliases: Record<string, TranslationKey> = {
+  home: "UI_0039", explore: "UI_0040", store: "UI_0037", chats: "UI_0036", profile: "UI_0038",
+  language: "I18N_language", appLanguage: "I18N_appLanguage", general: "I18N_general", system: "I18N_system", promotion: "I18N_promotion",
+  save: "I18N_save", points: "I18N_points", gems: "I18N_gems", settings: "I18N_settings", darkAppearance: "I18N_darkAppearance",
+  soundEffects: "I18N_soundEffects", hapticFeedback: "I18N_hapticFeedback", pushNotifications: "I18N_pushNotifications", logout: "I18N_logout",
+  profileActivity: "I18N_profileActivity", recentWalletActivities: "I18N_recentWalletActivities", appPreferences: "I18N_appPreferences",
+  adjustAppearance: "I18N_adjustAppearance", inGameAudio: "I18N_inGameAudio", vibrationInteractions: "I18N_vibrationInteractions",
+  adminAlerts: "I18N_adminAlerts", accountLegal: "I18N_accountLegal", cosmetics: "UI_1692", manageAccount: "UI_1651",
+  helpSupport: "UI_1653", privacyPolicy: "UI_1595", termsService: "UI_1597", editNamePhoto: "UI_1604",
 };
-const LanguageContext = createContext<{
+
+const warned = new Set<string>();
+const isDevelopment = process.env.NODE_ENV !== "production";
+const warnOnce = (message: string) => {
+  if (!isDevelopment || warned.has(message)) return;
+  warned.add(message);
+  console.warn(`[i18n] ${message}`);
+};
+const resolveKey = (key: string) => legacyKeyAliases[key] || key;
+const getVariable = (variables: TranslationVariables, variablePath: string) =>
+  variablePath.split(".").reduce<unknown>((value, part) => {
+    if (value && typeof value === "object" && part in value) return (value as Record<string, unknown>)[part];
+    return undefined;
+  }, variables);
+const interpolate = (template: string, variables: TranslationVariables, key: string) =>
+  template.replace(/\{\{\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\}\}/g, (_match, variablePath: string) => {
+    const value = getVariable(variables, variablePath);
+    if (value === undefined || value === null) {
+      warnOnce(`Missing variable "${variablePath}" for ${key}.`);
+      return `{{${variablePath}}}`;
+    }
+    return String(value);
+  });
+
+export function translate(language: LanguageCode, requestedKey: string, variables: TranslationVariables = {}) {
+  const key = resolveKey(requestedKey);
+  const english = resources.en[key];
+  if (!english) {
+    warnOnce(`Missing glossary key "${requestedKey}".`);
+    return requestedKey;
+  }
+  const localized = resources[language][key];
+  if (!localized) warnOnce(`Missing ${language} translation for ${key}; using English.`);
+  let template = localized || english;
+  const expected = (glossaryIndex as Record<string, { placeholders?: string[] }>)[key]?.placeholders || [];
+  if (expected.length && language !== "en") {
+    const found = [...template.matchAll(/\{\{\s*([^{}\s]+)\s*\}\}/g)].map((match) => match[1]);
+    if ([...expected].sort().join("|") !== [...found].sort().join("|")) {
+      warnOnce(`Placeholder mismatch in ${language} translation for ${key}; verify the glossary entry.`);
+      // A translated template that drops a dynamic value is less accurate than
+      // the English fallback. Never hide gameplay, price, account, or score
+      // values merely because a spreadsheet cell omitted its placeholder.
+      template = english;
+    }
+  }
+  return interpolate(template, variables, key);
+}
+
+type TranslationContextValue = {
   language: LanguageCode;
   setLanguage: (code: LanguageCode) => void;
-  t: (key: keyof typeof en) => string;
-}>({ language: "en", setLanguage: () => {}, t: (key) => en[key] });
+  t: (key: string, variables?: TranslationVariables) => string;
+  formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string;
+};
+const LanguageContext = createContext<TranslationContextValue>({
+  language: "en",
+  setLanguage: () => undefined,
+  t: (key, variables) => translate("en", key, variables),
+  formatNumber: (value, options) => new Intl.NumberFormat(localeNames.en, options).format(value),
+});
+
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<LanguageCode>("en");
-  const setLanguage = (code: LanguageCode) => {
-    setLanguageState(code);
-    localStorage.setItem("app_language", code);
-  };
   useEffect(() => {
-    const saved = localStorage.getItem("app_language") as LanguageCode | null;
-    if (saved && translations[saved]) setLanguageState(saved);
+    const saved = window.localStorage.getItem("app_language");
+    if (LANGUAGES.some((item) => item.code === saved)) setLanguageState(saved as LanguageCode);
   }, []);
-  useEffect(() => {
-    document.documentElement.lang = language;
-  }, [language]);
-  return (
-    <LanguageContext.Provider
-      value={{
-        language,
-        setLanguage,
-        t: (key) => translations[language][key] || en[key],
-      }}
-    >
-      {children}
-    </LanguageContext.Provider>
-  );
+  useEffect(() => { document.documentElement.lang = language; }, [language]);
+  const setLanguage = useCallback((code: LanguageCode) => {
+    setLanguageState(code);
+    window.localStorage.setItem("app_language", code);
+  }, []);
+  const value = useMemo<TranslationContextValue>(() => ({
+    language,
+    setLanguage,
+    t: (key, variables) => translate(language, key, variables),
+    formatNumber: (number, options) => new Intl.NumberFormat(localeNames[language], options).format(number),
+  }), [language, setLanguage]);
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
+
 export const useTranslation = () => useContext(LanguageContext);

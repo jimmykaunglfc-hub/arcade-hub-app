@@ -744,11 +744,11 @@ export default function Home() {
           }}
         >
           {[
-            { id: "Home", label: t("home"), icon: "home" },
-            { id: "Explore", label: t("explore"), icon: "explore" },
-            { id: "Store", label: t("store"), icon: "local_mall" },
-            { id: "Chats", label: t("chats"), icon: "chat_bubble" },
-            { id: "Profile", label: t("profile"), icon: "person" },
+            { id: "Home", label: t("UI_0039"), icon: "home" },
+            { id: "Explore", label: t("UI_0040"), icon: "explore" },
+            { id: "Store", label: t("UI_0037"), icon: "local_mall" },
+            { id: "Chats", label: t("UI_0036"), icon: "chat_bubble" },
+            { id: "Profile", label: t("UI_0038"), icon: "person" },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             return (

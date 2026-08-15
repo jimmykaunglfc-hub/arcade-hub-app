@@ -660,7 +660,7 @@ export default function ProfileTab({
               {(profile.points || 0).toLocaleString()}
             </b>
             <span className={`text-[10px] uppercase ${hasProfileCardArtwork ? "text-white/80" : "text-on-surface-variant"}`}>
-              {t("points")}
+              {t("I18N_points")}
             </span>
           </div>
           <div className="rounded-xl bg-black/25 px-2 py-2 backdrop-blur-sm">
@@ -668,20 +668,20 @@ export default function ProfileTab({
               {(profile.gems || 0).toLocaleString()}
             </b>
             <span className={`text-[10px] uppercase ${hasProfileCardArtwork ? "text-white/80" : "text-on-surface-variant"}`}>
-              {t("gems")}
+              {t("I18N_gems")}
             </span>
           </div>
           <div className="rounded-xl bg-black/25 px-2 py-2 backdrop-blur-sm">
             <b className="block text-lg">{inventoryCount}</b>
             <span className={`text-[10px] uppercase ${hasProfileCardArtwork ? "text-white/80" : "text-on-surface-variant"}`}>
-              {t("cosmetics")}
+              {t("UI_1692")}
             </span>
           </div>
         </div>
       </div>
       <section className="space-y-3">
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
-          {t("language")}
+          {t("I18N_language")}
         </h3>
         <button
           onClick={() => setModal("language")}
@@ -693,7 +693,7 @@ export default function ProfileTab({
                 {LANGUAGES.find((item) => item.code === language)?.flag}
               </span>
               <span>
-                <b className="block text-sm">{t("appLanguage")}</b>
+                <b className="block text-sm">{t("I18N_appLanguage")}</b>
                 <small className="text-on-surface-variant">
                   {LANGUAGES.find((item) => item.code === language)?.label}
                 </small>
@@ -707,7 +707,7 @@ export default function ProfileTab({
       </section>
       <section className="space-y-3">
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
-          {t("profileActivity")}
+          {t("I18N_profileActivity")}
         </h3>
         <div className="bg-surface border border-surface-container-highest rounded-[24px] divide-y divide-surface-variant">
           <button
@@ -723,7 +723,7 @@ export default function ProfileTab({
                   <b className="block text-sm">Activity history</b>
                   <small className="text-on-surface-variant">
                     {ledger.length
-                      ? `${ledger.length} ${t("recentWalletActivities")}`
+                      ? `${ledger.length} ${t("I18N_recentWalletActivities")}`
                       : "Points, gems and reward activity"}
                   </small>
                 </span>
@@ -741,19 +741,19 @@ export default function ProfileTab({
       </section>
       <section className="space-y-3">
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
-          {t("appPreferences")}
+          {t("I18N_appPreferences")}
         </h3>
         <div className="bg-surface border border-surface-container-highest rounded-[24px] overflow-hidden divide-y divide-surface-variant">
           {setting(
             isDarkMode ? "dark_mode" : "light_mode",
-            t("darkAppearance"),
-            t("adjustAppearance"),
+            t("I18N_darkAppearance"),
+            t("I18N_adjustAppearance"),
             toggle(isDarkMode, onToggleTheme)
           )}
           {setting(
             "volume_up",
-            t("soundEffects"),
-            t("inGameAudio"),
+            t("I18N_soundEffects"),
+            t("I18N_inGameAudio"),
             toggle(soundEnabled, () => {
               const next = !soundEnabled;
               setSoundEnabled(next);
@@ -762,14 +762,14 @@ export default function ProfileTab({
           )}
           {setting(
             "vibration",
-            t("hapticFeedback"),
-            t("vibrationInteractions"),
+            t("I18N_hapticFeedback"),
+            t("I18N_vibrationInteractions"),
             toggle(hapticsEnabled, () => setHapticsEnabled(!hapticsEnabled))
           )}
           {setting(
             "notifications",
-            t("pushNotifications"),
-            t("adminAlerts"),
+            t("I18N_pushNotifications"),
+            t("I18N_adminAlerts"),
             toggle(
               Boolean(profile.push_enabled),
               () => void setPushEnabled(!profile.push_enabled)
@@ -779,20 +779,20 @@ export default function ProfileTab({
       </section>
       <section className="space-y-3">
         <h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-2">
-          {t("accountLegal")}
+          {t("I18N_accountLegal")}
         </h3>
         <div className="bg-surface border border-surface-container-highest rounded-[24px] overflow-hidden divide-y divide-surface-variant">
           {[
-            ["manage_accounts", t("manageAccount"), () => setModal("account")],
-            ["help", t("helpSupport"), openSupport],
+            ["manage_accounts", t("UI_1651"), () => setModal("account")],
+            ["help", t("UI_1653"), openSupport],
             [
               "policy",
-              t("privacyPolicy"),
+              t("UI_1595"),
               () => void openLegal("privacy-policy"),
             ],
             [
               "gavel",
-              t("termsService"),
+              t("UI_1597"),
               () => void openLegal("terms-of-service"),
             ],
           ].map(([icon, title, action]) => (
@@ -823,7 +823,7 @@ export default function ProfileTab({
         className="w-full bg-surface border border-surface-container-highest rounded-[24px] p-4 flex items-center justify-center gap-2 text-red-500 font-bold text-[13px]"
       >
         <span className="material-symbols-outlined text-[18px]">logout</span>
-        {t("logout")}
+          {t("I18N_logout")}
       </button>
       {modal &&
         typeof document !== "undefined" &&
@@ -849,7 +849,7 @@ export default function ProfileTab({
                     : modal === "favorites"
                     ? "Favorite games"
                     : modal === "language"
-                    ? t("appLanguage")
+                    ? t("I18N_appLanguage")
                     : modal === "account"
                     ? "Manage Account"
                     : modal === "support"

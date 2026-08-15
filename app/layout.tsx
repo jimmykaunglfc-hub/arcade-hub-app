@@ -1,11 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/lib/i18n";
 import GuestActionGate from "@/components/GuestActionGate";
 import SocialAuthRedirectListener from "@/components/SocialAuthRedirectListener";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Joe Yoke | Social Gaming Hub",
@@ -46,14 +43,18 @@ export default function RootLayout({
           rel="stylesheet"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&family=JetBrains+Mono:wght@600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;700;800&family=JetBrains+Mono:wght@600&display=swap"
+          rel="stylesheet"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700&family=Noto+Sans+Lao:wght@400;600;700&family=Noto+Sans+Myanmar:wght@400;600;700&family=Noto+Sans+SC:wght@400;600;700&family=Noto+Sans+Thai:wght@400;600;700&display=swap"
           rel="stylesheet"
         />
       </head>
 
       {/* The body will now properly listen to your global CSS variables */}
       <body
-        className={`${inter.className} bg-background text-on-background min-h-screen font-body overflow-x-hidden transition-colors duration-300`}
+        className="bg-background text-on-background min-h-screen font-body overflow-x-hidden transition-colors duration-300"
       >
         <LanguageProvider>
           <SocialAuthRedirectListener />

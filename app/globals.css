@@ -101,7 +101,13 @@
 
   body {
     @apply bg-background text-on-background transition-colors duration-300;
+    font-family: var(--font-geist-sans), Inter, "Noto Sans Myanmar", "Noto Sans Thai", "Noto Sans SC", "Noto Sans Khmer", "Noto Sans Lao", sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    line-height: 1.45;
+  }
+
+  :lang(my), :lang(th), :lang(zh), :lang(km), :lang(lo) {
+    line-height: 1.55;
   }
 
   img {
