@@ -12,25 +12,18 @@ interface InvitePayload {
   sender_avatar: string;
 }
 
-export default function GlobalInviteListener({ onAccept }: { onAccept: (gameUrl: string, matchId: string) => void }) {
+export default function GlobalInviteListener({ userId, onAccept }: { userId: string; onAccept: (gameUrl: string, matchId: string) => void }) {
   const [incomingInvite, setIncomingInvite] = useState<InvitePayload | null>(null);
-  const [myUserId, setMyUserId] = useState<string | null>(null);
 
-  // 1. Identify the current player
+  // Open the real-time WebSocket connection only after the shell supplies the
+  // already-restored session user. This avoids a second auth read at startup.
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id || null));
-  }, []);
-
-  // 2. Open the real-time WebSocket connection
-  useEffect(() => {
-    if (!myUserId) return;
-
-    const channel = supabase.channel(`invites_for_${myUserId}`)
+    const channel = supabase.channel(`invites_for_${userId}`)
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
         table: 'game_invites', 
-        filter: `receiver_id=eq.${myUserId}` 
+        filter: `receiver_id=eq.${userId}`
       }, async (payload) => {
         
         // Fetch the sender's profile information so we know who is challenging us!
@@ -50,7 +43,7 @@ export default function GlobalInviteListener({ onAccept }: { onAccept: (gameUrl:
       }).subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [myUserId]);
+  }, [userId]);
 
   const handleAction = async (status: 'accepted' | 'declined') => {
     if (!incomingInvite) return;

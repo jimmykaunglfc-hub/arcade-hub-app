@@ -16,24 +16,24 @@ type SplashCampaign = {
 
 export default function CampaignSplash({ onAction, onVisibilityChange }: { onAction: (actionUrl: string) => void; onVisibilityChange: (visible: boolean) => void }) {
   const [campaign, setCampaign] = useState<SplashCampaign | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [remaining, setRemaining] = useState(0);
   const dismissed = useRef(false);
 
   useEffect(() => {
     let active = true;
     const loadCampaign = async () => {
+      // Campaign content is non-critical. The application shell is already
+      // interactive while this P2 request resolves.
+      onVisibilityChange(false);
       // A splash is a launch-only experience. Navigation back to this route must
       // never make it appear again, including for anonymous players.
       if (sessionStorage.getItem("joeyoke_campaign_splash_seen")) {
         onVisibilityChange(false);
-        setIsLoading(false);
         return;
       }
       sessionStorage.setItem("joeyoke_campaign_splash_seen", "1");
       const { data } = await supabase.from("splash_campaigns").select("id, title, message, image_url, action_label, action_url, display_seconds, show_every_launch").order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (!active) return;
-      setIsLoading(false);
       if (!data) { onVisibilityChange(false); return; }
       setCampaign(data as SplashCampaign);
       setRemaining(Math.max(0, Number(data.display_seconds) || 0));
@@ -64,24 +64,6 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
   };
   const canSkip = remaining === 0;
   const progress = useMemo(() => !campaign || campaign.display_seconds <= 0 ? 100 : Math.min(100, ((campaign.display_seconds - remaining) / campaign.display_seconds) * 100), [campaign, remaining]);
-  // Cover the app immediately while the launch-only campaign check runs. This
-  // prevents the underlying shell from flashing/reflowing before the splash.
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 z-[500] grid min-h-[100dvh] place-items-center bg-[#070b13] text-white" aria-label="Loading Joe Yoke">
-        <div className="flex flex-col items-center gap-5">
-          <div className="grid h-20 w-20 place-items-center rounded-[24px] border border-white/10 bg-surface shadow-[0_18px_45px_rgba(0,0,0,0.4)]">
-            <span className="material-symbols-outlined text-4xl text-primary">sports_esports</span>
-          </div>
-          <div className="text-center">
-            <p className="font-headline text-xl font-black tracking-wide">JOE YOKE</p>
-            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Loading arena</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (!campaign) return null;
 
   return (

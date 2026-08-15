@@ -2,21 +2,14 @@
 
 import { useState, useEffect, useLayoutEffect, type ComponentType } from "react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "../lib/supabaseClient";
+import { markPerformance } from "../lib/performance";
 
 // 👇 Ranking utilities
 import { getHoursPlayed } from "../lib/rankingUtils";
 
-import GlobalInviteListener from "../components/GlobalInviteListener";
-import GlobalNotificationListener from "../components/GlobalNotificationListener";
-import CampaignSplash from "../components/CampaignSplash";
-import InAppBroadcastDialog from "../components/InAppBroadcastDialog";
-import CompetitiveGameLaunch from "../components/CompetitiveGameLaunch";
-import FourPlayerMatchLobby from "../components/FourPlayerMatchLobby";
 import JoeYokeLogo from "../components/JoeYokeLogo";
-import { soundEngine } from "../lib/soundManager";
 
 // Game engines are intentionally loaded only after a player selects a game.
 // This keeps Phaser, Matter, chess and their game UIs out of the launch bundle.
@@ -45,10 +38,18 @@ const BigTwoGame = dynamic(() => import("../components/games/BigTwoGame"), { ssr
 const ShanKoeMeeGame = dynamic(() => import("../components/games/ShanKoeMeeGame"), { ssr: false });
 const BlockPuzzleGame = dynamic(() => import("../components/games/BlockPuzzleGame"), { ssr: false });
 const MonopolyGame = dynamic(() => import("../components/games/Monopoly"), { ssr: false });
-import AuthView from "../components/AuthView";
 import { useTranslation } from "../lib/i18n";
 
 const TabLoading = () => <div className="min-h-[260px] animate-pulse rounded-[24px] bg-surface-container/60" aria-label="Loading" />;
+// P2 startup features: defer their code, native bridge work, and realtime
+// subscriptions until the shell has painted. They remain cached after load.
+const CampaignSplash = dynamic(() => import("../components/CampaignSplash"), { ssr: false });
+const InAppBroadcastDialog = dynamic(() => import("../components/InAppBroadcastDialog"), { ssr: false });
+const GlobalInviteListener = dynamic(() => import("../components/GlobalInviteListener"), { ssr: false });
+const GlobalNotificationListener = dynamic(() => import("../components/GlobalNotificationListener"), { ssr: false });
+const CompetitiveGameLaunch = dynamic(() => import("../components/CompetitiveGameLaunch"), { ssr: false, loading: TabLoading });
+const FourPlayerMatchLobby = dynamic(() => import("../components/FourPlayerMatchLobby"), { ssr: false, loading: TabLoading });
+const AuthView = dynamic(() => import("../components/AuthView"), { ssr: false, loading: TabLoading });
 // Tabs mount only when visited, keeping game, shop, chat, and profile code out
 // of the launch bundle. Once visited, Next keeps their downloaded chunks cached.
 const HomeTab = dynamic(() => import("../components/HomeTab"), { ssr: false, loading: TabLoading });
@@ -131,8 +132,8 @@ function MonopolyFourPlayerArena({ onClose, preloadedRoomId }: { onClose: () => 
 export default function Home() {
   const { t } = useTranslation();
   const [session, setSession] = useState<any>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashVisible, setSplashVisible] = useState(false);
+  const [deferredStartupReady, setDeferredStartupReady] = useState(false);
 
   const [activeTab, setActiveTab] = useState("Home");
 
@@ -168,6 +169,7 @@ export default function Home() {
     }
     setGameReturn(null);
     setGameReturnSeconds(0);
+    if (nextGame) markPerformance(`game-selected:${nextGame.replace(/^native:\/\//, "")}`);
     setPlayingGameState(nextGame);
   };
 
@@ -241,12 +243,37 @@ export default function Home() {
     const source = process.env.NEXT_PUBLIC_APP_BGM_URL;
     if (!source) return;
     const beginAudio = () => {
-      soundEngine.restorePreference();
-      soundEngine.startBGM(source, 0.22);
+      void import("../lib/soundManager").then(({ soundEngine }) => {
+        soundEngine.restorePreference();
+        soundEngine.startBGM(source, 0.22);
+      });
       window.removeEventListener("pointerdown", beginAudio);
     };
     window.addEventListener("pointerdown", beginAudio, { once: true });
     return () => window.removeEventListener("pointerdown", beginAudio);
+  }, []);
+
+  useEffect(() => {
+    markPerformance("shell-mounted");
+    const onFirstPaint = window.requestAnimationFrame(() => markPerformance("shell-painted"));
+    const idleCallback = window.requestIdleCallback?.(
+      () => {
+        markPerformance("deferred-startup");
+        setDeferredStartupReady(true);
+      },
+      { timeout: 1200 },
+    );
+    const fallbackTimer = idleCallback === undefined
+      ? window.setTimeout(() => {
+        markPerformance("deferred-startup");
+        setDeferredStartupReady(true);
+      }, 300)
+      : undefined;
+    return () => {
+      window.cancelAnimationFrame(onFirstPaint);
+      if (idleCallback !== undefined) window.cancelIdleCallback?.(idleCallback);
+      if (fallbackTimer !== undefined) window.clearTimeout(fallbackTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -261,11 +288,11 @@ export default function Home() {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      markPerformance("session-restored");
       if (session?.user) {
         setMyUserId(session.user.id);
         void supabase.rpc("ensure_my_profile").then(() => fetchLiveBalance(session.user.id));
       }
-      setCheckingAuth(false);
     });
 
     const {
@@ -412,17 +439,14 @@ export default function Home() {
     }
   };
 
-  if (checkingAuth) {
-    return <CampaignSplash onAction={handleDeepLink} onVisibilityChange={setSplashVisible} />;
-  }
-
   return (
     <>
-      <CampaignSplash onAction={handleDeepLink} onVisibilityChange={setSplashVisible} />
-      {session && !splashVisible && <InAppBroadcastDialog points={userPoints} gems={userGems} onAction={handleDeepLink} />}
-      {session && !splashVisible && (
+      {deferredStartupReady && <CampaignSplash onAction={handleDeepLink} onVisibilityChange={setSplashVisible} />}
+      {deferredStartupReady && session && !splashVisible && <InAppBroadcastDialog points={userPoints} gems={userGems} onAction={handleDeepLink} />}
+      {deferredStartupReady && session && !splashVisible && (
         <>
           <GlobalInviteListener
+            userId={session.user.id}
             onAccept={(gameUrl, matchId) => {
               setActiveMatchId(matchId);
               setPlayingGame(gameUrl);

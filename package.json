@@ -7,6 +7,7 @@
     "build": "next build",
     "build:ios:production": "node scripts/build-ios-production.mjs",
     "build:android:production": "node scripts/build-android-production.mjs",
+    "analyze:bundle": "next experimental-analyze --output",
     "generate:i18n": "node scripts/generate-i18n.mjs",
     "check:i18n": "node scripts/generate-i18n.mjs --check",
     "start": "next start",

@@ -150,26 +150,20 @@ export default function HomeTab({
   // 1. FETCH USER PROFILE & RECENT MATCH HISTORY FROM SUPABASE
   const fetchUserDataAndMatches = useCallback(async () => {
     try {
-      const activeUserId =
-        userId || (await supabase.auth.getUser()).data.user?.id;
-      if (!activeUserId) return;
+      if (!userId) {
+        setUsername("Player");
+        setDbMatches([]);
+        return;
+      }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", activeUserId)
-        .single();
+      const [{ data: profile }, { data: matches, error }] = await Promise.all([
+        supabase.from("profiles").select("username").eq("id", userId).single(),
+        supabase.from("match_history").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(50),
+      ]);
 
       if (profile?.username) {
         setUsername(profile.username);
       }
-
-      const { data: matches, error } = await supabase
-        .from("match_history")
-        .select("*")
-        .eq("user_id", activeUserId)
-        .order("created_at", { ascending: false })
-        .limit(50); // Fetch a good chunk for accurate stats
 
       if (matches && !error) {
         const formatted: MatchRecord[] = matches.map((m: any) => {
@@ -209,22 +203,18 @@ export default function HomeTab({
     let matchesChannel: any;
 
     const setupSubscriptions = async () => {
-      const activeUserId =
-        userId || (await supabase.auth.getUser()).data.user?.id;
-
       fetchUserDataAndMatches();
-
-      if (!activeUserId) return;
+      if (!userId) return;
 
       profileChannel = supabase
-        .channel(`home_profile_${activeUserId}`)
+        .channel(`home_profile_${userId}`)
         .on(
           "postgres_changes",
           {
             event: "UPDATE",
             schema: "public",
             table: "profiles",
-            filter: `id=eq.${activeUserId}`,
+            filter: `id=eq.${userId}`,
           },
           () => {
             if (onPointsUpdated) onPointsUpdated();
@@ -233,14 +223,14 @@ export default function HomeTab({
         .subscribe();
 
       matchesChannel = supabase
-        .channel(`home_matches_${activeUserId}`)
+        .channel(`home_matches_${userId}`)
         .on(
           "postgres_changes",
           {
             event: "*",
             schema: "public",
             table: "match_history",
-            filter: `user_id=eq.${activeUserId}`,
+            filter: `user_id=eq.${userId}`,
           },
           () => {
             fetchUserDataAndMatches();

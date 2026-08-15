@@ -1,16 +1,8 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import de from "./locales/de.json";
-import en from "./locales/en.json";
-import es from "./locales/es.json";
-import fr from "./locales/fr.json";
-import km from "./locales/km.json";
-import lo from "./locales/lo.json";
-import my from "./locales/my.json";
-import th from "./locales/th.json";
-import zh from "./locales/zh.json";
-import glossaryIndex from "./locales/glossary-index.json";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import bootstrap from "./locales/bootstrap.json";
+import placeholderIndex from "./locales/placeholder-index.json";
 
 export const LANGUAGES = [
   { code: "en", label: "English", flag: "🇬🇧" },
@@ -26,9 +18,20 @@ export const LANGUAGES = [
 
 export type LanguageCode = (typeof LANGUAGES)[number]["code"];
 export type TranslationVariables = Record<string, unknown>;
-export type TranslationKey = keyof typeof en;
+export type TranslationKey = string;
 
-const resources: Record<LanguageCode, Record<string, string>> = { en, my, th, zh, km, lo, fr, de, es };
+const resources: Partial<Record<LanguageCode, Record<string, string>>> = {};
+const localeLoaders: Record<LanguageCode, () => Promise<{ default: Record<string, string> }>> = {
+  en: () => import("./locales/en.json"),
+  my: () => import("./locales/my.json"),
+  th: () => import("./locales/th.json"),
+  zh: () => import("./locales/zh.json"),
+  km: () => import("./locales/km.json"),
+  lo: () => import("./locales/lo.json"),
+  fr: () => import("./locales/fr.json"),
+  de: () => import("./locales/de.json"),
+  es: () => import("./locales/es.json"),
+};
 const localeNames: Record<LanguageCode, string> = {
   en: "en-US", my: "my-MM", th: "th-TH", zh: "zh-CN", km: "km-KH", lo: "lo-LA", fr: "fr-FR", de: "de-DE", es: "es-ES",
 };
@@ -71,15 +74,16 @@ const interpolate = (template: string, variables: TranslationVariables, key: str
 
 export function translate(language: LanguageCode, requestedKey: string, variables: TranslationVariables = {}) {
   const key = resolveKey(requestedKey);
-  const english = resources.en[key];
+  const english = resources.en?.[key] || (bootstrap as Record<LanguageCode, Record<string, string>>).en[key];
   if (!english) {
     warnOnce(`Missing glossary key "${requestedKey}".`);
     return requestedKey;
   }
-  const localized = resources[language][key];
-  if (!localized) warnOnce(`Missing ${language} translation for ${key}; using English.`);
+  const locale = resources[language];
+  const localized = locale?.[key] || (bootstrap as Record<LanguageCode, Record<string, string>>)[language][key];
+  if (locale && !localized) warnOnce(`Missing ${language} translation for ${key}; using English.`);
   let template = localized || english;
-  const expected = (glossaryIndex as Record<string, { placeholders?: string[] }>)[key]?.placeholders || [];
+  const expected = (placeholderIndex as Record<string, string[]>)[key] || [];
   if (expected.length && language !== "en") {
     const found = [...template.matchAll(/\{\{\s*([^{}\s]+)\s*\}\}/g)].map((match) => match[1]);
     if ([...expected].sort().join("|") !== [...found].sort().join("|")) {
@@ -108,11 +112,39 @@ const LanguageContext = createContext<TranslationContextValue>({
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<LanguageCode>("en");
+  const [localeRevision, setLocaleRevision] = useState(0);
+  const isInitialLocaleLoad = useRef(true);
   useEffect(() => {
     const saved = window.localStorage.getItem("app_language");
     if (LANGUAGES.some((item) => item.code === saved)) setLanguageState(saved as LanguageCode);
   }, []);
   useEffect(() => { document.documentElement.lang = language; }, [language]);
+  useEffect(() => {
+    if (resources[language]) return;
+    let active = true;
+    const loadLocale = () => void localeLoaders[language]().then(({ default: locale }) => {
+      if (!active) return;
+      resources[language] = locale;
+      setLocaleRevision((revision) => revision + 1);
+    }).catch((error) => {
+      warnOnce(`Could not load ${language} locale; using English. ${String(error)}`);
+    });
+    // English remains available through the tiny bootstrap dictionary. Load
+    // the full initial language only when the WebView has idle time; a player
+    // manually changing language gets the selected resource immediately.
+    if (isInitialLocaleLoad.current) {
+      isInitialLocaleLoad.current = false;
+      const idle = window.requestIdleCallback?.(loadLocale, { timeout: 1600 });
+      const timer = idle === undefined ? window.setTimeout(loadLocale, 600) : undefined;
+      return () => {
+        active = false;
+        if (idle !== undefined) window.cancelIdleCallback?.(idle);
+        if (timer !== undefined) window.clearTimeout(timer);
+      };
+    }
+    loadLocale();
+    return () => { active = false; };
+  }, [language]);
   const setLanguage = useCallback((code: LanguageCode) => {
     setLanguageState(code);
     window.localStorage.setItem("app_language", code);
@@ -122,7 +154,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     setLanguage,
     t: (key, variables) => translate(language, key, variables),
     formatNumber: (number, options) => new Intl.NumberFormat(localeNames[language], options).format(number),
-  }), [language, setLanguage]);
+  }), [language, localeRevision, setLanguage]);
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 

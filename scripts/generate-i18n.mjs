@@ -17,6 +17,8 @@ import process from "node:process";
 import XLSX from "xlsx";
 
 const localeCodes = ["en", "my", "th", "zh", "km", "lo", "fr", "de", "es"];
+// P0 launch labels required before the rest of a locale is requested.
+const bootstrapKeys = ["UI_0036", "UI_0037", "UI_0038", "UI_0039", "UI_0040"];
 const workbookColumns = { en: "english", my: "my", th: "th", zh: "zh", km: "km", lo: "lo", fr: "fr", de: "de", es: "es" };
 const requiredColumns = ["key", "locations", ...Object.values(workbookColumns)];
 const root = process.cwd();
@@ -189,7 +191,14 @@ const report = {
 };
 const outputs = {
   ...Object.fromEntries(localeCodes.map((locale) => [`${locale}.json`, resources[locale]])),
+  "bootstrap.json": Object.fromEntries(localeCodes.map((locale) => [
+    locale,
+    Object.fromEntries(bootstrapKeys.map((key) => [key, resources[locale][key]])),
+  ])),
   "glossary-index.json": sourceIndex,
+  "placeholder-index.json": Object.fromEntries(
+    Object.entries(sourceIndex).map(([key, entry]) => [key, entry.placeholders]),
+  ),
   "generation-report.json": report,
 };
 
