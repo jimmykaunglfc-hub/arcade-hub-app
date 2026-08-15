@@ -12,6 +12,21 @@ const GAME_AUDIO_EFFECTS = {
 
 export type GameAudioEffect = keyof typeof GAME_AUDIO_EFFECTS;
 
+/**
+ * Original, synthesized effects for high-frequency physics events.  These do
+ * not replay a long MP3, so every valid collision can be heard in a rally.
+ */
+export type PhysicalAudioEffect =
+  | "ping_pong_paddle"
+  | "ping_pong_table"
+  | "ping_pong_net"
+  | "pool_ball_hit"
+  | "pool_cushion"
+  | "snooker_ball_hit"
+  | "snooker_cushion"
+  | "carrom_hit"
+  | "carrom_cushion";
+
 class SoundEngine {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
@@ -20,6 +35,7 @@ class SoundEngine {
   private lastCarromSound = new Map<string, number>();
   private gameAudioPools = new Map<GameAudioEffect, HTMLAudioElement[]>();
   private lastGameAudioAt = new Map<GameAudioEffect, number>();
+  private lastPhysicalAudioAt = new Map<PhysicalAudioEffect, number>();
 
   constructor() {
     // AudioContext will be initialized on first user interaction
@@ -123,6 +139,96 @@ class SoundEngine {
     void voice.play().catch(() => {
       // The first effect can be blocked until the player interacts with the game.
     });
+  }
+
+  private playPhysicalImpact(
+    now: number,
+    {
+      pitch,
+      tailPitch,
+      duration,
+      volume,
+      noiseVolume,
+    }: {
+      pitch: number;
+      tailPitch: number;
+      duration: number;
+      volume: number;
+      noiseVolume: number;
+    }
+  ) {
+    if (!this.ctx) return;
+    const oscillator = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    oscillator.type = "triangle";
+    oscillator.frequency.setValueAtTime(pitch, now);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(35, tailPitch), now + duration);
+    gain.gain.setValueAtTime(volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    oscillator.connect(gain);
+    gain.connect(this.ctx.destination);
+    oscillator.start(now);
+    oscillator.stop(now + duration + 0.01);
+    if (noiseVolume > 0) this.playNoiseBurst(now, Math.min(duration, 0.045), noiseVolume, pitch * 1.4);
+  }
+
+  /**
+   * Plays an original, short effect for every confirmed physics contact.
+   * Slight pitch variation keeps repeated impacts natural without affecting
+   * the simulation or the player's Sound Effects preference.
+   */
+  public playPhysicalSFX(effect: PhysicalAudioEffect) {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const cooldownMs: Record<PhysicalAudioEffect, number> = {
+      ping_pong_paddle: 35,
+      ping_pong_table: 48,
+      ping_pong_net: 90,
+      pool_ball_hit: 42,
+      pool_cushion: 65,
+      snooker_ball_hit: 42,
+      snooker_cushion: 65,
+      carrom_hit: 45,
+      carrom_cushion: 65,
+    };
+    const nowMs = performance.now();
+    const last = this.lastPhysicalAudioAt.get(effect) ?? -Infinity;
+    if (nowMs - last < cooldownMs[effect]) return;
+    this.lastPhysicalAudioAt.set(effect, nowMs);
+
+    const now = this.ctx.currentTime;
+    const variation = 0.92 + Math.random() * 0.16;
+    switch (effect) {
+      case "ping_pong_paddle":
+        this.playPhysicalImpact(now, { pitch: 1850 * variation, tailPitch: 720, duration: 0.048, volume: 0.12, noiseVolume: 0.022 });
+        break;
+      case "ping_pong_table":
+        this.playPhysicalImpact(now, { pitch: 620 * variation, tailPitch: 210, duration: 0.055, volume: 0.09, noiseVolume: 0.012 });
+        break;
+      case "ping_pong_net":
+        this.playPhysicalImpact(now, { pitch: 360 * variation, tailPitch: 115, duration: 0.09, volume: 0.08, noiseVolume: 0.01 });
+        break;
+      case "pool_ball_hit":
+        this.playPhysicalImpact(now, { pitch: 1260 * variation, tailPitch: 490, duration: 0.042, volume: 0.1, noiseVolume: 0.018 });
+        break;
+      case "pool_cushion":
+        this.playPhysicalImpact(now, { pitch: 290 * variation, tailPitch: 92, duration: 0.075, volume: 0.1, noiseVolume: 0.025 });
+        break;
+      case "snooker_ball_hit":
+        this.playPhysicalImpact(now, { pitch: 1450 * variation, tailPitch: 610, duration: 0.036, volume: 0.085, noiseVolume: 0.014 });
+        break;
+      case "snooker_cushion":
+        this.playPhysicalImpact(now, { pitch: 255 * variation, tailPitch: 78, duration: 0.078, volume: 0.085, noiseVolume: 0.02 });
+        break;
+      case "carrom_hit":
+        this.playPhysicalImpact(now, { pitch: 700 * variation, tailPitch: 180, duration: 0.065, volume: 0.115, noiseVolume: 0.025 });
+        break;
+      case "carrom_cushion":
+        this.playPhysicalImpact(now, { pitch: 230 * variation, tailPitch: 70, duration: 0.085, volume: 0.1, noiseVolume: 0.02 });
+        break;
+    }
   }
 
   // --- SYNTHESIZED SFX GENERATOR (Zero External Assets Required) ---

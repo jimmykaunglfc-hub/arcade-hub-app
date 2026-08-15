@@ -668,10 +668,6 @@ export default function PingPong(props: PingPongProps) {
   const isNetworkReplica = isNetworkMatch && !isSimulationAuthority;
 
   useEffect(() => {
-    soundEngine.preloadGameSFX(["ping_pong_paddle"]);
-  }, []);
-
-  useEffect(() => {
     if (!gameWinner) return;
     onResult?.(gameWinner === "local" ? "Win" : "Loss");
   }, [gameWinner, onResult]);
@@ -2290,7 +2286,7 @@ export default function PingPong(props: PingPongProps) {
       assistWindowsRef.current[side] = null;
 
       rallyRef.current = nextRally;
-      soundEngine.playGameSFX("ping_pong_paddle");
+      soundEngine.playPhysicalSFX("ping_pong_paddle");
 
       trailsRef.current[side].push({ ...paddle, createdAt: now });
       setStatus(
@@ -2784,6 +2780,7 @@ export default function PingPong(props: PingPongProps) {
             ballRadius: BALL_RADIUS,
           });
       if (netImpact) {
+        soundEngine.playPhysicalSFX("ping_pong_net");
         const hitTopTape =
           netImpact.y + BALL_RADIUS >= NET_HEIGHT - NET_TAPE_THICKNESS;
         const rally = rallyRef.current;
@@ -2884,6 +2881,7 @@ export default function PingPong(props: PingPongProps) {
           return;
         }
         ball.vy = Math.abs(ball.vy) * TABLE_RESTITUTION;
+        soundEngine.playPhysicalSFX("ping_pong_table");
         ball.vx *= 0.992;
         ball.vz *= 0.994;
         ball.spin *= 0.86;

@@ -807,10 +807,12 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       if (Math.abs(c1.vx) > 0.08 || Math.abs(c1.vy) > 0.08) moving = true;
       else { c1.vx = 0; c1.vy = 0; }
 
-      if (c1.x - c1.radius < BOUND_MIN) { c1.x = BOUND_MIN + c1.radius; c1.vx *= -RESTITUTION; }
-      if (c1.x + c1.radius > BOUND_MAX) { c1.x = BOUND_MAX - c1.radius; c1.vx *= -RESTITUTION; }
-      if (c1.y - c1.radius < BOUND_MIN) { c1.y = BOUND_MIN + c1.radius; c1.vy *= -RESTITUTION; }
-      if (c1.y + c1.radius > BOUND_MAX) { c1.y = BOUND_MAX - c1.radius; c1.vy *= -RESTITUTION; }
+      let hitCushion = false;
+      if (c1.x - c1.radius < BOUND_MIN) { c1.x = BOUND_MIN + c1.radius; c1.vx *= -RESTITUTION; hitCushion = true; }
+      if (c1.x + c1.radius > BOUND_MAX) { c1.x = BOUND_MAX - c1.radius; c1.vx *= -RESTITUTION; hitCushion = true; }
+      if (c1.y - c1.radius < BOUND_MIN) { c1.y = BOUND_MIN + c1.radius; c1.vy *= -RESTITUTION; hitCushion = true; }
+      if (c1.y + c1.radius > BOUND_MAX) { c1.y = BOUND_MAX - c1.radius; c1.vy *= -RESTITUTION; hitCushion = true; }
+      if (hitCushion && Math.hypot(c1.vx, c1.vy) > 2) soundEngine.playPhysicalSFX("carrom_cushion");
 
       const pockets = [
         {x: HOLE_POS, y: HOLE_POS}, 
@@ -856,6 +858,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           c1.vy -= p * c2.mass * ny * RESTITUTION;
           c2.vx += p * c1.mass * nx * RESTITUTION; 
           c2.vy += p * c1.mass * ny * RESTITUTION;
+          if (Math.abs(p) > 1) soundEngine.playPhysicalSFX("carrom_hit");
           
         }
       }

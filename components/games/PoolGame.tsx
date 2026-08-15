@@ -919,16 +919,20 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
           const boundX = 22 + BALL_RADIUS;
           const boundY = 22 + BALL_RADIUS;
+          let hitCushion = false;
           if (ball.x < boundX || ball.x > TABLE_WIDTH - boundX) {
             ball.vx *= -1;
             if (ball.num === 0 && ball.spinX) ball.vy += ball.spinX * 0.8;
             ball.x = ball.x < boundX ? boundX : TABLE_WIDTH - boundX;
+            hitCushion = true;
           }
           if (ball.y < boundY || ball.y > TABLE_HEIGHT - boundY) {
             ball.vy *= -1;
             if (ball.num === 0 && ball.spinX) ball.vx += ball.spinX * 0.8;
             ball.y = ball.y < boundY ? boundY : TABLE_HEIGHT - boundY;
+            hitCushion = true;
           }
+          if (hitCushion && speed > 2) soundEngine.playPhysicalSFX("pool_cushion");
         });
 
         for (let i = 0; i < balls.length; i++) {
@@ -968,6 +972,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
               b2.vx += impulse * Math.cos(angle);
               b2.vy += impulse * Math.sin(angle);
+              if (Math.abs(impulse) > 1) soundEngine.playPhysicalSFX("pool_ball_hit");
             }
           }
         }

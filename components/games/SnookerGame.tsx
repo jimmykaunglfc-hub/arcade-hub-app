@@ -1031,16 +1031,20 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
           const boundX = 25 + ballRadius;
           const boundY = 25 + ballRadius;
+          let hitCushion = false;
           if (ball.x < boundX || ball.x > tableWidth - boundX) {
             ball.vx *= -1;
             if (ball.isCue && ball.spinX) ball.vy += ball.spinX * 0.8;
             ball.x = ball.x < boundX ? boundX : tableWidth - boundX;
+            hitCushion = true;
           }
           if (ball.y < boundY || ball.y > tableHeight - boundY) {
             ball.vy *= -1;
             if (ball.isCue && ball.spinX) ball.vx += ball.spinX * 0.8;
             ball.y = ball.y < boundY ? boundY : tableHeight - boundY;
+            hitCushion = true;
           }
+          if (hitCushion && Math.hypot(ball.vx, ball.vy) > 2) soundEngine.playPhysicalSFX("snooker_cushion");
         });
 
         for (let i = 0; i < balls.length; i++) {
@@ -1077,6 +1081,7 @@ export default function SnookerGame({ onClose, preloadedMatchId, opponent }: Sno
 
               b2.vx += impulse * Math.cos(angle);
               b2.vy += impulse * Math.sin(angle);
+              if (Math.abs(impulse) > 1) soundEngine.playPhysicalSFX("snooker_ball_hit");
 
             }
           }
