@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -332,7 +337,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
  return (
    <div className="fixed inset-0 flex h-[100dvh] w-full flex-col overflow-hidden bg-[#0d1527] text-white font-sans z-[100] select-none">
      {appState === "loading" ? (
-       <div className="grid flex-1 place-items-center"><div className="text-center"><div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" /><p className="text-xs font-black uppercase tracking-[.2em] text-emerald-200">Loading Bingo room</p></div></div>
+       <div className="grid flex-1 place-items-center"><div className="text-center"><div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" /><p className="text-xs font-black uppercase tracking-[.2em] text-emerald-200"><LocalizedText id="UI_0419" fallback={tr("UI_0419", "Loading Bingo room")} /></p></div></div>
      ) : appState === "menu" ? (
        /* MENU SCREEN */
        <div className="flex-1 w-full flex flex-col items-center justify-center p-6 pt-20 relative">
@@ -342,16 +347,15 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
              className="absolute top-20 left-6 flex items-center gap-1.5 text-slate-300 hover:text-white transition-colors"
            >
              <span className="text-2xl leading-none">‹</span>
-             <span className="text-xs font-bold tracking-widest uppercase mt-0.5">Exit Game</span>
+             <span className="text-xs font-bold tracking-widest uppercase mt-0.5"><LocalizedText id="UI_0421" fallback={tr("UI_0421", "Exit Game")} /></span>
            </button>
          )}
 
          <div className="text-center mb-8">
            <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-amber-400 to-orange-500 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] mb-2 tracking-tight">
-             BINGO SAFARI
-           </h1>
+             <LocalizedText id="UI_0422" fallback={tr("UI_0422", "BINGO SAFARI")} /></h1>
            <p className="text-emerald-200 font-bold tracking-widest uppercase text-xs drop-shadow">
-             {roomId ? "Online Bingo Match" : "Bingo Safari"}
+             {roomId ? tr("UI_0424", "Online Bingo Match") : tr("UI_0423", "Bingo Safari")}
            </p>
          </div>
 
@@ -360,8 +364,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
              onClick={startNewGame}
              className="bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-slate-950 font-black py-4 rounded-2xl shadow-[0_5px_0_#b45309] hover:brightness-110 active:translate-y-1 active:shadow-none transition-all text-sm tracking-wider uppercase border-2 border-amber-200"
            >
-             Start Bingo
-           </button>
+             <LocalizedText id="UI_0425" fallback={tr("UI_0425", "Start Bingo")} /></button>
 
          </div>
        </div>
@@ -374,7 +377,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
            <div className="flex w-20 justify-start">
              <button
                onClick={roomId ? exitGame : () => setAppState("menu")}
-               aria-label={roomId ? "Exit Bingo game" : "Back to Bingo menu"}
+               aria-label={roomId ? tr("UI_0427", "Exit Bingo game") : tr("UI_0426", "Back to Bingo menu")}
                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/80 text-slate-300 shadow-sm transition-colors hover:text-amber-400"
              >
                <svg
@@ -405,13 +408,13 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                    : "border-slate-600 bg-slate-800 text-slate-400"
                }`}
              >
-               {isAutoCalling ? "Auto On" : "Auto Off"}
+               {isAutoCalling ? tr("UI_0429", "Auto On") : tr("UI_0428", "Auto Off")}
              </button>
 
              <button
                type="button"
                onClick={() => setShowHowToPlay(true)}
-               aria-label="How to play Bingo Safari"
+               aria-label={tr("UI_0430", "How to play Bingo Safari")}
                className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00]/70 bg-[#ccff00]/10 text-[#ccff00] shadow-[0_0_14px_rgba(204,255,0,0.12)] transition-colors hover:bg-[#ccff00]/20"
              >
                <span
@@ -428,8 +431,8 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
          <div className="flex w-full shrink-0 flex-col items-center justify-center gap-1 py-1">
            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
              {isAutoCalling
-               ? "Balls are called every 5 seconds"
-               : "Automatic caller is paused"}
+               ? tr("UI_0431", "Balls are called every 5 seconds")
+               : tr("UI_0432", "Automatic caller is paused")}
            </p>
            {callerError && <p className="text-center text-xs font-bold text-rose-300">{callerError}</p>}
 
@@ -441,8 +444,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                className="flex items-center gap-2 rounded-xl border-2 border-[#ccff00] bg-[#ccff00] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-slate-950 shadow-[0_0_20px_rgba(204,255,0,0.28)] transition-all hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
              >
                <span aria-hidden="true" className="text-base">🎱</span>
-               Call Next Ball
-             </button>
+               <LocalizedText id="UI_0433" fallback={tr("UI_0433", "Call Next Ball")} /></button>
            )}
 
            {/* Rendered 3D Glossy Bingo Balls */}
@@ -453,12 +455,12 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                  // Local solo state prepends balls, so its newest ball is first.
                  (roomId ? calledNumbers.slice(-1) : calledNumbers.slice(0, 1)).map((num, idx) => {
                    const letter = getBallLetter(num);
-                   return <div key={`${num}-${idx}`} className="flex flex-col items-center gap-1"><span className="text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">Current Ball</span><div className={`flex h-14 w-14 flex-col items-center justify-center rounded-full border-4 ${getBallBg(letter)} font-black shadow-[0_7px_16px_rgba(0,0,0,0.62)] ring-2 ring-white/70 ring-offset-2 ring-offset-[#0d1527]`}><span className="text-[10px] leading-none text-white">{letter}</span><span className="text-xl leading-none text-white">{num}</span></div></div>;
+                   return <div key={`${num}-${idx}`} className="flex flex-col items-center gap-1"><span className="text-[8px] font-black uppercase tracking-[0.18em] text-amber-300"><LocalizedText id="UI_0434" fallback="Current Ball" /></span><div className={`flex h-14 w-14 flex-col items-center justify-center rounded-full border-4 ${getBallBg(letter)} font-black shadow-[0_7px_16px_rgba(0,0,0,0.62)] ring-2 ring-white/70 ring-offset-2 ring-offset-[#0d1527]`}><span className="text-[10px] leading-none text-white">{letter}</span><span className="text-xl leading-none text-white">{num}</span></div></div>;
                  })}
              </div>
              {roomId && opponentProgress && (
                <div className="w-[128px] rounded-xl border border-white/10 bg-slate-900/80 p-2 shadow-lg">
-                 <div className="mb-1 flex items-center justify-between gap-1"><p className="truncate text-[7px] font-black uppercase tracking-[.11em] text-slate-300">{opponentProgress.name}&apos;s progress</p><span className="text-[6px] font-bold uppercase text-slate-500">Hidden</span></div>
+                 <div className="mb-1 flex items-center justify-between gap-1"><p className="truncate text-[7px] font-black uppercase tracking-[.11em] text-slate-300">{opponentProgress.name}<LocalizedText id="UI_0435" fallback={tr("UI_0435", "&apos;s progress")} /></p><span className="text-[6px] font-bold uppercase text-slate-500"><LocalizedText id="UI_0436" fallback={tr("UI_0436", "Hidden")} /></span></div>
                  <div className="grid grid-cols-5 gap-1">{Array.from({ length: 25 }, (_, index) => { const marked = opponentProgress.marked.includes(index); return <div key={index} className={`aspect-square rounded-[3px] border ${marked ? "border-rose-300 bg-rose-600" : "border-slate-700 bg-slate-800"}`} />; })}</div>
                </div>
              )}
@@ -467,8 +469,8 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
 
          {/* Lines & Status Bar */}
          <div className="mt-1 flex w-full shrink-0 items-center justify-between px-6 py-1 text-sm font-extrabold text-amber-300">
-           <span>{completedLines >= 1 ? "BINGO!" : "Your Lines: 0 / 1"}</span>
-           {!roomId && <span className="text-rose-400">Opponent: {computerLines} / 5</span>}
+           <span>{completedLines >= 1 ? tr("UI_0437", "BINGO!") : tr("UI_0438", "Your Lines: 0 / 1")}</span>
+           {!roomId && <span className="text-rose-400"><LocalizedText id="UI_0439" fallback={tr("UI_0439", "Opponent:")} />{computerLines} / 5</span>}
          </div>
 
          {/* Main Gameplay Area */}
@@ -537,7 +539,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                          O
                        </div>
                      ) : isFree ? (
-                       <span className="text-xs font-black text-amber-600 tracking-tighter">FREE</span>
+                       <span className="text-xs font-black text-amber-600 tracking-tighter"><LocalizedText id="UI_0440" fallback={tr("UI_0440", "FREE")} /></span>
                      ) : (
                        <span className="leading-none drop-shadow-sm">{tile.number}</span>
                      )}
@@ -559,10 +561,9 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                    {hasWon ? "🏆" : "❌"}
                  </div>
                  <span className="text-[11px] font-extrabold text-amber-300 tracking-[0.2em] uppercase">
-                   Match Result
-                 </span>
+                   <LocalizedText id="UI_0441" fallback={tr("UI_0441", "Match Result")} /></span>
                  <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 drop-shadow">
-                   {hasWon ? "BINGO! YOU WIN!" : roomId ? "OPPONENT WINS BINGO!" : "COMPUTER WINS BINGO!"}
+                   {hasWon ? tr("UI_0442", "BINGO! YOU WIN!") : roomId ? tr("UI_0444", "OPPONENT WINS BINGO!") : tr("UI_0443", "COMPUTER WINS BINGO!")}
                  </h2>
                </div>
 
@@ -571,13 +572,13 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                    onClick={roomId ? exitGame : startNewGame}
                    className="w-full bg-gradient-to-b from-amber-400 to-amber-600 text-slate-950 py-3.5 rounded-xl font-black text-sm tracking-wider uppercase transition-all shadow-lg active:scale-95"
                  >
-                   {roomId ? "Exit Arena" : "Play Again"}
+                   {roomId ? tr("UI_0348", "Exit Arena") : tr("UI_0407", "Play Again")}
                  </button>
                  <button
                    onClick={roomId ? exitGame : () => setAppState("menu")}
                    className="w-full bg-slate-800 text-slate-300 border border-slate-700 py-3.5 rounded-xl font-bold text-sm tracking-wider uppercase transition-all active:scale-95"
                  >
-                   {roomId ? "Exit Game" : "Main Menu"}
+                   {roomId ? tr("UI_0421", "Exit Game") : tr("UI_0445", "Main Menu")}
                  </button>
                </div>
 
@@ -604,21 +605,19 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
                </div>
                <div>
                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ccff00]">
-                   Bingo Safari
-                 </p>
+                   <LocalizedText id="UI_0423" fallback={tr("UI_0423", "Bingo Safari")} /></p>
                  <h2
                    id="bingo-how-to-play-title"
                    className="text-2xl font-black text-white"
                  >
-                   How to Play
-                 </h2>
+                   <LocalizedText id="UI_0394" fallback={tr("UI_0394", "How to Play")} /></h2>
                </div>
              </div>
 
              <button
                type="button"
                onClick={() => setShowHowToPlay(false)}
-               aria-label="Close how to play"
+               aria-label={tr("UI_0446", "Close how to play")}
                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-lg font-black text-slate-200 transition-colors hover:bg-slate-700"
              >
                ×
@@ -627,10 +626,10 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
 
            <div className="space-y-3">
              {[
-               ["🎱", "Watch the caller", "When Auto is on, a new Bingo ball is called every 5 seconds."],
-               ["👆", "Mark your card", "Find the called number and tap its square. Uncalled numbers cannot be marked."],
-               ["⭐", "Use the free space", "The center FREE square starts marked and counts toward every crossing line."],
-               ["🏆", "Call Bingo", "Complete any row, column, or diagonal before your opponent."],
+               ["🎱", tr("UI_0447", "Watch the caller"), tr("UI_0448", "When Auto is on, a new Bingo ball is called every 5 seconds.")],
+               ["👆", tr("UI_0450", "Mark your card"), tr("UI_0449", "Find the called number and tap its square. Uncalled numbers cannot be marked.")],
+               ["⭐", tr("UI_0452", "Use the free space"), tr("UI_0451", "The center FREE square starts marked and counts toward every crossing line.")],
+               ["🏆", tr("UI_0453", "Call Bingo"), tr("UI_0454", "Complete any row, column, or diagonal before your opponent.")],
              ].map(([icon, title, description], index) => (
                <div
                  key={title}
@@ -656,8 +655,7 @@ export const BingoGame: React.FC<BingoProps> = ({ onClose, onResult, roomId, sea
              onClick={() => setShowHowToPlay(false)}
              className="mt-5 w-full rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 py-3.5 text-sm font-black uppercase tracking-wider text-slate-950 shadow-lg transition-all active:scale-[0.98]"
            >
-             Got It — Let&apos;s Play
-           </button>
+             <LocalizedText id="UI_0393" fallback={tr("UI_0393", "Got It — Let&apos;s Play")} /></button>
          </div>
        </div>
      )}

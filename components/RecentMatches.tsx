@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { getRecentMatches } from "../lib/matchManager";
@@ -86,19 +90,16 @@ export default function RecentMatches() {
             history
           </span>
           <h2 className="font-headline font-black text-sm uppercase tracking-wider text-white">
-            Recent Matches
-          </h2>
+            <LocalizedText id="UI_1533" fallback="Recent Matches" /></h2>
         </div>
         <span className="text-[10px] font-mono font-bold text-neutral-400">
-          LAST {matches.length} GAMES
-        </span>
+          <LocalizedText id="UI_1687" fallback="LAST" />{matches.length} <LocalizedText id="UI_1686" fallback="GAMES" /></span>
       </div>
       {shareMessage && <p className="mb-3 rounded-lg bg-[#CCFF00]/10 px-3 py-2 text-[10px] font-bold text-[#CCFF00]">{shareMessage}</p>}
 
       {matches.length === 0 ? (
         <div className="text-center py-6 text-neutral-500 text-xs font-medium border border-dashed border-white/10 rounded-2xl">
-          No matches played yet. Jump into an arena!
-        </div>
+          <LocalizedText id="UI_1673" fallback={tr("UI_1673", "No matches played yet. Jump into an arena!")} /></div>
       ) : (
         <div className="flex flex-col gap-2.5">
           {matches.map((match) => {
@@ -123,7 +124,7 @@ export default function RecentMatches() {
                       {match.game_title}
                     </h3>
                     <p className="text-[10px] text-neutral-400">
-                      vs {match.opponent_name || "Opponent"}
+                      vs {match.opponent_name || tr("UI_1501", "Opponent")}
                     </p>
                   </div>
                 </div>
@@ -147,8 +148,8 @@ export default function RecentMatches() {
                     {isWin
                       ? `+${match.reward_points} PTS`
                       : isDraw
-                      ? "0 PTS"
-                      : "LOSS"}
+                      ? tr("UI_1675", "0 PTS")
+                      : tr("UI_1676", "LOSS")}
                   </span>
                 </div>
                 <button onClick={() => void shareMatch(match)} aria-label={`Share ${match.game_title} result`} className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 text-neutral-300 hover:text-[#CCFF00]">

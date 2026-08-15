@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { useTranslation } from "../lib/i18n";
 
 interface DailyLoginCardProps {
   userId: string | null;
@@ -9,6 +10,7 @@ interface DailyLoginCardProps {
 }
 
 export default function DailyLoginCard({ userId, onClaimSuccess }: DailyLoginCardProps) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
   const [rewardPoints, setRewardPoints] = useState<number>(1000);
@@ -147,12 +149,12 @@ export default function DailyLoginCard({ userId, onClaimSuccess }: DailyLoginCar
         </div>
         <div>
           <h3 className="font-headline font-black text-base leading-tight text-on-surface">
-            Daily Login
+            {t("UI_0298")}
           </h3>
           <p className="text-xs font-bold text-on-surface/90 mt-0.5">
             {hasClaimedToday
-              ? "Claimed today! Check back tomorrow."
-              : `+${rewardPoints.toLocaleString()} Points to play!`}
+              ? t("UI_0299")
+              : `+${rewardPoints.toLocaleString()} ${t("I18N_points")}`}
           </p>
         </div>
       </div>
@@ -162,7 +164,7 @@ export default function DailyLoginCard({ userId, onClaimSuccess }: DailyLoginCar
         {hasClaimedToday ? (
           <div className="flex items-center gap-1 bg-black/10 dark:bg-black/20 text-on-surface/90 font-extrabold text-xs px-4 py-2 rounded-full border border-black/10 dark:border-white/10">
             <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-[16px]">check_circle</span>
-            Claimed
+            {t("UI_0301")}
           </div>
         ) : (
           <button
@@ -171,7 +173,7 @@ export default function DailyLoginCard({ userId, onClaimSuccess }: DailyLoginCar
             data-requires-auth
             className="bg-surface text-on-surface font-headline font-black text-xs uppercase px-5 py-2.5 rounded-full hover:bg-surface-variant transition-all shadow-md active:scale-95 disabled:opacity-50 border border-surface-container-highest"
           >
-            {claiming ? "Claiming..." : "Claim"}
+            {claiming ? t("UI_0303") : t("UI_0302")}
           </button>
         )}
       </div>

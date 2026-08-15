@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
@@ -17,10 +21,10 @@ export default function PublicProfileCardModal({ userId, onClose }: { userId: st
           <Image src={card?.avatar_url || "/logo-dark.jpeg"} alt="" fill className="rounded-full object-cover" unoptimized />
           {card?.avatar_frame_url && <Image src={card.avatar_frame_url} alt="" fill className="pointer-events-none scale-[1.2] object-contain" unoptimized />}
         </div>
-        <h2 className="mt-5 font-headline text-2xl font-black">{card?.username || "Loading…"}</h2>
-        <p className="mt-2 text-xs font-bold uppercase tracking-widest text-white/75">Player profile</p>
+        <h2 className="mt-5 font-headline text-2xl font-black">{card?.username || tr("UI_1670", "Loading…")}</h2>
+        <p className="mt-2 text-xs font-bold uppercase tracking-widest text-white/75"><LocalizedText id="UI_1671" fallback="Player profile" /></p>
       </div>
-      <p className="p-4 text-center text-xs text-on-surface-variant">This public view only shows the player’s equipped profile cosmetics.</p>
+      <p className="p-4 text-center text-xs text-on-surface-variant"><LocalizedText id="UI_1672" fallback="This public view only shows the player’s equipped profile cosmetics." /></p>
     </div>
   </div>;
 }

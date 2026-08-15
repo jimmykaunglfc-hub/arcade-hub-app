@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, { useState, useEffect, useRef } from "react";
 import { soundEngine } from "../../lib/soundManager";
 
@@ -274,15 +279,13 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
               onClick={handleExit} 
               className="flex items-center gap-1.5 text-xs font-bold text-neutral-400 hover:text-white transition-colors uppercase tracking-widest active:scale-95"
             >
-              <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> Exit
-            </button>
+              <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> <LocalizedText id="UI_0561" fallback="Exit" /></button>
           </div>
           
           {/* Center: Dice Count */}
           <div className="w-1/3 flex flex-col items-center">
             <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold mb-1">
-              Dice Count
-            </span>
+              <LocalizedText id="UI_0840" fallback="Dice Count" /></span>
             <button 
               onClick={handleDiceCountChange} 
               className="flex items-center gap-2 bg-[#18181b] border border-white/10 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm active:scale-95 transition-all text-white hover:bg-white/5"
@@ -339,8 +342,7 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
       <div className="w-full px-6 pb-[calc(2rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-4 pt-10 shrink-0">
         
         <p className="text-[11px] text-neutral-500 font-medium tracking-widest uppercase mb-2">
-          Pull cup to peek • Tap to roll
-        </p>
+          <LocalizedText id="UI_0842" fallback="Pull cup to peek • Tap to roll" /></p>
 
         <button 
           onClick={triggerRoll}
@@ -350,14 +352,14 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
             active:shadow-[0_0px_0_#88cc00,_0_0px_0px_rgba(0,0,0,0)] 
             active:translate-y-[6px] disabled:opacity-80 disabled:cursor-not-allowed uppercase text-sm"
         >
-          {isRolling ? "SHAKING..." : "SHAKE DICE"}
+          {isRolling ? tr("UI_0844", "SHAKING...") : tr("UI_0843", "SHAKE DICE")}
         </button>
 
         <button 
           onClick={toggleCup}
           className="w-full max-w-[280px] bg-[#18181b] border border-white/10 hover:bg-white/10 active:scale-95 text-white font-bold py-4 rounded-2xl transition-all tracking-wider flex items-center justify-center shadow-sm uppercase text-xs"
         >
-          {isCupOpen ? "CLOSE CUP" : "OPEN CUP"}
+          {isCupOpen ? tr("UI_0845", "CLOSE CUP") : tr("UI_0846", "OPEN CUP")}
         </button>
 
         <div className="grid grid-cols-2 gap-4 w-full max-w-[280px] mt-4">
@@ -365,13 +367,13 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
             <div className="p-3 rounded-2xl bg-[#18181b] border border-white/10 shadow-sm group-active:scale-90 transition-transform">
                <span className="material-symbols-outlined text-[20px]">refresh</span>
             </div>
-            <span className="text-[9px] font-bold uppercase tracking-wider">Roll Again</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider"><LocalizedText id="UI_0847" fallback="Roll Again" /></span>
           </button>
           <button onClick={cycleTheme} className="flex flex-col items-center gap-2 text-neutral-500 hover:text-white transition-colors group">
             <div className="p-3 rounded-2xl bg-[#18181b] border border-white/10 shadow-sm group-active:scale-90 transition-transform">
                <span className="material-symbols-outlined text-[20px]">palette</span>
             </div>
-            <span className="text-[9px] font-bold uppercase tracking-wider">Themes</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider"><LocalizedText id="UI_0848" fallback="Themes" /></span>
           </button>
         </div>
       </div>
@@ -388,48 +390,43 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
             </button>
             
             <h2 className="text-xl font-black text-white tracking-tight mb-4 flex items-center gap-2 uppercase font-headline">
-              Liar's Dice Rules
-            </h2>
+              <LocalizedText id="UI_0849" fallback={tr("UI_0849", "Liar's Dice Rules")} /></h2>
             
             <div className="space-y-5 text-[13px] text-neutral-400 leading-relaxed max-h-[55vh] overflow-y-auto pr-2 custom-scrollbar">
               
               <div>
-                <strong className="text-white block mb-1">1. The Setup</strong>
-                Each player uses their own device. Set your agreed dice count (default: 5). Everyone hits <strong className="text-[#CCFF00]">SHAKE DICE</strong> and keeps their cup closed.
+                <strong className="text-white block mb-1"><LocalizedText id="UI_0850" fallback={tr("UI_0850", "1. The Setup")} /></strong>
+                <LocalizedText id="UI_0852" fallback={tr("UI_0852", "Each player uses their own device. Set your agreed dice count (default: 5). Everyone hits")} /><strong className="text-[#CCFF00]"><LocalizedText id="UI_0843" fallback={tr("UI_0843", "SHAKE DICE")} /></strong> <LocalizedText id="UI_0851" fallback={tr("UI_0851", "and keeps their cup closed.")} /></div>
+              
+              <div>
+                <strong className="text-white block mb-1"><LocalizedText id="UI_0853" fallback={tr("UI_0853", "2. Secret Peeking")} /></strong>
+                <LocalizedText id="UI_0855" fallback={tr("UI_0855", "Slowly drag your cup upward to peek at your roll.")} /><strong className="text-rose-500"><LocalizedText id="UI_0854" fallback={tr("UI_0854", "Do not let others see!")} /></strong>
               </div>
               
               <div>
-                <strong className="text-white block mb-1">2. Secret Peeking</strong>
-                Slowly drag your cup upward to peek at your roll. <strong className="text-rose-500">Do not let others see!</strong>
-              </div>
+                <strong className="text-white block mb-1"><LocalizedText id="UI_0856" fallback={tr("UI_0856", "3. The First Bid")} /></strong>
+                <LocalizedText id="UI_0860" fallback={tr("UI_0860", "The starting player guesses the")} /><em>total</em> <LocalizedText id="UI_0859" fallback={tr("UI_0859", "number of a specific dice face under")} /><em><LocalizedText id="UI_0858" fallback={tr("UI_0858", "all players' cups combined")} /></em> <LocalizedText id="UI_0857" fallback={tr("UI_0857", "(e.g. \"I bet there are at least four 3s total\").")} /></div>
               
               <div>
-                <strong className="text-white block mb-1">3. The First Bid</strong>
-                The starting player guesses the <em>total</em> number of a specific dice face under <em>all players' cups combined</em> (e.g. "I bet there are at least four 3s total").
-              </div>
-              
-              <div>
-                <strong className="text-white block mb-1">4. Raising the Stakes</strong>
-                Moving clockwise, the next player must either:
-                <ul className="list-disc pl-5 mt-1 space-y-1 text-neutral-500">
-                  <li>Raise the quantity (e.g., "Five 3s")</li>
-                  <li>Raise the face value (e.g., "Four 4s")</li>
-                  <li>Call the previous player a <strong className="text-rose-500">"Liar!"</strong></li>
+                <strong className="text-white block mb-1"><LocalizedText id="UI_0862" fallback={tr("UI_0862", "4. Raising the Stakes")} /></strong>
+                <LocalizedText id="UI_0863" fallback={tr("UI_0863", "Moving clockwise, the next player must either:")} /><ul className="list-disc pl-5 mt-1 space-y-1 text-neutral-500">
+                  <li><LocalizedText id="UI_0864" fallback={tr("UI_0864", "Raise the quantity (e.g., \"Five 3s\")")} /></li>
+                  <li><LocalizedText id="UI_0865" fallback={tr("UI_0865", "Raise the face value (e.g., \"Four 4s\")")} /></li>
+                  <li><LocalizedText id="UI_0867" fallback={tr("UI_0867", "Call the previous player a")} /><strong className="text-rose-500">"Liar!"</strong></li>
                 </ul>
               </div>
 
               <div>
-                <strong className="text-white block mb-1">5. The Reveal</strong>
-                If "Liar!" is called, everyone opens their cups. Count the dice!
-                <ul className="list-disc pl-5 mt-1 space-y-1 text-neutral-500">
-                  <li>If the bid was true (there are enough dice), the challenger loses a die.</li>
-                  <li>If the bid was a lie (not enough dice), the bidder loses a die.</li>
+                <strong className="text-white block mb-1"><LocalizedText id="UI_0868" fallback={tr("UI_0868", "5. The Reveal")} /></strong>
+                <LocalizedText id="UI_0869" fallback={tr("UI_0869", "If \"Liar!\" is called, everyone opens their cups. Count the dice!")} /><ul className="list-disc pl-5 mt-1 space-y-1 text-neutral-500">
+                  <li><LocalizedText id="UI_0870" fallback={tr("UI_0870", "If the bid was true (there are enough dice), the challenger loses a die.")} /></li>
+                  <li><LocalizedText id="UI_0871" fallback={tr("UI_0871", "If the bid was a lie (not enough dice), the bidder loses a die.")} /></li>
                 </ul>
               </div>
 
               <div className="p-4 bg-[#CCFF00]/10 border border-[#CCFF00]/20 rounded-2xl mt-4">
-                <span className="text-[#CCFF00] font-black tracking-widest uppercase text-[10px] block mb-1">Advanced Rule: Wildcards</span>
-                <p className="text-neutral-300">1s (the big red dots) count as wildcards! They represent any number... unless a player specifically bids on 1s.</p>
+                <span className="text-[#CCFF00] font-black tracking-widest uppercase text-[10px] block mb-1"><LocalizedText id="UI_0872" fallback={tr("UI_0872", "Advanced Rule: Wildcards")} /></span>
+                <p className="text-neutral-300"><LocalizedText id="UI_0873" fallback={tr("UI_0873", "1s (the big red dots) count as wildcards! They represent any number... unless a player specifically bids on 1s.")} /></p>
               </div>
 
             </div>
@@ -438,8 +435,7 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
               onClick={() => { soundEngine.playSFX("click"); setIsRulesOpen(false); }} 
               className="w-full mt-6 bg-[#CCFF00] hover:bg-[#b3e600] text-black font-bold py-3.5 rounded-xl active:scale-95 transition-transform uppercase text-xs tracking-wider"
             >
-              Close Rulebook
-            </button>
+              <LocalizedText id="UI_0874" fallback={tr("UI_0874", "Close Rulebook")} /></button>
           </div>
         </div>
       )}

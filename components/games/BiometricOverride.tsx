@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, { useState, useEffect, useRef } from "react";
 import { soundEngine } from "../../lib/soundManager";
 import { useEquippedCosmetic } from "../../lib/cosmeticsUtils";
@@ -182,8 +186,7 @@ export default function BiometricOverride({ onClose }: { onClose?: () => void })
           onTouchStart={(e) => e.stopPropagation()}
           className="flex items-center gap-1.5 text-xs font-headline font-bold text-neutral-400 hover:text-white transition-colors uppercase tracking-widest active:scale-95 pointer-events-auto"
         >
-          <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> Exit Arena
-        </button>
+          <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> <LocalizedText id="UI_0348" fallback="Exit Arena" /></button>
       </header>
 
       {/* 2. HUD / STATUS INSTRUCTIONS */}
@@ -205,17 +208,17 @@ export default function BiometricOverride({ onClose }: { onClose?: () => void })
           </span>
           <h2 className="text-sm font-headline font-black uppercase tracking-widest mb-1 text-white">
             {phase === "idle"
-              ? "Awaiting Inputs"
+              ? tr("UI_0457", "Awaiting Inputs")
               : phase === "scanning"
-              ? "Scanning Biometrics"
-              : "Target Locked"}
+              ? tr("UI_0459", "Scanning Biometrics")
+              : tr("UI_0460", "Target Locked")}
           </h2>
           <p className="text-xs text-neutral-400 font-medium">
             {phase === "idle"
-              ? "Everyone place one finger on the screen to begin."
+              ? tr("UI_0461", "Everyone place one finger on the screen to begin.")
               : phase === "scanning"
-              ? "Hold steady..."
-              : "Release all fingers to reset."}
+              ? tr("UI_0462", "Hold steady...")
+              : tr("UI_0463", "Release all fingers to reset.")}
           </p>
         </div>
       </div>

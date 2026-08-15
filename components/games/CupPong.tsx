@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, {
   useCallback,
   useEffect,
@@ -2772,7 +2777,7 @@ export default function CupPong({
                 <button
                   type="button"
                   onClick={onClose}
-                  aria-label="Back to Arcade Hub"
+                  aria-label={tr("UI_0373", "Back to Arcade Hub")}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-100/20 bg-black/45 text-amber-50 shadow-[0_8px_20px_rgba(0,0,0,0.28)] backdrop-blur-lg transition-colors hover:bg-white/10"
                 >
                   <svg
@@ -2797,8 +2802,7 @@ export default function CupPong({
               onClick={changeMode}
               className="rounded-full border border-amber-100/20 bg-black/45 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-amber-50 shadow-[0_8px_20px_rgba(0,0,0,0.28)] backdrop-blur-lg transition-colors hover:bg-white/10"
             >
-              Mode
-            </button>
+              <LocalizedText id="UI_0645" fallback="Mode" /></button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -2807,13 +2811,12 @@ export default function CupPong({
               onClick={restartGame}
               className="rounded-full border border-amber-100/20 bg-black/45 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-amber-50 shadow-[0_8px_20px_rgba(0,0,0,0.28)] backdrop-blur-lg transition-colors hover:bg-white/10"
             >
-              Restart
-            </button>
+              <LocalizedText id="UI_0646" fallback="Restart" /></button>
 
             <button
               type="button"
               onClick={() => setShowRules(true)}
-              aria-label="How to play Cup Pong"
+              aria-label={tr("UI_0647", "How to play Cup Pong")}
               className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-200/45 bg-amber-100/10 text-amber-100 shadow-[0_8px_20px_rgba(0,0,0,0.28)] backdrop-blur-lg transition-colors hover:bg-amber-100/20"
             >
               <span
@@ -2831,8 +2834,7 @@ export default function CupPong({
             <div className="grid grid-cols-3 items-center text-center">
               <div>
                 <span className="block text-[9px] font-semibold uppercase tracking-[0.2em] text-white/55">
-                  Cups
-                </span>
+                  <LocalizedText id="UI_0649" fallback={tr("UI_0649", "Cups")} /></span>
 
                 <span className="block text-xl font-black tabular-nums text-amber-50">
                   {score}/10
@@ -2841,8 +2843,7 @@ export default function CupPong({
 
               <div>
                 <span className="block text-[9px] font-semibold uppercase tracking-[0.2em] text-white/55">
-                  Balls
-                </span>
+                  <LocalizedText id="UI_0650" fallback={tr("UI_0650", "Balls")} /></span>
 
                 <span className="block text-xl font-black tabular-nums text-amber-300">
                   {ballsLeft}
@@ -2859,7 +2860,7 @@ export default function CupPong({
                     : "bg-white/10 text-white/30"
                 }`}
               >
-                Re-rack · {reracksLeft}
+                <LocalizedText id="UI_0651" fallback={tr("UI_0651", "Re-rack ·")} />{reracksLeft}
               </button>
             </div>
           </div>
@@ -2874,8 +2875,7 @@ export default function CupPong({
                 }`}
               >
                 <span className="block text-[8px] font-bold uppercase text-white/50">
-                  Player 1
-                </span>
+                  <LocalizedText id="UI_0652" fallback={tr("UI_0652", "Player 1")} /></span>
 
                 <span className="text-lg font-black text-blue-300">
                   {playerScores[0]}
@@ -2890,8 +2890,7 @@ export default function CupPong({
                 }`}
               >
                 <span className="block text-[8px] font-bold uppercase text-white/50">
-                  Player 2
-                </span>
+                  <LocalizedText id="UI_0528" fallback={tr("UI_0528", "Player 2")} /></span>
 
                 <span className="text-lg font-black text-red-300">
                   {playerScores[1]}
@@ -2900,8 +2899,7 @@ export default function CupPong({
 
               <div>
                 <span className="block text-[8px] font-bold uppercase text-white/50">
-                  Turn balls
-                </span>
+                  <LocalizedText id="UI_0653" fallback={tr("UI_0653", "Turn balls")} /></span>
 
                 <span className="text-lg font-black text-emerald-400">
                   {twoPlayerShotsRemaining}
@@ -2918,7 +2916,7 @@ export default function CupPong({
                     : "bg-white/10 text-white/30"
                 }`}
               >
-                Re-rack · {reracksLeft}
+                <LocalizedText id="UI_0651" fallback={tr("UI_0651", "Re-rack ·")} />{reracksLeft}
               </button>
             </div>
           </div>
@@ -2926,22 +2924,19 @@ export default function CupPong({
 
         {showBallsBack && (
           <div className="mx-auto mt-3 rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-black shadow-lg">
-            🔥 Balls back — two extra shots
-          </div>
+            <LocalizedText id="UI_0654" fallback={tr("UI_0654", "🔥 Balls back — two extra shots")} /></div>
         )}
 
         {showTurnBanner && gameMode === "two" && (
           <div className="mx-auto mt-3 rounded-full bg-blue-500 px-5 py-2 text-xs font-black text-white shadow-lg">
-            Player {currentPlayer + 1}&apos;s turn
-          </div>
+            <LocalizedText id="UI_0079" fallback={tr("UI_0079", "Player")} />{currentPlayer + 1}<LocalizedText id="UI_0656" fallback={tr("UI_0656", "&apos;s turn")} /></div>
         )}
 
         <div className="mt-auto">
           <div className="rounded-2xl border border-amber-100/15 bg-black/55 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.32)] backdrop-blur-xl">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">
-                Shot power
-              </span>
+                <LocalizedText id="UI_0657" fallback="Shot power" /></span>
 
               <span className="text-xs font-bold text-white/80">
                 {Math.round(power * 100)}%
@@ -2959,8 +2954,7 @@ export default function CupPong({
           </div>
 
           <p className="pt-2 text-center text-[10px] font-bold uppercase tracking-[0.16em] text-amber-50/65">
-            Pull back · aim · release
-          </p>
+            <LocalizedText id="UI_0658" fallback="Pull back · aim · release" /></p>
         </div>
       </div>
 
@@ -2971,7 +2965,7 @@ export default function CupPong({
             <button
               type="button"
               onClick={() => setShowModePicker(false)}
-              aria-label="Close mode selection"
+              aria-label={tr("UI_0659", "Close mode selection")}
               className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/25 text-xl font-black leading-none text-white transition-colors hover:bg-white/40"
             >
               ×
@@ -2980,7 +2974,7 @@ export default function CupPong({
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-white/65 bg-white/20 shadow-[0_0_32px_rgba(255,255,255,0.2)]">
               <div
                 role="img"
-                aria-label={`${liquidType === "beer" ? "Beer" : "Cola"} party cup`}
+                aria-label={`${liquidType === "beer" ? tr("UI_0662", "Beer") : tr("UI_0663", "Cola")} party cup`}
                 className="h-[68px] w-[68px] bg-contain bg-center bg-no-repeat drop-shadow-[0_8px_7px_rgba(14,71,94,0.28)]"
                 style={{
                   backgroundImage: `url(${
@@ -2993,16 +2987,13 @@ export default function CupPong({
             </div>
 
             <p className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-white/75">
-              Ready to Play
-            </p>
+              <LocalizedText id="UI_0664" fallback={tr("UI_0664", "Ready to Play")} /></p>
 
             <h2 className="mt-1 text-3xl font-black tracking-tight text-white">
-              Cup Pong
-            </h2>
+              <LocalizedText id="UI_1482" fallback={tr("UI_1482", "Cup Pong")} /></h2>
 
             <p className="mt-2 text-sm text-white/75">
-              Choose a drink, then pick your table.
-            </p>
+              <LocalizedText id="UI_0665" fallback={tr("UI_0665", "Choose a drink, then pick your table.")} /></p>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button
@@ -3015,12 +3006,10 @@ export default function CupPong({
                 }`}
               >
                 <span className="block font-black text-white">
-                  Beer
-                </span>
+                  <LocalizedText id="UI_0662" fallback={tr("UI_0662", "Beer")} /></span>
 
                 <span className="text-xs text-white/50">
-                  Golden beer with foam
-                </span>
+                  <LocalizedText id="UI_0666" fallback={tr("UI_0666", "Golden beer with foam")} /></span>
               </button>
 
               <button
@@ -3033,12 +3022,10 @@ export default function CupPong({
                 }`}
               >
                 <span className="block font-black text-white">
-                  Cola
-                </span>
+                  <LocalizedText id="UI_0663" fallback={tr("UI_0663", "Cola")} /></span>
 
                 <span className="text-xs text-white/50">
-                  Dark fizzy liquid
-                </span>
+                  <LocalizedText id="UI_0667" fallback={tr("UI_0667", "Dark fizzy liquid")} /></span>
               </button>
             </div>
 
@@ -3049,12 +3036,10 @@ export default function CupPong({
                 className="rounded-2xl border border-red-200/70 bg-gradient-to-b from-[#fa5360] to-[#db2737] px-5 py-4 text-left text-white shadow-[0_10px_24px_rgba(174,30,47,0.3)] transition-transform active:scale-[0.98]"
               >
                 <span className="block text-lg font-black">
-                  1 Player
-                </span>
+                  <LocalizedText id="UI_0668" fallback={tr("UI_0668", "1 Player")} /></span>
 
                 <span className="text-xs text-white/80">
-                  Clear all cups before the balls run out.
-                </span>
+                  <LocalizedText id="UI_0669" fallback={tr("UI_0669", "Clear all cups before the balls run out.")} /></span>
               </button>
 
               <button
@@ -3063,12 +3048,10 @@ export default function CupPong({
                 className="rounded-2xl border border-white/60 bg-gradient-to-b from-[#218dbb] to-[#1475a1] px-5 py-4 text-left text-white shadow-[0_10px_24px_rgba(13,101,140,0.3)] transition-transform active:scale-[0.98]"
               >
                 <span className="block text-lg font-black">
-                  2 Players
-                </span>
+                  <LocalizedText id="UI_0670" fallback={tr("UI_0670", "2 Players")} /></span>
 
                 <span className="text-xs text-white/75">
-                  Each player throws three balls per turn.
-                </span>
+                  <LocalizedText id="UI_0671" fallback={tr("UI_0671", "Each player throws three balls per turn.")} /></span>
               </button>
             </div>
           </div>
@@ -3090,21 +3073,19 @@ export default function CupPong({
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ccff00]">
-                    Cup Pong
-                  </p>
+                    <LocalizedText id="UI_1482" fallback={tr("UI_1482", "Cup Pong")} /></p>
                   <h2
                     id="cup-pong-how-to-play-title"
                     className="text-2xl font-black text-white"
                   >
-                    How to Play
-                  </h2>
+                    <LocalizedText id="UI_0394" fallback={tr("UI_0394", "How to Play")} /></h2>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setShowRules(false)}
-                aria-label="Close how to play"
+                aria-label={tr("UI_0446", "Close how to play")}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-lg font-black text-slate-200 transition-colors hover:bg-slate-700"
               >
                 ×
@@ -3113,11 +3094,11 @@ export default function CupPong({
 
             <div className="space-y-3">
               {[
-                ["👆", "Aim and throw", "Drag upward toward the cup you want, then release to throw the ball."],
-                ["🥤", "Sink the ball", "Land the ball inside a cup to score and remove that cup from the table."],
-                ["🎯", "Clear the rack", "In 1 Player mode, clear all 10 cups before you run out of balls."],
-                ["🔥", "Earn balls back", "Sink both shots in a two-shot set to receive two bonus balls."],
-                ["👥", "Play with a friend", "In 2 Players mode, each player throws 3 balls per turn. Most points wins."],
+                ["👆", tr("UI_0672", "Aim and throw"), tr("UI_0673", "Drag upward toward the cup you want, then release to throw the ball.")],
+                ["🥤", tr("UI_0675", "Sink the ball"), tr("UI_0674", "Land the ball inside a cup to score and remove that cup from the table.")],
+                ["🎯", tr("UI_0676", "Clear the rack"), tr("UI_0677", "In 1 Player mode, clear all 10 cups before you run out of balls.")],
+                ["🔥", tr("UI_0678", "Earn balls back"), tr("UI_0679", "Sink both shots in a two-shot set to receive two bonus balls.")],
+                ["👥", tr("UI_0681", "Play with a friend"), tr("UI_0680", "In 2 Players mode, each player throws 3 balls per turn. Most points wins.")],
               ].map(([icon, title, description], index) => (
                 <div
                   key={title}
@@ -3143,8 +3124,7 @@ export default function CupPong({
               onClick={() => setShowRules(false)}
               className="mt-5 w-full rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 py-3.5 text-sm font-black uppercase tracking-wider text-slate-950 shadow-lg transition-all active:scale-[0.98]"
             >
-              Got It — Let&apos;s Play
-            </button>
+              <LocalizedText id="UI_0393" fallback={tr("UI_0393", "Got It — Let&apos;s Play")} /></button>
           </div>
         </div>
       )}
@@ -3160,16 +3140,15 @@ export default function CupPong({
               {gameMode === "two"
                 ? winnerText
                 : won
-                  ? "Table Cleared"
-                  : "Out of Balls"}
+                  ? tr("UI_0682", "Table Cleared")
+                  : tr("UI_0683", "Out of Balls")}
             </h2>
 
             {gameMode === "two" ? (
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-2xl bg-blue-500/15 p-3">
                   <span className="block text-xs text-white/50">
-                    Player 1
-                  </span>
+                    <LocalizedText id="UI_0652" fallback={tr("UI_0652", "Player 1")} /></span>
 
                   <span className="text-2xl font-black text-blue-300">
                     {playerScores[0]}
@@ -3178,8 +3157,7 @@ export default function CupPong({
 
                 <div className="rounded-2xl bg-red-500/15 p-3">
                   <span className="block text-xs text-white/50">
-                    Player 2
-                  </span>
+                    <LocalizedText id="UI_0528" fallback={tr("UI_0528", "Player 2")} /></span>
 
                   <span className="text-2xl font-black text-red-300">
                     {playerScores[1]}
@@ -3197,16 +3175,14 @@ export default function CupPong({
               onClick={restartGame}
               className="mt-6 w-full rounded-2xl bg-red-500 py-3 font-black text-white"
             >
-              Play Again
-            </button>
+              <LocalizedText id="UI_0407" fallback={tr("UI_0407", "Play Again")} /></button>
 
             <button
               type="button"
               onClick={changeMode}
               className="mt-3 w-full rounded-2xl bg-white/10 py-3 font-bold text-white"
             >
-              Change Mode
-            </button>
+              <LocalizedText id="UI_0684" fallback={tr("UI_0684", "Change Mode")} /></button>
           </div>
         </div>
       )}

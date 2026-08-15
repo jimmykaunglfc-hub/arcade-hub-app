@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { useState, useEffect, useLayoutEffect, type ComponentType } from "react";
 import dynamic from "next/dynamic";
 import { Capacitor } from "@capacitor/core";
@@ -40,7 +45,7 @@ const BlockPuzzleGame = dynamic(() => import("../components/games/BlockPuzzleGam
 const MonopolyGame = dynamic(() => import("../components/games/Monopoly"), { ssr: false });
 import { useTranslation } from "../lib/i18n";
 
-const TabLoading = () => <div className="min-h-[260px] animate-pulse rounded-[24px] bg-surface-container/60" aria-label="Loading" />;
+const TabLoading = () => <div className="min-h-[260px] animate-pulse rounded-[24px] bg-surface-container/60" aria-label={tr("UI_0026", "Loading")} />;
 // P2 startup features: defer their code, native bridge work, and realtime
 // subscriptions until the shell has painted. They remain cached after load.
 const CampaignSplash = dynamic(() => import("../components/CampaignSplash"), { ssr: false });
@@ -87,8 +92,8 @@ function BigTwoFourPlayerArena({ onClose, preloadedRoomId }: { onClose: () => vo
   const [roomId, setRoomId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
-  if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Big Two matchmaking.</div>;
-  if (!roomId) return <FourPlayerMatchLobby gameKey="big-two" gameName="Big Two" userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
+  if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white"><LocalizedText id="UI_0043" fallback="Sign in to join Big Two matchmaking." /></div>;
+  if (!roomId) return <FourPlayerMatchLobby gameKey="big-two" gameName={tr("UI_0156", "Big Two")} userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
   return <BigTwoGame onClose={onClose} onPlayAgain={() => setRoomId(null)} roomId={roomId} />;
 }
 
@@ -96,8 +101,8 @@ function LudoFourPlayerArena({ onClose, preloadedRoomId }: { onClose: () => void
   const [roomId, setRoomId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
-  if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Ludo matchmaking.</div>;
-  if (!roomId) return <FourPlayerMatchLobby gameKey="ludo" gameName="Ludo" userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
+  if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white"><LocalizedText id="UI_0044" fallback="Sign in to join Ludo matchmaking." /></div>;
+  if (!roomId) return <FourPlayerMatchLobby gameKey="ludo" gameName={tr("UI_0157", "Ludo")} userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
   return <LudoGame onClose={onClose} onPlayAgain={() => setRoomId(null)} roomId={roomId} />;
 }
 
@@ -105,8 +110,8 @@ function ShanKoeMeeFourPlayerArena({ onClose, preloadedRoomId }: { onClose: () =
   const [roomId, setRoomId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
-  if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Shan Koe Mee matchmaking.</div>;
-  if (!roomId) return <FourPlayerMatchLobby gameKey="shan-koe-mee" gameName="Shan Koe Mee" userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
+  if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white"><LocalizedText id="UI_0024" fallback="Sign in to join Shan Koe Mee matchmaking." /></div>;
+  if (!roomId) return <FourPlayerMatchLobby gameKey="shan-koe-mee" gameName={tr("UI_0158", "Shan Koe Mee")} userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
   return <ShanKoeMeeGame onClose={onClose} onPlayAgain={() => setRoomId(null)} roomId={roomId} />;
 }
 
@@ -124,8 +129,8 @@ function MonopolyFourPlayerArena({ onClose, preloadedRoomId }: { onClose: () => 
       else window.sessionStorage.removeItem("joeyoke_active_monopoly_room");
     });
   }, [roomId, userId]);
-  if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Sign in to join Monopoly matchmaking.</div>;
-  if (!roomId) return <FourPlayerMatchLobby gameKey="monopoly" gameName="Monopoly" userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
+  if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white"><LocalizedText id="UI_0025" fallback="Sign in to join Monopoly matchmaking." /></div>;
+  if (!roomId) return <FourPlayerMatchLobby gameKey="monopoly" gameName={tr("UI_0155", "Monopoly")} userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
   return <MonopolyGame userId={userId} roomId={roomId} onClose={onClose} />;
 }
 
@@ -543,13 +548,13 @@ export default function Home() {
           }}
         />
       ) : playingGame === "native://cup-pong" ? (
-        <CompetitiveGameLaunch gameKey="cup-pong" gameTitle="Cup Pong" Game={CupPong} onClose={() => setPlayingGame(null)} />
+        <CompetitiveGameLaunch gameKey="cup-pong" gameTitle={tr("UI_1482", "Cup Pong")} Game={CupPong} onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://four-in-a-row" ? (
-        <CompetitiveGameLaunch gameKey="four-in-a-row" gameTitle="Four in a Row" Game={FourInARow} preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <CompetitiveGameLaunch gameKey="four-in-a-row" gameTitle={tr("UI_1483", "Four in a Row")} Game={FourInARow} preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://bingo" ? (
-        <CompetitiveGameLaunch gameKey="bingo" gameTitle="Bingo" Game={Bingo} preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <CompetitiveGameLaunch gameKey="bingo" gameTitle={tr("UI_1484", "Bingo")} Game={Bingo} preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://ping-pong" || playingGame === "native://table-tennis" ? (
-        <CompetitiveGameLaunch gameKey="ping-pong" gameTitle="Ping Pong" Game={PingPong} allowLocal={false} preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <CompetitiveGameLaunch gameKey="ping-pong" gameTitle={tr("UI_1485", "Ping Pong")} Game={PingPong} allowLocal={false} preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://wordbox" || playingGame === "native://word-box" ? (
         <WordBoxGame onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://sudoku" ? (
@@ -561,7 +566,7 @@ export default function Home() {
       ) : playingGame === "native://monopoly" ? (
         <MonopolyFourPlayerArena preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://dominoes" ? (
-        <CompetitiveGameLaunch gameKey="dominoes" gameTitle="Dominoes" Game={DominoesArenaGame} preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
+        <CompetitiveGameLaunch gameKey="dominoes" gameTitle={tr("UI_1488", "Dominoes")} Game={DominoesArenaGame} preloadedRoomId={gameMatchId} onClose={() => { setPlayingGame(null); setActiveMatchId(null); }} />
       ) : playingGame === "native://2048" ? (
         <Game2048 onClose={() => setPlayingGame(null)} />
       ) : playingGame === "native://big-two" ? (
@@ -594,11 +599,11 @@ export default function Home() {
               <span className="material-symbols-outlined block leading-none">sports_esports</span>
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-black text-on-surface">{pausedGameName} is still open</p>
-              <p className="text-[11px] text-on-surface-variant">Return within {gameReturnSeconds}s to continue where you left off.</p>
+              <p className="truncate text-xs font-black text-on-surface">{pausedGameName} <LocalizedText id="UI_0027" fallback={tr("UI_0027", "is still open")} /></p>
+              <p className="text-[11px] text-on-surface-variant"><LocalizedText id="UI_0028" fallback={tr("UI_0028", "Return within")} />{gameReturnSeconds}<LocalizedText id="UI_0029" fallback={tr("UI_0029", "s to continue where you left off.")} /></p>
             </div>
-            <button type="button" onClick={resumeGame} className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-black text-on-primary active:scale-95">Return</button>
-            <button type="button" onClick={endSuspendedGame} aria-label="End game" className="grid size-8 shrink-0 place-items-center rounded-lg text-on-surface-variant active:bg-surface-container-high"><span className="material-symbols-outlined text-lg">close</span></button>
+            <button type="button" onClick={resumeGame} className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-black text-on-primary active:scale-95"><LocalizedText id="UI_0030" fallback={tr("UI_0030", "Return")} /></button>
+            <button type="button" onClick={endSuspendedGame} aria-label={tr("UI_0031", "End game")} className="grid size-8 shrink-0 place-items-center rounded-lg text-on-surface-variant active:bg-surface-container-high"><span className="material-symbols-outlined text-lg">close</span></button>
           </aside>
         )}
         {/* HEADER */}
@@ -614,10 +619,9 @@ export default function Home() {
 
             <div className="flex flex-col">
               <h1 className="font-headline text-lg font-bold text-on-background leading-tight">
-                Joe Yoke
-              </h1>
+                <LocalizedText id="UI_0003" fallback={tr("UI_0003", "Joe Yoke")} /></h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <button onClick={() => setActiveTab("Store")} aria-label="Buy points" className="flex items-center gap-1 bg-primary-container px-2.5 py-0.5 rounded-full transition-transform active:scale-95">
+                <button onClick={() => setActiveTab("Store")} aria-label={tr("UI_0033", "Buy points")} className="flex items-center gap-1 bg-primary-container px-2.5 py-0.5 rounded-full transition-transform active:scale-95">
                   <span
                     className="material-symbols-outlined text-primary text-[14px]"
                     style={{ fontVariationSettings: "'FILL' 1" }}
@@ -628,7 +632,7 @@ export default function Home() {
                     {userPoints.toLocaleString()}
                   </span>
                 </button>
-                <button onClick={() => setActiveTab("Store")} aria-label="Buy gems" className="flex items-center gap-1 bg-secondary-container px-2.5 py-0.5 rounded-full transition-transform active:scale-95">
+                <button onClick={() => setActiveTab("Store")} aria-label={tr("UI_0034", "Buy gems")} className="flex items-center gap-1 bg-secondary-container px-2.5 py-0.5 rounded-full transition-transform active:scale-95">
                   <span
                     className="material-symbols-outlined text-secondary text-[14px]"
                     style={{ fontVariationSettings: "'FILL' 1" }}
@@ -654,7 +658,7 @@ export default function Home() {
             </button>
             <button
               onClick={() => setShowNotifications(true)}
-              aria-label="Open notifications"
+              aria-label={tr("UI_0035", "Open notifications")}
               className="relative w-9 h-9 rounded-full bg-surface flex items-center justify-center text-on-surface hover:opacity-80 transition-opacity border border-surface-container-highest shadow-sm"
             >
               <span className="material-symbols-outlined text-[18px]">
@@ -768,11 +772,11 @@ export default function Home() {
           }}
         >
           {[
-            { id: "Home", label: t("UI_0039"), icon: "home" },
-            { id: "Explore", label: t("UI_0040"), icon: "explore" },
-            { id: "Store", label: t("UI_0037"), icon: "local_mall" },
-            { id: "Chats", label: t("UI_0036"), icon: "chat_bubble" },
-            { id: "Profile", label: t("UI_0038"), icon: "person" },
+            { id: tr("UI_0039", "Home"), label: t("UI_0039"), icon: "home" },
+            { id: tr("UI_0040", "Explore"), label: t("UI_0040"), icon: "explore" },
+            { id: tr("UI_0037", "Store"), label: t("UI_0037"), icon: "local_mall" },
+            { id: tr("UI_0036", "Chats"), label: t("UI_0036"), icon: "chat_bubble" },
+            { id: tr("UI_0038", "Profile"), label: t("UI_0038"), icon: "person" },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             return (

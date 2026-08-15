@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
@@ -135,8 +139,7 @@ export default function NotificationsCenter({
   if (!userId)
     return (
       <div className="py-12 text-center text-sm text-on-surface-variant">
-        Sign in to see your notifications.
-      </div>
+        <LocalizedText id="UI_1554" fallback="Sign in to see your notifications." /></div>
     );
   return (
     <div className="flex h-full min-h-0 min-w-0 w-full max-w-full flex-col animate-fade-in overflow-hidden">
@@ -146,22 +149,19 @@ export default function NotificationsCenter({
           className="mb-4 flex items-center gap-1 text-xs font-bold text-primary"
         >
           <span className="material-symbols-outlined text-base">arrow_back</span>
-          Back
-        </button>
+          <LocalizedText id="UI_0281" fallback="Back" /></button>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-headline text-xl font-black">Notifications</h2>
+            <h2 className="font-headline text-xl font-black"><LocalizedText id="UI_1555" fallback="Notifications" /></h2>
             <p className="mt-1 text-xs text-on-surface-variant">
-              Game activity, automated updates, and announcements from the team.
-            </p>
+              <LocalizedText id="UI_1556" fallback="Game activity, automated updates, and announcements from the team." /></p>
           </div>
           <button
             onClick={() => void markAllRead()}
             disabled={!items.some((item) => item.kind !== "broadcast" && !item.is_read)}
             className="shrink-0 rounded-lg bg-primary-container px-3 py-2 text-[10px] font-black text-primary disabled:opacity-50"
           >
-            Mark all read
-          </button>
+            <LocalizedText id="UI_1557" fallback="Mark all read" /></button>
         </div>
         <div className="mt-4 flex max-w-full min-w-0 gap-2 overflow-x-auto no-scrollbar touch-pan-x">
           {(["all", "general", "system", "promotion"] as const).map((tab) => (
@@ -182,12 +182,10 @@ export default function NotificationsCenter({
       <div className="relative z-0 min-h-0 min-w-0 w-full flex-1 self-stretch space-y-3 overflow-y-auto overscroll-contain pb-6 pt-3 no-scrollbar">
       {loading ? (
         <p className="py-10 text-center text-xs text-on-surface-variant animate-pulse">
-          Loading notifications…
-        </p>
+          <LocalizedText id="UI_1562" fallback={tr("UI_1562", "Loading notifications…")} /></p>
       ) : filteredItems.length === 0 ? (
         <div className="bg-surface border border-surface-container-highest rounded-[24px] p-8 text-center text-sm text-on-surface-variant">
-          You’re all caught up.
-        </div>
+          <LocalizedText id="UI_1563" fallback={tr("UI_1563", "You’re all caught up.")} /></div>
       ) : (
         <>
           {filteredItems.map((item) => (
@@ -216,7 +214,7 @@ export default function NotificationsCenter({
                     {new Date(item.created_at).toLocaleString()}
                   </p>
                 </div>
-                {!item.is_read && <span className="absolute right-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-primary" aria-label="Unread" />}
+                {!item.is_read && <span className="absolute right-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-primary" aria-label={tr("UI_1566", "Unread")} />}
               </div>
             </button>
           ))}

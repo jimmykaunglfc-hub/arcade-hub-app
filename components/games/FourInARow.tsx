@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -467,7 +472,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
            <button
              type="button"
              onClick={onClose}
-             aria-label="Back to Arcade Hub"
+             aria-label={tr("UI_0373", "Back to Arcade Hub")}
              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/30 text-white backdrop-blur-sm transition-colors hover:text-amber-300"
            >
              <svg
@@ -488,8 +493,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
        </div>
 
        <h1 className="text-xl font-black text-amber-300 tracking-wider uppercase drop-shadow">
-         4 IN A ROW
-       </h1>
+         <LocalizedText id="UI_0752" fallback="4 IN A ROW" /></h1>
 
        <div className="flex items-center justify-end gap-2">
          {!online && (
@@ -497,14 +501,13 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
              onClick={resetGame}
              className="text-xs font-black uppercase tracking-wider bg-amber-400 hover:bg-amber-300 text-slate-950 px-3.5 py-1.5 rounded-xl border border-amber-200 shadow-sm transition-all active:scale-95"
            >
-             RESET
-           </button>
+             <LocalizedText id="UI_0753" fallback={tr("UI_0753", "RESET")} /></button>
          )}
 
          <button
            type="button"
            onClick={() => setShowHowToPlay(true)}
-           aria-label="How to play Four in a Row"
+           aria-label={tr("UI_0754", "How to play Four in a Row")}
            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00]/70 bg-[#ccff00]/10 text-[#ccff00] shadow-[0_0_14px_rgba(204,255,0,0.16)] transition-colors hover:bg-[#ccff00]/20"
          >
            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#ccff00] text-xs font-black leading-none">
@@ -522,11 +525,11 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
        <span className="text-xs font-black tracking-wider uppercase text-blue-600">
          {winner
            ? winner === "Draw"
-             ? "DRAW GAME!"
+             ? tr("UI_0755", "DRAW GAME!")
              : winner === 1
-             ? (online ? `${playerNames[1]} WINS!` : "PLAYER 1 WINS!")
-             : (online ? `${playerNames[2]} WINS!` : "PLAYER 2 WINS!")
-           : stateReady ? `${activePlayerName}'S TURN` : "MATCH PREPARING…"}
+             ? (online ? `${playerNames[1]} WINS!` : tr("UI_0757", "PLAYER 1 WINS!"))
+             : (online ? `${playerNames[2]} WINS!` : tr("UI_0759", "PLAYER 2 WINS!"))
+           : stateReady ? `${activePlayerName}'S TURN` : tr("UI_0761", "MATCH PREPARING…")}
        </span>
 
        {/* 3D Disc Box beside turn text */}
@@ -562,7 +565,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
      >
        {winner && winner !== "Draw" && (
          <div className="absolute inset-x-5 top-3 z-30 rounded-xl border-2 border-white bg-slate-950/90 px-3 py-2 text-center text-xs font-black uppercase tracking-[0.18em] text-white shadow-[0_0_22px_rgba(255,255,255,0.6)]">
-           {winner === PLAYER ? "Winning four — red" : "Winning four — yellow"}
+           {winner === PLAYER ? tr("UI_0762", "Winning four — red") : tr("UI_0763", "Winning four — yellow")}
          </div>
        )}
       
@@ -635,21 +638,19 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
                </div>
                <div>
                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ccff00]">
-                   Four in a Row
-                 </p>
+                   <LocalizedText id="UI_1483" fallback={tr("UI_1483", "Four in a Row")} /></p>
                  <h2
                    id="four-in-a-row-how-to-play-title"
                    className="text-2xl font-black text-white"
                  >
-                   How to Play
-                 </h2>
+                   <LocalizedText id="UI_0394" fallback={tr("UI_0394", "How to Play")} /></h2>
                </div>
              </div>
 
              <button
                type="button"
                onClick={() => setShowHowToPlay(false)}
-               aria-label="Close how to play"
+               aria-label={tr("UI_0446", "Close how to play")}
                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-lg font-black text-slate-200 transition-colors hover:bg-slate-700"
              >
                ×
@@ -658,11 +659,11 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
 
            <div className="space-y-3">
              {[
-               ["🔴", "You play red", "You always use the red discs and make the first move."],
-               ["👆", "Choose a column", "Tap any open column. Your disc falls into its lowest empty space."],
-               ["🤖", "Computer plays yellow", "After your move, the computer studies the board and drops a yellow disc."],
-               ["🏆", "Connect four", "Win by connecting 4 discs horizontally, vertically, or diagonally."],
-               ["🤝", "Avoid a draw", "If every space fills before either side connects four, the match is a draw."],
+               ["🔴", tr("UI_0765", "You play red"), tr("UI_0764", "You always use the red discs and make the first move.")],
+               ["👆", tr("UI_0766", "Choose a column"), tr("UI_0767", "Tap any open column. Your disc falls into its lowest empty space.")],
+               ["🤖", tr("UI_0769", "Computer plays yellow"), tr("UI_0768", "After your move, the computer studies the board and drops a yellow disc.")],
+               ["🏆", tr("UI_0770", "Connect four"), tr("UI_0771", "Win by connecting 4 discs horizontally, vertically, or diagonally.")],
+               ["🤝", tr("UI_0772", "Avoid a draw"), tr("UI_0773", "If every space fills before either side connects four, the match is a draw.")],
              ].map(([icon, title, description], index) => (
                <div
                  key={title}
@@ -688,8 +689,7 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
              onClick={() => setShowHowToPlay(false)}
              className="mt-5 w-full rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 py-3.5 text-sm font-black uppercase tracking-wider text-slate-950 shadow-lg transition-all active:scale-[0.98]"
            >
-             Got It — Let&apos;s Play
-           </button>
+             <LocalizedText id="UI_0393" fallback={tr("UI_0393", "Got It — Let&apos;s Play")} /></button>
          </div>
        </div>
      )}
@@ -704,16 +704,15 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
                {winner === 1 ? "🏆" : winner === 2 ? "🤖" : "🤝"}
              </div>
              <span className="text-[11px] font-extrabold text-amber-300 tracking-[0.2em] uppercase">
-               Match Finished
-             </span>
+               <LocalizedText id="UI_0774" fallback={tr("UI_0774", "Match Finished")} /></span>
              <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 drop-shadow">
                {winner === "Draw"
-                 ? "IT'S A DRAW!"
+                 ? tr("UI_0775", "IT'S A DRAW!")
                  : online
-                 ? `${playerNames[winner]} WINS!`
+                  ? `${playerNames[winner as Player]} WINS!`
                  : winner === 1
-                 ? "YOU WON!"
-                 : "OPPONENT WINS!"}
+                 ? tr("UI_0777", "YOU WON!")
+                 : tr("UI_0778", "OPPONENT WINS!")}
              </h2>
            </div>
 
@@ -723,16 +722,14 @@ export const FourInARow: React.FC<FourInARowProps> = ({ onClose, onResult, local
                  onClick={resetGame}
                  className="w-full bg-gradient-to-b from-amber-400 to-amber-600 hover:brightness-110 text-slate-950 py-3.5 rounded-xl font-black text-sm tracking-wider uppercase transition-all shadow-lg active:scale-95 border border-amber-200"
                >
-                 Restart Your Game
-               </button>
+                 <LocalizedText id="UI_0779" fallback={tr("UI_0779", "Restart Your Game")} /></button>
              )}
              {onClose && (
                <button
                  onClick={onClose}
                  className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 py-3.5 rounded-xl font-bold text-sm tracking-wider uppercase transition-all active:scale-95"
                >
-                 Exit Main Menu
-               </button>
+                 <LocalizedText id="UI_0780" fallback={tr("UI_0780", "Exit Main Menu")} /></button>
              )}
            </div>
 

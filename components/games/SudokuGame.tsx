@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, {
  useCallback,
  useEffect,
@@ -710,7 +715,7 @@ export default function Sudoku({
              type="button"
              onClick={onClose}
              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-400/30 bg-slate-900/85 text-white shadow-sm transition active:scale-95"
-             aria-label="Back to Arcade Hub"
+             aria-label={tr("UI_0373", "Back to Arcade Hub")}
            >
              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
                <path d="M19 12H5" />
@@ -721,7 +726,7 @@ export default function Sudoku({
        </div>
 
        <div className="text-center">
-         <h1 className="text-xl font-black tracking-wide text-amber-300">Sudoku</h1>
+         <h1 className="text-xl font-black tracking-wide text-amber-300"><LocalizedText id="UI_1487" fallback="Sudoku" /></h1>
 
          <button type="button" onClick={() => setShowNewGameMenu(true)} className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-200/75">
            {DIFFICULTY_LABELS[difficulty]} ▾
@@ -729,8 +734,8 @@ export default function Sudoku({
        </div>
 
        <div className="flex items-center justify-self-end gap-2">
-         <button type="button" onClick={() => setPaused(true)} disabled={completed} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-400/30 bg-slate-900/85 text-sm font-black text-white transition active:scale-95 disabled:opacity-40" aria-label="Pause game">Ⅱ</button>
-         <button type="button" onClick={() => setShowRules(true)} aria-label="How to play Sudoku" className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00] bg-slate-900 text-[#ccff00] shadow-[0_0_12px_rgba(204,255,0,0.25)] active:scale-95">
+         <button type="button" onClick={() => setPaused(true)} disabled={completed} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-400/30 bg-slate-900/85 text-sm font-black text-white transition active:scale-95 disabled:opacity-40" aria-label={tr("UI_1389", "Pause game")}>Ⅱ</button>
+         <button type="button" onClick={() => setShowRules(true)} aria-label={tr("UI_1390", "How to play Sudoku")} className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00] bg-slate-900 text-[#ccff00] shadow-[0_0_12px_rgba(204,255,0,0.25)] active:scale-95">
            <span aria-hidden="true" className="flex h-5 w-5 items-center justify-center rounded-full border border-[#ccff00] text-xs font-black">?</span>
          </button>
        </div>
@@ -741,8 +746,7 @@ export default function Sudoku({
          <div className="mb-3 grid grid-cols-4 gap-2">
            <div className="rounded-xl border border-white/10 bg-slate-900/70 px-2 py-2 text-center shadow-lg">
              <span className="block text-[9px] font-bold uppercase tracking-wider text-cyan-200/55">
-               Level
-             </span>
+               <LocalizedText id="UI_1391" fallback="Level" /></span>
 
              <span className="text-sm font-black">
                {DIFFICULTY_LABELS[difficulty]}
@@ -751,8 +755,7 @@ export default function Sudoku({
 
            <div className="rounded-xl border border-white/10 bg-slate-900/70 px-2 py-2 text-center shadow-lg">
              <span className="block text-[9px] font-bold uppercase tracking-wider text-cyan-200/55">
-               Time
-             </span>
+               <LocalizedText id="UI_1392" fallback="Time" /></span>
 
              <span className="text-sm font-black">
                {formatTime(seconds)}
@@ -761,8 +764,7 @@ export default function Sudoku({
 
            <div className="rounded-xl border border-white/10 bg-slate-900/70 px-2 py-2 text-center shadow-lg">
              <span className="block text-[9px] font-bold uppercase tracking-wider text-cyan-200/55">
-               Mistakes
-             </span>
+               <LocalizedText id="UI_1393" fallback="Mistakes" /></span>
 
              <span
                className={`text-sm font-black ${
@@ -777,8 +779,7 @@ export default function Sudoku({
 
            <div className="rounded-xl border border-white/10 bg-slate-900/70 px-2 py-2 text-center shadow-lg">
              <span className="block text-[9px] font-bold uppercase tracking-wider text-cyan-200/55">
-               Hints
-             </span>
+               <LocalizedText id="UI_1394" fallback="Hints" /></span>
 
              <span className="text-sm font-black">
                {hintsUsed}
@@ -856,8 +857,7 @@ export default function Sudoku({
            >
              <span className="block text-xl">⌫</span>
              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-               Erase
-             </span>
+               <LocalizedText id="UI_1395" fallback="Erase" /></span>
            </button>
 
            <button
@@ -882,7 +882,7 @@ export default function Sudoku({
                    : "text-slate-400"
                }`}
              >
-               Notes {notesMode ? "On" : "Off"}
+               <LocalizedText id="UI_1396" fallback="Notes" />{notesMode ? tr("UI_1398", "On") : tr("UI_1397", "Off")}
              </span>
            </button>
 
@@ -894,8 +894,7 @@ export default function Sudoku({
            >
              <span className="block text-xl">💡</span>
              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-               Hint
-             </span>
+               <LocalizedText id="UI_1399" fallback="Hint" /></span>
            </button>
 
            <button
@@ -907,8 +906,7 @@ export default function Sudoku({
            >
              <span className="block text-xl">↻</span>
              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-               New
-             </span>
+               <LocalizedText id="UI_1468" fallback="New" /></span>
            </button>
          </div>
 
@@ -954,21 +952,21 @@ export default function Sudoku({
              <div className="flex items-center gap-3">
                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[#ccff00] text-2xl font-black text-[#ccff00]">?</div>
                <div>
-                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ccff00]">Sudoku</p>
-                 <h2 id="sudoku-how-to-play-title" className="text-2xl font-black">How to Play</h2>
+                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ccff00]"><LocalizedText id="UI_1487" fallback={tr("UI_1487", "Sudoku")} /></p>
+                 <h2 id="sudoku-how-to-play-title" className="text-2xl font-black"><LocalizedText id="UI_0394" fallback={tr("UI_0394", "How to Play")} /></h2>
                </div>
              </div>
-             <button type="button" onClick={() => setShowRules(false)} aria-label="Close how to play" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-500 bg-slate-800 text-2xl font-black text-slate-200 transition hover:border-[#ccff00] hover:text-[#ccff00] active:scale-95">×</button>
+             <button type="button" onClick={() => setShowRules(false)} aria-label={tr("UI_0446", "Close how to play")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-500 bg-slate-800 text-2xl font-black text-slate-200 transition hover:border-[#ccff00] hover:text-[#ccff00] active:scale-95">×</button>
            </div>
 
            <div className="mt-5 space-y-3">
              {[
-               ["🔢", "1. Fill every square", "Complete the grid using the numbers 1 through 9."],
-               ["↔️", "2. Avoid repeats", "Each row, column, and outlined 3×3 box must contain every number once."],
-               ["👆", "3. Enter a number", "Select an empty square, then tap a number below the board. Blue numbers are your entries."],
-               ["✎", "4. Use Notes", "Turn Notes on to add or remove small candidate numbers without committing an answer."],
-               ["💡", "5. Ask for a hint", "Hint completes one unfinished or incorrect square and adds to your hint count."],
-               ["🏆", "6. Complete the puzzle", "Wrong answers appear red and increase Mistakes. Correct every square to finish the puzzle."],
+               ["🔢", tr("UI_1400", "1. Fill every square"), "Complete the grid using the numbers 1 through 9."],
+               ["↔️", tr("UI_1401", "2. Avoid repeats"), tr("UI_1402", "Each row, column, and outlined 3×3 box must contain every number once.")],
+               ["👆", tr("UI_1403", "3. Enter a number"), tr("UI_1404", "Select an empty square, then tap a number below the board. Blue numbers are your entries.")],
+               ["✎", tr("UI_1405", "4. Use Notes"), tr("UI_1406", "Turn Notes on to add or remove small candidate numbers without committing an answer.")],
+               ["💡", tr("UI_1407", "5. Ask for a hint"), tr("UI_1408", "Hint completes one unfinished or incorrect square and adds to your hint count.")],
+               ["🏆", tr("UI_1409", "6. Complete the puzzle"), tr("UI_1410", "Wrong answers appear red and increase Mistakes. Correct every square to finish the puzzle.")],
              ].map(([icon, title, description]) => (
                <div key={title} className="flex gap-3 rounded-2xl border border-slate-700 bg-slate-800/90 p-3.5">
                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-xl">{icon}</div>
@@ -981,8 +979,7 @@ export default function Sudoku({
            </div>
 
            <button type="button" onClick={() => setShowRules(false)} className="mt-5 w-full rounded-2xl bg-gradient-to-b from-amber-400 to-amber-500 py-3.5 font-black uppercase tracking-wide text-slate-950 shadow-[0_5px_0_#c56b00] transition active:translate-y-1 active:shadow-none">
-             Got It — Let&apos;s Play
-           </button>
+             <LocalizedText id="UI_0393" fallback={tr("UI_0393", "Got It — Let&apos;s Play")} /></button>
          </div>
        </div>
      )}
@@ -993,20 +990,17 @@ export default function Sudoku({
            <div className="text-6xl">⏸️</div>
 
            <h2 className="mt-4 text-3xl font-black">
-             Game Paused
-           </h2>
+             <LocalizedText id="UI_1411" fallback={tr("UI_1411", "Game Paused")} /></h2>
 
            <p className="mt-2 text-sm text-slate-500">
-             Your progress and timer are paused.
-           </p>
+             <LocalizedText id="UI_1369" fallback={tr("UI_1369", "Your progress and timer are paused.")} /></p>
 
            <button
              type="button"
              onClick={() => setPaused(false)}
              className="mt-6 w-full rounded-2xl bg-blue-600 py-3 font-black text-white transition active:scale-[0.98]"
            >
-             Resume Game
-           </button>
+             <LocalizedText id="UI_1370" fallback={tr("UI_1370", "Resume Game")} /></button>
          </div>
        </div>
      )}
@@ -1018,17 +1012,16 @@ export default function Sudoku({
              <div className="flex items-center gap-3">
                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-400 text-2xl text-slate-950 shadow-lg">▦</div>
                <div>
-                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ccff00]">Choose a level</p>
-                 <h2 id="new-sudoku-title" className="text-2xl font-black">New Sudoku</h2>
+                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ccff00]"><LocalizedText id="UI_1371" fallback={tr("UI_1371", "Choose a level")} /></p>
+                 <h2 id="new-sudoku-title" className="text-2xl font-black"><LocalizedText id="UI_1372" fallback={tr("UI_1372", "New Sudoku")} /></h2>
                </div>
              </div>
 
-             <button type="button" onClick={() => setShowNewGameMenu(false)} aria-label="Close new game menu" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-500 bg-slate-800 text-2xl font-black text-slate-200 transition hover:border-[#ccff00] hover:text-[#ccff00] active:scale-95">×</button>
+             <button type="button" onClick={() => setShowNewGameMenu(false)} aria-label={tr("UI_1373", "Close new game menu")} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-500 bg-slate-800 text-2xl font-black text-slate-200 transition hover:border-[#ccff00] hover:text-[#ccff00] active:scale-95">×</button>
            </div>
 
            <p className="mt-4 text-sm text-slate-300">
-             Select the challenge that feels right for you.
-           </p>
+             <LocalizedText id="UI_1374" fallback={tr("UI_1374", "Select the challenge that feels right for you.")} /></p>
 
            <div className="mt-5 grid gap-3">
              {(
@@ -1057,9 +1050,9 @@ export default function Sudoku({
                  <span className="min-w-0 flex-1">
                    <span className={`block text-lg font-black ${level === difficulty ? "text-amber-300" : "text-white"}`}>{DIFFICULTY_LABELS[level]}</span>
                    <span className="mt-0.5 block text-xs leading-4 text-slate-400">
-                     {level === "easy" && "More clues for a relaxed puzzle."}
-                     {level === "medium" && "Fewer clues and more deduction."}
-                     {level === "hard" && "Minimal clues for expert solvers."}
+                     {level === "easy" && tr("UI_1378", "More clues for a relaxed puzzle.")}
+                     {level === "medium" && tr("UI_1379", "Fewer clues and more deduction.")}
+                     {level === "hard" && tr("UI_1380", "Minimal clues for expert solvers.")}
                    </span>
                  </span>
 
@@ -1075,8 +1068,7 @@ export default function Sudoku({
              }
              className="mt-4 w-full rounded-2xl border border-slate-700 bg-slate-800 py-3 font-black text-slate-300 transition active:scale-[0.98]"
            >
-             Cancel
-           </button>
+             <LocalizedText id="UI_0094" fallback={tr("UI_0094", "Cancel")} /></button>
          </div>
        </div>
      )}
@@ -1087,11 +1079,10 @@ export default function Sudoku({
            <div className="text-6xl">🏆</div>
 
            <h2 className="mt-4 text-3xl font-black">
-             Puzzle Complete
-           </h2>
+             <LocalizedText id="UI_1381" fallback={tr("UI_1381", "Puzzle Complete")} /></h2>
 
            <p className="mt-2 text-sm text-slate-500">
-             You completed the{" "}
+             <LocalizedText id="UI_1382" fallback={tr("UI_1382", "You completed the")} />{" "}
              {DIFFICULTY_LABELS[
                difficulty
              ].toLowerCase()}{" "}
@@ -1101,8 +1092,7 @@ export default function Sudoku({
            <div className="mt-5 grid grid-cols-3 gap-3">
              <div className="rounded-2xl bg-slate-100 p-3">
                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                 Time
-               </span>
+                 <LocalizedText id="UI_1392" fallback={tr("UI_1392", "Time")} /></span>
 
                <span className="font-black">
                  {formatTime(seconds)}
@@ -1111,8 +1101,7 @@ export default function Sudoku({
 
              <div className="rounded-2xl bg-slate-100 p-3">
                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                 Mistakes
-               </span>
+                 <LocalizedText id="UI_1393" fallback={tr("UI_1393", "Mistakes")} /></span>
 
                <span className="font-black">
                  {mistakes}
@@ -1121,8 +1110,7 @@ export default function Sudoku({
 
              <div className="rounded-2xl bg-slate-100 p-3">
                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                 Hints
-               </span>
+                 <LocalizedText id="UI_1394" fallback={tr("UI_1394", "Hints")} /></span>
 
                <span className="font-black">
                  {hintsUsed}
@@ -1137,8 +1125,7 @@ export default function Sudoku({
              }
              className="mt-6 w-full rounded-2xl bg-blue-600 py-3 font-black text-white transition active:scale-[0.98]"
            >
-             Play Another Puzzle
-           </button>
+             <LocalizedText id="UI_1384" fallback={tr("UI_1384", "Play Another Puzzle")} /></button>
 
            <button
              type="button"
@@ -1147,8 +1134,7 @@ export default function Sudoku({
              }
              className="mt-3 w-full rounded-2xl bg-slate-100 py-3 font-bold text-slate-700"
            >
-             Change Difficulty
-           </button>
+             <LocalizedText id="UI_1385" fallback={tr("UI_1385", "Change Difficulty")} /></button>
          </div>
        </div>
      )}

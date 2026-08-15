@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, { useState, useEffect } from "react";
 import { soundEngine } from "../../lib/soundManager";
 
@@ -92,11 +96,9 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
             onClick={handleExit}
             className="flex items-center gap-1.5 text-xs font-headline font-bold text-neutral-400 hover:text-white transition-colors active:scale-95 uppercase tracking-widest"
           >
-            <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> Exit Arena
-          </button>
+            <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> <LocalizedText id="UI_0348" fallback="Exit Arena" /></button>
           <span className="text-[10px] font-black uppercase tracking-widest text-[#CCFF00]">
-            Nexus Breach
-          </span>
+            <LocalizedText id="UI_1245" fallback="Nexus Breach" /></span>
           <div className="w-16"></div>
         </div>
       </header>
@@ -106,8 +108,7 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
         <div className="flex justify-between items-center">
           <div className="flex flex-col">
             <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-black mb-1">
-              Nodes Recovered
-            </span>
+              <LocalizedText id="UI_1231" fallback="Nodes Recovered" /></span>
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-emerald-400">security</span>
               <span className="text-2xl font-black">
@@ -119,8 +120,7 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
 
           <div className="flex flex-col items-end text-right">
             <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-black mb-1">
-              System Status
-            </span>
+              <LocalizedText id="UI_1233" fallback="System Status" /></span>
             <span
               className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border ${
                 gameStatus === "playing"
@@ -128,7 +128,7 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
                   : "bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse"
               }`}
             >
-              {gameStatus === "playing" ? "Active" : "Breached"}
+              {gameStatus === "playing" ? tr("UI_0258", "Active") : tr("UI_1234", "Breached")}
             </span>
           </div>
         </div>
@@ -137,8 +137,7 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-neutral-500 text-sm">skull</span>
             <span className="text-xs font-bold text-neutral-300 uppercase tracking-wider">
-              Penalty Mode:
-            </span>
+              <LocalizedText id="UI_1235" fallback="Penalty Mode:" /></span>
           </div>
           <button
             onClick={cycleTheme}
@@ -214,8 +213,7 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
         <div className="w-full h-14 flex items-center justify-center">
           {gameStatus === "playing" ? (
             <p className="text-[11px] text-neutral-500 font-medium tracking-widest uppercase text-center">
-              15 safe nodes. 1 corrupted trap.<br />Push your luck.
-            </p>
+              <LocalizedText id="UI_1237" fallback={tr("UI_1237", "15 safe nodes. 1 corrupted trap.")} /><br /><LocalizedText id="UI_1238" fallback={tr("UI_1238", "Push your luck.")} /></p>
           ) : (
             <div className="w-full max-w-[280px] h-full animate-pop-in">
               <button
@@ -223,8 +221,7 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
                 className="w-full h-full font-headline font-black rounded-2xl tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg active:scale-95 bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30 uppercase text-xs"
               >
                 <span className="material-symbols-outlined text-xl">refresh</span>
-                Reboot System
-              </button>
+                <LocalizedText id="UI_1239" fallback={tr("UI_1239", "Reboot System")} /></button>
             </div>
           )}
         </div>
@@ -247,18 +244,16 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
             </div>
 
             <h2 className="text-2xl font-headline font-black text-white tracking-tight mb-2 relative z-10 uppercase">
-              System Breached
-            </h2>
+              <LocalizedText id="UI_0830" fallback={tr("UI_0830", "System Breached")} /></h2>
 
             <div className="bg-rose-500/10 border border-rose-500/30 p-6 rounded-2xl mb-8 mt-6 shadow-inner relative z-10">
               <span className="text-[10px] font-black uppercase tracking-widest text-rose-400 mb-3 block">
-                Penalty Required
-              </span>
+                <LocalizedText id="UI_1240" fallback={tr("UI_1240", "Penalty Required")} /></span>
               <p className="text-xl font-black text-rose-100">
-                {penaltyTheme === "Drink" && "Take a shot! 🥃"}
-                {penaltyTheme === "Truth" && "Reveal a Truth! 🤫"}
-                {penaltyTheme === "Dare" && "Complete a Dare! 🎯"}
-                {penaltyTheme === "Standard" && "Node corrupted. You lose. 💥"}
+                {penaltyTheme === "Drink" && tr("UI_0832", "Take a shot! 🥃")}
+                {penaltyTheme === "Truth" && tr("UI_1241", "Reveal a Truth! 🤫")}
+                {penaltyTheme === "Dare" && tr("UI_1242", "Complete a Dare! 🎯")}
+                {penaltyTheme === "Standard" && tr("UI_1243", "Node corrupted. You lose. 💥")}
               </p>
             </div>
 
@@ -266,8 +261,7 @@ export default function NexusBreach({ onClose }: { onClose?: () => void }) {
               onClick={handleCloseModal}
               className="w-full py-4 bg-rose-600 hover:bg-rose-500 text-white font-headline font-black rounded-xl tracking-widest transition-transform active:scale-95 shadow-lg shadow-rose-600/20 flex items-center justify-center gap-2 relative z-10 uppercase text-xs"
             >
-              Accept Penalty
-            </button>
+              <LocalizedText id="UI_1244" fallback={tr("UI_1244", "Accept Penalty")} /></button>
           </div>
         </div>
       )}

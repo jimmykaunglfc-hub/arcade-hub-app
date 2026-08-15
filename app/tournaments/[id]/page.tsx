@@ -1,6 +1,11 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+
+
+
+import { tr } from "../../../lib/i18n";
+import { LocalizedText } from "../../../lib/i18n";
+import { use, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import MatchmakingModal from "@/components/MatchmakingModal";
@@ -106,8 +111,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
   if (loading)
     return (
       <main className="min-h-screen bg-background p-6 text-on-background">
-        Loading tournament…
-      </main>
+        <LocalizedText id="UI_0046" fallback="Loading tournament…" /></main>
     );
   if (!tournament)
     return (
@@ -161,8 +165,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
           onClick={() => router.replace("/")}
           className="z-50 -mx-4 mb-3 block w-[calc(100%+2rem)] shrink-0 border-b border-surface-container-highest bg-background px-4 py-4 text-left text-sm font-bold text-primary"
         >
-          ← Back to home
-        </button>
+          <LocalizedText id="UI_0054" fallback="← Back to home" /></button>
         <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[26px] border border-surface-container-highest bg-surface shadow-2xl">
           {tournament.card_image_url ? (
             <img
@@ -186,19 +189,19 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
 
             <div className="mt-3 grid grid-cols-3 divide-x divide-surface-container-highest rounded-xl border border-surface-container-highest bg-surface-container text-center text-xs">
               <Info
-                label="Players"
+                label={tr("UI_0055", "Players")}
                 value={`${tournament.current_slots ?? 0}/${
                   tournament.max_slots ?? tournament.max_players
                 }`}
               />
               <Info
-                label="Prize pool"
+                label={tr("UI_0056", "Prize pool")}
                 value={`${Number(
                   tournament.prize_pool || 0
                 ).toLocaleString()} ${prizeCurrency}`}
               />
               <Info
-                label="Entry fee"
+                label={tr("UI_0057", "Entry fee")}
                 value={
                   Number(tournament.entry_fee || 0)
                     ? `${Number(
@@ -214,48 +217,44 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
                 active={tab === "overview"}
                 onClick={() => setTab("overview")}
               >
-                Overview
-              </TabButton>
+                <LocalizedText id="UI_0058" fallback="Overview" /></TabButton>
               <TabButton
                 active={tab === "rules"}
                 onClick={() => setTab("rules")}
               >
-                Rules
-              </TabButton>
+                <LocalizedText id="UI_0059" fallback="Rules" /></TabButton>
               <TabButton
                 active={tab === "games"}
                 onClick={() => setTab("games")}
               >
-                Games
-              </TabButton>
+                <LocalizedText id="UI_0060" fallback="Games" /></TabButton>
               <TabButton
                 active={tab === "leaderboard"}
                 onClick={() => setTab("leaderboard")}
               >
-                Leaderboard
-              </TabButton>
+                <LocalizedText id="UI_0061" fallback="Leaderboard" /></TabButton>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-1 no-scrollbar">
             {tab === "overview" && (
               <>
-                <Section title="About tournament">
+                <Section title={tr("UI_0063", "About tournament")}>
                   {tournament.terms ||
-                    "A dedicated competitive event. Tournament results never affect the normal game lobby."}
+                    tr("UI_0064", "A dedicated competitive event. Tournament results never affect the normal game lobby.")}
                 </Section>
-                <Section title="Prize pool">{`${Number(
+                <Section title={tr("UI_0056", "Prize pool")}>{`${Number(
                   tournament.prize_pool || 0
                 ).toLocaleString()} ${prizeCurrency}. Final placements and prizes are published by the tournament organizer.`}</Section>
               </>
             )}
             {tab === "rules" && (
               <>
-                <Section title="General rules">
-                  {tournament.rules || "Standard game rules apply."}
+                <Section title={tr("UI_0067", "General rules")}>
+                  {tournament.rules || tr("UI_0068", "Standard game rules apply.")}
                 </Section>
-                <Section title="Terms & conditions">
+                <Section title={tr("UI_0069", "Terms & conditions")}>
                   {tournament.terms ||
-                    "By joining, you agree to follow the tournament rules and fair-play requirements."}
+                    tr("UI_0070", "By joining, you agree to follow the tournament rules and fair-play requirements.")}
                 </Section>
               </>
             )}
@@ -285,10 +284,10 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
             )}
             {tab === "leaderboard" && (
               <section className="mt-6">
-                {myRow && tournament.status === "completed" && <button onClick={() => void shareTournamentRank()} className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary-container px-3 py-2.5 text-xs font-black text-on-primary-container"><span className="material-symbols-outlined text-base">share</span>Share my final tournament rank</button>}
+                {myRow && tournament.status === "completed" && <button onClick={() => void shareTournamentRank()} className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary-container px-3 py-2.5 text-xs font-black text-on-primary-container"><span className="material-symbols-outlined text-base">share</span><LocalizedText id="UI_0074" fallback={tr("UI_0074", "Share my final tournament rank")} /></button>}
                 <p className="mb-3 text-xs text-on-surface-variant">
-                  Score: win {tournament.win_points ?? 3}, draw{" "}
-                  {tournament.draw_points ?? 1}, loss{" "}
+                  <LocalizedText id="UI_0076" fallback={tr("UI_0076", "Score: win")} />{tournament.win_points ?? 3}<LocalizedText id="UI_0075" fallback={tr("UI_0075", ", draw")} />{" "}
+                  {tournament.draw_points ?? 1}<LocalizedText id="UI_0077" fallback={tr("UI_0077", ", loss")} />{" "}
                   {tournament.loss_points ?? -1}. Ties use wins, fewer losses,
                   matches played, then registration time.
                 </p>
@@ -310,7 +309,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
                             {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
                           </div>
                           <b className="mt-1 block truncate text-xs">
-                            {row.profiles?.username || "Player"}
+                            {row.profiles?.username || tr("UI_0079", "Player")}
                           </b>
                           <span className="text-xs text-slate-400">
                             {row.score} pts
@@ -330,9 +329,9 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
                         >
                           <b className="text-primary">#{row.rank}</b>
                           <span>
-                            {row.profiles?.username || "Player"}
+                            {row.profiles?.username || tr("UI_0079", "Player")}
                             <small className="ml-2 text-on-surface-variant">
-                              {row.wins}W · {row.draws}D · {row.losses}L
+                              {row.wins}<LocalizedText id="UI_0082" fallback="W ·" />{row.draws}<LocalizedText id="UI_0081" fallback="D ·" />{row.losses}L
                             </small>
                           </span>
                           <b>{row.score} pts</b>
@@ -348,9 +347,9 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
                           <div className="grid grid-cols-[2rem_1fr_auto] items-center rounded-xl border border-[#CCFF00] bg-[#CCFF00]/10 p-3 text-sm">
                             <b className="text-[#CCFF00]">#{myRow.rank}</b>
                             <span className="font-bold">
-                              {myRow.profiles?.username || "You"}
+                              {myRow.profiles?.username || tr("UI_0084", "You")}
                               <small className="ml-2 text-slate-400">
-                                {myRow.wins}W · {myRow.losses}L
+                                {myRow.wins}<LocalizedText id="UI_0082" fallback={tr("UI_0082", "W ·")} />{myRow.losses}L
                               </small>
                             </span>
                             <b>{myRow.score} pts</b>
@@ -375,7 +374,7 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
               disabled={joined || joining || tournament.status === "completed"}
               className="mt-3 w-full shrink-0 rounded-xl bg-primary py-3 text-sm font-black text-on-primary disabled:opacity-60"
             >
-              {joined ? "Registered" : joining ? "Joining…" : "Join tournament"}
+              {joined ? tr("UI_0087", "Registered") : joining ? tr("UI_0086", "Joining…") : tr("UI_0085", "Join tournament")}
             </button>
           </div>
         </section>
@@ -395,13 +394,13 @@ export default function TournamentLandingPage({ params }: TournamentPageProps) {
       {confirmedMatch && (
         <div className="fixed inset-0 z-[10000] flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#08090b] p-6 text-center text-white">
           <div className="w-full max-w-sm">
-            <div className="mx-auto mb-16 inline-flex items-center gap-2 rounded-full border border-[#ccff00]/35 bg-[#ccff00]/10 px-5 py-3 text-xs font-black uppercase tracking-[.16em] text-[#ccff00]"><span>✦</span>Tournament match</div>
+            <div className="mx-auto mb-16 inline-flex items-center gap-2 rounded-full border border-[#ccff00]/35 bg-[#ccff00]/10 px-5 py-3 text-xs font-black uppercase tracking-[.16em] text-[#ccff00]"><span>✦</span><LocalizedText id="UI_0089" fallback={tr("UI_0089", "Tournament match")} /></div>
             <div className="relative mx-auto mb-10 flex h-28 w-48 items-center justify-center"><div className="absolute left-1 top-3 grid h-24 w-24 -rotate-6 place-items-center rounded-[25px] border border-white/15 bg-[#17171b] text-3xl text-neutral-400 shadow-2xl">♙</div><div className="absolute right-1 top-3 grid h-24 w-24 rotate-6 place-items-center rounded-[25px] border border-indigo-400/50 bg-indigo-500/20 text-3xl text-indigo-300 shadow-2xl">♙</div><div className="z-10 grid h-12 w-12 place-items-center rounded-full bg-[#ccff00] text-3xl text-black">×</div></div>
-            <p className="text-[11px] font-black uppercase tracking-[.22em] text-neutral-500">Opposing player</p>
+            <p className="text-[11px] font-black uppercase tracking-[.22em] text-neutral-500"><LocalizedText id="UI_0090" fallback={tr("UI_0090", "Opposing player")} /></p>
             <h1 className="mt-2 truncate text-4xl font-black tracking-tight">{confirmedMatch.match.opponent.name}</h1>
-            <p className="mt-3 text-lg text-neutral-400"><span className="mr-2 text-[#ccff00]">●</span>{confirmedMatch.match.opponent.isBot ? "Arena opponent" : "Tournament opponent"}</p>
-            <button onClick={() => { sessionStorage.setItem("tournament_match_launch", JSON.stringify({ game: confirmedMatch.game, matchId: confirmedMatch.match.matchId, tournamentMatchId: confirmedMatch.fixtureId })); router.push("/"); }} className="mt-16 w-full rounded-[24px] bg-[#ccff00] py-5 text-2xl font-black text-black shadow-[0_14px_36px_rgba(204,255,0,.2)] active:scale-[.98]">Enter Match&nbsp; →</button>
-            <button onClick={() => setConfirmedMatch(null)} className="mt-4 text-xs font-bold text-neutral-400">Cancel</button>
+            <p className="mt-3 text-lg text-neutral-400"><span className="mr-2 text-[#ccff00]">●</span>{confirmedMatch.match.opponent.isBot ? tr("UI_0091", "Arena opponent") : tr("UI_0092", "Tournament opponent")}</p>
+            <button onClick={() => { sessionStorage.setItem("tournament_match_launch", JSON.stringify({ game: confirmedMatch.game, matchId: confirmedMatch.match.matchId, tournamentMatchId: confirmedMatch.fixtureId })); router.push("/"); }} className="mt-16 w-full rounded-[24px] bg-[#ccff00] py-5 text-2xl font-black text-black shadow-[0_14px_36px_rgba(204,255,0,.2)] active:scale-[.98]"><LocalizedText id="UI_0093" fallback={tr("UI_0093", "Enter Match&nbsp; →")} /></button>
+            <button onClick={() => setConfirmedMatch(null)} className="mt-4 text-xs font-bold text-neutral-400"><LocalizedText id="UI_0094" fallback={tr("UI_0094", "Cancel")} /></button>
           </div>
         </div>
       )}
@@ -420,7 +419,7 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Section({ title, children }: { title: string; children: string }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mt-6">
       <h2 className="text-base font-black">{title}</h2>
@@ -438,7 +437,7 @@ function TabButton({
 }: {
   active: boolean;
   onClick: () => void;
-  children: string;
+  children: ReactNode;
 }) {
   return (
     <button

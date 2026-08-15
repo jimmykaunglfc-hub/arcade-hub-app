@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
@@ -79,15 +83,14 @@ export default function GlobalInviteListener({ userId, onAccept }: { userId: str
         
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-black/40 border-2 border-primary overflow-hidden relative shadow-[0_0_15px_rgba(192,193,255,0.5)]">
-            <Image src={incomingInvite.sender_avatar} alt="Sender" fill className="object-cover p-1" unoptimized />
+            <Image src={incomingInvite.sender_avatar} alt={tr("UI_1493", "Sender")} fill className="object-cover p-1" unoptimized />
           </div>
           <div className="flex-1">
             <span className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>
-              Incoming Challenge
-            </span>
+              <LocalizedText id="UI_1494" fallback="Incoming Challenge" /></span>
             <h3 className="text-white font-black text-sm leading-tight mt-0.5">
-              {incomingInvite.sender_username} invited you to play {incomingInvite.game_name}!
+              {incomingInvite.sender_username} <LocalizedText id="UI_1495" fallback="invited you to play" />{incomingInvite.game_name}!
             </h3>
           </div>
         </div>
@@ -97,14 +100,12 @@ export default function GlobalInviteListener({ userId, onAccept }: { userId: str
             onClick={() => handleAction('declined')}
             className="flex-1 h-10 rounded-xl bg-surface-variant text-on-surface-variant font-black text-xs uppercase tracking-wider active:scale-95 transition-transform"
           >
-            Decline
-          </button>
+            <LocalizedText id="UI_0243" fallback="Decline" /></button>
           <button 
             onClick={() => handleAction('accepted')}
             className="flex-1 h-10 rounded-xl bg-primary text-on-primary font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(192,193,255,0.4)] active:scale-95 transition-transform"
           >
-            Accept Match
-          </button>
+            <LocalizedText id="UI_1492" fallback="Accept Match" /></button>
         </div>
 
       </div>

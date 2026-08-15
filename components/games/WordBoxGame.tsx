@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
 interface WordBoxGameProps {
@@ -366,21 +371,19 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
                </div>
                <div>
                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ccff00]">
-                   Word Box
-                 </p>
+                   <LocalizedText id="UI_1437" fallback={tr("UI_1437", "Word Box")} /></p>
                  <h2
                    id="word-box-how-to-play-title"
                    className="text-2xl font-black text-white"
                  >
-                   How to Play
-                 </h2>
+                   <LocalizedText id="UI_0394" fallback={tr("UI_0394", "How to Play")} /></h2>
                </div>
              </div>
 
              <button
                type="button"
                onClick={() => setShowHowToPlay(false)}
-               aria-label="Close how to play"
+               aria-label={tr("UI_0446", "Close how to play")}
                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-lg font-black text-slate-200 transition-colors hover:bg-slate-700"
              >
                ×
@@ -389,12 +392,12 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
 
            <div className="space-y-3">
              {[
-               ["🔠", "Choose a grid", "Select a 3×3, 4×4, 5×5, or 6×6 letter board. Larger boards offer more paths."],
-               ["👆", "Drag through letters", "Start on any tile and drag through adjacent horizontal, vertical, or diagonal tiles."],
-               ["↩️", "Build one path", "A tile cannot be reused in the same word. Drag back to the previous tile to undo one step."],
-               ["📖", "Make a valid word", "Words need at least 3 letters and must be accepted by the dictionary."],
-               ["⭐", "Score points", "Every unique valid word earns 10 points for each letter. Duplicate words do not score again."],
-               ["🔀", "Shuffle carefully", "Shuffle creates a new letter board and resets your found words and score."],
+               ["🔠", "Choose a grid", tr("UI_1438", "Select a 3×3, 4×4, 5×5, or 6×6 letter board. Larger boards offer more paths.")],
+               ["👆", tr("UI_1439", "Drag through letters"), tr("UI_1440", "Start on any tile and drag through adjacent horizontal, vertical, or diagonal tiles.")],
+               ["↩️", tr("UI_1442", "Build one path"), tr("UI_1441", "A tile cannot be reused in the same word. Drag back to the previous tile to undo one step.")],
+               ["📖", tr("UI_1443", "Make a valid word"), tr("UI_1444", "Words need at least 3 letters and must be accepted by the dictionary.")],
+               ["⭐", tr("UI_1446", "Score points"), tr("UI_1445", "Every unique valid word earns 10 points for each letter. Duplicate words do not score again.")],
+               ["🔀", tr("UI_1447", "Shuffle carefully"), tr("UI_1448", "Shuffle creates a new letter board and resets your found words and score.")],
              ].map(([icon, title, description], index) => (
                <div
                  key={title}
@@ -420,8 +423,7 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
              onClick={() => setShowHowToPlay(false)}
              className="mt-5 w-full rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 py-3.5 text-sm font-black uppercase tracking-wider text-slate-950 shadow-lg transition-all active:scale-[0.98]"
            >
-             Got It — Let&apos;s Play
-           </button>
+             <LocalizedText id="UI_0393" fallback={tr("UI_0393", "Got It — Let&apos;s Play")} /></button>
          </div>
        </div>
      )}
@@ -434,7 +436,7 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
          <button
            type="button"
            onClick={handleBack}
-           aria-label="Back to Arcade Hub"
+           aria-label={tr("UI_0373", "Back to Arcade Hub")}
            className="absolute left-6 top-6 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/30 text-white transition-colors hover:text-amber-300"
          >
            <svg
@@ -453,8 +455,8 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
          </button>
 
          <div className="text-center mb-10">
-           <h1 className="text-5xl font-black text-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] mb-2 tracking-tight">WORDBOX</h1>
-           <p className="text-slate-400 font-bold tracking-widest uppercase text-sm">Select Grid Size</p>
+           <h1 className="text-5xl font-black text-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)] mb-2 tracking-tight"><LocalizedText id="UI_1449" fallback={tr("UI_1449", "WORDBOX")} /></h1>
+           <p className="text-slate-400 font-bold tracking-widest uppercase text-sm"><LocalizedText id="UI_1450" fallback={tr("UI_1450", "Select Grid Size")} /></p>
          </div>
         
          <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
@@ -465,7 +467,7 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
                className="bg-slate-800 border-2 border-slate-700 text-white py-6 rounded-2xl shadow-xl hover:border-amber-500 hover:scale-105 active:scale-95 transition-all flex flex-col items-center justify-center"
              >
                <span className="text-3xl font-black text-amber-400">{size}x{size}</span>
-               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Grid</span>
+               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1"><LocalizedText id="UI_1451" fallback="Grid" /></span>
              </button>
            ))}
          </div>
@@ -481,7 +483,7 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
              <button
                type="button"
                onClick={handleBack}
-               aria-label="Back to Arcade Hub"
+               aria-label={tr("UI_0373", "Back to Arcade Hub")}
                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/30 text-white transition-colors hover:text-amber-300"
              >
                <svg
@@ -502,8 +504,7 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
              <div className="flex min-w-0 items-center justify-center gap-3">
                <div className="flex min-w-[48px] flex-col items-center">
                  <span className="whitespace-nowrap text-[8px] font-bold uppercase tracking-wider text-slate-400">
-                   Words Found
-                 </span>
+                   <LocalizedText id="UI_1452" fallback={tr("UI_1452", "Words Found")} /></span>
                  <span className="text-lg font-black leading-none text-white">
                    {foundWords.length}
                  </span>
@@ -512,21 +513,20 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
                <div className="h-8 w-px bg-slate-700" />
 
                <div className="flex min-w-[48px] flex-col items-center">
-                 <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400">Target</span>
+                 <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400"><LocalizedText id="UI_1453" fallback={tr("UI_1453", "Target")} /></span>
                  <span className="text-lg font-black leading-none text-emerald-400">{targetScore}</span>
                </div>
 
                <div className="h-8 w-px bg-slate-700" />
 
                <div className="flex min-w-[36px] flex-col items-center">
-                 <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400">Time</span>
+                 <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400"><LocalizedText id="UI_1392" fallback={tr("UI_1392", "Time")} /></span>
                  <span className={`text-lg font-black leading-none ${timeLeft <= 15 ? "text-rose-400" : "text-white"}`}>{timeLeft}s</span>
                </div>
 
                <div className="flex min-w-[38px] flex-col items-center">
                  <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400">
-                   Score
-                 </span>
+                   <LocalizedText id="UI_1454" fallback={tr("UI_1454", "Score")} /></span>
                  <span className="text-lg font-black leading-none text-amber-400">
                    {score}
                  </span>
@@ -534,7 +534,7 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
 
                {isChecking && (
                  <span
-                   aria-label="Checking word"
+                   aria-label={tr("UI_1455", "Checking word")}
                    className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-amber-400/30 border-t-amber-400"
                  />
                )}
@@ -545,13 +545,12 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
                  onClick={() => startNewGame(gridSize)}
                  className="bg-slate-800 hover:bg-slate-700 text-[10px] font-black tracking-wider text-slate-200 px-3 py-1.5 rounded-md border border-slate-700 transition-colors shadow-sm"
                >
-                 SHUFFLE
-               </button>
+                 <LocalizedText id="UI_1456" fallback={tr("UI_1456", "SHUFFLE")} /></button>
 
                <button
                  type="button"
                  onClick={() => setShowHowToPlay(true)}
-                 aria-label="How to play Word Box"
+                 aria-label={tr("UI_1457", "How to play Word Box")}
                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00]/70 bg-[#ccff00]/10 text-[#ccff00] shadow-[0_0_14px_rgba(204,255,0,0.16)] transition-colors hover:bg-[#ccff00]/20"
                >
                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#ccff00] text-xs font-black leading-none">
@@ -567,10 +566,10 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
            <div className="absolute inset-0 z-40 grid place-items-center bg-slate-950/85 p-6 backdrop-blur-sm">
              <div className="w-full max-w-sm rounded-3xl border border-amber-300/50 bg-slate-900 p-6 text-center shadow-2xl">
                <p className="text-5xl">{score >= targetScore && targetScore > 0 ? "🏆" : "⏱️"}</p>
-               <h2 className="mt-3 text-2xl font-black">{score >= targetScore && targetScore > 0 ? "You win!" : "Round over"}</h2>
-               <p className="mt-2 text-sm text-slate-300">Score {score} / {targetScore}</p>
-               <button onClick={() => startNewGame(gridSize)} className="mt-5 w-full rounded-xl bg-amber-400 py-3 font-black text-slate-950">Play Again</button>
-               <button onClick={handleBack} className="mt-3 w-full rounded-xl border border-slate-600 py-3 font-black text-white">Exit</button>
+               <h2 className="mt-3 text-2xl font-black">{score >= targetScore && targetScore > 0 ? tr("UI_0367", "You win!") : tr("UI_1458", "Round over")}</h2>
+               <p className="mt-2 text-sm text-slate-300"><LocalizedText id="UI_1454" fallback={tr("UI_1454", "Score")} />{score} / {targetScore}</p>
+               <button onClick={() => startNewGame(gridSize)} className="mt-5 w-full rounded-xl bg-amber-400 py-3 font-black text-slate-950"><LocalizedText id="UI_0407" fallback={tr("UI_0407", "Play Again")} /></button>
+               <button onClick={handleBack} className="mt-3 w-full rounded-xl border border-slate-600 py-3 font-black text-white"><LocalizedText id="UI_0561" fallback={tr("UI_0561", "Exit")} /></button>
              </div>
            </div>
          )}
@@ -585,7 +584,7 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
            ) : (
               <div className="flex items-center justify-center min-h-[44px] min-w-[200px] bg-slate-800 border-2 border-slate-700 px-6 py-2 rounded-lg shadow-inner">
                 {currentWord.length === 0 ? (
-                  <span className="text-slate-500 font-bold uppercase tracking-widest text-sm">Drag to connect</span>
+                  <span className="text-slate-500 font-bold uppercase tracking-widest text-sm"><LocalizedText id="UI_1459" fallback={tr("UI_1459", "Drag to connect")} /></span>
                 ) : (
                   <span className="text-3xl font-black text-amber-400 uppercase tracking-widest">
                     {currentWord}
@@ -689,8 +688,7 @@ export const WordBoxGame: React.FC<WordBoxGameProps> = ({ onClose }) => {
            {foundWords.length === 0 ? (
              <div className="w-full flex justify-center pt-2">
                <span className="text-xs font-bold uppercase tracking-widest text-slate-500 text-center leading-loose">
-                 Swipe across tiles to connect<br/>words of 3 or more letters
-               </span>
+                 <LocalizedText id="UI_1460" fallback={tr("UI_1460", "Swipe across tiles to connect")} /><br/><LocalizedText id="UI_1461" fallback={tr("UI_1461", "words of 3 or more letters")} /></span>
              </div>
            ) : (
              <div className="flex flex-wrap gap-2 content-start pb-4">

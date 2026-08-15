@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import React, { useState, useEffect } from "react";
 import { soundEngine } from "@/lib/soundManager";
 import { supabase } from "@/lib/supabaseClient";
@@ -267,8 +271,7 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
                 : "text-on-surface-variant dark:text-neutral-400 hover:text-white"
             }`}
           >
-            Cosmetics
-          </button>
+            <LocalizedText id="UI_1692" fallback="Cosmetics" /></button>
         </div>
         </div>
 
@@ -292,7 +295,7 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
                        <span className="material-symbols-outlined text-xl text-primary">bolt</span>
                     )}
                   </div>
-                  <div className="min-w-0 flex-1 text-left"><h3 className="font-headline text-sm font-black text-on-surface dark:text-white">{item.name}</h3><p className="truncate text-[10px] font-medium text-on-surface-variant">💎 {(Number(item.gem_amount || 0) + Number(item.bonus_gems || 0)).toLocaleString()} Gems{Number(item.bonus_gems || 0) > 0 ? ` (${Number(item.gem_amount).toLocaleString()} + ${Number(item.bonus_gems).toLocaleString()} bonus)` : ""} · {item.description || "Gem package"}</p></div>
+                  <div className="min-w-0 flex-1 text-left"><h3 className="font-headline text-sm font-black text-on-surface dark:text-white">{item.name}</h3><p className="truncate text-[10px] font-medium text-on-surface-variant">💎 {(Number(item.gem_amount || 0) + Number(item.bonus_gems || 0)).toLocaleString()} <LocalizedText id="I18N_gems" fallback="Gems" />{Number(item.bonus_gems || 0) > 0 ? ` (${Number(item.gem_amount).toLocaleString()} + ${Number(item.bonus_gems).toLocaleString()} bonus)` : ""} · {item.description || "Gem package"}</p></div>
                   <button
                     onClick={() => handleBuyCurrencyPack(item)}
                     className="shrink-0 rounded-xl bg-surface-container-highest px-4 py-2.5 text-xs font-black text-on-surface transition-colors active:scale-95 dark:bg-white dark:text-black"
@@ -326,7 +329,7 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
         {activeTab === "cosmetics" && (
           <div className="grid grid-cols-2 gap-4">
             {cosmeticItems.length === 0 ? (
-              <p className="col-span-2 text-center text-xs text-on-surface-variant mt-10">No cosmetics available.</p>
+              <p className="col-span-2 text-center text-xs text-on-surface-variant mt-10"><LocalizedText id="UI_1701" fallback={tr("UI_1701", "No cosmetics available.")} /></p>
             ) : (
               cosmeticItems.map((item) => {
                 const inventoryItem = userInventory.find(inv => inv.cosmetic_id === item.id);
@@ -361,8 +364,7 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
                     <div className="mb-5">
                       {isOwned ? (
                         <span className="text-[9px] font-black uppercase tracking-wider text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                          UNLOCKED
-                        </span>
+                          <LocalizedText id="UI_1702" fallback={tr("UI_1702", "UNLOCKED")} /></span>
                       ) : (
                         <div className="flex items-center gap-1 justify-center text-xs font-black">
                           {item.price_currency === 'gems' ? (
@@ -387,7 +389,7 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
                           : "bg-surface-container-highest text-on-surface dark:bg-[#27272a] dark:text-white"
                       }`}
                     >
-                      {isEquipped ? "EQUIPPED ✓" : isOwned ? "EQUIP" : "UNLOCK"}
+                      {isEquipped ? tr("UI_1703", "EQUIPPED ✓") : isOwned ? tr("UI_1662", "EQUIP") : tr("UI_1704", "UNLOCK")}
                     </button>
                   </div>
                 );
@@ -419,8 +421,7 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
               }}
               className="w-full py-3.5 bg-primary text-on-primary dark:bg-[#CCFF00] dark:text-black font-headline font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg active:scale-95 transition-transform"
             >
-              ACCEPT
-            </button>
+              <LocalizedText id="UI_1705" fallback={tr("UI_1705", "ACCEPT")} /></button>
           </div>
         </div>
       )}

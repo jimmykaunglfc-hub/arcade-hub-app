@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 interface BlockPuzzleBattleProps {
@@ -361,21 +366,19 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
            </div>
            <div>
              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ccff00]">
-               Block Battle
-             </p>
+               <LocalizedText id="UI_0473" fallback="Block Battle" /></p>
              <h2
                id="block-puzzle-how-to-play-title"
                className="text-2xl font-black text-white"
              >
-               How to Play
-             </h2>
+               <LocalizedText id="UI_0394" fallback="How to Play" /></h2>
            </div>
          </div>
 
          <button
            type="button"
            onClick={() => setShowHowToPlay(false)}
-           aria-label="Close how to play"
+           aria-label={tr("UI_0446", "Close how to play")}
            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-slate-800 text-lg font-black text-slate-200 transition-colors hover:bg-slate-700"
          >
            ×
@@ -384,12 +387,12 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
 
        <div className="space-y-3">
          {[
-           ["🧩", "Choose a block", "Select one of the 3 shapes in your tray, then tap the board where you want its center placed."],
-           ["✅", "Find a valid space", "Every square in the shape must fit inside the 8×8 board and cannot overlap an occupied square."],
-           ["✨", "Clear complete lines", "Fill an entire row or column to clear it. A move can clear several lines at once."],
-           ["⭐", "Build your score", "Placed squares earn points. Cleared lines and multi-line combos award large bonuses."],
-           ["🔄", "Use all 3 shapes", "Each selected shape is used once. After all 3 are placed, a new tray appears."],
-           ["⚔️", "Watch the live battle", "Battle lasts 90 seconds. The computer uses its own visible board and tray, makes legal placements, clears real lines, and earns real points."],
+           ["🧩", tr("UI_0474", "Choose a block"), tr("UI_0475", "Select one of the 3 shapes in your tray, then tap the board where you want its center placed.")],
+           ["✅", tr("UI_0477", "Find a valid space"), tr("UI_0476", "Every square in the shape must fit inside the 8×8 board and cannot overlap an occupied square.")],
+           ["✨", tr("UI_0478", "Clear complete lines"), tr("UI_0479", "Fill an entire row or column to clear it. A move can clear several lines at once.")],
+           ["⭐", tr("UI_0480", "Build your score"), tr("UI_0481", "Placed squares earn points. Cleared lines and multi-line combos award large bonuses.")],
+           ["🔄", tr("UI_0483", "Use all 3 shapes"), tr("UI_0482", "Each selected shape is used once. After all 3 are placed, a new tray appears.")],
+           ["⚔️", tr("UI_0485", "Watch the live battle"), tr("UI_0484", "Battle lasts 90 seconds. The computer uses its own visible board and tray, makes legal placements, clears real lines, and earns real points.")],
          ].map(([icon, title, description], index) => (
            <div
              key={title}
@@ -415,8 +418,7 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
          onClick={() => setShowHowToPlay(false)}
          className="mt-5 w-full rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 py-3.5 text-sm font-black uppercase tracking-wider text-slate-950 shadow-lg transition-all active:scale-[0.98]"
        >
-         Got It — Let&apos;s Play
-       </button>
+         <LocalizedText id="UI_0393" fallback="Got It — Let&apos;s Play" /></button>
      </div>
    </div>
  ) : null;
@@ -428,7 +430,7 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
          <button
            type="button"
            onClick={handleBack}
-           aria-label="Back to Arcade Hub"
+           aria-label={tr("UI_0373", "Back to Arcade Hub")}
            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/30 text-white transition-colors hover:text-amber-300"
          >
            <svg
@@ -449,7 +451,7 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
          <button
            type="button"
            onClick={() => setShowHowToPlay(true)}
-           aria-label="How to play Block Puzzle Battle"
+           aria-label={tr("UI_0486", "How to play Block Puzzle Battle")}
            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00]/70 bg-[#ccff00]/10 text-[#ccff00] shadow-[0_0_14px_rgba(204,255,0,0.16)] transition-colors hover:bg-[#ccff00]/20"
          >
            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#ccff00] text-xs font-black leading-none">
@@ -459,11 +461,11 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
        </div>
 
        <div className="mb-5 text-6xl">▦</div>
-       <h1 className="text-center text-3xl font-black">Block Puzzle Battle</h1>
-       <p className="mt-2 max-w-xs text-center text-sm text-indigo-200">Fill rows and columns, build combos, and beat the clock.</p>
+       <h1 className="text-center text-3xl font-black"><LocalizedText id="UI_0487" fallback="Block Puzzle Battle" /></h1>
+       <p className="mt-2 max-w-xs text-center text-sm text-indigo-200"><LocalizedText id="UI_0488" fallback="Fill rows and columns, build combos, and beat the clock." /></p>
        <div className="mt-8 grid w-full max-w-sm gap-3">
-         <button onClick={() => reset("solo")} className="rounded-2xl bg-cyan-400 py-4 font-black text-slate-950 shadow-lg active:scale-95">Solo High Score</button>
-         <button onClick={() => reset("bot")} className="rounded-2xl bg-fuchsia-500 py-4 font-black shadow-lg active:scale-95">Battle Computer</button>
+         <button onClick={() => reset("solo")} className="rounded-2xl bg-cyan-400 py-4 font-black text-slate-950 shadow-lg active:scale-95"><LocalizedText id="UI_0489" fallback="Solo High Score" /></button>
+         <button onClick={() => reset("bot")} className="rounded-2xl bg-fuchsia-500 py-4 font-black shadow-lg active:scale-95"><LocalizedText id="UI_0490" fallback="Battle Computer" /></button>
        </div>
 
        {howToPlayModal}
@@ -489,7 +491,7 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
          <button
            type="button"
            onClick={handleBack}
-           aria-label="Back to Arcade Hub"
+           aria-label={tr("UI_0373", "Back to Arcade Hub")}
            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/30 text-white transition-colors hover:text-amber-300"
          >
            <svg
@@ -509,17 +511,17 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
        </div>
 
        <div className="text-center">
-         <h1 className="text-lg font-black">BLOCK BATTLE</h1>
+         <h1 className="text-lg font-black"><LocalizedText id="UI_0494" fallback="BLOCK BATTLE" /></h1>
          {mode === "bot" && <p className="text-xs font-black text-amber-300">{timeLeft}s</p>}
        </div>
 
        <div className="flex items-center justify-end gap-2">
-         <button onClick={() => reset(mode)} className="rounded-xl bg-amber-400 px-3 py-2 text-xs font-black text-slate-950">New</button>
+         <button onClick={() => reset(mode)} className="rounded-xl bg-amber-400 px-3 py-2 text-xs font-black text-slate-950"><LocalizedText id="UI_1468" fallback="New" /></button>
 
          <button
            type="button"
            onClick={() => setShowHowToPlay(true)}
-           aria-label="How to play Block Puzzle Battle"
+           aria-label={tr("UI_0486", "How to play Block Puzzle Battle")}
            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00]/70 bg-[#ccff00]/10 text-[#ccff00] shadow-[0_0_14px_rgba(204,255,0,0.16)] transition-colors hover:bg-[#ccff00]/20"
          >
            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#ccff00] text-xs font-black leading-none">
@@ -533,8 +535,8 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
        <section className="mx-auto mt-2 grid h-[152px] w-full max-w-md shrink-0 grid-cols-[1fr_104px] items-center gap-3 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 p-2.5 shadow-xl">
          <div className="flex h-full min-w-0 flex-col justify-center overflow-hidden">
            <div className="grid grid-cols-2 gap-2 text-center">
-             <div className="rounded-xl bg-cyan-400/12 p-2"><span className="block text-[9px] font-black uppercase text-cyan-200">You</span><strong className="text-2xl">{score}</strong></div>
-             <div className="rounded-xl bg-fuchsia-400/12 p-2"><span className="block text-[9px] font-black uppercase text-fuchsia-200">Computer</span><strong className="text-2xl">{opponentScore}</strong></div>
+             <div className="rounded-xl bg-cyan-400/12 p-2"><span className="block text-[9px] font-black uppercase text-cyan-200"><LocalizedText id="UI_0084" fallback={tr("UI_0084", "You")} /></span><strong className="text-2xl">{score}</strong></div>
+             <div className="rounded-xl bg-fuchsia-400/12 p-2"><span className="block text-[9px] font-black uppercase text-fuchsia-200"><LocalizedText id="UI_0495" fallback={tr("UI_0495", "Computer")} /></span><strong className="text-2xl">{opponentScore}</strong></div>
            </div>
            <p className="mt-1.5 flex h-8 items-center justify-center overflow-hidden px-1 text-center text-[10px] font-bold leading-4 text-fuchsia-100/80">{opponentStatus}</p>
            <div className="mt-0.5 flex h-11 shrink-0 items-center justify-center gap-0 overflow-visible">
@@ -546,14 +548,14 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
            </div>
          </div>
          <div>
-           <p className="mb-1 text-center text-[8px] font-black uppercase tracking-wider text-fuchsia-200">Live board</p>
+           <p className="mb-1 text-center text-[8px] font-black uppercase tracking-wider text-fuchsia-200"><LocalizedText id="UI_0496" fallback={tr("UI_0496", "Live board")} /></p>
            <ComputerBoard board={opponentBoard} />
          </div>
        </section>
      ) : (
        <div className="mx-auto mt-2 grid w-full max-w-md shrink-0 grid-cols-2 gap-2 text-center">
-         <div className="rounded-2xl bg-white/12 p-2"><span className="block text-[9px] font-black uppercase text-cyan-200">You</span><strong className="text-2xl">{score}</strong></div>
-         <div className="rounded-2xl bg-white/12 p-2"><span className="block text-[9px] font-black uppercase text-fuchsia-200">Best run</span><strong className="text-2xl">{score}</strong></div>
+         <div className="rounded-2xl bg-white/12 p-2"><span className="block text-[9px] font-black uppercase text-cyan-200"><LocalizedText id="UI_0084" fallback={tr("UI_0084", "You")} /></span><strong className="text-2xl">{score}</strong></div>
+         <div className="rounded-2xl bg-white/12 p-2"><span className="block text-[9px] font-black uppercase text-fuchsia-200"><LocalizedText id="UI_0497" fallback={tr("UI_0497", "Best run")} /></span><strong className="text-2xl">{score}</strong></div>
        </div>
      )}
 
@@ -589,7 +591,7 @@ export default function BlockPuzzleBattle({ onClose }: BlockPuzzleBattleProps) {
            </button>
          ))}
        </div>
-       {gameOver && <button onClick={() => reset(mode)} className="mt-3 w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950">Play Again</button>}
+       {gameOver && <button onClick={() => reset(mode)} className="mt-3 w-full rounded-2xl bg-amber-400 py-3 font-black text-slate-950"><LocalizedText id="UI_0407" fallback={tr("UI_0407", "Play Again")} /></button>}
      </section>
 
      {howToPlayModal}

@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -1191,8 +1195,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
              <span className="text-xs font-black text-white tracking-wider uppercase">{roleName}</span>
              {isBot && (
                <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[8px] px-1.5 py-0.2 rounded uppercase font-black tracking-wider shadow-sm">
-                 BOT
-               </span>
+                 <LocalizedText id="UI_0504" fallback={tr("UI_0504", "BOT")} /></span>
              )}
            </div>
            <span className="text-[11px] font-mono font-bold text-neutral-400">{scoreDisplay}</span>
@@ -1200,8 +1203,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
            <div className="flex items-center gap-2 mt-1">
              {role === 1 ? (
                <div className="w-8 h-8 rounded-full bg-[#f4ebd4] border-2 border-[#d6c7b0] flex items-center justify-center text-[#6b5f4c] text-[10px] font-bold shadow-md">
-                 P1
-               </div>
+                 <LocalizedText id="UI_0505" fallback={tr("UI_0505", "P1")} /></div>
              ) : (
                <div className="flex items-center gap-1.5">
                  <div className="w-8 h-8 rounded-full bg-indigo-500/20 border-2 border-indigo-500/40 flex items-center justify-center text-indigo-300 text-sm shadow-md">
@@ -1272,18 +1274,15 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
             </div>
 
             <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
-              Insufficient Points
-            </h3>
+              <LocalizedText id="UI_0511" fallback={tr("UI_0511", "Insufficient Points")} /></h3>
             
             <p className="text-xs text-neutral-400 font-medium leading-relaxed mb-4">
-              You need <span className="text-[#CCFF00] font-bold">{entryFee} PTS</span> to play an online Carrom match.
-            </p>
+              <LocalizedText id="UI_0513" fallback={tr("UI_0513", "You need")} /><span className="text-[#CCFF00] font-bold">{entryFee} <LocalizedText id="UI_0338" fallback={tr("UI_0338", "PTS")} /></span> <LocalizedText id="UI_0512" fallback={tr("UI_0512", "to play an online Carrom match.")} /></p>
 
             <div className="w-full bg-[#09090b] border border-white/10 rounded-2xl p-3 mb-6 flex justify-between items-center">
-              <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Your Balance</span>
+              <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest"><LocalizedText id="UI_0514" fallback={tr("UI_0514", "Your Balance")} /></span>
               <span className="text-sm font-black font-mono text-rose-400">
-                {userPoints ?? 0} PTS
-              </span>
+                {userPoints ?? 0} <LocalizedText id="UI_0338" fallback={tr("UI_0338", "PTS")} /></span>
             </div>
 
             <div className="w-full space-y-2">
@@ -1295,20 +1294,17 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                 className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation"
               >
                 <span className="material-symbols-outlined text-base">shopping_cart</span>
-                Visit Store / Buy Points
-              </button>
+                <LocalizedText id="UI_0516" fallback={tr("UI_0516", "Visit Store / Buy Points")} /></button>
 
               <button
                 onClick={() => setShowNoPointsModal(false)}
                 className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5 touch-manipulation"
               >
-                Dismiss
-              </button>
+                <LocalizedText id="UI_1548" fallback={tr("UI_1548", "Dismiss")} /></button>
             </div>
 
             <p className="text-[9px] text-neutral-500 mt-4">
-              💡 Tip: Claim free daily login rewards or earn points in local practice!
-            </p>
+              <LocalizedText id="UI_0517" fallback={tr("UI_0517", "💡 Tip: Claim free daily login rewards or earn points in local practice!")} /></p>
           </div>
         </div>
       )}
@@ -1317,7 +1313,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       {showMatchmaker && (
         <MatchmakingModal
           gameKey="carrom" 
-          gameName="Carrom Arena"
+          gameName={tr("UI_0518", "Carrom Arena")}
           userId={myUserId || ""}
           onMatchFound={(matchData) => {
             setShowMatchmaker(false);
@@ -1348,8 +1344,8 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                 <span className="material-symbols-outlined text-2xl text-neutral-300">sports_esports</span>
               </div>
               <div>
-                <h1 className="font-headline font-black text-xl tracking-tight text-white">Carrom Arena</h1>
-                <p className="text-xs text-neutral-400 font-medium mt-0.5">Select engagement mode</p>
+                <h1 className="font-headline font-black text-xl tracking-tight text-white"><LocalizedText id="UI_0518" fallback={tr("UI_0518", "Carrom Arena")} /></h1>
+                <p className="text-xs text-neutral-400 font-medium mt-0.5"><LocalizedText id="UI_0317" fallback={tr("UI_0317", "Select engagement mode")} /></p>
               </div>
             </div>
 
@@ -1358,14 +1354,12 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                 onClick={() => { soundEngine.playSFX("click"); setGameRuleMode("freestyle"); }} 
                 className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all touch-manipulation ${gameRuleMode === "freestyle" ? "bg-[#18181b] text-white shadow-sm border border-white/10" : "text-neutral-500 hover:text-neutral-300"}`}
               >
-                Freestyle
-              </button>
+                <LocalizedText id="UI_0519" fallback={tr("UI_0519", "Freestyle")} /></button>
               <button 
                 onClick={() => { soundEngine.playSFX("click"); setGameRuleMode("classic"); }} 
                 className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all touch-manipulation ${gameRuleMode === "classic" ? "bg-[#18181b] text-white shadow-sm border border-white/10" : "text-neutral-500 hover:text-neutral-300"}`}
               >
-                Classic
-              </button>
+                <LocalizedText id="UI_0520" fallback={tr("UI_0520", "Classic")} /></button>
             </div>
 
             <button onClick={startOnlineMatchmaking} className="group relative w-full bg-[#09090b] border border-white/10 hover:border-[#CCFF00]/50 rounded-[24px] p-5 mb-4 text-left transition-all hover:bg-white/5 touch-manipulation">
@@ -1375,15 +1369,14 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
-                    {entryFee} PTS
-                  </span>
+                    {entryFee} <LocalizedText id="UI_0338" fallback={tr("UI_0338", "PTS")} /></span>
                   <div className="w-7 h-7 rounded-full bg-[#CCFF00] flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
                     <span className="material-symbols-outlined text-sm font-black">arrow_forward</span>
                   </div>
                 </div>
               </div>
-              <h3 className="font-headline font-black text-lg text-white mb-1 group-hover:text-[#CCFF00] transition-colors">Find Online Match</h3>
-              <p className="text-xs text-neutral-400 font-medium leading-relaxed">Ranked & casual global<br/>matchmaking</p>
+              <h3 className="font-headline font-black text-lg text-white mb-1 group-hover:text-[#CCFF00] transition-colors"><LocalizedText id="UI_0311" fallback={tr("UI_0311", "Find Online Match")} /></h3>
+              <p className="text-xs text-neutral-400 font-medium leading-relaxed"><LocalizedText id="UI_0521" fallback={tr("UI_0521", "Ranked & casual global")} /><br/>matchmaking</p>
             </button>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
@@ -1392,11 +1385,11 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                   <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
                     <span className="material-symbols-outlined text-lg">dns</span>
                   </div>
-                  <span className="bg-teal-500/10 text-teal-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Private</span>
+                  <span className="bg-teal-500/10 text-teal-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"><LocalizedText id="UI_0316" fallback={tr("UI_0316", "Private")} /></span>
                 </div>
                 <div>
-                  <h3 className="font-headline font-bold text-sm text-white mb-0.5">Host Match</h3>
-                  <p className="text-[10px] text-neutral-400 font-medium">Create room code</p>
+                  <h3 className="font-headline font-bold text-sm text-white mb-0.5"><LocalizedText id="UI_0522" fallback={tr("UI_0522", "Host Match")} /></h3>
+                  <p className="text-[10px] text-neutral-400 font-medium"><LocalizedText id="UI_0342" fallback={tr("UI_0342", "Create room code")} /></p>
                 </div>
               </button>
 
@@ -1405,11 +1398,11 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                   <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
                     <span className="material-symbols-outlined text-lg">sports_esports</span>
                   </div>
-                  <span className="bg-pink-500/10 text-pink-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Offline</span>
+                  <span className="bg-pink-500/10 text-pink-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"><LocalizedText id="UI_0147" fallback={tr("UI_0147", "Offline")} /></span>
                 </div>
                 <div>
-                  <h3 className="font-headline font-bold text-sm text-white mb-0.5">Pass & Play</h3>
-                  <p className="text-[10px] text-neutral-400 font-medium">Local device</p>
+                  <h3 className="font-headline font-bold text-sm text-white mb-0.5"><LocalizedText id="UI_0523" fallback={tr("UI_0523", "Pass & Play")} /></h3>
+                  <p className="text-[10px] text-neutral-400 font-medium"><LocalizedText id="UI_0343" fallback={tr("UI_0343", "Local device")} /></p>
                 </div>
               </button>
             </div>
@@ -1421,7 +1414,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                 </div>
                 <input
                   type="text"
-                  placeholder="ENTER ROOM CODE..."
+                  placeholder={tr("UI_0524", "ENTER ROOM CODE...")}
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   className="flex-1 min-w-0 bg-transparent text-sm font-headline font-bold text-white placeholder-neutral-600 focus:outline-none uppercase tracking-widest"
@@ -1433,13 +1426,11 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                 disabled={joinCode.length < 6}
                 className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5 touch-manipulation"
               >
-                Join
-              </button>
+                <LocalizedText id="UI_0229" fallback={tr("UI_0229", "Join")} /></button>
             </div>
 
             <button onClick={handleExitGame} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase touch-manipulation">
-              <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
-            </button>
+              <span className="material-symbols-outlined text-sm">logout</span> <LocalizedText id="UI_0525" fallback={tr("UI_0525", "EXIT ARENA")} /></button>
 
           </div>
         </div>
@@ -1449,8 +1440,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       {playMode === "confirmed" && (
         <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
           <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] px-4 py-1.5 rounded-full font-headline font-black text-xs tracking-widest mb-10 flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">auto_awesome</span> MATCH CONFIRMED
-          </div>
+            <span className="material-symbols-outlined text-sm">auto_awesome</span> <LocalizedText id="UI_0527" fallback={tr("UI_0527", "MATCH CONFIRMED")} /></div>
           
           <div className="flex items-center gap-6 mb-8 relative">
             <div className="w-20 h-20 bg-[#18181b] rounded-2xl border border-white/10 flex items-center justify-center rotate-[-5deg] shadow-2xl relative z-10">
@@ -1468,14 +1458,13 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
             </div>
           </div>
 
-          <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
-          <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || "Player 2"}</h2>
+          <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1"><LocalizedText id="UI_0279" fallback={tr("UI_0279", "Opposing Player")} /></p>
+          <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || tr("UI_0528", "Player 2")}</h2>
           <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
-            <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
-          </p>
+            <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> <LocalizedText id="UI_0530" fallback={tr("UI_0530", "Ranked •")} />{localOpponent?.elo || 1200} <LocalizedText id="UI_0529" fallback={tr("UI_0529", "ELO")} /></p>
 
           <button onClick={enterConfirmedMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] touch-manipulation">
-            Enter Match <span className="material-symbols-outlined">arrow_forward</span>
+            <LocalizedText id="UI_0322" fallback={tr("UI_0322", "Enter Match")} /><span className="material-symbols-outlined">arrow_forward</span>
           </button>
         </div>
       )}
@@ -1491,7 +1480,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           </button>
           
           <div className="text-center flex flex-col items-center">
-            <h1 className="text-sm font-black uppercase tracking-widest text-white">Carrom Matrix</h1>
+            <h1 className="text-sm font-black uppercase tracking-widest text-white"><LocalizedText id="UI_0272" fallback={tr("UI_0272", "Carrom Matrix")} /></h1>
             
             {playMode === "online" && myPlayerRole === 1 ? (
                <div className="flex bg-[#09090b] p-0.5 rounded-md mt-1 scale-90 border border-white/10">
@@ -1499,18 +1488,16 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                     onClick={() => updateOnlineRules("freestyle")} 
                     className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'freestyle' ? 'bg-[#18181b] text-[#CCFF00] shadow-sm' : 'text-neutral-400'}`}
                   >
-                    Freestyle
-                  </button>
+                    <LocalizedText id="UI_0519" fallback={tr("UI_0519", "Freestyle")} /></button>
                   <button 
                     onClick={() => updateOnlineRules("classic")} 
                     className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-bold rounded ${gameRuleMode === 'classic' ? 'bg-[#18181b] text-[#CCFF00] shadow-sm' : 'text-neutral-400'}`}
                   >
-                    Classic
-                  </button>
+                    <LocalizedText id="UI_0520" fallback={tr("UI_0520", "Classic")} /></button>
                </div>
             ) : (
                <span className={`text-[9px] font-bold uppercase tracking-widest mt-1 ${playMode === "online" || playMode === "bot" ? "text-emerald-500 animate-pulse" : (playMode === "host" || playMode === "join") ? "text-amber-500 animate-pulse" : "text-neutral-400"}`}>
-                 {playMode === "online" || playMode === "bot" ? `● ${gameRuleMode.toUpperCase()}` : (playMode === "host" || playMode === "join") ? "Connecting..." : "Local Mode"}
+                 {playMode === "online" || playMode === "bot" ? `● ${gameRuleMode.toUpperCase()}` : (playMode === "host" || playMode === "join") ? tr("UI_0532", "Connecting...") : tr("UI_0535", "Local Mode")}
                </span>
             )}
           </div>
@@ -1560,12 +1547,12 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-amber-500/20 blur-3xl rounded-full pointer-events-none"></div>
             <div className="w-16 h-16 rounded-full border-[3px] border-amber-500/20 border-t-amber-500 animate-spin mb-6 relative z-10"></div>
             <h2 className="text-xl font-black text-white tracking-tight uppercase relative z-10">
-              {playMode === "join" ? "Syncing Matrix..." : "Awaiting Opponent"}
+              {playMode === "join" ? tr("UI_0539", "Syncing Matrix...") : tr("UI_0538", "Awaiting Opponent")}
             </h2>
             
             {playMode === "host" && (
               <div className="mt-8 w-full relative z-10">
-                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mb-2">Share This Room Code</p>
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mb-2"><LocalizedText id="UI_0540" fallback={tr("UI_0540", "Share This Room Code")} /></p>
                 <div className="bg-[#09090b] border border-white/10 p-2.5 rounded-2xl flex items-center justify-between shadow-inner">
                   <span className="text-amber-400 font-mono text-2xl font-black tracking-[0.25em] pl-4 pt-1">{roomCode}</span>
                   <button 
@@ -1575,7 +1562,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                     }`}
                   >
                     <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
-                    {copied ? "Copied" : "Copy"}
+                    {copied ? tr("UI_0541", "Copied") : tr("UI_0320", "Copy")}
                   </button>
                 </div>
               </div>
@@ -1584,8 +1571,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
               onClick={() => { soundEngine.playSFX("click"); playMode === "host" ? setPlayMode("menu") : onClose(); }} 
               className="w-full mt-8 py-3.5 bg-white/5 hover:bg-white/10 text-neutral-300 font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all relative z-10 touch-manipulation"
             >
-              Cancel Match
-            </button>
+              <LocalizedText id="UI_0542" fallback={tr("UI_0542", "Cancel Match")} /></button>
           </div>
         </div>
       )}
@@ -1593,28 +1579,27 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       {showRules && (
         <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
           <div className="bg-[#18181b] border border-white/10 rounded-3xl p-6 w-full max-w-xs text-center space-y-4 shadow-xl">
-            <h3 className="text-base font-black uppercase tracking-wider text-white">Carrom Guidelines</h3>
+            <h3 className="text-base font-black uppercase tracking-wider text-white"><LocalizedText id="UI_0543" fallback={tr("UI_0543", "Carrom Guidelines")} /></h3>
             <ul className="text-left text-xs space-y-3 text-neutral-400 font-medium">
               {gameRuleMode === "freestyle" ? (
                 <>
-                  <li>🔸 <strong className="text-[#CCFF00]">Freestyle Points:</strong> White = 3, Black = 2, Queen = 5.</li>
-                  <li>🔸 Potting ANY coin grants an extra turn.</li>
+                  <li>🔸 <strong className="text-[#CCFF00]"><LocalizedText id="UI_0545" fallback={tr("UI_0545", "Freestyle Points:")} /></strong> <LocalizedText id="UI_0546" fallback={tr("UI_0546", "White = 3, Black = 2, Queen = 5.")} /></li>
+                  <li><LocalizedText id="UI_0547" fallback={tr("UI_0547", "🔸 Potting ANY coin grants an extra turn.")} /></li>
                 </>
               ) : (
                 <>
-                  <li>🔸 <strong className="text-[#CCFF00]">Classic Mode:</strong> Potting the first coin dictates your assigned color.</li>
-                  <li>🔸 Clear all your assigned color pieces to win!</li>
-                  <li>🔸 Potting OPPONENT color is a foul.</li>
+                  <li>🔸 <strong className="text-[#CCFF00]"><LocalizedText id="UI_0548" fallback={tr("UI_0548", "Classic Mode:")} /></strong> <LocalizedText id="UI_0549" fallback={tr("UI_0549", "Potting the first coin dictates your assigned color.")} /></li>
+                  <li><LocalizedText id="UI_0550" fallback={tr("UI_0550", "🔸 Clear all your assigned color pieces to win!")} /></li>
+                  <li><LocalizedText id="UI_0551" fallback={tr("UI_0551", "🔸 Potting OPPONENT color is a foul.")} /></li>
                 </>
               )}
-              <li>🔸 Sinking the striker is a foul (-5 PTS in Freestyle) and ends your turn.</li>
+              <li><LocalizedText id="UI_0552" fallback={tr("UI_0552", "🔸 Sinking the striker is a foul (-5 PTS in Freestyle) and ends your turn.")} /></li>
             </ul>
             <button 
               onClick={() => { soundEngine.playSFX("click"); setShowRules(false); }} 
               className="w-full mt-2 py-3 bg-[#CCFF00] text-black font-bold text-xs uppercase tracking-wider rounded-xl touch-manipulation"
             >
-              Got It
-            </button>
+              <LocalizedText id="UI_0553" fallback={tr("UI_0553", "Got It")} /></button>
           </div>
         </div>
       )}
@@ -1658,24 +1643,22 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#CCFF00] to-emerald-500 text-black flex items-center justify-center mb-4 shadow-lg border-4 border-[#CCFF00] animate-bounce">
                     <span className="material-symbols-outlined text-3xl">emoji_events</span>
                   </div>
-                  <h3 className="text-[10px] font-black text-[#CCFF00] tracking-widest uppercase mb-1">Victory Sequence</h3>
-                  <h2 className="text-3xl font-black tracking-tight uppercase text-white">Arena Cleared!</h2>
+                  <h3 className="text-[10px] font-black text-[#CCFF00] tracking-widest uppercase mb-1"><LocalizedText id="UI_0556" fallback={tr("UI_0556", "Victory Sequence")} /></h3>
+                  <h2 className="text-3xl font-black tracking-tight uppercase text-white"><LocalizedText id="UI_0557" fallback={tr("UI_0557", "Arena Cleared!")} /></h2>
                   <p className="text-xs text-neutral-400 font-medium mt-3 px-2 leading-relaxed">
-                    {playMode === "online" || playMode === "bot" ? (winner === myPlayerRole ? "Incredible skill! You claimed complete server victory." : "The opponent cleared the board.") : `Player ${winner} has completely pocketed their target roster!`}
+                    {playMode === "online" || playMode === "bot" ? (winner === myPlayerRole ? tr("UI_0558", "Incredible skill! You claimed complete server victory.") : tr("UI_0560", "The opponent cleared the board.")) : `Player ${winner} has completely pocketed their target roster!`}
                   </p>
                   <div className="w-full flex gap-3 mt-8">
                     <button 
                       onClick={handleExitGame} 
                       className="flex-1 py-3 bg-white/5 border border-white/10 text-neutral-300 font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-sm touch-manipulation"
                     >
-                      Exit
-                    </button>
+                      <LocalizedText id="UI_0561" fallback={tr("UI_0561", "Exit")} /></button>
                     <button 
                       onClick={handleRematch} 
                       className="flex-1 py-3 bg-[#CCFF00] text-black font-bold text-xs uppercase rounded-xl active:scale-95 transition-all shadow-md hover:bg-[#b3e600] touch-manipulation"
                     >
-                      Play Next
-                    </button>
+                      <LocalizedText id="UI_0562" fallback={tr("UI_0562", "Play Next")} /></button>
                   </div>
                 </div>
               </div>

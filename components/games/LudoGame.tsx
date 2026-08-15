@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { soundEngine } from "@/lib/soundManager";
@@ -369,7 +374,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
    // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [botIndexes, current, dice, rolling, roomId, tokens, winner]);
 
- if (roomId && !roomReady) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white">Loading shared Ludo board…</div>;
+ if (roomId && !roomReady) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white"><LocalizedText id="UI_0890" fallback="Loading shared Ludo board…" /></div>;
 
  const piecesAt = (row: number, col: number) => {
    const found: { player: PlayerId; piece: number }[] = [];
@@ -394,7 +399,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
            <button
              type="button"
              onClick={onClose}
-             aria-label="Back to Arcade Hub"
+             aria-label={tr("UI_0373", "Back to Arcade Hub")}
              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-400/30 bg-slate-900/85 text-white shadow-sm transition active:scale-95"
            >
              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
@@ -406,16 +411,16 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
        </div>
 
        <div className="text-center">
-         <h1 className="text-xl font-black tracking-wide text-amber-300">LUDO</h1>
-         <p className="text-[9px] font-bold uppercase tracking-widest text-cyan-200/70">Classic Race</p>
+         <h1 className="text-xl font-black tracking-wide text-amber-300"><LocalizedText id="UI_0891" fallback="LUDO" /></h1>
+         <p className="text-[9px] font-bold uppercase tracking-widest text-cyan-200/70"><LocalizedText id="UI_0892" fallback="Classic Race" /></p>
        </div>
 
        <div className="flex items-center justify-self-end gap-2">
-         <button onClick={reset} className="rounded-xl bg-amber-400 px-3 py-2 text-xs font-black text-slate-950 shadow-lg active:scale-95">New</button>
+         <button onClick={reset} className="rounded-xl bg-amber-400 px-3 py-2 text-xs font-black text-slate-950 shadow-lg active:scale-95"><LocalizedText id="UI_1468" fallback="New" /></button>
          <button
            type="button"
            onClick={() => setShowRules(true)}
-           aria-label="How to play Ludo"
+           aria-label={tr("UI_0893", "How to play Ludo")}
            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00] bg-slate-900 text-[#ccff00] shadow-[0_0_12px_rgba(204,255,0,0.25)] active:scale-95"
          >
            <span aria-hidden="true" className="flex h-5 w-5 items-center justify-center rounded-full border border-[#ccff00] text-xs font-black">?</span>
@@ -439,7 +444,7 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
          </div>
        ))}
      </div>
-     {secondsLeft !== null && <div className="mx-auto mt-2 rounded-full bg-slate-950/70 px-4 py-1 text-xs font-black text-amber-300">⏱ {secondsLeft}s {current === mySeatIndex ? "· Your turn" : `· ${playerNames[current] || "Opponent"}'s turn`}</div>}
+     {secondsLeft !== null && <div className="mx-auto mt-2 rounded-full bg-slate-950/70 px-4 py-1 text-xs font-black text-amber-300">⏱ {secondsLeft}s {current === mySeatIndex ? tr("UI_0895", "· Your turn") : `· ${playerNames[current] || tr("UI_1501", "Opponent")}'s turn`}</div>}
 
      <main className="ludo-board-stage flex min-h-0 flex-1 items-center justify-center overflow-hidden py-3">
        <div className="ludo-board grid shrink-0 grid-cols-[repeat(15,minmax(0,1fr))] grid-rows-[repeat(15,minmax(0,1fr))] overflow-hidden rounded-[1.1rem] border-[7px] border-white bg-white shadow-[0_7px_0_#171717,0_20px_42px_rgba(0,0,0,0.52)] ring-2 ring-black/20">
@@ -565,14 +570,14 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
          type="button"
          disabled={current !== mySeatIndex || rolling || dice !== null || winner !== null}
          onClick={() => rollDice(mySeatIndex as PlayerId)}
-         aria-label="Roll dice"
+         aria-label={tr("UI_0897", "Roll dice")}
          className={`relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-amber-300/70 bg-amber-400/10 shadow-[0_8px_18px_rgba(0,0,0,0.4)] transition active:translate-y-1 ${current !== mySeatIndex || winner !== null ? "opacity-45" : "opacity-100"} ${rolling ? "ring-4 ring-amber-300/40" : current === mySeatIndex && dice === null && winner === null ? "animate-pulse" : ""}`}
        >
          <RealDice value={dice ?? 6} rolling={rolling} />
        </button>
        <div className="min-w-0 flex-1">
          <p className="text-sm font-black">{message}</p>
-         <p className="mt-1 text-[10px] text-cyan-100/60">Roll 6 to leave home · Exact roll to finish</p>
+         <p className="mt-1 text-[10px] text-cyan-100/60"><LocalizedText id="UI_0898" fallback="Roll 6 to leave home · Exact roll to finish" /></p>
        </div>
      </section>
 
@@ -583,21 +588,21 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
              <div className="flex items-center gap-3">
                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[#ccff00] text-2xl font-black text-[#ccff00]">?</div>
                <div>
-                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ccff00]">Ludo</p>
-                 <h2 id="ludo-how-to-play-title" className="text-2xl font-black">How to Play</h2>
+                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ccff00]"><LocalizedText id="UI_0157" fallback={tr("UI_0157", "Ludo")} /></p>
+                 <h2 id="ludo-how-to-play-title" className="text-2xl font-black"><LocalizedText id="UI_0394" fallback={tr("UI_0394", "How to Play")} /></h2>
                </div>
              </div>
-             <button type="button" onClick={() => setShowRules(false)} aria-label="Close how to play" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-500 bg-slate-800 text-2xl font-black text-slate-200 transition hover:border-[#ccff00] hover:text-[#ccff00] active:scale-95">×</button>
+             <button type="button" onClick={() => setShowRules(false)} aria-label={tr("UI_0446", "Close how to play")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-500 bg-slate-800 text-2xl font-black text-slate-200 transition hover:border-[#ccff00] hover:text-[#ccff00] active:scale-95">×</button>
            </div>
 
            <div className="mt-5 space-y-3">
              {[
-               ["🎲", "1. Roll to begin", "Roll a 6 to move one of your red tokens out of home and onto the track."],
-               ["🔴", "2. Move your token", "After rolling, tap a glowing red token. It moves forward by the exact dice value."],
-               ["⭐", "3. Use safe squares", "Tokens standing on a star-marked safe square cannot be captured."],
-               ["💥", "4. Capture opponents", "Land on an opponent outside a safe square to send that token back home."],
-               ["🔁", "5. Earn another roll", "Rolling a 6 or capturing an opponent gives you another turn."],
-               ["🏆", "6. Bring all four home", "Move around the board and use an exact roll to finish. The first player to finish all four tokens wins."],
+               ["🎲", tr("UI_0899", "1. Roll to begin"), tr("UI_0900", "Roll a 6 to move one of your red tokens out of home and onto the track.")],
+               ["🔴", tr("UI_0901", "2. Move your token"), tr("UI_0902", "After rolling, tap a glowing red token. It moves forward by the exact dice value.")],
+               ["⭐", tr("UI_0903", "3. Use safe squares"), tr("UI_0904", "Tokens standing on a star-marked safe square cannot be captured.")],
+               ["💥", tr("UI_0905", "4. Capture opponents"), tr("UI_0906", "Land on an opponent outside a safe square to send that token back home.")],
+               ["🔁", tr("UI_0907", "5. Earn another roll"), tr("UI_0908", "Rolling a 6 or capturing an opponent gives you another turn.")],
+               ["🏆", tr("UI_0909", "6. Bring all four home"), tr("UI_0910", "Move around the board and use an exact roll to finish. The first player to finish all four tokens wins.")],
              ].map(([icon, title, description]) => (
                <div key={title} className="flex gap-3 rounded-2xl border border-slate-700 bg-slate-800/90 p-3.5">
                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-xl">{icon}</div>
@@ -610,15 +615,14 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
            </div>
 
            <button type="button" onClick={() => setShowRules(false)} className="mt-5 w-full rounded-2xl bg-gradient-to-b from-amber-400 to-amber-500 py-3.5 font-black uppercase tracking-wide text-slate-950 shadow-[0_5px_0_#c56b00] transition active:translate-y-1 active:shadow-none">
-             Got It — Let&apos;s Play
-           </button>
+             <LocalizedText id="UI_0393" fallback={tr("UI_0393", "Got It — Let&apos;s Play")} /></button>
          </div>
        </div>
      )}
 
      {winner !== null && (
        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-6 backdrop-blur-sm">
-         <div className="w-full max-w-sm rounded-3xl bg-white p-7 text-center text-slate-950 shadow-2xl"><div className="text-6xl">🏆</div><h2 className="mt-3 text-3xl font-black">{winner === mySeatIndex ? "You Win!" : `${playerNames[winner]} Wins!`}</h2><p className="mt-2 text-sm text-slate-500">The shared Ludo match is complete.</p><button onClick={onPlayAgain ?? reset} className="mt-6 w-full rounded-2xl bg-emerald-500 py-3 font-black text-white">Play Again</button><button onClick={onClose} className="mt-3 w-full rounded-2xl border border-slate-300 py-3 font-black text-slate-700">Exit to Arcade</button></div>
+         <div className="w-full max-w-sm rounded-3xl bg-white p-7 text-center text-slate-950 shadow-2xl"><div className="text-6xl">🏆</div><h2 className="mt-3 text-3xl font-black">{winner === mySeatIndex ? tr("UI_0409", "You Win!") : `${playerNames[winner]} Wins!`}</h2><p className="mt-2 text-sm text-slate-500"><LocalizedText id="UI_0912" fallback={tr("UI_0912", "The shared Ludo match is complete.")} /></p><button onClick={onPlayAgain ?? reset} className="mt-6 w-full rounded-2xl bg-emerald-500 py-3 font-black text-white"><LocalizedText id="UI_0407" fallback={tr("UI_0407", "Play Again")} /></button><button onClick={onClose} className="mt-3 w-full rounded-2xl border border-slate-300 py-3 font-black text-slate-700"><LocalizedText id="UI_0406" fallback={tr("UI_0406", "Exit to Arcade")} /></button></div>
        </div>
      )}
 

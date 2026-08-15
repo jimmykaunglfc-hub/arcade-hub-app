@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../lib/supabaseClient";
@@ -154,7 +159,7 @@ export default function GamesTab({
 
   if (selectedGame) {
     const entryFee = Number(selectedGame.entry_fee || 0);
-    return <div className="fixed inset-0 z-[100002] overflow-y-auto bg-background px-5 pb-8 pt-[calc(18px+env(safe-area-inset-top))] text-on-surface"><header className="flex items-center gap-3 border-b border-surface-container-highest pb-4"><button onClick={() => { setSelectedGame(null); onGameDetailsChange?.(false); }} className="grid h-10 w-10 place-items-center rounded-full"><span className="material-symbols-outlined">arrow_back</span></button><h1 className="font-headline text-lg font-black">{selectedGame.title}</h1></header><section className="relative mt-6 h-64 overflow-hidden rounded-[26px] bg-surface-container-high p-6"><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: selectedGame.image_url ? `url('${selectedGame.image_url}')` : undefined }} /><div className="absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-white/90 via-white/40 to-transparent backdrop-blur-md [mask-image:linear-gradient(to_top,black,transparent)] dark:bg-gradient-to-t dark:from-black/70 dark:via-black/25" /><div className="absolute inset-x-6 bottom-6"><h2 className="font-headline text-3xl font-black text-black dark:text-white">{selectedGame.title}</h2><div className="mt-2 flex gap-2"><span className="rounded-lg bg-white/70 px-3 py-1 text-xs font-bold text-black backdrop-blur-sm dark:bg-black/35 dark:text-white">{selectedGame.category || "Arcade"}</span><span className="rounded-lg bg-white/70 px-3 py-1 text-xs font-bold text-black backdrop-blur-sm dark:bg-black/35 dark:text-white">★ {selectedGame.average_rating ? Number(selectedGame.average_rating).toFixed(1) : selectedGame.rating || "New"}</span></div></div></section><div className="mt-5 flex gap-3"><button onClick={() => onPlay(formatGameSlug(selectedGame.title))} className="flex-1 rounded-2xl bg-primary py-4 font-headline text-sm font-black text-on-primary shadow-[0_0_20px_rgba(168,238,0,.28)]"><span className="material-symbols-outlined mr-2 align-middle">play_arrow</span>Play{entryFee ? ` (-${entryFee.toLocaleString()} Pts)` : ""}</button><button onClick={() => void toggleFavorite()} aria-label="Save game" className={`grid h-14 w-14 place-items-center rounded-2xl ${isFavorite ? "bg-primary text-on-primary" : "bg-surface-container-high"}`}><span className="material-symbols-outlined" style={{ fontVariationSettings: isFavorite ? "'FILL' 1" : undefined }}>star</span></button></div><section className="mt-8"><h3 className="font-headline text-lg font-black">About this game</h3><p className="mt-3 text-sm leading-relaxed text-on-surface-variant">{selectedGame.description || `${selectedGame.title} is ready to play in the Joe Yoke arcade. Challenge friends or start a match when you are ready.`}</p><div className="mt-6 grid grid-cols-2 gap-4"><div className="rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="material-symbols-outlined text-primary">groups</span><p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Active players</p><b className="mt-1 block text-lg">Online</b></div><div className="rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="material-symbols-outlined text-secondary">shield</span><p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Category</p><b className="mt-1 block text-lg">{selectedGame.category || "Arcade"}</b></div></div></section></div>;
+    return <div className="fixed inset-0 z-[100002] overflow-y-auto bg-background px-5 pb-8 pt-[calc(18px+env(safe-area-inset-top))] text-on-surface"><header className="flex items-center gap-3 border-b border-surface-container-highest pb-4"><button onClick={() => { setSelectedGame(null); onGameDetailsChange?.(false); }} className="grid h-10 w-10 place-items-center rounded-full"><span className="material-symbols-outlined">arrow_back</span></button><h1 className="font-headline text-lg font-black">{selectedGame.title}</h1></header><section className="relative mt-6 h-64 overflow-hidden rounded-[26px] bg-surface-container-high p-6"><div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: selectedGame.image_url ? `url('${selectedGame.image_url}')` : undefined }} /><div className="absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-white/90 via-white/40 to-transparent backdrop-blur-md [mask-image:linear-gradient(to_top,black,transparent)] dark:bg-gradient-to-t dark:from-black/70 dark:via-black/25" /><div className="absolute inset-x-6 bottom-6"><h2 className="font-headline text-3xl font-black text-black dark:text-white">{selectedGame.title}</h2><div className="mt-2 flex gap-2"><span className="rounded-lg bg-white/70 px-3 py-1 text-xs font-bold text-black backdrop-blur-sm dark:bg-black/35 dark:text-white">{selectedGame.category || tr("UI_1466", "Arcade")}</span><span className="rounded-lg bg-white/70 px-3 py-1 text-xs font-bold text-black backdrop-blur-sm dark:bg-black/35 dark:text-white">★ {selectedGame.average_rating ? Number(selectedGame.average_rating).toFixed(1) : selectedGame.rating || tr("UI_1468", "New")}</span></div></div></section><div className="mt-5 flex gap-3"><button onClick={() => onPlay(formatGameSlug(selectedGame.title))} className="flex-1 rounded-2xl bg-primary py-4 font-headline text-sm font-black text-on-primary shadow-[0_0_20px_rgba(168,238,0,.28)]"><span className="material-symbols-outlined mr-2 align-middle">play_arrow</span><LocalizedText id="UI_1469" fallback="Play" />{entryFee ? ` (-${entryFee.toLocaleString()} Pts)` : ""}</button><button onClick={() => void toggleFavorite()} aria-label={tr("UI_1470", "Save game")} className={`grid h-14 w-14 place-items-center rounded-2xl ${isFavorite ? "bg-primary text-on-primary" : "bg-surface-container-high"}`}><span className="material-symbols-outlined" style={{ fontVariationSettings: isFavorite ? "'FILL' 1" : undefined }}>star</span></button></div><section className="mt-8"><h3 className="font-headline text-lg font-black"><LocalizedText id="UI_1464" fallback="About this game" /></h3><p className="mt-3 text-sm leading-relaxed text-on-surface-variant">{selectedGame.description || `${selectedGame.title} is ready to play in the Joe Yoke arcade. Challenge friends or start a match when you are ready.`}</p><div className="mt-6 grid grid-cols-2 gap-4"><div className="rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="material-symbols-outlined text-primary">groups</span><p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant"><LocalizedText id="UI_1465" fallback="Active players" /></p><b className="mt-1 block text-lg"><LocalizedText id="UI_0315" fallback="Online" /></b></div><div className="rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="material-symbols-outlined text-secondary">shield</span><p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant"><LocalizedText id="UI_1467" fallback="Category" /></p><b className="mt-1 block text-lg">{selectedGame.category || tr("UI_1466", "Arcade")}</b></div></div></section></div>;
   }
 
   return (
@@ -165,13 +170,12 @@ export default function GamesTab({
         <button
           onClick={() => setActiveCategory("All")}
           className={`px-6 py-2.5 rounded-full font-headline text-[13px] font-bold whitespace-nowrap transition-all shadow-sm ${
-            activeCategory === "All" 
-              ? "bg-primary text-on-primary" 
+            activeCategory === "All"
+              ? "bg-primary text-on-primary"
               : "bg-surface text-on-surface-variant hover:text-on-surface border border-surface-container-highest"
           }`}
         >
-          All
-        </button>
+          <LocalizedText id="UI_1473" fallback="All" /></button>
         {dbCategories.map((cat) => (
           <button
             key={cat.id}
@@ -190,8 +194,7 @@ export default function GamesTab({
       {/* 🎮 TRENDING GAMES GRID */}
       <div className="space-y-4">
         <h2 className="font-headline text-xl font-bold text-on-surface tracking-wide">
-          Trending Games
-        </h2>
+          <LocalizedText id="UI_1474" fallback="Trending Games" /></h2>
         
         <div className="grid grid-cols-2 gap-4">
           {filteredGames.map((game) => {
@@ -219,7 +222,7 @@ export default function GamesTab({
                   {isPremium && (
                     <div className="absolute top-2 right-2 bg-primary-container text-primary px-2 py-1 rounded-full flex items-center gap-1 shadow-sm border border-primary/10">
                       <span className="material-symbols-outlined text-primary text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
-                      <span className="font-bold text-[9px] uppercase tracking-wider">{game.entry_fee.toLocaleString()} PTS</span>
+                      <span className="font-bold text-[9px] uppercase tracking-wider">{game.entry_fee.toLocaleString()} <LocalizedText id="UI_0338" fallback={tr("UI_0338", "PTS")} /></span>
                     </div>
                   )}
                 </div>
@@ -229,11 +232,11 @@ export default function GamesTab({
                   <h3 className="font-headline text-sm font-bold text-on-surface truncate">{game.title}</h3>
                   <div className="flex justify-between items-center mt-1">
                     <span className="font-body text-[11px] text-on-surface-variant truncate pr-2">
-                      {game.category || "Arcade"}
+                      {game.category || tr("UI_1466", "Arcade")}
                     </span>
                     <button onClick={(event) => { event.stopPropagation(); setRatingGame(game); }} className="flex items-center gap-0.5 shrink-0" aria-label={`Rate ${game.title}`}>
                       <span className="material-symbols-outlined text-amber-500 text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                      <span className="text-on-surface font-bold text-[11px]">{game.average_rating ? Number(game.average_rating).toFixed(1) : "New"}</span>
+                      <span className="text-on-surface font-bold text-[11px]">{game.average_rating ? Number(game.average_rating).toFixed(1) : tr("UI_1468", "New")}</span>
                     </button>
                   </div>
                   {game.catalog_label && <span className="mt-2 inline-flex rounded-full bg-primary-container px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary">{game.catalog_label}</span>}
@@ -246,10 +249,10 @@ export default function GamesTab({
       {ratingGame && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/70 p-5 backdrop-blur-sm">
           <div role="dialog" aria-modal="true" aria-label={`Rate ${ratingGame.title}`} className="w-full max-w-xs rounded-3xl bg-surface p-6 text-center shadow-2xl">
-            <h2 className="font-headline text-lg font-black">Rate {ratingGame.title}</h2>
-            <p className="mt-2 text-xs text-on-surface-variant">Your rating helps players discover great games.</p>
+            <h2 className="font-headline text-lg font-black"><LocalizedText id="UI_1478" fallback="Rate" />{ratingGame.title}</h2>
+            <p className="mt-2 text-xs text-on-surface-variant"><LocalizedText id="UI_1479" fallback="Your rating helps players discover great games." /></p>
             <div className="mt-6 flex justify-center gap-2">{[1, 2, 3, 4, 5].map((rating) => <button key={rating} disabled={ratingSaving} onClick={() => void saveRating(rating)} className="material-symbols-outlined text-3xl text-amber-500">star</button>)}</div>
-            <button onClick={() => setRatingGame(null)} className="mt-6 text-xs font-bold text-primary">Cancel</button>
+            <button onClick={() => setRatingGame(null)} className="mt-6 text-xs font-bold text-primary"><LocalizedText id="UI_0094" fallback="Cancel" /></button>
           </div>
         </div>,
         document.body

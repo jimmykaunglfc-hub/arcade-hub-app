@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
@@ -75,8 +79,8 @@ export default function InAppBroadcastDialog({
           </div>
           <p className="mt-4 text-sm leading-6 text-on-surface-variant">{broadcast.message}</p>
           <div className="mt-6 grid gap-2">
-            {broadcast.action_url && <button type="button" onClick={() => { const action = broadcast.action_url || ""; dismiss(); onAction(action); }} className="rounded-2xl bg-primary px-4 py-3.5 font-headline text-sm font-black text-on-primary active:scale-[0.98]">{broadcast.action_label || "Open"}</button>}
-            <button type="button" onClick={dismiss} className="rounded-2xl border border-surface-container-highest px-4 py-3 text-xs font-bold text-on-surface-variant hover:bg-surface-container-high">Dismiss</button>
+            {broadcast.action_url && <button type="button" onClick={() => { const action = broadcast.action_url || ""; dismiss(); onAction(action); }} className="rounded-2xl bg-primary px-4 py-3.5 font-headline text-sm font-black text-on-primary active:scale-[0.98]">{broadcast.action_label || tr("UI_1547", "Open")}</button>}
+            <button type="button" onClick={dismiss} className="rounded-2xl border border-surface-container-highest px-4 py-3 text-xs font-bold text-on-surface-variant hover:bg-surface-container-high"><LocalizedText id="UI_1548" fallback="Dismiss" /></button>
           </div>
         </div>
       </section>

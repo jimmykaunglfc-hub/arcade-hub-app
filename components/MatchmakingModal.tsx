@@ -1,5 +1,7 @@
 "use client";
 
+
+import { LocalizedText } from "../lib/i18n";
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
 
@@ -235,7 +237,7 @@ export default function MatchmakingModal({
         <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
           {gameName}
         </h3>
-        <p className="text-xs text-neutral-400 font-medium mb-4">Searching for an online player...</p>
+        <p className="text-xs text-neutral-400 font-medium mb-4"><LocalizedText id="UI_1551" fallback="Searching for an online player..." /></p>
 
         <div className="bg-[#09090b] border border-white/10 px-4 py-1.5 rounded-full mb-8 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#CCFF00] animate-pulse"></span>
@@ -252,8 +254,7 @@ export default function MatchmakingModal({
           }}
           className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 font-headline font-bold text-xs uppercase tracking-wider py-3.5 rounded-2xl transition-all border border-white/5 active:scale-95 touch-manipulation"
         >
-          Cancel Search
-        </button>
+          <LocalizedText id="UI_1553" fallback="Cancel Search" /></button>
       </div>
     </div>
   );

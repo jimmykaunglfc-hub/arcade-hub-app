@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
@@ -616,18 +621,15 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
               </div>
 
               <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
-                Insufficient Points
-              </h3>
+                <LocalizedText id="UI_0511" fallback={tr("UI_0511", "Insufficient Points")} /></h3>
               
               <p className="text-xs text-neutral-400 font-medium leading-relaxed mb-4">
-                You need <span className="text-[#CCFF00] font-bold">{entryFee} PTS</span> to play an online Tic-Tac-Toe match.
-              </p>
+                <LocalizedText id="UI_0513" fallback={tr("UI_0513", "You need")} /><span className="text-[#CCFF00] font-bold">{entryFee} <LocalizedText id="UI_0338" fallback={tr("UI_0338", "PTS")} /></span> <LocalizedText id="UI_1415" fallback={tr("UI_1415", "to play an online Tic-Tac-Toe match.")} /></p>
 
               <div className="w-full bg-[#09090b] border border-white/10 rounded-2xl p-3 mb-6 flex justify-between items-center">
-                <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Your Balance</span>
+                <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest"><LocalizedText id="UI_0514" fallback={tr("UI_0514", "Your Balance")} /></span>
                 <span className="text-sm font-black font-mono text-rose-400">
-                  {userPoints ?? 0} PTS
-                </span>
+                  {userPoints ?? 0} <LocalizedText id="UI_0338" fallback={tr("UI_0338", "PTS")} /></span>
               </div>
 
               <div className="w-full space-y-2">
@@ -639,20 +641,17 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
                   className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-base">shopping_cart</span>
-                  Visit Store / Buy Points
-                </button>
+                  <LocalizedText id="UI_0516" fallback={tr("UI_0516", "Visit Store / Buy Points")} /></button>
 
                 <button
                   onClick={() => setShowNoPointsModal(false)}
                   className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5"
                 >
-                  Dismiss
-                </button>
+                  <LocalizedText id="UI_1548" fallback={tr("UI_1548", "Dismiss")} /></button>
               </div>
 
               <p className="text-[9px] text-neutral-500 mt-4">
-                💡 Tip: Claim free daily login rewards or earn points in local practice!
-              </p>
+                <LocalizedText id="UI_0517" fallback={tr("UI_0517", "💡 Tip: Claim free daily login rewards or earn points in local practice!")} /></p>
             </div>
           </div>
         )}
@@ -661,7 +660,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
         {showMatchmaker && (
           <MatchmakingModal
             gameKey="tictactoe"
-            gameName="Tic-Tac-Toe"
+            gameName={tr("UI_0150", "Tic-Tac-Toe")}
             userId={myUserId || ""}
             onMatchFound={(matchData) => {
               setShowMatchmaker(false);
@@ -689,8 +688,8 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
               <span className="material-symbols-outlined text-2xl text-[#CCFF00]">grid_3x3</span>
             </div>
             <div>
-              <h1 className="font-headline font-black text-xl tracking-tight text-white">Tic-Tac-Toe</h1>
-              <p className="text-xs text-neutral-400 font-medium mt-0.5">Select engagement mode</p>
+              <h1 className="font-headline font-black text-xl tracking-tight text-white"><LocalizedText id="UI_0150" fallback="Tic-Tac-Toe" /></h1>
+              <p className="text-xs text-neutral-400 font-medium mt-0.5"><LocalizedText id="UI_0317" fallback="Select engagement mode" /></p>
             </div>
           </div>
 
@@ -701,15 +700,14 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
               </div>
               <div className="flex flex-col items-end gap-1">
                 <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
-                  {entryFee} PTS
-                </span>
+                  {entryFee} <LocalizedText id="UI_0338" fallback="PTS" /></span>
                 <div className="w-7 h-7 rounded-full bg-[#CCFF00] flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
                   <span className="material-symbols-outlined text-sm font-black">arrow_forward</span>
                 </div>
               </div>
             </div>
-            <h3 className="font-headline font-black text-lg text-white mb-1 group-hover:text-[#CCFF00] transition-colors">Find Online Match</h3>
-            <p className="text-xs text-neutral-400 font-medium leading-relaxed">Ranked & casual global<br/>matchmaking</p>
+            <h3 className="font-headline font-black text-lg text-white mb-1 group-hover:text-[#CCFF00] transition-colors"><LocalizedText id="UI_0311" fallback="Find Online Match" /></h3>
+            <p className="text-xs text-neutral-400 font-medium leading-relaxed"><LocalizedText id="UI_0521" fallback="Ranked & casual global" /><br/>matchmaking</p>
           </button>
 
           <div className="grid grid-cols-2 gap-4 mb-6">
@@ -718,11 +716,11 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
                 <div className="w-9 h-9 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-400">
                   <span className="material-symbols-outlined text-lg">dns</span>
                 </div>
-                <span className="bg-teal-500/10 text-teal-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Private</span>
+                <span className="bg-teal-500/10 text-teal-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"><LocalizedText id="UI_0316" fallback="Private" /></span>
               </div>
               <div>
-                <h3 className="font-headline font-bold text-sm text-white mb-0.5">Host Match</h3>
-                <p className="text-[10px] text-neutral-400 font-medium">Create room code</p>
+                <h3 className="font-headline font-bold text-sm text-white mb-0.5"><LocalizedText id="UI_0522" fallback="Host Match" /></h3>
+                <p className="text-[10px] text-neutral-400 font-medium"><LocalizedText id="UI_0342" fallback="Create room code" /></p>
               </div>
             </button>
 
@@ -731,11 +729,11 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
                 <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-400">
                   <span className="material-symbols-outlined text-lg">sports_esports</span>
                 </div>
-                <span className="bg-pink-500/10 text-pink-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">Offline</span>
+                <span className="bg-pink-500/10 text-pink-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"><LocalizedText id="UI_0147" fallback="Offline" /></span>
               </div>
               <div>
-                <h3 className="font-headline font-bold text-sm text-white mb-0.5">Pass & Play</h3>
-                <p className="text-[10px] text-neutral-400 font-medium">Local device</p>
+                <h3 className="font-headline font-bold text-sm text-white mb-0.5"><LocalizedText id="UI_0523" fallback="Pass & Play" /></h3>
+                <p className="text-[10px] text-neutral-400 font-medium"><LocalizedText id="UI_0343" fallback="Local device" /></p>
               </div>
             </button>
           </div>
@@ -747,7 +745,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
               </div>
               <input
                 type="text"
-                placeholder="ENTER ROOM CODE..."
+                placeholder={tr("UI_0524", "ENTER ROOM CODE...")}
                 value={joinInput}
                 onChange={(e) => setJoinInput(e.target.value.toUpperCase())}
                 className="flex-1 min-w-0 bg-transparent text-sm font-headline font-bold text-white placeholder-neutral-600 focus:outline-none uppercase tracking-widest"
@@ -759,13 +757,11 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
               disabled={joinInput.length < 4}
               className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5"
             >
-              Join
-            </button>
+              <LocalizedText id="UI_0229" fallback="Join" /></button>
           </div>
 
           <button onClick={handleExit} className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase">
-            <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
-          </button>
+            <span className="material-symbols-outlined text-sm">logout</span> <LocalizedText id="UI_0525" fallback="EXIT ARENA" /></button>
         </div>
       </div>
     );
@@ -776,8 +772,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
     return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-sans select-none">
         <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] px-4 py-1.5 rounded-full font-headline font-black text-xs tracking-widest mb-10 flex items-center gap-2">
-          <span className="material-symbols-outlined text-sm">auto_awesome</span> MATCH CONFIRMED
-        </div>
+          <span className="material-symbols-outlined text-sm">auto_awesome</span> <LocalizedText id="UI_0527" fallback="MATCH CONFIRMED" /></div>
         
         <div className="flex items-center gap-6 mb-8 relative">
           <div className="w-20 h-20 bg-[#18181b] rounded-2xl border border-white/10 flex items-center justify-center rotate-[-5deg] shadow-2xl relative z-10">
@@ -795,14 +790,13 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
           </div>
         </div>
 
-        <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
-        <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || "Player 2"}</h2>
+        <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1"><LocalizedText id="UI_0279" fallback="Opposing Player" /></p>
+        <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || tr("UI_0528", "Player 2")}</h2>
         <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
-          <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
-        </p>
+          <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> <LocalizedText id="UI_0530" fallback="Ranked •" />{localOpponent?.elo || 1200} <LocalizedText id="UI_0529" fallback="ELO" /></p>
 
         <button onClick={enterConfirmedMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)]">
-          Enter Match <span className="material-symbols-outlined">arrow_forward</span>
+          <LocalizedText id="UI_0322" fallback="Enter Match" /><span className="material-symbols-outlined">arrow_forward</span>
         </button>
       </div>
     );
@@ -817,10 +811,10 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
           <div className="text-center">
-            <h2 className="font-headline font-black text-sm uppercase tracking-widest">Tic-Tac-Toe Room</h2>
+            <h2 className="font-headline font-black text-sm uppercase tracking-widest"><LocalizedText id="UI_1416" fallback="Tic-Tac-Toe Room" /></h2>
             <div className="flex items-center justify-center gap-1.5 mt-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse"></span>
-              <span className="text-[9px] font-bold tracking-widest text-[#CCFF00] uppercase">CONNECTING...</span>
+              <span className="text-[9px] font-bold tracking-widest text-[#CCFF00] uppercase"><LocalizedText id="UI_0640" fallback="CONNECTING..." /></span>
             </div>
           </div>
           <div className="w-10 h-10"></div>
@@ -832,8 +826,8 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
               <div className="absolute inset-0 border-4 border-[#CCFF00]/20 rounded-full"></div>
               <div className="absolute inset-0 border-4 border-[#CCFF00] rounded-full border-t-transparent animate-spin"></div>
             </div>
-            <h3 className="font-headline font-black text-xl tracking-tight mb-8 uppercase">AWAITING OPPONENT</h3>
-            <p className="text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-3 uppercase">Share This Room Code</p>
+            <h3 className="font-headline font-black text-xl tracking-tight mb-8 uppercase"><LocalizedText id="UI_0641" fallback="AWAITING OPPONENT" /></h3>
+            <p className="text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-3 uppercase"><LocalizedText id="UI_0540" fallback="Share This Room Code" /></p>
             
             <div className="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-2xl p-2 pl-6 mb-6">
               <span className="font-headline font-bold text-2xl tracking-[0.3em] text-[#CCFF00]">{matchId}</span>
@@ -842,13 +836,12 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
                 className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-xl transition-colors text-xs font-bold tracking-wider uppercase"
               >
                 <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
-                {copied ? "COPIED" : "COPY"}
+                {copied ? tr("UI_0642", "COPIED") : tr("UI_0643", "COPY")}
               </button>
             </div>
 
             <button onClick={handleExit} className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 rounded-2xl py-4 font-headline font-bold text-sm tracking-wide transition-all border border-white/5 uppercase">
-              CANCEL MATCH
-            </button>
+              <LocalizedText id="UI_0644" fallback="CANCEL MATCH" /></button>
           </div>
         </div>
       </div>
@@ -884,9 +877,9 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
         </button>
         
         <div className="text-center">
-          <h1 className="text-sm font-black uppercase tracking-widest text-white">Tic-Tac-Toe Matrix</h1>
+          <h1 className="text-sm font-black uppercase tracking-widest text-white"><LocalizedText id="UI_0265" fallback="Tic-Tac-Toe Matrix" /></h1>
           <span className="text-[9px] font-bold uppercase tracking-widest text-[#CCFF00] block mt-0.5">
-            {isBotOpponent ? (localOpponent?.name || "Joe Yoke Bot") : matchId ? "Live Network" : "Pass & Play"}
+            {isBotOpponent ? (localOpponent?.name || tr("UI_1417", "Joe Yoke Bot")) : matchId ? tr("UI_0608", "Live Network") : tr("UI_0523", "Pass & Play")}
           </span>
         </div>
 
@@ -912,8 +905,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
           </div>
 
           <button onClick={resetBoard} className="bg-white/5 hover:bg-white/10 text-[10px] font-black tracking-wider text-white px-3 py-2 rounded-xl border border-white/10 transition-colors shadow-sm active:scale-95 uppercase">
-            RESET
-          </button>
+            <LocalizedText id="UI_0753" fallback="RESET" /></button>
         </div>
       </div>
 
@@ -922,19 +914,19 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
         <div className="grid grid-cols-3 gap-3 w-full text-center">
           <div className="bg-[#18181b] p-3 rounded-2xl border border-white/5 flex flex-col items-center">
             <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest mb-1">
-              {matchId ? (myPlayerSymbol === "X" ? "You (X)" : `${localOpponent?.name || "Opponent"} (X)`) : "Player 1 (X)"}
+              {matchId ? (myPlayerSymbol === "X" ? tr("UI_1420", "You (X)") : `${localOpponent?.name || tr("UI_1501", "Opponent")} (X)`) : tr("UI_1419", "Player 1 (X)")}
             </span>
             <span className="text-2xl font-black text-cyan-400">{scores.X}</span>
           </div>
 
           <div className="bg-[#18181b] p-3 rounded-2xl border border-white/5 flex flex-col items-center">
-            <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest mb-1">Ties</span>
+            <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest mb-1"><LocalizedText id="UI_1421" fallback="Ties" /></span>
             <span className="text-2xl font-black text-neutral-300">{scores.ties}</span>
           </div>
 
           <div className="bg-[#18181b] p-3 rounded-2xl border border-white/5 flex flex-col items-center">
             <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest mb-1">
-              {isBotOpponent ? (localOpponent?.name || "Bot (O)") : matchId ? (myPlayerSymbol === "O" ? "You (O)" : `${localOpponent?.name || "Opponent"} (O)`) : "Player 2 (O)"}
+              {isBotOpponent ? (localOpponent?.name || tr("UI_1423", "Bot (O)")) : matchId ? (myPlayerSymbol === "O" ? tr("UI_1425", "You (O)") : `${localOpponent?.name || tr("UI_1501", "Opponent")} (O)`) : tr("UI_1424", "Player 2 (O)")}
             </span>
             <span className="text-2xl font-black text-rose-400">{scores.O}</span>
           </div>
@@ -952,7 +944,7 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
               </div>
 
               <span className="text-xs font-bold tracking-widest uppercase text-neutral-400">
-                Turn: <span className={turn === "X" ? "text-cyan-400 font-black" : "text-rose-400 font-black"}>{turn === myPlayerSymbol ? "You" : (matchId ? (localOpponent?.name || "Opponent") : turn === "X" ? "Player 1" : "Player 2")} ({turn})</span>
+                <LocalizedText id="UI_1426" fallback={tr("UI_1426", "Turn:")} /><span className={turn === "X" ? "text-cyan-400 font-black" : "text-rose-400 font-black"}>{turn === myPlayerSymbol ? tr("UI_0084", "You") : (matchId ? (localOpponent?.name || tr("UI_1501", "Opponent")) : turn === "X" ? tr("UI_0652", "Player 1") : tr("UI_0528", "Player 2"))} ({turn})</span>
               </span>
             </>
           )}
@@ -1002,10 +994,9 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
                 {winner === "draw" ? "🤝" : "🏆"}
               </div>
               <span className="text-[10px] font-black text-neutral-400 tracking-[0.2em] uppercase">
-                Match Result
-              </span>
+                <LocalizedText id="UI_0441" fallback={tr("UI_0441", "Match Result")} /></span>
               <h2 className="text-2xl font-headline font-black tracking-tight text-white uppercase">
-                {winner === "draw" ? "IT'S A TIE!" : `${playerLabel(winner)} WINS!`}
+                {winner === "draw" ? tr("UI_1413", "IT'S A TIE!") : `${playerLabel(winner)} WINS!`}
               </h2>
             </div>
 
@@ -1014,14 +1005,12 @@ export default function TicTacToeGame({ onClose, preloadedMatchId, opponent }: T
                 onClick={resetBoard}
                 className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black py-3.5 rounded-2xl font-headline font-black text-xs uppercase tracking-wider transition-transform active:scale-95 shadow-lg shadow-[#CCFF00]/20"
               >
-                Play Again
-              </button>
+                <LocalizedText id="UI_0407" fallback={tr("UI_0407", "Play Again")} /></button>
               <button
                 onClick={handleExit}
                 className="w-full bg-white/5 hover:bg-white/10 text-neutral-300 border border-white/5 py-3.5 rounded-2xl font-headline font-bold text-xs uppercase tracking-wider transition-colors active:scale-95"
               >
-                Main Menu
-              </button>
+                <LocalizedText id="UI_0445" fallback={tr("UI_0445", "Main Menu")} /></button>
             </div>
 
           </div>

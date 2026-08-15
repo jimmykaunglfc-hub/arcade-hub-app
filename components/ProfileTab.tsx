@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
@@ -273,7 +278,7 @@ export default function ProfileTab({
     showMessage(`${item.cosmetics.name || "Cosmetic"} equipped${isCard || isFrame ? "." : " for its game."}`);
   };
   const updateLanguage = async (code: LanguageCode) => {
-    setLanguage(code);
+    await setLanguage(code);
     const { error } = await supabase.rpc("update_profile_language", {
       new_language: code,
     });
@@ -524,8 +529,7 @@ export default function ProfileTab({
   if (fetchStatus === "loading")
     return (
       <div className="text-center p-6 font-caps text-[10px] font-bold text-on-surface-variant uppercase tracking-widest animate-pulse">
-        Loading profile…
-      </div>
+        <LocalizedText id="UI_1598" fallback="Loading profile…" /></div>
     );
   if (fetchStatus === "missing" || !profile)
     return (
@@ -534,17 +538,14 @@ export default function ProfileTab({
           error
         </span>
         <h2 className="font-headline text-base font-black text-on-surface mt-3">
-          Profile Not Synced
-        </h2>
+          <LocalizedText id="UI_1600" fallback="Profile Not Synced" /></h2>
         <p className="text-xs text-on-surface-variant my-4">
-          Please sign in again to restore your profile.
-        </p>
+          <LocalizedText id="UI_1601" fallback="Please sign in again to restore your profile." /></p>
         <button
           onClick={terminateSession}
           className="w-full py-3 bg-red-500/10 text-red-500 font-bold text-xs rounded-xl"
         >
-          Sign Out
-        </button>
+          <LocalizedText id="UI_1602" fallback="Sign Out" /></button>
       </div>
     );
 
@@ -614,7 +615,7 @@ export default function ProfileTab({
         <button
           onClick={() => setModal("identity")}
           className={`absolute right-4 top-4 inline-flex h-11 w-11 items-center justify-center rounded-xl text-primary backdrop-blur-sm transition-transform active:scale-95 ${hasProfileCardArtwork ? "border border-white/35 bg-slate-950/65 shadow-md" : "border border-surface-container-highest bg-background/85"}`}
-          aria-label="Edit Profile"
+          aria-label={tr("UI_1604", "Edit Profile")}
         >
           <span className="material-symbols-outlined text-[16px]">edit</span>
         </button>
@@ -622,7 +623,7 @@ export default function ProfileTab({
           <div className={`absolute z-10 overflow-hidden rounded-full bg-surface-variant shadow-inner ${avatarFrameCosmetic?.image_url ? "inset-1" : "inset-0 border-4 border-surface-container-high"}`}>
             <Image
               src={profile.avatar_url || "/logo-dark.jpeg"}
-              alt="Profile avatar"
+              alt={tr("UI_1606", "Profile avatar")}
               fill
               className="object-cover"
               unoptimized
@@ -631,7 +632,7 @@ export default function ProfileTab({
           {avatarFrameCosmetic?.image_url && (
             <Image
               src={avatarFrameCosmetic.image_url}
-              alt="Equipped avatar border"
+              alt={tr("UI_1607", "Equipped avatar border")}
               fill
               className="pointer-events-none absolute inset-0 z-20 scale-[1.2] object-contain"
               unoptimized
@@ -643,7 +644,7 @@ export default function ProfileTab({
             <div className={`absolute z-10 overflow-hidden rounded-full bg-surface-variant shadow-inner ${avatarFrameCosmetic?.image_url ? "inset-1" : "inset-0 border-4 border-surface-container-high"}`}>
               <Image src={profile.avatar_url || "/logo-dark.jpeg"} alt="" fill className="object-cover" unoptimized />
             </div>
-            {avatarFrameCosmetic?.image_url && <Image src={avatarFrameCosmetic.image_url} alt="Equipped avatar border" fill className="absolute inset-0 z-20 scale-[1.2] object-contain" unoptimized />}
+            {avatarFrameCosmetic?.image_url && <Image src={avatarFrameCosmetic.image_url} alt={tr("UI_1607", "Equipped avatar border")} fill className="absolute inset-0 z-20 scale-[1.2] object-contain" unoptimized />}
           </div>
         )}
         <div className="mt-4">
@@ -720,11 +721,11 @@ export default function ProfileTab({
                   receipt_long
                 </span>
                 <span>
-                  <b className="block text-sm">Activity history</b>
+                  <b className="block text-sm">{t("UI_1615")}</b>
                   <small className="text-on-surface-variant">
                     {ledger.length
                       ? `${ledger.length} ${t("I18N_recentWalletActivities")}`
-                      : "Points, gems and reward activity"}
+                      : t("UI_1618")}
                   </small>
                 </span>
               </span>
@@ -734,9 +735,9 @@ export default function ProfileTab({
             </div>
           </button>
           <button onClick={() => setModal("inventory")} className="w-full p-4 text-left hover:bg-surface-variant">
-            <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-surface-container-high p-2 text-primary">inventory_2</span><span><b className="block text-sm">My inventory</b><small className="text-on-surface-variant">{inventoryCount} purchased cosmetics</small></span></span><span className="material-symbols-outlined text-on-surface-variant">chevron_right</span></div>
+            <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-surface-container-high p-2 text-primary">inventory_2</span><span><b className="block text-sm">{t("UI_1620")}</b><small className="text-on-surface-variant">{inventoryCount} {t("UI_1621")}</small></span></span><span className="material-symbols-outlined text-on-surface-variant">chevron_right</span></div>
           </button>
-          <button onClick={() => setModal("favorites")} className="w-full p-4 text-left hover:bg-surface-variant"><div className="flex items-center justify-between gap-3"><span className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-surface-container-high p-2 text-primary">star</span><span><b className="block text-sm">Favorite games</b><small className="text-on-surface-variant">{favoriteGames.length ? `${favoriteGames.length} saved game${favoriteGames.length === 1 ? "" : "s"}` : "No saved games yet"}</small></span></span><span className="material-symbols-outlined text-on-surface-variant">chevron_right</span></div></button>
+          <button onClick={() => setModal("favorites")} className="w-full p-4 text-left hover:bg-surface-variant"><div className="flex items-center justify-between gap-3"><span className="flex items-center gap-3"><span className="material-symbols-outlined rounded-xl bg-surface-container-high p-2 text-primary">star</span><span><b className="block text-sm">{t("UI_1623")}</b><small className="text-on-surface-variant">{favoriteGames.length ? t("UI_1622", { favoriteGames, value_1: favoriteGames.length === 1 ? "" : "s" }) : t("UI_1624")}</small></span></span><span className="material-symbols-outlined text-on-surface-variant">chevron_right</span></div></button>
         </div>
       </section>
       <section className="space-y-3">
@@ -841,24 +842,24 @@ export default function ProfileTab({
                   className="font-headline font-black text-lg"
                 >
                   {modal === "identity"
-                    ? "Edit Profile"
+                    ? t("UI_1604")
                     : modal === "activity"
-                    ? "Activity history"
+                    ? t("UI_1615")
                     : modal === "inventory"
-                    ? "My inventory"
+                    ? t("UI_1620")
                     : modal === "favorites"
-                    ? "Favorite games"
+                    ? t("UI_1623")
                     : modal === "language"
                     ? t("I18N_appLanguage")
                     : modal === "account"
-                    ? "Manage Account"
+                    ? t("UI_1651")
                     : modal === "support"
-                    ? "Help & Support"
+                    ? t("UI_1653")
                     : legal?.title}
                 </h2>
                 <button
                   onClick={closeModal}
-                  aria-label="Close"
+                  aria-label={t("UI_1654")}
                   className="-mr-2 rounded-xl p-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
                 >
                   <span className="material-symbols-outlined text-[24px]">
@@ -925,40 +926,39 @@ export default function ProfileTab({
                           >
                             {entry.amount >= 0 ? "+" : ""}
                             {entry.amount}{" "}
-                            {entry.currency_type === "gems" ? "GEMS" : "PTS"}
+                            {entry.currency_type === "gems" ? tr("UI_1655", "GEMS") : tr("UI_0338", "PTS")}
                           </b>
                         </div>
                       ))
                     ) : (
                       <p className="py-8 text-center text-sm text-on-surface-variant">
-                        No activity recorded yet.
-                      </p>
+                        <LocalizedText id="UI_1656" fallback={tr("UI_1656", "No activity recorded yet.")} /></p>
                     )}
                   </div>
                 )}
                 {modal === "inventory" && (
                   <div className="space-y-4">
-                    <p className="text-xs text-on-surface-variant">All cosmetics you have purchased. Equip profile card backgrounds and avatar borders here; equipping one automatically replaces the currently equipped cosmetic of that same type.</p>
+                    <p className="text-xs text-on-surface-variant"><LocalizedText id="UI_1657" fallback={tr("UI_1657", "All cosmetics you have purchased. Equip profile card backgrounds and avatar borders here; equipping one automatically replaces the currently equipped cosmetic of that same type.")} /></p>
                     {inventory.length ? <div className="grid grid-cols-2 gap-3">{inventory.map((item) => {
                       const category = item.cosmetics?.game_category || "other";
                       const isEquippable = Boolean(item.cosmetics);
                       return <div key={item.id} className={`relative overflow-hidden rounded-2xl border p-3 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"}`}>
                         <div className="mb-3 flex h-20 items-center justify-center overflow-hidden rounded-xl bg-surface">{item.cosmetics?.image_url ? <img src={item.cosmetics.image_url} alt="" className="h-full w-full object-cover" /> : <span className="material-symbols-outlined text-3xl text-primary">palette</span>}</div>
-                        <b className="block truncate text-xs">{item.cosmetics?.name || "Purchased cosmetic"}</b>
+                        <b className="block truncate text-xs">{item.cosmetics?.name || tr("UI_1660", "Purchased cosmetic")}</b>
                         <small className="mt-1 block capitalize text-on-surface-variant">{category.replaceAll("_", " ")}</small>
-                        {item.is_equipped && <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-1 text-[9px] font-black text-on-primary">EQUIPPED</span>}
-                        {isEquippable && <button type="button" disabled={saving || item.is_equipped} onClick={() => void equipCosmetic(item)} className="mt-3 w-full rounded-lg bg-primary px-2 py-2 text-[10px] font-black text-on-primary disabled:cursor-default disabled:opacity-70">{item.is_equipped ? "EQUIPPED" : "EQUIP"}</button>}
+                        {item.is_equipped && <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-1 text-[9px] font-black text-on-primary"><LocalizedText id="UI_1661" fallback={tr("UI_1661", "EQUIPPED")} /></span>}
+                        {isEquippable && <button type="button" disabled={saving || item.is_equipped} onClick={() => void equipCosmetic(item)} className="mt-3 w-full rounded-lg bg-primary px-2 py-2 text-[10px] font-black text-on-primary disabled:cursor-default disabled:opacity-70">{item.is_equipped ? tr("UI_1661", "EQUIPPED") : tr("UI_1662", "EQUIP")}</button>}
                       </div>;
-                    })}</div> : <p className="py-8 text-center text-sm text-on-surface-variant">No cosmetics purchased yet. Visit the Shop to unlock some.</p>}
+                    })}</div> : <p className="py-8 text-center text-sm text-on-surface-variant"><LocalizedText id="UI_1663" fallback={tr("UI_1663", "No cosmetics purchased yet. Visit the Shop to unlock some.")} /></p>}
                   </div>
                 )}
-                {modal === "favorites" && <div className="grid grid-cols-2 gap-3 p-5">{favoriteGames.length ? favoriteGames.map((game) => <button key={game.game_id} onClick={() => onPlayFavorite?.(game.title)} className="rounded-2xl border border-surface-container-highest bg-surface-container-high p-4 text-left transition hover:border-primary active:scale-[.98]"><span className="material-symbols-outlined text-primary">star</span><b className="mt-2 block truncate text-sm">{game.title}</b><small className="block text-on-surface-variant">{game.category || "Arcade"}</small><span className="mt-3 inline-flex items-center gap-1 text-[10px] font-black text-primary"><span className="material-symbols-outlined text-sm">play_arrow</span>PLAY</span></button>) : <p className="col-span-2 py-10 text-center text-xs text-on-surface-variant">No saved games yet. Tap the star on a game detail page to add one.</p>}</div>}
+                {modal === "favorites" && <div className="grid grid-cols-2 gap-3 p-5">{favoriteGames.length ? favoriteGames.map((game) => <button key={game.game_id} onClick={() => onPlayFavorite?.(game.title)} className="rounded-2xl border border-surface-container-highest bg-surface-container-high p-4 text-left transition hover:border-primary active:scale-[.98]"><span className="material-symbols-outlined text-primary">star</span><b className="mt-2 block truncate text-sm">{game.title}</b><small className="block text-on-surface-variant">{game.category || tr("UI_1466", "Arcade")}</small><span className="mt-3 inline-flex items-center gap-1 text-[10px] font-black text-primary"><span className="material-symbols-outlined text-sm">play_arrow</span><LocalizedText id="UI_1665" fallback="PLAY" /></span></button>) : <p className="col-span-2 py-10 text-center text-xs text-on-surface-variant"><LocalizedText id="UI_1664" fallback={tr("UI_1664", "No saved games yet. Tap the star on a game detail page to add one.")} /></p>}</div>}
                 {modal === "identity" && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <Image
                         src={avatarUrl || "/logo-dark.jpeg"}
-                        alt="Avatar preview"
+                        alt={tr("UI_1666", "Avatar preview")}
                         width={56}
                         height={56}
                         className="rounded-full object-cover"
@@ -970,8 +970,7 @@ export default function ProfileTab({
                         disabled={saving}
                         className="text-xs font-bold text-primary disabled:opacity-50"
                       >
-                        Upload photo
-                      </button>
+                        <LocalizedText id="UI_1667" fallback={tr("UI_1667", "Upload photo")} /></button>
                       <input
                         ref={avatarInputRef}
                         type="file"
@@ -986,13 +985,11 @@ export default function ProfileTab({
                           disabled={saving}
                           className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
                         >
-                          Remove photo
-                        </button>
+                          <LocalizedText id="UI_1668" fallback={tr("UI_1668", "Remove photo")} /></button>
                       )}
                     </div>
                     <label className="block text-xs font-bold">
-                      Display name
-                      <input
+                      <LocalizedText id="UI_1669" fallback={tr("UI_1669", "Display name")} /><input
                         value={name}
                         maxLength={30}
                         onChange={(e) => setName(e.target.value)}
@@ -1000,8 +997,7 @@ export default function ProfileTab({
                       />
                     </label>
                     <label className="block text-xs font-bold">
-                      Email address
-                      <input
+                      <LocalizedText id="UI_0114" fallback={tr("UI_0114", "Email address")} /><input
                         value={profile?.email || ""}
                         readOnly
                         aria-readonly="true"
@@ -1009,20 +1005,19 @@ export default function ProfileTab({
                       />
                     </label>
                     <div className="border-t border-surface-container-highest pt-4">
-                      <b className="text-xs">Profile card design</b>
-                      <p className="mt-1 text-xs text-on-surface-variant">Choose a purchased avatar border or card background.</p>
-                      {profileDesignItems.length ? <div className="mt-3 grid grid-cols-2 gap-2">{profileDesignItems.map((item) => <button key={item.id} disabled={saving} onClick={() => void equipCosmetic(item)} className={`rounded-xl border p-2 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"}`}><div className="h-14 overflow-hidden rounded-lg bg-surface">{item.cosmetics?.image_url ? <img src={item.cosmetics.image_url} alt="" className="h-full w-full object-cover" /> : null}</div><span className="mt-2 block truncate text-[10px] font-bold">{item.cosmetics?.name || "Profile cosmetic"}</span><span className="mt-2 block rounded-lg bg-primary px-2 py-1 text-center text-[9px] font-black text-on-primary">{item.is_equipped ? "EQUIPPED" : "EQUIP DESIGN"}</span></button>)}</div> : <p className="mt-3 text-xs text-on-surface-variant">No profile designs purchased yet.</p>}
+                      <b className="text-xs"><LocalizedText id="UI_1567" fallback={tr("UI_1567", "Profile card design")} /></b>
+                      <p className="mt-1 text-xs text-on-surface-variant"><LocalizedText id="UI_1568" fallback={tr("UI_1568", "Choose a purchased avatar border or card background.")} /></p>
+                      {profileDesignItems.length ? <div className="mt-3 grid grid-cols-2 gap-2">{profileDesignItems.map((item) => <button key={item.id} disabled={saving} onClick={() => void equipCosmetic(item)} className={`rounded-xl border p-2 text-left ${item.is_equipped ? "border-primary bg-primary-container" : "border-surface-container-highest bg-surface-container-high"}`}><div className="h-14 overflow-hidden rounded-lg bg-surface">{item.cosmetics?.image_url ? <img src={item.cosmetics.image_url} alt="" className="h-full w-full object-cover" /> : null}</div><span className="mt-2 block truncate text-[10px] font-bold">{item.cosmetics?.name || tr("UI_1571", "Profile cosmetic")}</span><span className="mt-2 block rounded-lg bg-primary px-2 py-1 text-center text-[9px] font-black text-on-primary">{item.is_equipped ? tr("UI_1661", "EQUIPPED") : tr("UI_1569", "EQUIP DESIGN")}</span></button>)}</div> : <p className="mt-3 text-xs text-on-surface-variant"><LocalizedText id="UI_1570" fallback={tr("UI_1570", "No profile designs purchased yet.")} /></p>}
                     </div>
                     <p className="text-xs text-on-surface-variant">
-                      Your first profile edit is free. Later edits cost {profileEditConfig.profile_edit_cost} {profileEditConfig.profile_edit_currency.toUpperCase()}, as set by the game team.
-                    </p>
+                      <LocalizedText id="UI_1573" fallback={tr("UI_1573", "Your first profile edit is free. Later edits cost")} />{profileEditConfig.profile_edit_cost} {profileEditConfig.profile_edit_currency.toUpperCase()}<LocalizedText id="UI_1572" fallback={tr("UI_1572", ", as set by the game team.")} /></p>
                     <button
                       disabled={saving || !name.trim()}
                       onClick={() => void saveIdentity()}
                       className="w-full bg-primary text-on-primary p-3 rounded-xl text-xs font-black disabled:opacity-50"
                     >
                       {saving
-                        ? "Saving…"
+                        ? tr("UI_1574", "Saving…")
                         : `Save changes${
                             identityCost ? ` (${identityCost} PTS)` : ""
                           }`}
@@ -1043,14 +1038,14 @@ export default function ProfileTab({
                       }
                       className="w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest text-sm"
                     >
-                      <option value="email_change">Change email address</option>
-                      <option value="account_deletion">Delete account</option>
-                      <option value="other">Other account request</option>
+                      <option value="email_change"><LocalizedText id="UI_1578" fallback={tr("UI_1578", "Change email address")} /></option>
+                      <option value="account_deletion"><LocalizedText id="UI_1579" fallback={tr("UI_1579", "Delete account")} /></option>
+                      <option value="other"><LocalizedText id="UI_1580" fallback={tr("UI_1580", "Other account request")} /></option>
                     </select>
                     <textarea
                       value={requestDetails}
                       onChange={(e) => setRequestDetails(e.target.value)}
-                      placeholder="Tell the team what you need"
+                      placeholder={tr("UI_1581", "Tell the team what you need")}
                       className="w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest text-sm min-h-24"
                     />
                     <button
@@ -1058,8 +1053,7 @@ export default function ProfileTab({
                       onClick={() => void sendAccountRequest()}
                       className="w-full bg-primary text-on-primary p-3 rounded-xl text-xs font-black disabled:opacity-50"
                     >
-                      Send for review
-                    </button>
+                      <LocalizedText id="UI_1582" fallback={tr("UI_1582", "Send for review")} /></button>
                   </div>
                 )}
                 {modal === "support" && (
@@ -1068,7 +1062,7 @@ export default function ProfileTab({
                       className="block text-xs font-bold text-primary"
                       href={`mailto:${supportEmail}`}
                     >
-                      Contact {supportEmail}
+                      <LocalizedText id="UI_1583" fallback={tr("UI_1583", "Contact")} />{supportEmail}
                     </a>
                     {faqs.map((faq) => (
                       <details
@@ -1086,13 +1080,13 @@ export default function ProfileTab({
                     <input
                       value={ticketSubject}
                       onChange={(e) => setTicketSubject(e.target.value)}
-                      placeholder="Subject"
+                      placeholder={tr("UI_1584", "Subject")}
                       className="w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest text-sm"
                     />
                     <textarea
                       value={ticketMessage}
                       onChange={(e) => setTicketMessage(e.target.value)}
-                      placeholder="How can we help?"
+                      placeholder={tr("UI_1585", "How can we help?")}
                       className="w-full p-3 rounded-xl bg-surface-container-high border border-surface-container-highest text-sm min-h-24"
                     />
                     <button
@@ -1102,8 +1096,7 @@ export default function ProfileTab({
                       onClick={() => void sendSupportTicket()}
                       className="w-full bg-primary text-on-primary p-3 rounded-xl text-xs font-black disabled:opacity-50"
                     >
-                      Send support request
-                    </button>
+                      <LocalizedText id="UI_1586" fallback={tr("UI_1586", "Send support request")} /></button>
                   </div>
                 )}
                 {(modal === "privacy-policy" ||
@@ -1129,8 +1122,7 @@ export default function ProfileTab({
             >
               <div className="mb-4 flex items-center justify-between">
                 <h3 id="avatar-source-title" className="font-headline text-lg font-black">
-                  Upload profile photo
-                </h3>
+                  <LocalizedText id="UI_1587" fallback="Upload profile photo" /></h3>
                 <button
                   type="button"
                   aria-label="Close photo options"
@@ -1147,16 +1139,14 @@ export default function ProfileTab({
                   className="flex w-full items-center gap-3 rounded-xl bg-surface-container-high px-4 py-3 text-left text-sm font-bold"
                 >
                   <span className="material-symbols-outlined text-primary">photo_library</span>
-                  Photo Library
-                </button>
+                  <LocalizedText id="UI_1590" fallback="Photo Library" /></button>
                 <button
                   type="button"
                   onClick={() => void takeAvatarPhoto()}
                   className="flex w-full items-center gap-3 rounded-xl bg-surface-container-high px-4 py-3 text-left text-sm font-bold"
                 >
                   <span className="material-symbols-outlined text-primary">photo_camera</span>
-                  Take Photo
-                </button>
+                  <LocalizedText id="UI_1592" fallback="Take Photo" /></button>
                 <button
                   type="button"
                   onClick={() => {
@@ -1166,8 +1156,7 @@ export default function ProfileTab({
                   className="flex w-full items-center gap-3 rounded-xl bg-surface-container-high px-4 py-3 text-left text-sm font-bold"
                 >
                   <span className="material-symbols-outlined text-primary">folder_open</span>
-                  Choose File
-                </button>
+                  <LocalizedText id="UI_1594" fallback="Choose File" /></button>
               </div>
             </div>
           </div>,

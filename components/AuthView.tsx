@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { FormEvent, useEffect, useState } from "react";
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
@@ -202,7 +206,7 @@ export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: Aut
           <button
             type="button"
             onClick={onCancel}
-            aria-label="Cancel sign in"
+            aria-label={tr("UI_0096", "Cancel sign in")}
             className="absolute right-4 top-4 z-20 grid h-9 w-9 place-items-center rounded-full border border-surface-container-highest bg-surface-container text-on-surface-variant transition hover:text-on-surface active:scale-95"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -215,14 +219,14 @@ export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: Aut
               {stage === "verify" ? "dialpad" : "shield_lock"}
             </span>
           </div>
-          <p className="font-caps text-[10px] font-bold uppercase tracking-[0.22em] text-primary">Joe Yoke account</p>
+          <p className="font-caps text-[10px] font-bold uppercase tracking-[0.22em] text-primary"><LocalizedText id="UI_0100" fallback="Joe Yoke account" /></p>
           <h2 id={dialogTitleId} className="mt-2 font-headline text-2xl font-black tracking-tight text-on-surface">
-            {stage === "verify" ? "Check your inbox" : "Play with your account"}
+            {stage === "verify" ? tr("UI_0101", "Check your inbox") : tr("UI_0102", "Play with your account")}
           </h2>
           <p className="mx-auto mt-2 max-w-[270px] text-xs leading-5 text-on-surface-variant">
             {stage === "verify"
               ? `Enter the 6-digit code sent to ${email}.`
-              : "Sign in once to keep your progress, rewards, and game history in sync."}
+              : tr("UI_0104", "Sign in once to keep your progress, rewards, and game history in sync.")}
           </p>
         </div>
 
@@ -235,7 +239,7 @@ export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: Aut
         {stage === "verify" ? (
           <form onSubmit={handleVerifyOtp} className="relative z-10 mt-7 space-y-4">
             <label className="block text-left">
-              <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">Access code</span>
+              <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant"><LocalizedText id="UI_0105" fallback={tr("UI_0105", "Access code")} /></span>
               <input
                 autoComplete="one-time-code"
                 autoFocus
@@ -243,7 +247,7 @@ export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: Aut
                 maxLength={MAX_OTP_LENGTH}
                 minLength={MIN_OTP_LENGTH}
                 onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
-                placeholder="6-digit code"
+                placeholder={tr("UI_0107", "6-digit code")}
                 required
                 value={otp}
                 className="w-full rounded-2xl border border-surface-container-highest bg-background px-4 py-3.5 text-center font-mono text-2xl font-bold tracking-[0.42em] text-on-surface outline-none transition focus:border-primary/70 focus:ring-2 focus:ring-primary/15 placeholder:text-on-surface-variant"
@@ -254,11 +258,10 @@ export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: Aut
               disabled={loadingProvider === "verify" || otp.length < MIN_OTP_LENGTH}
               className="w-full rounded-2xl bg-primary py-3.5 font-headline text-sm font-black text-on-primary transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
             >
-              {loadingProvider === "verify" ? "Verifying…" : "Verify & continue"}
+              {loadingProvider === "verify" ? tr("UI_0110", "Verifying…") : tr("UI_0109", "Verify & continue")}
             </button>
             <button type="button" onClick={returnToEmail} disabled={isBusy} className="w-full py-1 text-xs font-semibold text-on-surface-variant transition hover:text-on-surface disabled:opacity-50">
-              Use a different email
-            </button>
+              <LocalizedText id="UI_0112" fallback={tr("UI_0112", "Use a different email")} /></button>
             {onCancel && (
               <button
                 type="button"
@@ -266,20 +269,19 @@ export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: Aut
                 disabled={isBusy}
                 className="w-full py-1 text-xs font-semibold text-on-surface-variant transition hover:text-on-surface disabled:opacity-50"
               >
-                Not now
-              </button>
+                <LocalizedText id="UI_0113" fallback={tr("UI_0113", "Not now")} /></button>
             )}
           </form>
         ) : (
           <div className="relative z-10 mt-7">
             <form onSubmit={handleRequestOtp} className="space-y-3">
               <label className="block text-left">
-                <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">Email address</span>
+                <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant"><LocalizedText id="UI_0114" fallback={tr("UI_0114", "Email address")} /></span>
                 <input
                   autoComplete="email"
                   inputMode="email"
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@example.com"
+                  placeholder={tr("UI_0115", "you@example.com")}
                   required
                   type="email"
                   value={email}
@@ -287,15 +289,15 @@ export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: Aut
                 />
               </label>
               <label className="block text-left">
-                <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant">Referral code <span className="normal-case tracking-normal">(optional)</span></span>
-                <input value={referralCode} onChange={(event) => setReferralCode(event.target.value)} placeholder="Friend's referral code" className="w-full rounded-xl border border-surface-container-highest bg-background px-4 py-3 text-sm text-on-surface outline-none focus:border-primary" />
+                <span className="mb-2 block font-caps text-[10px] font-bold uppercase tracking-[0.16em] text-on-surface-variant"><LocalizedText id="UI_0117" fallback={tr("UI_0117", "Referral code")} /><span className="normal-case tracking-normal"><LocalizedText id="UI_0116" fallback={tr("UI_0116", "(optional)")} /></span></span>
+                <input value={referralCode} onChange={(event) => setReferralCode(event.target.value)} placeholder={tr("UI_0118", "Friend's referral code")} className="w-full rounded-xl border border-surface-container-highest bg-background px-4 py-3 text-sm text-on-surface outline-none focus:border-primary" />
               </label>
               <button
                 type="submit"
                 disabled={isBusy}
                 className="w-full rounded-2xl bg-primary py-3.5 font-headline text-sm font-black text-on-primary transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
               >
-                {loadingProvider === "email" ? "Sending code…" : "Continue with email"}
+                {loadingProvider === "email" ? tr("UI_0121", "Sending code…") : tr("UI_0119", "Continue with email")}
               </button>
             </form>
 
@@ -320,15 +322,14 @@ export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: Aut
                     <span className={provider === "apple" ? "text-xl leading-none" : provider === "telegram" ? "text-base leading-none text-[#2AABEE]" : "text-base leading-none font-black text-[#4285F4]"} aria-hidden="true">
                       {icon}
                     </span>
-                    {isLoading ? "Connecting…" : label}
+                    {isLoading ? tr("UI_0123", "Connecting…") : label}
                   </button>
                 );
               })}
             </div>
 
             <p className="mt-5 text-center text-[11px] leading-4 text-white/35">
-              New here? Your account is created automatically the first time you continue.
-            </p>
+              <LocalizedText id="UI_0124" fallback={tr("UI_0124", "New here? Your account is created automatically the first time you continue.")} /></p>
             {onCancel && (
               <button
                 type="button"
@@ -336,8 +337,7 @@ export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: Aut
                 disabled={isBusy}
                 className="mt-4 w-full py-2 text-xs font-semibold text-on-surface-variant transition hover:text-on-surface disabled:opacity-50"
               >
-                Not now
-              </button>
+                <LocalizedText id="UI_0113" fallback={tr("UI_0113", "Not now")} /></button>
             )}
           </div>
         )}

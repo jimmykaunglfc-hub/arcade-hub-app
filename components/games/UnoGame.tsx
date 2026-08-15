@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { soundEngine } from "../../lib/soundManager";
@@ -662,7 +666,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
           isNeonDeck ? "bg-[#09090b] border-[#CCFF00]/40" : "bg-[#18181b] border-white/10"
         }`}>
            <div className="absolute inset-2 border-2 border-rose-500/50 rounded-full rotate-45 opacity-60 pointer-events-none"></div>
-           <span className="text-rose-500 font-headline font-black italic -rotate-12 text-sm select-none drop-shadow pointer-events-none">UNO</span>
+           <span className="text-rose-500 font-headline font-black italic -rotate-12 text-sm select-none drop-shadow pointer-events-none"><LocalizedText id="UI_1433" fallback="UNO" /></span>
         </div>
       );
     }
@@ -705,15 +709,13 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
               <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-4">
                 <span className="material-symbols-outlined text-3xl text-rose-400">monetization_on</span>
               </div>
-              <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">Insufficient Points</h3>
-              <p className="text-xs text-neutral-400 font-medium leading-relaxed mb-4">You need <span className="text-[#CCFF00] font-bold">{entryFee} PTS</span> to play an online Uno match.</p>
+              <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1"><LocalizedText id="UI_0511" fallback={tr("UI_0511", "Insufficient Points")} /></h3>
+              <p className="text-xs text-neutral-400 font-medium leading-relaxed mb-4"><LocalizedText id="UI_0513" fallback={tr("UI_0513", "You need")} /><span className="text-[#CCFF00] font-bold">{entryFee} <LocalizedText id="UI_0338" fallback={tr("UI_0338", "PTS")} /></span> <LocalizedText id="UI_1434" fallback={tr("UI_1434", "to play an online Uno match.")} /></p>
               <div className="w-full space-y-2">
                 <button onClick={() => { soundEngine.playSFX("click"); handleExit(); }} className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation">
-                  Visit Store / Buy Points
-                </button>
+                  <LocalizedText id="UI_0516" fallback={tr("UI_0516", "Visit Store / Buy Points")} /></button>
                 <button onClick={() => setShowNoPointsModal(false)} className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5 touch-manipulation">
-                  Dismiss
-                </button>
+                  <LocalizedText id="UI_1548" fallback={tr("UI_1548", "Dismiss")} /></button>
               </div>
             </div>
           </div>
@@ -768,17 +770,16 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
 
   if (view === "confirmed") return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in font-sans select-none">
-        <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || "Player 2"}</h2>
+        <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || tr("UI_0528", "Player 2")}</h2>
         <button onClick={enterConfirmedMatch} className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] touch-manipulation">
-          Enter Match
-        </button>
+          <LocalizedText id="UI_0322" fallback="Enter Match" /></button>
       </div>
   );
 
   if (view === "host") return (
       <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col font-sans text-white select-none items-center justify-center">
          <span className="font-headline font-bold text-2xl tracking-[0.3em] text-rose-400">{matchId}</span>
-         <button onClick={handleExit} className="mt-8 bg-white/5 text-neutral-300 rounded-2xl py-4 px-8 font-headline font-bold text-sm tracking-wide border border-white/5">CANCEL MATCH</button>
+         <button onClick={handleExit} className="mt-8 bg-white/5 text-neutral-300 rounded-2xl py-4 px-8 font-headline font-bold text-sm tracking-wide border border-white/5"><LocalizedText id="UI_0644" fallback="CANCEL MATCH" /></button>
       </div>
   );
 
@@ -805,7 +806,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
         <button onClick={handleExit} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition touch-manipulation">
            <span className="material-symbols-outlined text-sm">arrow_back</span>
         </button>
-        <span className="font-headline font-black text-sm tracking-widest text-rose-500 italic uppercase">UNO <span className="text-white not-italic">MATRIX</span></span>
+        <span className="font-headline font-black text-sm tracking-widest text-rose-500 italic uppercase"><LocalizedText id="UI_1433" fallback="UNO" /><span className="text-white not-italic"><LocalizedText id="UI_1435" fallback="MATRIX" /></span></span>
         
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -880,7 +881,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                       <div className="flex flex-col items-center relative">
                         {isUserDrawRequired && (
                           <div className="absolute -top-11 flex flex-col items-center z-30 animate-bounce pointer-events-none">
-                            <span className="bg-[#CCFF00] text-black text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-2xl border border-[#CCFF00] tracking-wider uppercase whitespace-nowrap">Tap to Draw</span>
+                            <span className="bg-[#CCFF00] text-black text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-2xl border border-[#CCFF00] tracking-wider uppercase whitespace-nowrap"><LocalizedText id="UI_0714" fallback={tr("UI_0714", "Tap to Draw")} /></span>
                             <span className="text-[#CCFF00] text-lg font-black leading-none drop-shadow-lg">👇</span>
                           </div>
                         )}
@@ -898,7 +899,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                               isUserDrawRequired ? 'border-[#CCFF00] ring-4 ring-[#CCFF00]/80 shadow-[0_0_30px_rgba(204,255,0,0.9)] animate-pulse' : 'border-white/10'
                             }`}>
                                 <div className="absolute inset-2 border-2 border-rose-500/50 rounded-full rotate-45 opacity-60"></div>
-                                <span className="text-rose-500 font-headline font-black italic -rotate-12 text-sm drop-shadow">UNO</span>
+                                <span className="text-rose-500 font-headline font-black italic -rotate-12 text-sm drop-shadow"><LocalizedText id="UI_1433" fallback="UNO" /></span>
                             </div>
                         </button>
                       </div>
@@ -940,7 +941,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                     )}
                     <div className="absolute inset-0 bg-[#18181b] -z-10" />
                     <span className="text-sm relative z-10">😎</span>
-                    <span className="text-xs font-bold text-white relative z-10">You</span>
+                    <span className="text-xs font-bold text-white relative z-10"><LocalizedText id="UI_0084" fallback="You" /></span>
                     <span className="bg-black/80 text-[#CCFF00] text-xs font-black px-2 py-0.5 rounded-full border border-white/10 relative z-10 shadow-inner">{playerHand.length}</span>
                 </div>
              </div>
@@ -957,7 +958,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                     unoCalled[myRole] ? "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.9)]" : playerHand.length === 2 ? "bg-[#CCFF00] shadow-[0_0_30px_rgba(204,255,0,1)]" : "bg-[#18181b]"
                   }`}>
                       <div className="w-full h-full rounded-[50%] bg-gradient-to-br from-rose-500 via-rose-600 to-rose-800 border-2 border-white flex items-center justify-center relative overflow-hidden shadow-inner">
-                         <span className="font-headline font-black italic text-amber-300 text-base tracking-tighter transform -rotate-6 drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)]">UNO</span>
+                         <span className="font-headline font-black italic text-amber-300 text-base tracking-tighter transform -rotate-6 drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)]"><LocalizedText id="UI_1433" fallback="UNO" /></span>
                       </div>
                   </div>
                </button>
@@ -991,7 +992,7 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
         {pendingWild && (
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in touch-none">
                 <div className="bg-[#18181b] border border-white/10 p-6 rounded-3xl shadow-2xl flex flex-col items-center">
-                    <h2 className="text-sm font-headline font-black text-white mb-4 uppercase tracking-widest">Select Target Color</h2>
+                    <h2 className="text-sm font-headline font-black text-white mb-4 uppercase tracking-widest"><LocalizedText id="UI_1436" fallback={tr("UI_1436", "Select Target Color")} /></h2>
                     <div className="grid grid-cols-2 gap-4">
                         {COLORS.map((c) => (
                           <button key={c} onClick={() => { soundEngine.playSFX("click"); handleCardPlay(pendingWild, c); setPendingWild(null); }} className={`w-16 h-16 rounded-2xl border-2 shadow-lg transition-transform active:scale-95 touch-manipulation ${getCardBg(c)}`}></button>
@@ -1011,9 +1012,9 @@ export default function UnoGame({ onClose, preloadedMatchId, opponent }: UnoGame
                             <span className="material-symbols-outlined text-5xl text-black font-black">{isUserVictory ? "emoji_events" : "heart_broken"}</span>
                         </div>
                     </div>
-                    <h1 className={`text-3xl font-headline font-black uppercase italic tracking-wider mb-2 drop-shadow-md ${isUserVictory ? 'text-[#CCFF00]' : 'text-rose-500'}`}>{isUserVictory ? "VICTORY!" : "GAME OVER"}</h1>
-                    <p className="text-neutral-400 text-xs font-semibold mb-8 px-2">{isUserVictory ? "Incredible card strategy!" : `${winnerPlayer?.name || "Opponent"} cleared their hand first.`}</p>
-                    <button onClick={handleExit} className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase py-4 px-8 rounded-2xl shadow-xl transition-all active:scale-95 tracking-wider relative z-20 touch-manipulation">Back to Lobby</button>
+                    <h1 className={`text-3xl font-headline font-black uppercase italic tracking-wider mb-2 drop-shadow-md ${isUserVictory ? 'text-[#CCFF00]' : 'text-rose-500'}`}>{isUserVictory ? tr("UI_1429", "VICTORY!") : tr("UI_1428", "GAME OVER")}</h1>
+                    <p className="text-neutral-400 text-xs font-semibold mb-8 px-2">{isUserVictory ? tr("UI_1431", "Incredible card strategy!") : `${winnerPlayer?.name || tr("UI_1501", "Opponent")} cleared their hand first.`}</p>
+                    <button onClick={handleExit} className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase py-4 px-8 rounded-2xl shadow-xl transition-all active:scale-95 tracking-wider relative z-20 touch-manipulation"><LocalizedText id="UI_1432" fallback={tr("UI_1432", "Back to Lobby")} /></button>
                 </div>
             </div>
         )}

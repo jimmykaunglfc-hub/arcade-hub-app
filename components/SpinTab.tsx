@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { soundEngine } from "@/lib/soundManager";
 import { supabase } from "@/lib/supabaseClient";
@@ -110,16 +115,16 @@ export default function SpinTab({ userId, onBack, onWalletUpdated }: { userId?: 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-md flex-col px-1 pb-7 pt-1 text-center select-none">
       <div className="flex items-center justify-between text-on-surface">
-        <button onClick={onBack} aria-label="Back to home" className="-ml-2 grid h-10 w-10 place-items-center rounded-full active:scale-95">
+        <button onClick={onBack} aria-label={tr("UI_1710", "Back to home")} className="-ml-2 grid h-10 w-10 place-items-center rounded-full active:scale-95">
           <span className="material-symbols-outlined">arrow_back_ios_new</span>
         </button>
-        <h1 className="font-headline text-lg font-black">Spin &amp; Win</h1>
+        <h1 className="font-headline text-lg font-black"><LocalizedText id="UI_1712" fallback="Spin &amp; Win" /></h1>
         <span className="w-8" />
       </div>
 
       <div className="mt-12">
-        <h2 className="font-headline text-2xl font-black text-on-surface">Test Your Luck</h2>
-        <p className="mx-auto mt-2 max-w-[270px] text-xs font-medium leading-relaxed text-on-surface-variant">Use your points to spin the wheel and win huge point multipliers or rare Gems!</p>
+        <h2 className="font-headline text-2xl font-black text-on-surface"><LocalizedText id="UI_1713" fallback="Test Your Luck" /></h2>
+        <p className="mx-auto mt-2 max-w-[270px] text-xs font-medium leading-relaxed text-on-surface-variant"><LocalizedText id="UI_1714" fallback="Use your points to spin the wheel and win huge point multipliers or rare Gems!" /></p>
         <p className="mx-auto mt-3 max-w-[300px] text-[10px] font-bold leading-relaxed text-primary">{spinRules}</p>
       </div>
 
@@ -130,7 +135,7 @@ export default function SpinTab({ userId, onBack, onWalletUpdated }: { userId?: 
             {slots.map((slot, index) => {
               const angle = 360 / slots.length;
               const midpoint = index * angle + angle / 2;
-              return <div key={slot.id} className="absolute left-1/2 top-1/2 w-[76px] text-center" style={{ transform: `translate(-50%,-50%) rotate(${midpoint}deg) translateY(-82px) rotate(${-midpoint}deg)` }}><span className="block break-words text-[9px] font-black leading-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,.8)]">{slot.label || `${slot.value} ${slot.type === "gems" ? "GEMS" : "PTS"}`}</span></div>;
+              return <div key={slot.id} className="absolute left-1/2 top-1/2 w-[76px] text-center" style={{ transform: `translate(-50%,-50%) rotate(${midpoint}deg) translateY(-82px) rotate(${-midpoint}deg)` }}><span className="block break-words text-[9px] font-black leading-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,.8)]">{slot.label || `${slot.value} ${slot.type === "gems" ? tr("UI_1655", "GEMS") : tr("UI_0338", "PTS")}`}</span></div>;
             })}
           </div>
         </div>
@@ -140,12 +145,12 @@ export default function SpinTab({ userId, onBack, onWalletUpdated }: { userId?: 
       <div className="mt-auto pt-14">
         <p className="mb-3 text-[11px] font-bold text-on-surface-variant">{cooldown > 0 ? `Next spin in ${formatCooldown(cooldown)}` : costLabel}</p>
         <button onClick={handleSpin} disabled={isSpinning || cooldown > 0} className="mx-auto flex min-w-44 items-center justify-center gap-2 rounded-full bg-primary px-7 py-4 font-headline text-sm font-black text-on-primary shadow-[0_0_22px_rgba(168,238,0,.42)] transition active:scale-95 disabled:cursor-not-allowed disabled:bg-surface-container-highest disabled:text-on-surface-variant disabled:shadow-none">
-          <span>{isSpinning ? "Spinning…" : cooldown > 0 ? "Come back later" : `Spin for ${spinCost}`}</span>
+          <span>{isSpinning ? tr("UI_1719", "Spinning…") : cooldown > 0 ? tr("UI_1717", "Come back later") : `Spin for ${spinCost}`}</span>
           {!isSpinning && cooldown === 0 && <span className="material-symbols-outlined text-base">bolt</span>}
         </button>
       </div>
 
-      {message && <div className="fixed inset-0 z-[100100] flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm"><div className="w-full max-w-xs rounded-[28px] border border-white/10 bg-surface p-6 shadow-2xl"><span className="material-symbols-outlined text-4xl text-primary">auto_awesome</span><h3 className="mt-3 font-headline text-lg font-black text-on-surface">{message.title}</h3><p className="mt-2 text-xs leading-relaxed text-on-surface-variant">{message.body}</p><button onClick={() => setMessage(null)} className="mt-6 w-full rounded-2xl bg-primary py-3 text-xs font-black text-on-primary">Continue</button></div></div>}
+      {message && <div className="fixed inset-0 z-[100100] flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm"><div className="w-full max-w-xs rounded-[28px] border border-white/10 bg-surface p-6 shadow-2xl"><span className="material-symbols-outlined text-4xl text-primary">auto_awesome</span><h3 className="mt-3 font-headline text-lg font-black text-on-surface">{message.title}</h3><p className="mt-2 text-xs leading-relaxed text-on-surface-variant">{message.body}</p><button onClick={() => setMessage(null)} className="mt-6 w-full rounded-2xl bg-primary py-3 text-xs font-black text-on-primary"><LocalizedText id="UI_0126" fallback={tr("UI_0126", "Continue")} /></button></div></div>}
     </div>
   );
 }

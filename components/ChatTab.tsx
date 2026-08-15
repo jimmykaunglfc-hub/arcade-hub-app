@@ -1,9 +1,15 @@
 "use client";
 
+
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { ChangeEvent, useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabaseClient";
 import PublicProfileCardModal from "./PublicProfileCardModal";
+import { useTranslation } from "../lib/i18n";
 
 interface Friend {
   id: string;
@@ -83,6 +89,7 @@ const INITIAL_BOARD = [
 ];
 
 export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChange }: ChatTabProps) {
+  const { t } = useTranslation();
   const [activeView, setActiveView] = useState<"hub" | "chat" | "referral">("hub");
   const [hubTab, setHubTab] = useState<"dms" | "groups" | "network">("dms");
 
@@ -672,8 +679,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
           <span className="min-w-0">
             <b className="block truncate font-headline">{activeGroup.name}</b>
             <small className="text-xs text-on-surface-variant">
-              Group conversation
-            </small>
+              <LocalizedText id="UI_0198" fallback="Group conversation" /></small>
           </span>
         </header>
 
@@ -692,8 +698,8 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                 >
                   <b className="mb-1 block text-[10px] opacity-70">
                     {isOwnMessage
-                      ? "You"
-                      : message.profiles?.username || "Member"}
+                      ? tr("UI_0084", "You")
+                      : message.profiles?.username || tr("UI_0199", "Member")}
                   </b>
                   <p className="whitespace-pre-wrap break-words">{message.content}</p>
                 </div>
@@ -701,8 +707,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
             })
           ) : (
             <p className="pt-12 text-center text-sm text-on-surface-variant">
-              No messages yet. Say hello to the group.
-            </p>
+              <LocalizedText id="UI_0200" fallback={tr("UI_0200", "No messages yet. Say hello to the group.")} /></p>
           )}
         </div>
 
@@ -713,14 +718,14 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
             onKeyDown={(event) => {
               if (event.key === "Enter") void sendGroupMessage();
             }}
-            placeholder="Message the community…"
-            aria-label="Group message"
+            placeholder={t("UI_0201")}
+            aria-label={t("UI_0202")}
             className="min-w-0 flex-1 rounded-2xl border-2 border-surface-container-highest bg-background px-4 py-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
           <button
             onClick={() => void sendGroupMessage()}
             disabled={!groupDraft.trim()}
-            aria-label="Send group message"
+            aria-label={t("UI_0203")}
             className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary text-on-primary shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-45"
           >
             <span className="material-symbols-outlined">send</span>
@@ -737,9 +742,9 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
         {/* ADAPTIVE HUB SWITCHER BAR */}
         <div className="grid grid-cols-3 gap-1.5 rounded-2xl border border-surface-container-highest bg-surface p-1.5 shadow-sm mb-3">
           {[
-            { id: "dms", label: "Direct" },
-            { id: "groups", label: "Groups" },
-            { id: "network", label: "Invite" }
+            { id: "dms", label: t("UI_0205") },
+            { id: "groups", label: t("UI_0207") },
+            { id: "network", label: t("UI_0208") }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -757,11 +762,11 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
 
         {hubTab === "dms" && (
           <div className="flex flex-col gap-3">
-            {networkLoading && <p className="px-2 py-4 text-center text-xs font-bold text-on-surface-variant animate-pulse">Syncing conversations…</p>}
+            {networkLoading && <p className="px-2 py-4 text-center text-xs font-bold text-on-surface-variant animate-pulse">{t("UI_0210")}</p>}
             {friends.length === 0 ? (
               <div className="p-8 text-center bg-surface border border-surface-container-highest rounded-[24px] shadow-sm">
                 <span className="material-symbols-outlined text-3xl text-on-surface-variant mb-2">chat_bubble</span>
-                <p className="font-body text-xs text-on-surface-variant font-medium">Your inbox is empty.<br/>Connect via the Network tab.</p>
+                <p className="font-body text-xs text-on-surface-variant font-medium">{t("UI_0212")}<br/>{t("UI_0211")}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -779,7 +784,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                       </div>
                       <div>
                         <h4 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">{friend.username}</h4>
-                        <p className="font-body text-[11px] font-medium text-on-surface-variant truncate mt-1">{isOnline(friend) ? "Online now" : "Say hi and start a match"}</p>
+                        <p className="font-body text-[11px] font-medium text-on-surface-variant truncate mt-1">{isOnline(friend) ? t("UI_0213") : t("UI_0214")}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">{unreadByFriend[friend.id] > 0 && <span className="min-w-5 h-5 px-1 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center">{unreadByFriend[friend.id]}</span>}<span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span></div>
@@ -792,22 +797,22 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
 
         {hubTab === "groups" && (
           <div className="flex flex-col gap-3">
-            {!showCreateGroup ? <button onClick={() => setShowCreateGroup(true)} className="flex w-full items-center gap-3 rounded-2xl border border-primary/30 bg-primary-container/35 p-4 text-left shadow-sm"><span className="grid h-11 w-11 place-items-center rounded-xl bg-primary text-on-primary shadow-sm"><span className="material-symbols-outlined">add</span></span><span><b className="block text-sm">Create a new group</b><small className="text-xs text-on-surface-variant">{groupCreationPolicy.free_creations_remaining > 0 ? `${groupCreationPolicy.free_creations_remaining} free creation${groupCreationPolicy.free_creations_remaining === 1 ? "" : "s"} remaining` : groupCreationPolicy.paid_cost ? `${groupCreationPolicy.paid_cost.toLocaleString()} ${groupCreationPolicy.paid_currency} per group` : "Free group creation"}</small></span><span className="ml-auto material-symbols-outlined text-primary">arrow_forward</span></button> : <form onSubmit={createGroup} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 space-y-2 shadow-sm">
-              <h3 className="font-headline text-sm font-extrabold text-on-surface">Create a group</h3>
-              <p className="text-xs text-on-surface-variant">{groupCreationPolicy.free_creations_remaining > 0 ? `This group is free. ${groupCreationPolicy.free_creations_remaining - 1} free creation${groupCreationPolicy.free_creations_remaining === 1 ? "" : "s"} will remain.` : groupCreationPolicy.paid_cost ? `This group costs ${groupCreationPolicy.paid_cost.toLocaleString()} ${groupCreationPolicy.paid_currency}.` : "This group is free."}</p>
-              <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Group name" className="w-full rounded-xl border border-surface-container-highest bg-background px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" />
-              <input value={groupDescription} onChange={(event) => setGroupDescription(event.target.value)} placeholder="Description (optional)" className="w-full rounded-xl border border-surface-container-highest bg-background px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" />
-              <div className="flex gap-2"><button disabled={creatingGroup} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-on-primary disabled:opacity-50">{creatingGroup ? "Creating…" : "Create group"}</button><button type="button" disabled={creatingGroup} onClick={() => setShowCreateGroup(false)} className="rounded-xl bg-surface-container-high px-4 py-2 text-xs font-bold disabled:opacity-50">Cancel</button></div>
+            {!showCreateGroup ? <button onClick={() => setShowCreateGroup(true)} className="flex w-full items-center gap-3 rounded-2xl border border-primary/30 bg-primary-container/35 p-4 text-left shadow-sm"><span className="grid h-11 w-11 place-items-center rounded-xl bg-primary text-on-primary shadow-sm"><span className="material-symbols-outlined">add</span></span><span><b className="block text-sm"><LocalizedText id="UI_0218" fallback={tr("UI_0218", "Create a new group")} /></b><small className="text-xs text-on-surface-variant">{groupCreationPolicy.free_creations_remaining > 0 ? `${groupCreationPolicy.free_creations_remaining} free creation${groupCreationPolicy.free_creations_remaining === 1 ? "" : "s"} remaining` : groupCreationPolicy.paid_cost ? `${groupCreationPolicy.paid_cost.toLocaleString()} ${groupCreationPolicy.paid_currency} per group` : tr("UI_0219", "Free group creation")}</small></span><span className="ml-auto material-symbols-outlined text-primary">arrow_forward</span></button> : <form onSubmit={createGroup} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 space-y-2 shadow-sm">
+              <h3 className="font-headline text-sm font-extrabold text-on-surface"><LocalizedText id="UI_0220" fallback={tr("UI_0220", "Create a group")} /></h3>
+              <p className="text-xs text-on-surface-variant">{groupCreationPolicy.free_creations_remaining > 0 ? `This group is free. ${groupCreationPolicy.free_creations_remaining - 1} free creation${groupCreationPolicy.free_creations_remaining === 1 ? "" : "s"} will remain.` : groupCreationPolicy.paid_cost ? `This group costs ${groupCreationPolicy.paid_cost.toLocaleString()} ${groupCreationPolicy.paid_currency}.` : tr("UI_0222", "This group is free.")}</p>
+              <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder={tr("UI_0224", "Group name")} className="w-full rounded-xl border border-surface-container-highest bg-background px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" />
+              <input value={groupDescription} onChange={(event) => setGroupDescription(event.target.value)} placeholder={tr("UI_0225", "Description (optional)")} className="w-full rounded-xl border border-surface-container-highest bg-background px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary" />
+              <div className="flex gap-2"><button disabled={creatingGroup} className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-on-primary disabled:opacity-50">{creatingGroup ? tr("UI_0227", "Creating…") : tr("UI_0226", "Create group")}</button><button type="button" disabled={creatingGroup} onClick={() => setShowCreateGroup(false)} className="rounded-xl bg-surface-container-high px-4 py-2 text-xs font-bold disabled:opacity-50"><LocalizedText id="UI_0094" fallback={tr("UI_0094", "Cancel")} /></button></div>
               {groupStatus && <p className="text-[11px] font-medium text-on-surface-variant">{groupStatus}</p>}
             </form>}
             {groups.map((group) => (
               <div key={group.id} className="bg-surface border border-surface-container-highest rounded-[24px] p-4 flex items-center gap-4 shadow-sm">
                 <div className="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-primary text-[24px]">grid_4x4</span></div>
-                <div className="flex-1 min-w-0"><h4 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">{group.name}</h4><p className="font-body text-[11px] text-on-surface-variant truncate mt-0.5">{group.description || "Community group"}</p></div>
-                {joinedGroupIds.includes(group.id) ? <button onClick={() => { setActiveGroup(group); onChatOpenChange?.(true); }} className="rounded-xl bg-primary px-3 py-2 text-[10px] font-black text-on-primary">Open chat</button> : <button onClick={() => joinGroup(group.id)} className="px-4 py-2 bg-surface-container-high text-primary font-caps text-[10px] font-bold uppercase rounded-xl">Join</button>}
+                <div className="flex-1 min-w-0"><h4 className="font-headline text-sm font-extrabold tracking-tight text-on-surface">{group.name}</h4><p className="font-body text-[11px] text-on-surface-variant truncate mt-0.5">{group.description || tr("UI_0228", "Community group")}</p></div>
+                {joinedGroupIds.includes(group.id) ? <button onClick={() => { setActiveGroup(group); onChatOpenChange?.(true); }} className="rounded-xl bg-primary px-3 py-2 text-[10px] font-black text-on-primary"><LocalizedText id="UI_0230" fallback={tr("UI_0230", "Open chat")} /></button> : <button onClick={() => joinGroup(group.id)} className="px-4 py-2 bg-surface-container-high text-primary font-caps text-[10px] font-bold uppercase rounded-xl"><LocalizedText id="UI_0229" fallback={tr("UI_0229", "Join")} /></button>}
               </div>
             ))}
-            {!networkLoading && groups.length === 0 && <p className="p-5 text-center text-xs text-on-surface-variant">No groups yet. Start the first one.</p>}
+            {!networkLoading && groups.length === 0 && <p className="p-5 text-center text-xs text-on-surface-variant"><LocalizedText id="UI_0231" fallback={tr("UI_0231", "No groups yet. Start the first one.")} /></p>}
           </div>
         )}
 
@@ -815,33 +820,33 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
           <div className="flex flex-col gap-4">
             <div onClick={() => { setActiveView("referral"); onChatOpenChange?.(true); }} role="button" tabIndex={0} className="w-full text-left bg-gradient-to-br from-[#a9f500] to-emerald-500 rounded-[24px] p-5 relative overflow-hidden shadow-sm text-black active:scale-[.98] cursor-pointer">
               <span className="material-symbols-outlined absolute -right-2 -top-2 text-[90px] opacity-15">group_add</span>
-              <h3 className="font-headline text-xl font-black mb-1">Invite &amp; Earn!</h3>
-              <p className="max-w-[250px] text-xs font-semibold">Share your referral code and earn rewards when friends join.</p>
+              <h3 className="font-headline text-xl font-black mb-1"><LocalizedText id="UI_0233" fallback={tr("UI_0233", "Invite &amp; Earn!")} /></h3>
+              <p className="max-w-[250px] text-xs font-semibold"><LocalizedText id="UI_0234" fallback={tr("UI_0234", "Share your referral code and earn rewards when friends join.")} /></p>
               <div className="flex items-end justify-between relative z-10">
-                <p className="mt-4 font-headline text-sm font-black tracking-tight">{myReferralCode || "Loading..."}</p>
+                <p className="mt-4 font-headline text-sm font-black tracking-tight">{myReferralCode || tr("UI_0235", "Loading...")}</p>
                 <button onClick={(event) => { event.stopPropagation(); handleCopyId(); }} className="h-10 rounded-xl bg-black px-4 text-xs font-black text-white active:scale-95 transition-all">
                   <span className="material-symbols-outlined text-base">{copied ? "check" : "content_copy"}</span>
                 </button>
               </div>
-              <button onClick={(event) => { event.stopPropagation(); void handleShareReferral(); }} className="relative z-10 mt-3 rounded-xl bg-black px-4 py-2 text-xs font-black text-white">Share referral code</button>
+              <button onClick={(event) => { event.stopPropagation(); void handleShareReferral(); }} className="relative z-10 mt-3 rounded-xl bg-black px-4 py-2 text-xs font-black text-white"><LocalizedText id="UI_0237" fallback={tr("UI_0237", "Share referral code")} /></button>
             </div>
 
             <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm">
-              <h3 className="font-headline text-sm font-extrabold text-on-surface mb-3">Add Friend by ID</h3>
+              <h3 className="font-headline text-sm font-extrabold text-on-surface mb-3"><LocalizedText id="UI_0238" fallback={tr("UI_0238", "Add Friend by ID")} /></h3>
               <form onSubmit={handleAddFriend} className="flex flex-col gap-2 sm:flex-row">
                 <input 
                   type="text" 
-                  placeholder="Enter User ID..."
+                  placeholder={tr("UI_0239", "Enter User ID...")}
                   value={searchTarget}
                   onChange={(e) => setSearchTarget(e.target.value)}
                   className="min-w-0 flex-1 bg-background border border-surface-container-highest rounded-xl px-4 py-3 font-body text-xs focus:outline-none focus:border focus:border-primary text-on-surface placeholder-on-surface-variant transition-colors"
                 />
-                <button type="submit" className="h-11 shrink-0 whitespace-nowrap px-5 bg-primary text-on-primary hover:opacity-90 font-headline font-bold text-xs rounded-xl shadow-sm active:scale-95 transition-all">Add</button>
+                <button type="submit" className="h-11 shrink-0 whitespace-nowrap px-5 bg-primary text-on-primary hover:opacity-90 font-headline font-bold text-xs rounded-xl shadow-sm active:scale-95 transition-all"><LocalizedText id="UI_0240" fallback={tr("UI_0240", "Add")} /></button>
               </form>
               {inviteStatus && <p className="font-body text-[11px] text-primary font-bold mt-3">{inviteStatus}</p>}
             </div>
-            {pendingRequests.length > 0 && <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm"><h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3">Connection requests</h3><div className="space-y-3">{pendingRequests.map((request) => <div key={request.requestId} className="flex items-center gap-3"><div className="w-9 h-9 rounded-full overflow-hidden relative bg-surface-container-high"><Image src={request.avatar_url} alt="" fill className="object-cover" unoptimized /></div><span className="flex-1 text-sm font-bold text-on-surface">{request.username}</span><button onClick={() => respondToFriendRequest(request.requestId, false)} className="text-xs font-bold text-on-surface-variant">Decline</button><button onClick={() => respondToFriendRequest(request.requestId, true)} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary">Accept</button></div>)}</div></div>}
-            {showShareSheet && <div className="fixed inset-0 z-[100101] flex items-end bg-black/60 backdrop-blur-sm"><div className="w-full rounded-t-[30px] bg-surface px-5 pb-[calc(22px+env(safe-area-inset-bottom))] pt-3 shadow-2xl"><div className="mx-auto h-1.5 w-10 rounded-full bg-on-surface-variant/40" /><div className="mt-4 flex items-center justify-between"><h3 className="font-headline text-xl font-black">Share referral code</h3><button onClick={() => setShowShareSheet(false)} className="grid h-9 w-9 place-items-center rounded-full bg-surface-container-high"><span className="material-symbols-outlined">close</span></button></div><p className="mt-1 text-xs text-on-surface-variant">Copy your code to share it in any app.</p><button onClick={() => { handleCopyId(); setShowShareSheet(false); }} className="mt-5 flex w-full items-center gap-4 rounded-2xl bg-surface-container-high p-4 text-left"><span className="grid h-12 w-12 place-items-center rounded-full bg-primary text-on-primary"><span className="material-symbols-outlined">content_copy</span></span><span><b className="block text-sm">Copy referral code</b><small className="text-xs text-on-surface-variant">{myReferralCode || myUsername}</small></span></button></div></div>}
+            {pendingRequests.length > 0 && <div className="bg-surface border border-surface-container-highest rounded-[24px] p-5 shadow-sm"><h3 className="font-caps text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3"><LocalizedText id="UI_0242" fallback={tr("UI_0242", "Connection requests")} /></h3><div className="space-y-3">{pendingRequests.map((request) => <div key={request.requestId} className="flex items-center gap-3"><div className="w-9 h-9 rounded-full overflow-hidden relative bg-surface-container-high"><Image src={request.avatar_url} alt="" fill className="object-cover" unoptimized /></div><span className="flex-1 text-sm font-bold text-on-surface">{request.username}</span><button onClick={() => respondToFriendRequest(request.requestId, false)} className="text-xs font-bold text-on-surface-variant"><LocalizedText id="UI_0243" fallback="Decline" /></button><button onClick={() => respondToFriendRequest(request.requestId, true)} className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-on-primary"><LocalizedText id="UI_0241" fallback="Accept" /></button></div>)}</div></div>}
+            {showShareSheet && <div className="fixed inset-0 z-[100101] flex items-end bg-black/60 backdrop-blur-sm"><div className="w-full rounded-t-[30px] bg-surface px-5 pb-[calc(22px+env(safe-area-inset-bottom))] pt-3 shadow-2xl"><div className="mx-auto h-1.5 w-10 rounded-full bg-on-surface-variant/40" /><div className="mt-4 flex items-center justify-between"><h3 className="font-headline text-xl font-black"><LocalizedText id="UI_0237" fallback={tr("UI_0237", "Share referral code")} /></h3><button onClick={() => setShowShareSheet(false)} className="grid h-9 w-9 place-items-center rounded-full bg-surface-container-high"><span className="material-symbols-outlined">close</span></button></div><p className="mt-1 text-xs text-on-surface-variant"><LocalizedText id="UI_0245" fallback={tr("UI_0245", "Copy your code to share it in any app.")} /></p><button onClick={() => { handleCopyId(); setShowShareSheet(false); }} className="mt-5 flex w-full items-center gap-4 rounded-2xl bg-surface-container-high p-4 text-left"><span className="grid h-12 w-12 place-items-center rounded-full bg-primary text-on-primary"><span className="material-symbols-outlined">content_copy</span></span><span><b className="block text-sm"><LocalizedText id="UI_0244" fallback={tr("UI_0244", "Copy referral code")} /></b><small className="text-xs text-on-surface-variant">{myReferralCode || myUsername}</small></span></button></div></div>}
           </div>
         )}
       </div>
@@ -855,34 +860,34 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
           <button onClick={() => { setActiveView("hub"); onChatOpenChange?.(false); }} className="grid h-10 w-10 place-items-center rounded-full">
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
-          <h1 className="font-headline text-lg font-black">Invite dashboard</h1>
+          <h1 className="font-headline text-lg font-black"><LocalizedText id="UI_0246" fallback="Invite dashboard" /></h1>
         </header>
         <section className="mt-7 rounded-[28px] bg-primary-container p-6">
-          <p className="text-xs font-bold text-primary">REFERRAL PERFORMANCE</p>
-          <h2 className="mt-2 font-headline text-2xl font-black">Your invite summary</h2>
-          <p className="mt-2 text-xs text-on-surface-variant">Track invitees and see the rewards available in the current program.</p>
+          <p className="text-xs font-bold text-primary"><LocalizedText id="UI_0247" fallback="REFERRAL PERFORMANCE" /></p>
+          <h2 className="mt-2 font-headline text-2xl font-black"><LocalizedText id="UI_0248" fallback="Your invite summary" /></h2>
+          <p className="mt-2 text-xs text-on-surface-variant"><LocalizedText id="UI_0249" fallback="Track invitees and see the rewards available in the current program." /></p>
         </section>
         <div className="mt-5 grid grid-cols-3 gap-3">
           <div className="rounded-2xl bg-surface-container-high p-4">
             <span className="material-symbols-outlined text-lg text-primary">group</span>
             <b className="mt-2 block text-2xl text-primary">{referralStats.invited}</b>
-            <p className="mt-1 text-[10px] font-bold text-on-surface-variant">Invitees</p>
+            <p className="mt-1 text-[10px] font-bold text-on-surface-variant"><LocalizedText id="UI_0251" fallback="Invitees" /></p>
           </div>
           <div className="rounded-2xl bg-surface-container-high p-4">
             <span className="material-symbols-outlined text-lg text-primary">bolt</span>
             <b className="mt-2 block text-2xl text-primary">{referralStats.points.toLocaleString()}</b>
-            <p className="mt-1 text-[10px] font-bold text-on-surface-variant">Points earned</p>
+            <p className="mt-1 text-[10px] font-bold text-on-surface-variant"><LocalizedText id="UI_0252" fallback="Points earned" /></p>
           </div>
           <div className="rounded-2xl bg-secondary-container p-4">
             <span className="material-symbols-outlined text-lg text-secondary">diamond</span>
             <b className="mt-2 block text-2xl text-secondary">{referralStats.gems.toLocaleString()}</b>
-            <p className="mt-1 text-[10px] font-bold text-on-surface-variant">Gems earned</p>
+            <p className="mt-1 text-[10px] font-bold text-on-surface-variant"><LocalizedText id="UI_0253" fallback="Gems earned" /></p>
           </div>
         </div>
-        <h2 className="mt-7 font-headline text-base font-black">Available benefits</h2>
-        <div className="mt-3 space-y-2">{referralBenefits.length ? referralBenefits.map((benefit) => <div key={benefit.label} className="rounded-xl border border-surface-container-highest bg-surface p-3"><b className="block text-xs">{benefit.label}</b><small className="text-primary">{benefit.detail}</small></div>) : <p className="rounded-xl bg-surface p-4 text-xs text-on-surface-variant">Rewards will appear when the referral program is configured.</p>}</div>
-        <h2 className="mt-7 font-headline text-base font-black">Invitee information</h2>
-        <div className="mt-3 space-y-3">{referralInvitees.length ? referralInvitees.map((invitee) => <div key={invitee.network_id} className="flex items-center gap-3 rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="grid h-10 w-10 place-items-center rounded-full bg-primary-container font-black text-primary">{invitee.username.slice(0,1)}</span><span className="min-w-0 flex-1"><b className="block text-sm">{invitee.username}</b><small className="text-xs text-on-surface-variant">{invitee.network_id} · Joined {new Date(invitee.created_at).toLocaleDateString()}</small></span><span className="rounded-full bg-primary-container px-2 py-1 text-[10px] font-bold text-primary">Active</span></div>) : <p className="rounded-2xl bg-surface p-5 text-center text-xs text-on-surface-variant">No invitees yet. Share your code to get started.</p>}</div>
+        <h2 className="mt-7 font-headline text-base font-black"><LocalizedText id="UI_0254" fallback="Available benefits" /></h2>
+        <div className="mt-3 space-y-2">{referralBenefits.length ? referralBenefits.map((benefit) => <div key={benefit.label} className="rounded-xl border border-surface-container-highest bg-surface p-3"><b className="block text-xs">{benefit.label}</b><small className="text-primary">{benefit.detail}</small></div>) : <p className="rounded-xl bg-surface p-4 text-xs text-on-surface-variant"><LocalizedText id="UI_0255" fallback={tr("UI_0255", "Rewards will appear when the referral program is configured.")} /></p>}</div>
+        <h2 className="mt-7 font-headline text-base font-black"><LocalizedText id="UI_0256" fallback="Invitee information" /></h2>
+        <div className="mt-3 space-y-3">{referralInvitees.length ? referralInvitees.map((invitee) => <div key={invitee.network_id} className="flex items-center gap-3 rounded-2xl border border-surface-container-highest bg-surface p-4"><span className="grid h-10 w-10 place-items-center rounded-full bg-primary-container font-black text-primary">{invitee.username.slice(0,1)}</span><span className="min-w-0 flex-1"><b className="block text-sm">{invitee.username}</b><small className="text-xs text-on-surface-variant">{invitee.network_id} <LocalizedText id="UI_0257" fallback="· Joined" />{new Date(invitee.created_at).toLocaleDateString()}</small></span><span className="rounded-full bg-primary-container px-2 py-1 text-[10px] font-bold text-primary"><LocalizedText id="UI_0258" fallback="Active" /></span></div>) : <p className="rounded-2xl bg-surface p-5 text-center text-xs text-on-surface-variant"><LocalizedText id="UI_0259" fallback={tr("UI_0259", "No invitees yet. Share your code to get started.")} /></p>}</div>
       </div>
     );
   }
@@ -906,12 +911,12 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
             {inviteStep === "game" && (
               <>
                 <div className="flex justify-between items-center px-1 mb-1">
-                  <h3 className="font-headline text-sm font-black uppercase text-on-surface">Select Arena</h3>
+                  <h3 className="font-headline text-sm font-black uppercase text-on-surface"><LocalizedText id="UI_0261" fallback={tr("UI_0261", "Select Arena")} /></h3>
                   <button onClick={() => setShowGameSelector(false)} className="w-8 h-8 bg-surface-container-high rounded-full flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors">
                     <span className="material-symbols-outlined text-sm">close</span>
                   </button>
                 </div>
-                <p className="px-1 pb-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Two-player challenges</p>
+                <p className="px-1 pb-1 text-[10px] font-black uppercase tracking-widest text-on-surface-variant"><LocalizedText id="UI_0262" fallback={tr("UI_0262", "Two-player challenges")} /></p>
                 
                 {/* 1. Uno Card Battle */}
                 <button onClick={() => handleSendGameInvite("uno")} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
@@ -919,7 +924,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                      <div className="w-10 h-10 bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-500">
                        <span className="material-symbols-outlined text-[20px]">style</span>
                      </div>
-                     <h4 className="font-headline text-xs font-bold text-on-surface">Uno Card Battle</h4>
+                     <h4 className="font-headline text-xs font-bold text-on-surface"><LocalizedText id="UI_0264" fallback={tr("UI_0264", "Uno Card Battle")} /></h4>
                    </div>
                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
@@ -930,7 +935,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                      <div className="w-10 h-10 bg-amber-400/10 rounded-xl flex items-center justify-center text-amber-400">
                        <span className="material-symbols-outlined text-[20px]">grid_3x3</span>
                      </div>
-                     <h4 className="font-headline text-xs font-bold text-on-surface">Tic-Tac-Toe Matrix</h4>
+                     <h4 className="font-headline text-xs font-bold text-on-surface"><LocalizedText id="UI_0265" fallback={tr("UI_0265", "Tic-Tac-Toe Matrix")} /></h4>
                    </div>
                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
@@ -941,7 +946,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                      <div className="w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center text-green-500">
                        <span className="material-symbols-outlined text-[20px]">sports_bar</span>
                      </div>
-                     <h4 className="font-headline text-xs font-bold text-on-surface">Snooker 3D</h4>
+                     <h4 className="font-headline text-xs font-bold text-on-surface"><LocalizedText id="UI_0267" fallback={tr("UI_0267", "Snooker 3D")} /></h4>
                    </div>
                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
@@ -952,7 +957,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                      <div className="w-10 h-10 bg-secondary-container rounded-xl flex items-center justify-center text-secondary">
                        <span className="material-symbols-outlined text-[20px]">psychology</span>
                      </div>
-                     <h4 className="font-headline text-xs font-bold text-on-surface">Grandmaster Chess</h4>
+                     <h4 className="font-headline text-xs font-bold text-on-surface"><LocalizedText id="UI_0269" fallback={tr("UI_0269", "Grandmaster Chess")} /></h4>
                    </div>
                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
@@ -961,7 +966,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                 <button onClick={() => handleSendGameInvite("pool")} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
                    <div className="flex items-center gap-4">
                      <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center text-cyan-500"><span className="material-symbols-outlined text-[20px]">sports_bar</span></div>
-                     <h4 className="font-headline text-xs font-bold text-on-surface">8-Ball Pool</h4>
+                     <h4 className="font-headline text-xs font-bold text-on-surface"><LocalizedText id="UI_0270" fallback={tr("UI_0270", "8-Ball Pool")} /></h4>
                    </div>
                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
@@ -972,7 +977,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                      <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-500">
                        <span className="material-symbols-outlined text-[20px]">radio_button_checked</span>
                      </div>
-                     <h4 className="font-headline text-xs font-bold text-on-surface">Carrom Matrix</h4>
+                     <h4 className="font-headline text-xs font-bold text-on-surface"><LocalizedText id="UI_0272" fallback={tr("UI_0272", "Carrom Matrix")} /></h4>
                    </div>
                    <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
@@ -983,7 +988,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                      <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500">
                        <span className="material-symbols-outlined text-[20px]">grid_4x4</span>
                      </div>
-                     <h4 className="font-headline text-xs font-bold text-on-surface">Neon Checkers</h4>
+                     <h4 className="font-headline text-xs font-bold text-on-surface"><LocalizedText id="UI_0273" fallback={tr("UI_0273", "Neon Checkers")} /></h4>
                    </div>
                   <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                 </button>
@@ -993,15 +998,15 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                       <div className={`w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center ${game.accent}`}>
                         <span className="material-symbols-outlined text-[20px]">{game.icon}</span>
                       </div>
-                      <span><h4 className="font-headline text-xs font-bold text-on-surface">{game.name}</h4><small className="text-[10px] text-on-surface-variant">Challenge one friend</small></span>
+                      <span><h4 className="font-headline text-xs font-bold text-on-surface">{game.name}</h4><small className="text-[10px] text-on-surface-variant"><LocalizedText id="UI_0274" fallback="Challenge one friend" /></small></span>
                     </div>
                     <span className="material-symbols-outlined text-on-surface-variant text-base">chevron_right</span>
                   </button>
                 ))}
-                <p className="px-1 pt-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Four-player tables</p>
+                <p className="px-1 pt-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant"><LocalizedText id="UI_0132" fallback={tr("UI_0132", "Four-player tables")} /></p>
                 {FOUR_PLAYER_CHALLENGES.map((game) => (
                   <button key={game.type} onClick={() => openFourPlayerInvite(game.type)} className="w-full flex items-center justify-between p-3 bg-background border border-surface-container-highest rounded-[16px] hover:bg-surface-variant transition-colors shadow-sm">
-                    <div className="flex items-center gap-4"><div className={`w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center ${game.accent}`}><span className="material-symbols-outlined text-[20px]">{game.icon}</span></div><span><h4 className="font-headline text-xs font-bold text-on-surface">{game.name}</h4><small className="text-[10px] text-on-surface-variant">Invite up to 3 friends</small></span></div>
+                    <div className="flex items-center gap-4"><div className={`w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center ${game.accent}`}><span className="material-symbols-outlined text-[20px]">{game.icon}</span></div><span><h4 className="font-headline text-xs font-bold text-on-surface">{game.name}</h4><small className="text-[10px] text-on-surface-variant"><LocalizedText id="UI_0133" fallback="Invite up to 3 friends" /></small></span></div>
                     <span className="material-symbols-outlined text-on-surface-variant text-base">group_add</span>
                   </button>
                 ))}
@@ -1010,10 +1015,10 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
 
             {inviteStep === "four_player" && fourPlayerGame && (
               <>
-                <div className="flex items-center justify-between px-1 mb-2"><div className="flex items-center gap-2"><button onClick={() => setInviteStep("game")} className="text-on-surface-variant hover:text-on-surface"><span className="material-symbols-outlined text-base">arrow_back</span></button><div><h3 className="font-headline text-sm font-black uppercase text-on-surface">Invite 3 players</h3><p className="text-[10px] text-on-surface-variant">All accepted invites join one shared table.</p></div></div><span className="rounded-full bg-primary-container px-2 py-1 text-[10px] font-black text-primary">{selectedFourPlayerInvitees.length}/3</span></div>
+                <div className="flex items-center justify-between px-1 mb-2"><div className="flex items-center gap-2"><button onClick={() => setInviteStep("game")} className="text-on-surface-variant hover:text-on-surface"><span className="material-symbols-outlined text-base">arrow_back</span></button><div><h3 className="font-headline text-sm font-black uppercase text-on-surface"><LocalizedText id="UI_0136" fallback={tr("UI_0136", "Invite 3 players")} /></h3><p className="text-[10px] text-on-surface-variant"><LocalizedText id="UI_0135" fallback={tr("UI_0135", "All accepted invites join one shared table.")} /></p></div></div><span className="rounded-full bg-primary-container px-2 py-1 text-[10px] font-black text-primary">{selectedFourPlayerInvitees.length}/3</span></div>
                 <div className="space-y-2">{friends.filter((friend) => friend.id !== myUserId).map((friend) => { const selected = selectedFourPlayerInvitees.includes(friend.id); return <button key={friend.id} onClick={() => setSelectedFourPlayerInvitees((current) => selected ? current.filter((id) => id !== friend.id) : current.length < 3 ? [...current, friend.id] : current)} className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left ${selected ? "border-primary bg-primary-container/30" : "border-surface-container-highest bg-background"}`}><span className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-surface-container-high font-bold">{friend.avatar_url ? <img src={friend.avatar_url} alt="" className="h-full w-full object-cover" /> : friend.username.slice(0, 1)}</span><span className="min-w-0 flex-1 truncate text-xs font-bold text-on-surface">{friend.username}</span><span className="material-symbols-outlined text-primary">{selected ? "check_circle" : "add_circle"}</span></button>; })}</div>
-                {friends.length === 0 && <p className="rounded-2xl bg-background p-4 text-center text-xs text-on-surface-variant">Add friends before creating a four-player table.</p>}
-                <button disabled={selectedFourPlayerInvitees.length === 0} onClick={() => void sendFourPlayerInvites()} className="mt-3 w-full rounded-2xl bg-primary py-3 text-xs font-black uppercase text-on-primary disabled:opacity-40">Send table invitations</button>
+                {friends.length === 0 && <p className="rounded-2xl bg-background p-4 text-center text-xs text-on-surface-variant"><LocalizedText id="UI_0139" fallback={tr("UI_0139", "Add friends before creating a four-player table.")} /></p>}
+                <button disabled={selectedFourPlayerInvitees.length === 0} onClick={() => void sendFourPlayerInvites()} className="mt-3 w-full rounded-2xl bg-primary py-3 text-xs font-black uppercase text-on-primary disabled:opacity-40"><LocalizedText id="UI_0140" fallback={tr("UI_0140", "Send table invitations")} /></button>
               </>
             )}
 
@@ -1022,15 +1027,15 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                 <div className="flex justify-between items-center px-1 mb-2">
                   <div className="flex items-center gap-2">
                     <button onClick={() => setInviteStep("game")} className="text-on-surface-variant hover:text-on-surface"><span className="material-symbols-outlined text-base">arrow_back</span></button>
-                    <h3 className="font-headline text-sm font-black uppercase text-on-surface">Rule Mode</h3>
+                    <h3 className="font-headline text-sm font-black uppercase text-on-surface"><LocalizedText id="UI_0142" fallback={tr("UI_0142", "Rule Mode")} /></h3>
                   </div>
                 </div>
                 <button onClick={() => handleSendGameInvite("carrom", "freestyle")} className="w-full p-4 bg-background border border-surface-container-highest rounded-[16px] text-left font-headline text-xs text-on-surface flex justify-between items-center hover:bg-surface-variant shadow-sm">
-                  <span>Freestyle Mode (Fast)</span>
+                  <span><LocalizedText id="UI_0143" fallback={tr("UI_0143", "Freestyle Mode (Fast)")} /></span>
                   <span className="material-symbols-outlined text-sm text-amber-500">send</span>
                 </button>
                 <button onClick={() => handleSendGameInvite("carrom", "classic")} className="w-full p-4 bg-background border border-surface-container-highest rounded-[16px] text-left font-headline text-xs text-on-surface flex justify-between items-center hover:bg-surface-variant shadow-sm">
-                  <span>Classic Mode (Tactical)</span>
+                  <span><LocalizedText id="UI_0144" fallback={tr("UI_0144", "Classic Mode (Tactical)")} /></span>
                   <span className="material-symbols-outlined text-sm text-amber-500">send</span>
                 </button>
               </>
@@ -1051,26 +1056,26 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
           
           <div className="flex min-w-0 items-center gap-2">
             <div className="relative h-10 w-10 shrink-0 overflow-visible rounded-full bg-surface-container-high">
-              <div className="absolute inset-1 overflow-hidden rounded-full"><Image src={activeChat?.avatar_url || "/logo-dark.jpeg"} alt="User" fill className="object-cover" unoptimized /></div>
+              <div className="absolute inset-1 overflow-hidden rounded-full"><Image src={activeChat?.avatar_url || "/logo-dark.jpeg"} alt={tr("UI_0145", "User")} fill className="object-cover" unoptimized /></div>
               {activeChat?.avatar_frame_url && <Image src={activeChat.avatar_frame_url} alt="" fill className="pointer-events-none absolute inset-0 scale-[1.2] object-contain" unoptimized />}
             </div>
             <div className="min-w-0">
               <h3 className="truncate font-headline text-sm font-bold text-on-surface leading-tight">{activeChat?.username}</h3>
               <span className={`font-caps text-[9px] font-black uppercase tracking-[0.12em] flex items-center gap-1 mt-1 ${activeChat && isOnline(activeChat) ? "text-primary" : "text-on-surface-variant"}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${activeChat && isOnline(activeChat) ? "bg-primary animate-pulse" : "bg-on-surface-variant"}`}></span> {activeChat && isOnline(activeChat) ? "Comms online" : "Offline"}
+                <span className={`w-1.5 h-1.5 rounded-full ${activeChat && isOnline(activeChat) ? "bg-primary animate-pulse" : "bg-on-surface-variant"}`}></span> {activeChat && isOnline(activeChat) ? tr("UI_0146", "Comms online") : tr("UI_0147", "Offline")}
               </span>
             </div>
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <button onClick={() => activeChat && setViewingProfileId(activeChat.id)} aria-label="View profile" className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-high text-on-surface"><span className="material-symbols-outlined text-[20px]">person</span></button>
+          <button onClick={() => activeChat && setViewingProfileId(activeChat.id)} aria-label={tr("UI_0010", "View profile")} className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-high text-on-surface"><span className="material-symbols-outlined text-[20px]">person</span></button>
         </div>
       </div>
 
       {/* 💬 MESSAGE CHANNEL CORE VIEWPORTS */}
       <div className="relative min-h-0 flex-1 w-full overflow-y-auto overscroll-contain px-5 py-4 space-y-5 no-scrollbar">
-        {chatLoading && <div className="py-8 text-center text-xs font-bold text-on-surface-variant animate-pulse">Loading conversation…</div>}
+        {chatLoading && <div className="py-8 text-center text-xs font-bold text-on-surface-variant animate-pulse"><LocalizedText id="UI_0148" fallback={tr("UI_0148", "Loading conversation…")} /></div>}
         {!chatLoading && messages.map((msg) => {
           const isMe = msg.sender_id === myUserId;
           const isUno = msg.game_name?.includes("Uno");
@@ -1136,7 +1141,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                   </div>
                 )}
                 {msg.message_type === 'attachment' && (
-                  <a href={msg.content} target="_blank" rel="noreferrer" className="rounded-2xl bg-surface border border-surface-container-highest px-4 py-3 text-xs font-bold text-primary">Open attachment</a>
+                  <a href={msg.content} target="_blank" rel="noreferrer" className="rounded-2xl bg-surface border border-surface-container-highest px-4 py-3 text-xs font-bold text-primary"><LocalizedText id="UI_0160" fallback={tr("UI_0160", "Open attachment")} /></a>
                 )}
 
                 {msg.message_type === 'game_invite' && (
@@ -1160,21 +1165,20 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                     </div>
                     <div>
                       <h4 className="font-headline text-sm font-bold text-on-surface leading-tight mt-1">{msg.game_name}</h4>
-                      <p className="font-caps text-[9px] text-on-surface-variant font-bold uppercase tracking-widest mt-1">Match Challenge</p>
+                      <p className="font-caps text-[9px] text-on-surface-variant font-bold uppercase tracking-widest mt-1"><LocalizedText id="UI_0161" fallback={tr("UI_0161", "Match Challenge")} /></p>
                     </div>
 
                     <div className="w-full mt-3">
                       {msg.invite_status === 'pending' && (
                         isMe ? (
-                          <div className="font-headline text-[11px] font-bold py-2 rounded-xl text-on-surface-variant bg-background border border-surface-container-highest">Awaiting...</div>
+                          <div className="font-headline text-[11px] font-bold py-2 rounded-xl text-on-surface-variant bg-background border border-surface-container-highest"><LocalizedText id="UI_0162" fallback={tr("UI_0162", "Awaiting...")} /></div>
                         ) : (
                           <div className="flex gap-2">
                             <button 
                               onClick={() => updateInviteStatus(msg.id, 'declined')} 
                               className="flex-1 py-2 bg-background border border-surface-container-highest text-on-surface font-headline font-bold text-[11px] rounded-xl hover:bg-surface-variant transition-colors"
                             >
-                              Decline
-                            </button>
+                              <LocalizedText id="UI_0243" fallback={tr("UI_0243", "Decline")} /></button>
                             <button 
                               onClick={async () => {
                                 if (isLockedOut) {
@@ -1205,12 +1209,11 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                               disabled={isLockedOut}
                               className="flex-1 py-2 bg-primary text-on-primary font-headline font-bold text-[11px] rounded-xl hover:opacity-90 disabled:opacity-40 transition-colors"
                             >
-                              Accept
-                            </button>
+                              <LocalizedText id="UI_0241" fallback={tr("UI_0241", "Accept")} /></button>
                           </div>
                         )
                       )}
-                      {msg.invite_status === 'declined' && <div className="font-headline text-[11px] text-red-500 font-bold py-2 bg-red-500/10 rounded-xl">Declined</div>}
+                      {msg.invite_status === 'declined' && <div className="font-headline text-[11px] text-red-500 font-bold py-2 bg-red-500/10 rounded-xl"><LocalizedText id="UI_0164" fallback={tr("UI_0164", "Declined")} /></div>}
                       {msg.invite_status === 'accepted' && (
                         <button 
                           onClick={() => {
@@ -1223,8 +1226,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
                           className="w-full py-2.5 bg-primary text-on-primary font-headline font-bold text-[11px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-1 shadow-sm transition-transform active:scale-95"
                         >
                           <span className="material-symbols-outlined text-[16px]">play_arrow</span>
-                          Enter Arena
-                        </button>
+                          <LocalizedText id="UI_0166" fallback={tr("UI_0166", "Enter Arena")} /></button>
                       )}
                     </div>
                   </div>
@@ -1258,7 +1260,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
         </button>
         {showComposerMenu && (
           <div className="absolute bottom-16 left-12 z-50 rounded-2xl border border-surface-container-highest bg-surface p-3 shadow-2xl">
-            <button type="button" onClick={() => attachmentInputRef.current?.click()} className="mb-2 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs font-bold text-on-surface hover:bg-surface-variant"><span className="material-symbols-outlined text-base">attach_file</span>Attach file</button>
+            <button type="button" onClick={() => attachmentInputRef.current?.click()} className="mb-2 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs font-bold text-on-surface hover:bg-surface-variant"><span className="material-symbols-outlined text-base">attach_file</span><LocalizedText id="UI_0168" fallback={tr("UI_0168", "Attach file")} /></button>
             <div className="flex gap-2">{['👍','🔥','😂','🎮','👏'].map((emote) => <button key={emote} type="button" onClick={() => sendEmote(emote)} className="text-xl">{emote}</button>)}</div>
           </div>
         )}
@@ -1268,7 +1270,7 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Message..."
+            placeholder={tr("UI_0170", "Message...")}
             className="flex-1 bg-transparent border-none font-body text-[13px] text-on-surface placeholder-on-surface-variant focus:outline-none px-4 py-2 w-full"
           />
           <button

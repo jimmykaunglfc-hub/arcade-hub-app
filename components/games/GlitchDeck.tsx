@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import { useState } from "react";
 import { soundEngine } from "../../lib/soundManager";
 
@@ -87,11 +91,9 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
           onClick={handleExit}
           className="flex items-center gap-1.5 text-xs font-bold text-neutral-400 hover:text-white transition-colors uppercase tracking-widest active:scale-95"
         >
-          <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> Exit Arena
-        </button>
+          <span className="material-symbols-outlined text-sm">arrow_back_ios_new</span> <LocalizedText id="UI_0348" fallback="Exit Arena" /></button>
         <span className="text-[10px] font-black uppercase tracking-widest text-[#CCFF00]">
-          GLITCH DECK v1.0
-        </span>
+          <LocalizedText id="UI_0838" fallback="GLITCH DECK v1.0" /></span>
         <div className="w-14"></div>
       </header>
 
@@ -102,18 +104,16 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
             <span className="material-symbols-outlined text-[#CCFF00] text-4xl">layers</span>
           </div>
           <h1 className="text-3xl font-black text-white mb-2 text-center tracking-tight font-headline">
-            Glitch Deck
-          </h1>
+            <LocalizedText id="UI_0814" fallback={tr("UI_0814", "Glitch Deck")} /></h1>
           <p className="text-xs text-neutral-400 text-center mb-8 leading-relaxed max-w-[280px]">
-            Take turns tapping system nodes. Avoid drawing the corrupted glitch matrix.
-          </p>
+            <LocalizedText id="UI_0815" fallback={tr("UI_0815", "Take turns tapping system nodes. Avoid drawing the corrupted glitch matrix.")} /></p>
 
           {/* Player Adjustment Slider */}
           <div className="w-full bg-[#18181b] border border-white/10 p-5 rounded-2xl shadow-inner mb-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 text-neutral-400">
                 <span className="material-symbols-outlined text-lg">group</span>
-                <span className="font-bold text-xs uppercase tracking-wider">Total Nodes</span>
+                <span className="font-bold text-xs uppercase tracking-wider"><LocalizedText id="UI_0816" fallback={tr("UI_0816", "Total Nodes")} /></span>
               </div>
               <span className="text-xl font-black text-[#CCFF00]">{playerCount}</span>
             </div>
@@ -134,7 +134,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
           <div className="w-full flex justify-between items-center bg-[#18181b] border border-white/10 p-4 rounded-2xl mb-8">
             <div className="flex items-center gap-2 text-neutral-400">
               <span className="material-symbols-outlined text-lg">skull</span>
-              <span className="text-xs font-bold uppercase tracking-wider">Breach Penalty:</span>
+              <span className="text-xs font-bold uppercase tracking-wider"><LocalizedText id="UI_0818" fallback={tr("UI_0818", "Breach Penalty:")} /></span>
             </div>
             <button
               onClick={cycleTheme}
@@ -155,8 +155,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
             onClick={startGame}
             className="w-full py-4 bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black rounded-2xl tracking-widest transition-transform active:scale-95 shadow-[0_0_25px_rgba(204,255,0,0.25)] text-sm"
           >
-            INITIALIZE MATRIX
-          </button>
+            <LocalizedText id="UI_0822" fallback={tr("UI_0822", "INITIALIZE MATRIX")} /></button>
         </div>
       )}
 
@@ -166,8 +165,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
           <div className="flex justify-between items-center mb-6">
             <div className="flex flex-col">
               <span className="text-[9px] text-neutral-500 uppercase tracking-widest font-black mb-0.5">
-                Secure Modules Left
-              </span>
+                <LocalizedText id="UI_0823" fallback={tr("UI_0823", "Secure Modules Left")} /></span>
               <span className="text-xl font-black text-white">
                 {cards.filter((c) => !c.isFlipped).length}{" "}
                 <span className="text-xs font-medium text-neutral-500">/ {playerCount}</span>
@@ -231,8 +229,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
                             error
                           </span>
                           <span className="text-[9px] font-black tracking-widest text-white uppercase">
-                            GLITCH
-                          </span>
+                            <LocalizedText id="UI_0825" fallback={tr("UI_0825", "GLITCH")} /></span>
                         </>
                       ) : (
                         <>
@@ -240,8 +237,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
                             verified
                           </span>
                           <span className="text-[9px] font-black tracking-widest text-white uppercase">
-                            SECURE
-                          </span>
+                            <LocalizedText id="UI_0827" fallback={tr("UI_0827", "SECURE")} /></span>
                         </>
                       )}
                     </div>
@@ -252,7 +248,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
           </div>
 
           <p className="text-[10px] text-neutral-400 font-bold tracking-widest uppercase text-center mt-6 pb-8 animate-pulse">
-            {gameStatus === "playing" ? "⚡ Access a node module ⚡" : "💀 Security breach detected 💀"}
+            {gameStatus === "playing" ? tr("UI_0828", "⚡ Access a node module ⚡") : tr("UI_0829", "💀 Security breach detected 💀")}
           </p>
         </div>
       )}
@@ -276,18 +272,16 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
             </div>
 
             <h2 className="text-xl font-black text-white tracking-tight mb-4 font-headline uppercase">
-              System Breached
-            </h2>
+              <LocalizedText id="UI_0830" fallback={tr("UI_0830", "System Breached")} /></h2>
 
             <div className="bg-red-500/10 border border-red-500/20 p-5 rounded-2xl mb-6 shadow-inner">
               <span className="text-[9px] font-black uppercase tracking-widest text-red-400 mb-2 block">
-                System Execution
-              </span>
+                <LocalizedText id="UI_0831" fallback={tr("UI_0831", "System Execution")} /></span>
               <p className="text-lg font-black text-red-100">
-                {penaltyTheme === "Drink" && "Take a shot! 🥃"}
-                {penaltyTheme === "Truth" && "Reveal a Secret! 🤫"}
-                {penaltyTheme === "Dare" && "Execute a Dare! 🎯"}
-                {penaltyTheme === "Standard" && "Node compromised. You lose! 💥"}
+                {penaltyTheme === "Drink" && tr("UI_0832", "Take a shot! 🥃")}
+                {penaltyTheme === "Truth" && tr("UI_0833", "Reveal a Secret! 🤫")}
+                {penaltyTheme === "Dare" && tr("UI_0834", "Execute a Dare! 🎯")}
+                {penaltyTheme === "Standard" && tr("UI_0835", "Node compromised. You lose! 💥")}
               </p>
             </div>
 
@@ -299,8 +293,7 @@ export default function GlitchDeck({ onClose }: { onClose: () => void }) {
               }}
               className="w-full py-3.5 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl tracking-widest transition-transform active:scale-95 shadow-md flex items-center justify-center gap-2 text-xs uppercase"
             >
-              <span className="material-symbols-outlined text-sm">refresh</span> Reboot Deck
-            </button>
+              <span className="material-symbols-outlined text-sm">refresh</span> <LocalizedText id="UI_0837" fallback={tr("UI_0837", "Reboot Deck")} /></button>
           </div>
         </div>
       )}

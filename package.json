@@ -9,7 +9,9 @@
     "build:android:production": "node scripts/build-android-production.mjs",
     "analyze:bundle": "next experimental-analyze --output",
     "generate:i18n": "node scripts/generate-i18n.mjs",
-    "check:i18n": "node scripts/generate-i18n.mjs --check",
+    "sync:i18n": "node scripts/sync-i18n-from-google-sheet.mjs",
+    "check:i18n": "node scripts/sync-i18n-from-google-sheet.mjs --check",
+    "audit:i18n": "node scripts/audit-localization.mjs",
     "start": "next start",
     "lint": "eslint"
   },

@@ -27,6 +27,7 @@ const checkOnly = process.argv.includes("--check");
 const suppliedWorkbook = process.argv.slice(2).find((value) => !value.startsWith("--"));
 const defaultWorkbook = path.join(root, "localization", "Joe Yoke Glossaries Files.xlsx");
 const workbookPath = suppliedWorkbook || process.env.JOE_YOKE_GLOSSARY || defaultWorkbook;
+const sourceUrl = process.env.JOE_YOKE_GLOSSARY_SOURCE_URL || "https://docs.google.com/spreadsheets/d/1dvKGQP0yRS71i9qMRnVeSy1RkQhRDgyuTxJZHHwtd4c/edit";
 
 if (!existsSync(workbookPath)) {
   throw new Error(
@@ -88,10 +89,13 @@ if (missingColumns.length) {
 
 const resources = Object.fromEntries(localeCodes.map((locale) => [locale, {}]));
 const sourceIndex = {};
-const errors = [];
+const fatalErrors = [];
 const unresolvedExpressions = [];
 const placeholderMismatches = [];
 const skippedRows = [];
+const missingTranslations = [];
+const sourceErrors = [];
+const invalidSourceValue = /^(?:#(?:ERROR!|REF!|VALUE!|N\/A)|#(?:DIV\/0!|NAME\?|NUM!|NULL!))$/i;
 
 for (const [index, row] of rows.entries()) {
   const rowNumber = index + 2;
@@ -101,7 +105,7 @@ for (const [index, row] of rows.entries()) {
     continue;
   }
   if (sourceIndex[key]) {
-    errors.push(`Row ${rowNumber}: duplicate key ${key}.`);
+    fatalErrors.push(`Row ${rowNumber}: duplicate key ${key}.`);
     continue;
   }
 
@@ -110,12 +114,25 @@ for (const [index, row] of rows.entries()) {
     skippedRows.push({ row: rowNumber, key, reason: "missing English source" });
     continue;
   }
+  if (invalidSourceValue.test(rawEnglish)) {
+    sourceErrors.push({ row: rowNumber, key, locations: cleanText(row.locations), locale: "en", value: rawEnglish, reason: "invalid spreadsheet error value" });
+    skippedRows.push({ row: rowNumber, key, reason: "invalid English source" });
+    continue;
+  }
   const variables = createVariableMap(rawEnglish);
   const normalized = {};
   for (const locale of localeCodes) {
     const source = cleanText(row[workbookColumns[locale]]);
     if (!source) {
-      errors.push(`Row ${rowNumber}: ${locale} translation is missing for ${key}.`);
+      if (locale === "en") {
+        fatalErrors.push(`Row ${rowNumber}: English source is missing for ${key}.`);
+      } else {
+        missingTranslations.push({ row: rowNumber, key, locations: cleanText(row.locations), locale });
+      }
+      continue;
+    }
+    if (invalidSourceValue.test(source)) {
+      sourceErrors.push({ row: rowNumber, key, locations: cleanText(row.locations), locale, value: source, reason: "invalid spreadsheet error value" });
       continue;
     }
     normalized[locale] = normalizeTemplate(source, variables);
@@ -146,8 +163,11 @@ for (const [index, row] of rows.entries()) {
     locations: cleanText(row.locations),
     placeholders: englishTokens,
     variableExpressions: Object.fromEntries(variables),
+    missingLocales: localeCodes.filter((locale) => !normalized[locale]),
   };
-  for (const locale of localeCodes) resources[locale][key] = normalized[locale];
+  for (const locale of localeCodes) {
+    if (normalized[locale]) resources[locale][key] = normalized[locale];
+  }
 }
 
 const locationAudit = { referencedFiles: new Set(), existingFiles: new Set(), missingFiles: new Set(), exactEnglishMatches: 0, unmatchedKeys: [] };
@@ -168,17 +188,20 @@ for (const [key, entry] of Object.entries(sourceIndex)) {
   else if (locations.length) locationAudit.unmatchedKeys.push(key);
 }
 
-if (errors.length) {
-  throw new Error(`Glossary validation failed:\n- ${errors.join("\n- ")}`);
+if (fatalErrors.length) {
+  throw new Error(`Glossary validation failed:\n- ${fatalErrors.join("\n- ")}`);
 }
 
 const report = {
   workbook: path.basename(workbookPath),
+  sourceUrl,
   entries: Object.keys(sourceIndex).length,
   locales: localeCodes,
   unresolvedExpressions,
   placeholderMismatches,
   skippedRows,
+  missingTranslations,
+  sourceErrors,
   locationAudit: {
     scannedSourceFiles: listSourceFiles(path.join(root, "app")).length + listSourceFiles(path.join(root, "components")).length + listSourceFiles(path.join(root, "lib")).length,
     referencedFiles: locationAudit.referencedFiles.size,
@@ -187,8 +210,35 @@ const report = {
     exactEnglishMatches: locationAudit.exactEnglishMatches,
     unmatchedKeys: locationAudit.unmatchedKeys,
   },
-  workbookChecksum: createHash("sha256").update(readFileSync(workbookPath)).digest("hex"),
+  // Google Sheets exports can carry volatile workbook metadata. Hash the
+  // parsed glossary instead, so a no-content-change export does not make the
+  // generated report appear stale.
+  glossaryChecksum: createHash("sha256").update(JSON.stringify(sourceIndex)).digest("hex"),
 };
+const sourceErrorsMarkdown = [
+  "# Localization source errors",
+  "",
+  `Generated from \`${path.basename(workbookPath)}\`. This report never invents a replacement translation.`,
+  "",
+  "## Invalid spreadsheet values",
+  "",
+  "| Key | Location | Locale | Value | Reason |",
+  "| --- | --- | --- | --- | --- |",
+  ...(sourceErrors.length
+    ? sourceErrors.map((item) => `| ${item.key} | ${item.locations || "—"} | ${item.locale} | ${item.value} | ${item.reason} |`)
+    : ["| None | — | — | — | — |"]),
+  "",
+  "## Missing translations",
+  "",
+  "The runtime falls back to English only for these genuinely blank selected-language values.",
+  "",
+  "| Key | Location | Locale |",
+  "| --- | --- | --- |",
+  ...(missingTranslations.length
+    ? missingTranslations.map((item) => `| ${item.key} | ${item.locations || "—"} | ${item.locale} |`)
+    : ["| None | — | — |"]),
+  "",
+];
 const outputs = {
   ...Object.fromEntries(localeCodes.map((locale) => [`${locale}.json`, resources[locale]])),
   "bootstrap.json": Object.fromEntries(localeCodes.map((locale) => [
@@ -203,14 +253,17 @@ const outputs = {
 };
 
 const formatJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
+const sourceErrorsPath = path.join(root, "docs", "localization-source-errors.md");
+const sourceErrorsDocument = `${sourceErrorsMarkdown.join("\n")}\n`;
 const changes = Object.entries(outputs).filter(([name, value]) => {
   const destination = path.join(outputDirectory, name);
   return !existsSync(destination) || readFileSync(destination, "utf8") !== formatJson(value);
 });
+const sourceErrorsOutOfDate = !existsSync(sourceErrorsPath) || readFileSync(sourceErrorsPath, "utf8") !== sourceErrorsDocument;
 
 if (checkOnly) {
-  if (changes.length) {
-    throw new Error(`Generated localization files are out of date: ${changes.map(([name]) => name).join(", ")}`);
+  if (changes.length || sourceErrorsOutOfDate) {
+    throw new Error(`Generated localization files are out of date: ${[...changes.map(([name]) => name), ...(sourceErrorsOutOfDate ? ["docs/localization-source-errors.md"] : [])].join(", ")}`);
   }
   console.log(`Localization resources are current (${report.entries} entries × ${localeCodes.length} locales).`);
   process.exit(0);
@@ -220,11 +273,13 @@ mkdirSync(outputDirectory, { recursive: true });
 for (const [name, value] of Object.entries(outputs)) {
   writeFileSync(path.join(outputDirectory, name), formatJson(value));
 }
+mkdirSync(path.dirname(sourceErrorsPath), { recursive: true });
+writeFileSync(sourceErrorsPath, sourceErrorsDocument);
 
 console.log(`Generated ${report.entries} localization entries for ${localeCodes.length} locales.`);
-if (unresolvedExpressions.length || placeholderMismatches.length || skippedRows.length) {
+if (unresolvedExpressions.length || placeholderMismatches.length || skippedRows.length || missingTranslations.length || sourceErrors.length) {
   console.warn(
-    `Generated with ${unresolvedExpressions.length} complex expressions, ${placeholderMismatches.length} translation placeholder mismatches, and ${skippedRows.length} skipped rows. ` +
-      "See lib/locales/generation-report.json before migrating affected dynamic strings.",
+    `Generated with ${unresolvedExpressions.length} complex expressions, ${placeholderMismatches.length} translation placeholder mismatches, ${missingTranslations.length} missing translations, ${sourceErrors.length} invalid source values, and ${skippedRows.length} skipped rows. ` +
+      "See lib/locales/generation-report.json and docs/localization-source-errors.md before migrating affected dynamic strings.",
   );
 }

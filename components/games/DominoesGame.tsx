@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, {
  useCallback,
  useEffect,
@@ -415,7 +420,7 @@ function HandDomino({
        type="button"
        onClick={onClick}
        disabled={disabled}
-       aria-label={`${domino.left}-${domino.right}${playable ? ", playable" : ""}`}
+       aria-label={`${domino.left}-${domino.right}${playable ? tr("UI_0742", ", playable") : ""}`}
        className={`h-[68px] w-[36px] shrink-0 overflow-hidden rounded-[7px] border-2 bg-gradient-to-br from-white to-stone-200 shadow-md transition ${
          selected
            ? "-translate-y-2 border-yellow-300 ring-4 ring-yellow-300/70"
@@ -737,8 +742,7 @@ function RealDominoTable({
        </div>
 
        <p className="mt-2 text-sm font-black">
-         Play the first domino
-       </p>
+         <LocalizedText id="UI_0744" fallback="Play the first domino" /></p>
      </div>
    );
  }
@@ -1538,7 +1542,7 @@ export default function Dominoes({
          <button
            type="button"
            onClick={() => void quitGame()}
-           aria-label={roomId ? "Quit Dominoes match" : "Back to Arcade Hub"}
+           aria-label={roomId ? tr("UI_0706", "Quit Dominoes match") : tr("UI_0373", "Back to Arcade Hub")}
              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-400/30 bg-slate-900/85 text-white shadow-sm transition active:scale-95"
            >
              <svg
@@ -1559,12 +1563,10 @@ export default function Dominoes({
 
          <div>
            <h1 className="text-lg font-black">
-             Dominoes
-           </h1>
+             <LocalizedText id="UI_1488" fallback="Dominoes" /></h1>
 
            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-emerald-700">
-             Double-Six Draw
-           </p>
+             <LocalizedText id="UI_0707" fallback="Double-Six Draw" /></p>
          </div>
        </div>
 
@@ -1575,22 +1577,20 @@ export default function Dominoes({
             onClick={() => void quitGame()}
             className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white shadow-sm active:scale-95"
           >
-            Quit
-          </button>
+            <LocalizedText id="UI_0708" fallback={tr("UI_0708", "Quit")} /></button>
         ) : (
           <button
             type="button"
             onClick={startNewGame}
             className="rounded-xl bg-amber-400 px-3 py-2 text-xs font-black shadow-sm active:scale-95"
           >
-            New
-          </button>
+            <LocalizedText id="UI_1468" fallback={tr("UI_1468", "New")} /></button>
         )}
 
          <button
            type="button"
            onClick={() => setShowRules(true)}
-           aria-label="How to play Dominoes"
+           aria-label={tr("UI_0709", "How to play Dominoes")}
            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ccff00] bg-slate-900 text-[#ccff00] shadow-[0_0_12px_rgba(204,255,0,0.2)] active:scale-95"
          >
            <span
@@ -1613,7 +1613,7 @@ export default function Dominoes({
        <div className="flex items-center justify-between rounded-2xl border border-emerald-800/20 bg-white/65 px-3 py-2 shadow-sm">
          <div className="min-w-[58px]">
            <span className="block text-[9px] font-black uppercase text-slate-500">
-             {roomId ? opponentName : "Computer"}
+             {roomId ? opponentName : tr("UI_0495", "Computer")}
            </span>
 
            <span className="text-xl font-black">
@@ -1637,8 +1637,7 @@ export default function Dominoes({
 
          <div className="min-w-[48px] text-right">
            <span className="block text-[9px] font-black uppercase text-slate-500">
-             Pile
-           </span>
+             <LocalizedText id="UI_0711" fallback="Pile" /></span>
 
            <span className="text-xl font-black text-amber-600">
              {drawPile.length}
@@ -1657,8 +1656,8 @@ export default function Dominoes({
            }`}
          >
            {currentPlayer === "you"
-             ? "Your turn"
-             : `${roomId ? opponentName : "Computer"}'s turn`}
+             ? tr("UI_0379", "Your turn")
+             : `${roomId ? opponentName : tr("UI_0495", "Computer")}'s turn`}
          </div>
 
          <div className="min-h-0 flex-1 overflow-hidden rounded-3xl bg-lime-200/65">
@@ -1678,8 +1677,7 @@ export default function Dominoes({
          <div className="flex shrink-0 items-center justify-between">
            <div>
              <span className="block text-[9px] font-black uppercase text-orange-950/55">
-               Your hand
-             </span>
+               <LocalizedText id="UI_0713" fallback="Your hand" /></span>
 
              <span className="text-base font-black">
                {yourHand.length} tiles
@@ -1690,8 +1688,7 @@ export default function Dominoes({
              {needsDraw && (
                <div className="pointer-events-none absolute -top-11 z-30 flex flex-col items-center animate-bounce">
                  <span className="whitespace-nowrap rounded-full border border-amber-200 bg-amber-400 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950 shadow-2xl">
-                   Tap to Draw
-                 </span>
+                   <LocalizedText id="UI_0714" fallback={tr("UI_0714", "Tap to Draw")} /></span>
 
                  <span className="text-lg font-black leading-none text-amber-300 drop-shadow-lg">
                    👇
@@ -1706,7 +1703,7 @@ export default function Dominoes({
                aria-label={
                  drawPile.length > 0
                    ? `Draw a domino. ${drawPile.length} remaining.`
-                   : "Pass your turn"
+                   : tr("UI_0716", "Pass your turn")
                }
                className={`min-w-[104px] rounded-xl border-2 px-4 py-2.5 text-xs font-black transition active:scale-95 disabled:cursor-default ${
                  needsDraw
@@ -1716,7 +1713,7 @@ export default function Dominoes({
              >
                {drawPile.length > 0
                  ? `Draw (${drawPile.length})`
-                 : "Pass"}
+                 : tr("UI_0718", "Pass")}
              </button>
            </div>
          </div>
@@ -1763,12 +1760,10 @@ export default function Dominoes({
          <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/75 p-5 backdrop-blur-sm">
            <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl">
              <h2 className="text-2xl font-black">
-               Choose an End
-             </h2>
+               <LocalizedText id="UI_0719" fallback={tr("UI_0719", "Choose an End")} /></h2>
 
              <p className="mt-2 text-sm text-slate-500">
-               This domino matches both open sides.
-             </p>
+               <LocalizedText id="UI_0720" fallback={tr("UI_0720", "This domino matches both open sides.")} /></p>
 
              <div className="mt-5 flex justify-center">
                <PreviewDomino
@@ -1788,8 +1783,7 @@ export default function Dominoes({
                  }
                  className="rounded-2xl bg-blue-600 py-3 font-black text-white"
                >
-                 Connect Left
-               </button>
+                 <LocalizedText id="UI_0721" fallback={tr("UI_0721", "Connect Left")} /></button>
 
                <button
                  type="button"
@@ -1802,8 +1796,7 @@ export default function Dominoes({
                  }
                  className="rounded-2xl bg-rose-600 py-3 font-black text-white"
                >
-                 Connect Right
-               </button>
+                 <LocalizedText id="UI_0722" fallback={tr("UI_0722", "Connect Right")} /></button>
              </div>
 
              <button
@@ -1814,8 +1807,7 @@ export default function Dominoes({
                }}
                className="mt-3 w-full rounded-2xl bg-slate-100 py-3 font-bold"
              >
-               Cancel
-             </button>
+               <LocalizedText id="UI_0094" fallback={tr("UI_0094", "Cancel")} /></button>
            </div>
          </div>
        )}
@@ -1836,21 +1828,19 @@ export default function Dominoes({
 
                <div>
                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#ccff00]">
-                   Dominoes
-                 </p>
+                   <LocalizedText id="UI_1488" fallback={tr("UI_1488", "Dominoes")} /></p>
                  <h2
                    id="dominoes-how-to-play-title"
                    className="text-2xl font-black"
                  >
-                   How to Play
-                 </h2>
+                   <LocalizedText id="UI_0394" fallback={tr("UI_0394", "How to Play")} /></h2>
                </div>
              </div>
 
              <button
                type="button"
                onClick={() => setShowRules(false)}
-               aria-label="Close how to play"
+               aria-label={tr("UI_0446", "Close how to play")}
                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-500 bg-slate-800 text-2xl font-black text-slate-200 transition hover:border-[#ccff00] hover:text-[#ccff00] active:scale-95"
              >
                ×
@@ -1859,12 +1849,12 @@ export default function Dominoes({
 
            <div className="mt-5 space-y-3">
              {[
-               ["🎲", "1. Start with seven", "You and the computer each receive seven dominoes."],
-               ["🔗", "2. Match an open end", "Play a tile whose number matches the left or right end of the chain."],
-               ["↔️", "3. Choose either side", "Select a playable domino, then choose the highlighted end where you want to place it."],
-               ["↕️", "4. Doubles stand upright", "Double dominoes stay the same size and are always shown in portrait position."],
-               ["📥", "5. Draw when blocked", "If no tile matches, draw from the pile. Pass only when the pile is empty."],
-               ["🏆", "6. Empty your hand", "The first player with no dominoes wins. If blocked, the lowest remaining pip total wins."],
+               ["🎲", tr("UI_0723", "1. Start with seven"), tr("UI_0724", "You and the computer each receive seven dominoes.")],
+               ["🔗", tr("UI_0725", "2. Match an open end"), tr("UI_0726", "Play a tile whose number matches the left or right end of the chain.")],
+               ["↔️", tr("UI_0727", "3. Choose either side"), tr("UI_0728", "Select a playable domino, then choose the highlighted end where you want to place it.")],
+               ["↕️", tr("UI_0729", "4. Doubles stand upright"), tr("UI_0730", "Double dominoes stay the same size and are always shown in portrait position.")],
+               ["📥", tr("UI_0731", "5. Draw when blocked"), tr("UI_0732", "If no tile matches, draw from the pile. Pass only when the pile is empty.")],
+               ["🏆", tr("UI_0733", "6. Empty your hand"), tr("UI_0734", "The first player with no dominoes wins. If blocked, the lowest remaining pip total wins.")],
              ].map(([icon, title, description]) => (
                <div
                  key={title}
@@ -1890,8 +1880,7 @@ export default function Dominoes({
              onClick={() => setShowRules(false)}
              className="mt-5 w-full rounded-2xl bg-gradient-to-b from-amber-400 to-amber-500 py-3.5 font-black uppercase tracking-wide text-slate-950 shadow-[0_5px_0_#c56b00] transition active:translate-y-1 active:shadow-none"
            >
-             Got It — Let&apos;s Play
-           </button>
+             <LocalizedText id="UI_0393" fallback={tr("UI_0393", "Got It — Let&apos;s Play")} /></button>
          </div>
        </div>
      )}
@@ -1909,10 +1898,10 @@ export default function Dominoes({
 
            <h2 className="mt-4 text-3xl font-black">
              {winner === "you"
-               ? "You Win!"
+               ? tr("UI_0409", "You Win!")
                : winner === "computer"
-                 ? `${roomId ? opponentName : "Computer"} Wins`
-                 : "Draw Game"}
+                 ? `${roomId ? opponentName : tr("UI_0495", "Computer")} Wins`
+                 : tr("UI_0738", "Draw Game")}
            </h2>
 
            <p className="mt-2 text-sm text-slate-500">
@@ -1922,8 +1911,7 @@ export default function Dominoes({
            <div className="mt-5 grid grid-cols-2 gap-3">
              <div className="rounded-2xl bg-emerald-100 p-3">
                <span className="block text-[9px] font-black uppercase text-emerald-700">
-                 Your pips
-               </span>
+                 <LocalizedText id="UI_0739" fallback={tr("UI_0739", "Your pips")} /></span>
 
                <span className="text-2xl font-black">
                  {getPipTotal(yourHand)}
@@ -1932,7 +1920,7 @@ export default function Dominoes({
 
              <div className="rounded-2xl bg-amber-100 p-3">
                <span className="block text-[9px] font-black uppercase text-amber-700">
-                 {roomId ? `${opponentName} pips` : "Computer pips"}
+                 {roomId ? `${opponentName} pips` : tr("UI_0741", "Computer pips")}
                </span>
 
                <span className="text-2xl font-black">
@@ -1948,8 +1936,7 @@ export default function Dominoes({
              onClick={startNewGame}
              className="mt-6 w-full rounded-2xl bg-emerald-500 py-3 font-black text-white"
            >
-             Play Again
-           </button>
+             <LocalizedText id="UI_0407" fallback={tr("UI_0407", "Play Again")} /></button>
          </div>
        </div>
      )}

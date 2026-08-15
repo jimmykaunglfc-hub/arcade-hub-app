@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { RealtimeChannel } from "@supabase/supabase-js";
@@ -1565,16 +1569,13 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               <span className="material-symbols-outlined text-3xl text-rose-400">monetization_on</span>
             </div>
             <h3 className="font-headline font-black text-xl text-white uppercase tracking-tight mb-1">
-              Insufficient Points
-            </h3>
+              <LocalizedText id="UI_0511" fallback={tr("UI_0511", "Insufficient Points")} /></h3>
             <p className="text-xs text-neutral-400 font-medium leading-relaxed mb-4">
-              You need <span className="text-[#CCFF00] font-bold">{entryFee} PTS</span> to play an online Pool match.
-            </p>
+              <LocalizedText id="UI_0513" fallback={tr("UI_0513", "You need")} /><span className="text-[#CCFF00] font-bold">{entryFee} <LocalizedText id="UI_0338" fallback={tr("UI_0338", "PTS")} /></span> <LocalizedText id="UI_1312" fallback={tr("UI_1312", "to play an online Pool match.")} /></p>
             <div className="w-full bg-[#09090b] border border-white/10 rounded-2xl p-3 mb-6 flex justify-between items-center">
-              <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Your Balance</span>
+              <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest"><LocalizedText id="UI_0514" fallback={tr("UI_0514", "Your Balance")} /></span>
               <span className="text-sm font-black font-mono text-rose-400">
-                {userPoints ?? 0} PTS
-              </span>
+                {userPoints ?? 0} <LocalizedText id="UI_0338" fallback={tr("UI_0338", "PTS")} /></span>
             </div>
             <div className="w-full space-y-2">
               <button
@@ -1585,14 +1586,12 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                 className="w-full bg-[#CCFF00] hover:bg-[#b3e600] text-black font-headline font-black text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-1.5 touch-manipulation"
               >
                 <span className="material-symbols-outlined text-base">shopping_cart</span>
-                Visit Store / Buy Points
-              </button>
+                <LocalizedText id="UI_0516" fallback={tr("UI_0516", "Visit Store / Buy Points")} /></button>
               <button
                 onClick={() => setShowNoPointsModal(false)}
                 className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-headline font-bold text-xs uppercase tracking-wider py-2.5 rounded-xl transition-all border border-white/5 touch-manipulation"
               >
-                Dismiss
-              </button>
+                <LocalizedText id="UI_1548" fallback={tr("UI_1548", "Dismiss")} /></button>
             </div>
           </div>
         </div>
@@ -1601,7 +1600,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
       {showMatchmaker && (
         <MatchmakingModal
           gameKey="pool" 
-          gameName="8-Ball Pool"
+          gameName={tr("UI_0270", "8-Ball Pool")}
           userId={myUserId || ""}
           onMatchFound={(matchData) => {
             setShowMatchmaker(false);
@@ -1629,9 +1628,8 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               </div>
               <div>
                 <h1 className="font-headline font-black text-xl tracking-tight text-white uppercase">
-                  8-Ball Pool
-                </h1>
-                <p className="text-xs text-neutral-400 font-medium mt-0.5">Select engagement mode</p>
+                  <LocalizedText id="UI_0270" fallback={tr("UI_0270", "8-Ball Pool")} /></h1>
+                <p className="text-xs text-neutral-400 font-medium mt-0.5"><LocalizedText id="UI_0317" fallback={tr("UI_0317", "Select engagement mode")} /></p>
               </div>
             </div>
 
@@ -1645,18 +1643,16 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className="bg-[#CCFF00]/10 text-[#CCFF00] text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
-                    {entryFee} PTS
-                  </span>
+                    {entryFee} <LocalizedText id="UI_0338" fallback={tr("UI_0338", "PTS")} /></span>
                   <div className="w-7 h-7 rounded-full bg-[#CCFF00] flex items-center justify-center text-black opacity-0 group-hover:opacity-100 transition-all translate-x-[-10px] group-hover:translate-x-0">
                     <span className="material-symbols-outlined text-sm font-black">arrow_forward</span>
                   </div>
                 </div>
               </div>
               <h3 className="font-headline font-black text-lg text-white mb-1 group-hover:text-[#CCFF00] transition-colors">
-                Find Online Match
-              </h3>
+                <LocalizedText id="UI_0311" fallback={tr("UI_0311", "Find Online Match")} /></h3>
               <p className="text-xs text-neutral-400 font-medium leading-relaxed">
-                Ranked & casual global<br />matchmaking
+                <LocalizedText id="UI_0521" fallback={tr("UI_0521", "Ranked & casual global")} /><br />matchmaking
               </p>
             </button>
 
@@ -1670,12 +1666,11 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                     <span className="material-symbols-outlined text-lg">dns</span>
                   </div>
                   <span className="bg-teal-500/10 text-teal-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
-                    Private
-                  </span>
+                    <LocalizedText id="UI_0316" fallback={tr("UI_0316", "Private")} /></span>
                 </div>
                 <div>
-                  <h3 className="font-headline font-bold text-sm text-white mb-0.5">Host Match</h3>
-                  <p className="text-[10px] text-neutral-400 font-medium">Create room code</p>
+                  <h3 className="font-headline font-bold text-sm text-white mb-0.5"><LocalizedText id="UI_0522" fallback={tr("UI_0522", "Host Match")} /></h3>
+                  <p className="text-[10px] text-neutral-400 font-medium"><LocalizedText id="UI_0342" fallback={tr("UI_0342", "Create room code")} /></p>
                 </div>
               </button>
 
@@ -1691,12 +1686,11 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                     <span className="material-symbols-outlined text-lg">sports_esports</span>
                   </div>
                   <span className="bg-pink-500/10 text-pink-400 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
-                    Offline
-                  </span>
+                    <LocalizedText id="UI_0147" fallback={tr("UI_0147", "Offline")} /></span>
                 </div>
                 <div>
-                  <h3 className="font-headline font-bold text-sm text-white mb-0.5">Pass & Play</h3>
-                  <p className="text-[10px] text-neutral-400 font-medium">Local device</p>
+                  <h3 className="font-headline font-bold text-sm text-white mb-0.5"><LocalizedText id="UI_0523" fallback={tr("UI_0523", "Pass & Play")} /></h3>
+                  <p className="text-[10px] text-neutral-400 font-medium"><LocalizedText id="UI_0343" fallback={tr("UI_0343", "Local device")} /></p>
                 </div>
               </button>
             </div>
@@ -1708,7 +1702,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                 </div>
                 <input
                   type="text"
-                  placeholder="ENTER ROOM CODE..."
+                  placeholder={tr("UI_0524", "ENTER ROOM CODE...")}
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   className="flex-1 min-w-0 bg-transparent text-sm font-headline font-bold text-white placeholder-neutral-600 focus:outline-none uppercase tracking-widest"
@@ -1720,16 +1714,14 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                 disabled={joinCode.length < 6}
                 className="shrink-0 bg-[#18181b] hover:bg-white/10 disabled:opacity-50 text-white px-5 py-3.5 rounded-2xl font-headline font-bold text-xs tracking-wider transition-all border border-white/5 uppercase touch-manipulation"
               >
-                Join
-              </button>
+                <LocalizedText id="UI_0229" fallback={tr("UI_0229", "Join")} /></button>
             </div>
 
             <button
               onClick={handleExitToHome}
               className="w-full flex items-center justify-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors font-headline text-[10px] font-bold tracking-widest uppercase touch-manipulation"
             >
-              <span className="material-symbols-outlined text-sm">logout</span> EXIT ARENA
-            </button>
+              <span className="material-symbols-outlined text-sm">logout</span> <LocalizedText id="UI_0525" fallback={tr("UI_0525", "EXIT ARENA")} /></button>
           </div>
         </div>
       )}
@@ -1737,8 +1729,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
       {playMode === "confirmed" && (
         <div className="absolute inset-0 z-[60] bg-[#09090b] flex flex-col items-center justify-center p-6 animate-fade-in">
           <div className="bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#CCFF00] px-4 py-1.5 rounded-full font-headline font-black text-xs tracking-widest mb-10 flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">auto_awesome</span> MATCH CONFIRMED
-          </div>
+            <span className="material-symbols-outlined text-sm">auto_awesome</span> <LocalizedText id="UI_0527" fallback={tr("UI_0527", "MATCH CONFIRMED")} /></div>
 
           <div className="flex items-center gap-6 mb-8 relative">
             <div className="w-20 h-20 bg-[#18181b] rounded-2xl border border-white/10 flex items-center justify-center rotate-[-5deg] shadow-2xl relative z-10">
@@ -1756,17 +1747,16 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
             </div>
           </div>
 
-          <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1">Opposing Player</p>
-          <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || "Player 2"}</h2>
+          <p className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mb-1"><LocalizedText id="UI_0279" fallback={tr("UI_0279", "Opposing Player")} /></p>
+          <h2 className="font-headline font-black text-3xl text-white mb-2">{localOpponent?.name || tr("UI_0528", "Player 2")}</h2>
           <p className="text-sm text-neutral-400 flex items-center gap-2 mb-12">
-            <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> Ranked • {localOpponent?.elo || 1200} ELO
-          </p>
+            <span className="w-2 h-2 rounded-full bg-[#CCFF00]"></span> <LocalizedText id="UI_0530" fallback={tr("UI_0530", "Ranked •")} />{localOpponent?.elo || 1200} <LocalizedText id="UI_0529" fallback={tr("UI_0529", "ELO")} /></p>
 
           <button
             onClick={enterConfirmedMatch}
             className="w-full max-w-[280px] bg-[#CCFF00] hover:bg-[#b3e600] text-black py-4 rounded-2xl font-headline font-black text-lg flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-[0_0_30px_rgba(204,255,0,0.2)] uppercase touch-manipulation"
           >
-            Enter Match <span className="material-symbols-outlined">arrow_forward</span>
+            <LocalizedText id="UI_0322" fallback={tr("UI_0322", "Enter Match")} /><span className="material-symbols-outlined">arrow_forward</span>
           </button>
         </div>
       )}
@@ -1777,12 +1767,12 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full pointer-events-none"></div>
             <div className="w-16 h-16 rounded-full border-[3px] border-amber-900/30 border-t-amber-400 animate-spin mb-6 relative z-10"></div>
             <h2 className="text-xl font-black text-white tracking-tight uppercase relative z-10 font-headline">
-              {playMode === "join" ? "Syncing Matrix..." : "Awaiting Opponent"}
+              {playMode === "join" ? tr("UI_0539", "Syncing Matrix...") : tr("UI_0538", "Awaiting Opponent")}
             </h2>
 
             {playMode === "host" && (
               <div className="mt-8 w-full relative z-10">
-                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mb-2">Share This Room Code</p>
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mb-2"><LocalizedText id="UI_0540" fallback={tr("UI_0540", "Share This Room Code")} /></p>
                 <div className="bg-[#09090b] border border-white/10 p-2.5 rounded-2xl flex items-center justify-between shadow-inner">
                   <span className="text-amber-400 font-mono text-2xl font-black tracking-[0.25em] pl-4 pt-1">{roomCode}</span>
                   <button
@@ -1792,7 +1782,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                     }`}
                   >
                     <span className="material-symbols-outlined text-sm">{copied ? "check" : "content_copy"}</span>
-                    {copied ? "Copied" : "Copy"}
+                    {copied ? tr("UI_0541", "Copied") : tr("UI_0320", "Copy")}
                   </button>
                 </div>
               </div>
@@ -1804,8 +1794,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               }}
               className="w-full mt-8 py-3.5 bg-white/5 text-neutral-300 hover:text-white font-bold text-xs uppercase tracking-wider rounded-xl active:scale-95 transition-all border border-white/5 relative z-10 touch-manipulation"
             >
-              Cancel Match
-            </button>
+              <LocalizedText id="UI_0542" fallback={tr("UI_0542", "Cancel Match")} /></button>
           </div>
         </div>
       )}
@@ -1833,7 +1822,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           {showSpinModal && (
             <div className="absolute inset-0 bg-black/75 backdrop-blur-sm z-[999999] flex justify-center items-center p-4">
               <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 flex flex-col items-center max-w-[280px] w-full shadow-2xl animate-fade-in">
-                <h3 className="text-white text-xs font-black uppercase tracking-widest mb-3">Cue Ball Strike Point</h3>
+                <h3 className="text-white text-xs font-black uppercase tracking-widest mb-3"><LocalizedText id="UI_1313" fallback={tr("UI_1313", "Cue Ball Strike Point")} /></h3>
                 <canvas
                   ref={spinCanvasRef}
                   width={160}
@@ -1846,7 +1835,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                   className="bg-transparent cursor-crosshair rounded-full shadow-inner mb-4 touch-none"
                 />
                 <div className="text-[10px] text-neutral-400 font-mono text-center">
-                  Spin (X: {spinOffset.x.toFixed(2)}, Y: {spinOffset.y.toFixed(2)})
+                  <LocalizedText id="UI_1315" fallback={tr("UI_1315", "Spin (X:")} />{spinOffset.x.toFixed(2)}<LocalizedText id="UI_1314" fallback={tr("UI_1314", ", Y:")} />{spinOffset.y.toFixed(2)})
                 </div>
               </div>
             </div>
@@ -1855,13 +1844,12 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           {winner && (
             <div className="absolute inset-0 bg-black/85 backdrop-blur-md flex flex-col justify-center items-center z-[999999] p-6 text-center animate-fade-in">
               <div className="text-5xl mb-4">🏆</div>
-              <h2 className="text-2xl font-black text-amber-400 uppercase tracking-widest mb-2">{winner} Wins!</h2>
+              <h2 className="text-2xl font-black text-amber-400 uppercase tracking-widest mb-2">{winner} <LocalizedText id="UI_1316" fallback={tr("UI_1316", "Wins!")} /></h2>
               <button
                 onClick={initBalls}
                 className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-black uppercase tracking-wider rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer mt-4"
               >
-                Play Again 🔄
-              </button>
+                <LocalizedText id="UI_1317" fallback={tr("UI_1317", "Play Again 🔄")} /></button>
             </div>
           )}
 
@@ -1869,8 +1857,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
             <div className="relative">
               {currentTurn === "player1" && (
                 <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-cyan-500 text-black font-black text-[8px] uppercase px-2.5 py-0.5 rounded-full tracking-widest shadow-lg animate-bounce z-10">
-                  TURN
-                </div>
+                  <LocalizedText id="UI_1318" fallback={tr("UI_1318", "TURN")} /></div>
               )}
               <div className={`flex flex-col items-start min-w-[70px] px-2 py-1 rounded-xl transition-all duration-300 ${currentTurn === "player1" ? "border-2 border-cyan-400/90 bg-cyan-950/40 shadow-[0_0_12px_rgba(34,211,238,0.3)] animate-pulse" : "bg-black/30 opacity-70"}`}>
                 <span className={`text-[9px] font-black ${currentTurn === "player1" ? "text-cyan-400" : "text-slate-400"} tracking-wider uppercase truncate max-w-[90px]`}>{player1Name}</span>
@@ -1886,7 +1873,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
             </div>
 
             <div className="flex items-center gap-1 bg-[#030712] px-2.5 py-1 rounded-full border border-slate-800">
-              <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase">TARGET</span>
+              <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase"><LocalizedText id="UI_1319" fallback={tr("UI_1319", "TARGET")} /></span>
               {currentActiveGroup === "Open" || isCurrentGroupCleared ? (
                 <PoolBallBadge num={8} size={16} />
               ) : currentActiveGroup === "Solids" ? (
@@ -1899,11 +1886,10 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
             <div className="relative">
               {currentTurn === "player2" && (
                 <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-rose-500 text-white font-black text-[8px] uppercase px-2.5 py-0.5 rounded-full tracking-widest shadow-lg animate-bounce z-10">
-                  TURN
-                </div>
+                  <LocalizedText id="UI_1318" fallback={tr("UI_1318", "TURN")} /></div>
               )}
               <div className={`flex flex-col items-end min-w-[70px] px-2 py-1 rounded-xl transition-all duration-300 ${currentTurn === "player2" ? "border-2 border-rose-500/90 bg-rose-950/40 shadow-[0_0_12px_rgba(244,63,94,0.3)] animate-pulse" : "bg-black/30 opacity-70"}`}>
-                <span className={`text-[9px] font-black ${currentTurn === "player2" ? "text-rose-400" : "text-slate-400"} tracking-wider uppercase truncate max-w-[90px]`}>{playMode === "bot" ? (localOpponent?.name || "Bot") : player2Name}</span>
+                <span className={`text-[9px] font-black ${currentTurn === "player2" ? "text-rose-400" : "text-slate-400"} tracking-wider uppercase truncate max-w-[90px]`}>{playMode === "bot" ? (localOpponent?.name || tr("UI_0577", "Bot")) : player2Name}</span>
                 <span className="text-[10px] font-black text-amber-400 uppercase truncate max-w-[70px]">{playerGroups.player2}</span>
               </div>
             </div>
@@ -1935,13 +1921,12 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               onClick={handleExitToHome}
               className="bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-black px-2.5 py-1.5 rounded-full uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md ml-0.5 touch-manipulation"
             >
-              EXIT
-            </button>
+              <LocalizedText id="UI_1321" fallback={tr("UI_1321", "EXIT")} /></button>
           </div>
 
           <div className="w-full max-w-[420px] flex justify-center items-center flex-1 my-0.5 relative min-h-0">
             <div className="flex flex-col items-center justify-between bg-[#091024]/80 py-3 px-1 rounded-2xl h-[55%] w-[40px] shadow-xl relative mr-1.5 self-center shrink-0">
-              <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1">PULL</span>
+              <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1"><LocalizedText id="UI_1322" fallback={tr("UI_1322", "PULL")} /></span>
               <div className="w-1.5 h-[80%] bg-slate-900 rounded-full relative flex items-center justify-center cursor-ns-resize">
                 <div
                   onPointerDown={handlePowerPointerDown}
@@ -1972,13 +1957,12 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                   }}
                   className="absolute top-4 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-[10px] uppercase px-4 py-1.5 rounded-full shadow-2xl active:scale-95 transition-all cursor-pointer animate-bounce z-20"
                 >
-                  CONFIRM POSITION
-                </button>
+                  <LocalizedText id="UI_1323" fallback={tr("UI_1323", "CONFIRM POSITION")} /></button>
               )}
             </div>
 
             <div className="flex flex-col items-center justify-between bg-[#091024]/80 py-3 px-1 rounded-2xl h-[55%] w-[40px] shadow-xl relative ml-1.5 self-center shrink-0">
-              <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1">TUNE</span>
+              <span className="text-[8px] font-black text-slate-400 tracking-widest uppercase mb-1"><LocalizedText id="UI_1324" fallback={tr("UI_1324", "TUNE")} /></span>
               <div
                 onPointerDown={handleWheelPointerDown}
                 onPointerMove={handleWheelPointerMove}
@@ -2000,7 +1984,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               <button
                 onClick={() => setShowSpinModal(true)}
                 className="w-6 h-6 rounded-full bg-white border-2 border-sky-400 flex items-center justify-center shadow-lg active:scale-95 transition-all cursor-pointer"
-                title="Set Spin"
+                title={tr("UI_1325", "Set Spin")}
               >
                 <div className="w-2 h-2 rounded-full bg-red-600" />
               </button>
@@ -2012,8 +1996,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               onClick={initBalls}
               className="bg-[#1e293b] hover:bg-slate-700 text-slate-200 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-lg touch-manipulation"
             >
-              RESET MATCH
-            </button>
+              <LocalizedText id="UI_1326" fallback={tr("UI_1326", "RESET MATCH")} /></button>
           </div>
         </div>
       )}

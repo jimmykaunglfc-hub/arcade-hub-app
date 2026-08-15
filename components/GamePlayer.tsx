@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import UnoGame from "./games/UnoGame";
 import Carrom from "./games/Carrom";
 import ChessGame from "./games/ChessGame";
@@ -111,14 +115,13 @@ export default function GamePlayer({
         // Fallback if slug is not matched
         return (
           <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col items-center justify-center p-6 text-white font-headline">
-            <h2 className="text-xl font-bold mb-2">Game Not Found</h2>
-            <p className="text-sm text-neutral-400 mb-6">Unable to launch game slug: {nativeSlug}</p>
+            <h2 className="text-xl font-bold mb-2"><LocalizedText id="UI_0350" fallback="Game Not Found" /></h2>
+            <p className="text-sm text-neutral-400 mb-6"><LocalizedText id="UI_0351" fallback="Unable to launch game slug:" />{nativeSlug}</p>
             <button 
               onClick={onClose}
               className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-full text-xs font-bold uppercase tracking-wider transition-all"
             >
-              Back to Arcade
-            </button>
+              <LocalizedText id="UI_0352" fallback="Back to Arcade" /></button>
           </div>
         );
     }
@@ -131,7 +134,7 @@ export default function GamePlayer({
       <div className="h-auto min-h-12 pb-2 bg-surface/90 backdrop-blur-md flex items-center justify-between px-4 border-b border-white/10 pt-safe">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
-          <span className="text-xs font-bold text-white tracking-widest uppercase">Playing</span>
+          <span className="text-xs font-bold text-white tracking-widest uppercase"><LocalizedText id="UI_0353" fallback="Playing" /></span>
         </div>
         
         {/* Close Button */}
@@ -148,7 +151,7 @@ export default function GamePlayer({
         <iframe 
           src={gameUrl}
           className="w-full h-full border-0"
-          title="Game Player"
+          title={tr("UI_0354", "Game Player")}
           allow="fullscreen; autoplay; gamepad"
         />
       </div>
@@ -157,5 +160,5 @@ export default function GamePlayer({
 }
 
 function GameUnavailable({ onClose }: { onClose: () => void }) {
-  return <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#09090b] p-6 text-center font-headline text-white"><h2 className="mb-2 text-xl font-bold">Game unavailable</h2><p className="mb-6 text-sm text-neutral-400">This game is currently being tested in the staging arcade.</p><button onClick={onClose} className="rounded-full bg-white/10 px-6 py-3 text-xs font-bold uppercase tracking-wider transition-colors hover:bg-white/20">Back to Arcade</button></div>;
+  return <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#09090b] p-6 text-center font-headline text-white"><h2 className="mb-2 text-xl font-bold"><LocalizedText id="UI_0355" fallback="Game unavailable" /></h2><p className="mb-6 text-sm text-neutral-400"><LocalizedText id="UI_0356" fallback="This game is currently being tested in the staging arcade." /></p><button onClick={onClose} className="rounded-full bg-white/10 px-6 py-3 text-xs font-bold uppercase tracking-wider transition-colors hover:bg-white/20"><LocalizedText id="UI_0352" fallback="Back to Arcade" /></button></div>;
 }

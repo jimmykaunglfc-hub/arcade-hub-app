@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -68,8 +72,7 @@ export default function GuestActionGate({ children }: { children: ReactNode }) {
       >
         <div className="w-full max-w-sm">
           <p role="status" className="mb-3 rounded-xl border border-primary/30 bg-primary-container px-4 py-3 text-center text-xs font-bold text-on-surface">
-            Sign in to claim rewards and play online.
-          </p>
+            <LocalizedText id="UI_1497" fallback={tr("UI_1497", "Sign in to claim rewards and play online.")} /></p>
           <AuthView
             onAuthSuccess={() => setShowSignIn(false)}
             onCancel={() => setShowSignIn(false)}

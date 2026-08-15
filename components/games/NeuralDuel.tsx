@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import { useState, useEffect, useRef } from "react";
 import { soundEngine } from "../../lib/soundManager";
 
@@ -116,14 +120,12 @@ export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
                 swords
               </span>
               <p className="font-headline font-black tracking-widest uppercase text-rose-500 text-sm">
-                Player 2 Zone
-              </p>
+                <LocalizedText id="UI_1214" fallback={tr("UI_1214", "Player 2 Zone")} /></p>
             </div>
           )}
           {gameStatus === "standby" && (
             <p className="text-3xl font-headline font-black tracking-widest text-neutral-500 animate-pulse uppercase">
-              Standby...
-            </p>
+              <LocalizedText id="UI_1216" fallback={tr("UI_1216", "Standby...")} /></p>
           )}
           {gameStatus === "execute" && (
             <p
@@ -131,22 +133,20 @@ export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
                 isNeonTheme ? "text-black" : "text-white"
               } drop-shadow-[0_0_20px_rgba(255,255,255,0.8)] scale-110 uppercase`}
             >
-              EXECUTE!
-            </p>
+              <LocalizedText id="UI_1218" fallback={tr("UI_1218", "EXECUTE!")} /></p>
           )}
           {gameStatus === "gameover" && winner === "p2" && (
             <p className="text-4xl font-headline font-black tracking-widest text-[#CCFF00] drop-shadow-md flex flex-col items-center gap-2 uppercase">
-              <span className="material-symbols-outlined text-[40px]">bolt</span> WINNER
-            </p>
+              <span className="material-symbols-outlined text-[40px]">bolt</span> <LocalizedText id="UI_1221" fallback={tr("UI_1221", "WINNER")} /></p>
           )}
           {gameStatus === "gameover" && loser === "p2" && (
             <div className="flex flex-col items-center gap-2 text-rose-500">
               <span className="material-symbols-outlined text-[40px]">skull</span>
               <p className="text-2xl font-headline font-black tracking-widest uppercase">
-                {winReason === "early-tap" ? "SHORT CIRCUIT!" : "TOO SLOW!"}
+                {winReason === "early-tap" ? tr("UI_1223", "SHORT CIRCUIT!") : tr("UI_1224", "TOO SLOW!")}
               </p>
               <p className="text-xs font-bold uppercase mt-1 opacity-80">
-                Penalty: {penaltyTheme}
+                <LocalizedText id="UI_1225" fallback={tr("UI_1225", "Penalty:")} />{penaltyTheme}
               </p>
             </div>
           )}
@@ -168,8 +168,7 @@ export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
         >
           {gameStatus === "idle" ? (
             <span className="font-headline font-black text-[11px] tracking-widest uppercase text-white leading-tight text-center">
-              Start<br />Duel
-            </span>
+              <LocalizedText id="UI_1227" fallback={tr("UI_1227", "Start")} /><br /><LocalizedText id="UI_1226" fallback={tr("UI_1226", "Duel")} /></span>
           ) : gameStatus === "gameover" ? (
             <span className="material-symbols-outlined text-[32px] text-white">refresh</span>
           ) : (
@@ -183,7 +182,7 @@ export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
             onClick={cycleTheme}
             className="absolute top-[125%] bg-[#18181b] border border-white/10 text-[9px] font-black uppercase tracking-widest text-neutral-400 hover:text-white px-3 py-1.5 rounded-full active:scale-95 whitespace-nowrap shadow-lg"
           >
-            Mode: {penaltyTheme}
+            <LocalizedText id="UI_1228" fallback={tr("UI_1228", "Mode:")} />{penaltyTheme}
           </button>
         )}
 
@@ -220,14 +219,12 @@ export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
                 swords
               </span>
               <p className="font-headline font-black tracking-widest uppercase text-cyan-500 text-sm">
-                Player 1 Zone
-              </p>
+                <LocalizedText id="UI_1229" fallback={tr("UI_1229", "Player 1 Zone")} /></p>
             </div>
           )}
           {gameStatus === "standby" && (
             <p className="text-3xl font-headline font-black tracking-widest text-neutral-500 animate-pulse uppercase">
-              Standby...
-            </p>
+              <LocalizedText id="UI_1216" fallback={tr("UI_1216", "Standby...")} /></p>
           )}
           {gameStatus === "execute" && (
             <p
@@ -235,22 +232,20 @@ export default function NeuralDuel({ onClose }: { onClose?: () => void }) {
                 isNeonTheme ? "text-black" : "text-white"
               } drop-shadow-[0_0_20px_rgba(255,255,255,0.8)] scale-110 uppercase`}
             >
-              EXECUTE!
-            </p>
+              <LocalizedText id="UI_1218" fallback={tr("UI_1218", "EXECUTE!")} /></p>
           )}
           {gameStatus === "gameover" && winner === "p1" && (
             <p className="text-4xl font-headline font-black tracking-widest text-[#CCFF00] drop-shadow-md flex flex-col items-center gap-2 uppercase">
-              <span className="material-symbols-outlined text-[40px]">bolt</span> WINNER
-            </p>
+              <span className="material-symbols-outlined text-[40px]">bolt</span> <LocalizedText id="UI_1221" fallback={tr("UI_1221", "WINNER")} /></p>
           )}
           {gameStatus === "gameover" && loser === "p1" && (
             <div className="flex flex-col items-center gap-2 text-rose-500">
               <span className="material-symbols-outlined text-[40px]">skull</span>
               <p className="text-2xl font-headline font-black tracking-widest uppercase">
-                {winReason === "early-tap" ? "SHORT CIRCUIT!" : "TOO SLOW!"}
+                {winReason === "early-tap" ? tr("UI_1223", "SHORT CIRCUIT!") : tr("UI_1224", "TOO SLOW!")}
               </p>
               <p className="text-xs font-bold uppercase mt-1 opacity-80">
-                Penalty: {penaltyTheme}
+                <LocalizedText id="UI_1225" fallback={tr("UI_1225", "Penalty:")} />{penaltyTheme}
               </p>
             </div>
           )}

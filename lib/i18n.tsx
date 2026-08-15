@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import bootstrap from "./locales/bootstrap.json";
 import placeholderIndex from "./locales/placeholder-index.json";
 
@@ -21,6 +21,8 @@ export type TranslationVariables = Record<string, unknown>;
 export type TranslationKey = string;
 
 const resources: Partial<Record<LanguageCode, Record<string, string>>> = {};
+const pendingResourceLoads: Partial<Record<LanguageCode, Promise<Record<string, string>>>> = {};
+let activeLanguage: LanguageCode = "en";
 const localeLoaders: Record<LanguageCode, () => Promise<{ default: Record<string, string> }>> = {
   en: () => import("./locales/en.json"),
   my: () => import("./locales/my.json"),
@@ -35,6 +37,18 @@ const localeLoaders: Record<LanguageCode, () => Promise<{ default: Record<string
 const localeNames: Record<LanguageCode, string> = {
   en: "en-US", my: "my-MM", th: "th-TH", zh: "zh-CN", km: "km-KH", lo: "lo-LA", fr: "fr-FR", de: "de-DE", es: "es-ES",
 };
+const ensureLocaleResource = async (language: LanguageCode) => {
+  if (resources[language]) return resources[language]!;
+  if (!pendingResourceLoads[language]) {
+    pendingResourceLoads[language] = localeLoaders[language]().then(({ default: locale }) => {
+      resources[language] = locale;
+      return locale;
+    }).finally(() => {
+      delete pendingResourceLoads[language];
+    });
+  }
+  return pendingResourceLoads[language]!;
+};
 
 // Existing Profile/navigation callers retain these aliases. New code should
 // always reference the permanent glossary key (for example, t("UI_0039")).
@@ -47,6 +61,13 @@ const legacyKeyAliases: Record<string, TranslationKey> = {
   adjustAppearance: "I18N_adjustAppearance", inGameAudio: "I18N_inGameAudio", vibrationInteractions: "I18N_vibrationInteractions",
   adminAlerts: "I18N_adminAlerts", accountLegal: "I18N_accountLegal", cosmetics: "UI_1692", manageAccount: "UI_1651",
   helpSupport: "UI_1653", privacyPolicy: "UI_1595", termsService: "UI_1597", editNamePhoto: "UI_1604",
+  // The Sheet retains these historical I18N rows for traceability. Resolve
+  // duplicates through the canonical UI key so the app never maintains two
+  // runtime translations for one concept.
+  I18N_home: "UI_0039", I18N_explore: "UI_0040", I18N_store: "UI_0037", I18N_chats: "UI_0036", I18N_profile: "UI_0038",
+  I18N_notifications: "UI_1555", I18N_back: "UI_0281", I18N_activityHistory: "UI_1615", I18N_cancel: "UI_0094",
+  I18N_loading: "UI_1670", I18N_cosmetics: "UI_1692", I18N_manageAccount: "UI_1651", I18N_helpSupport: "UI_1653",
+  I18N_privacyPolicy: "UI_1595", I18N_termsService: "UI_1597", I18N_editNamePhoto: "UI_1604",
 };
 
 const warned = new Set<string>();
@@ -72,9 +93,9 @@ const interpolate = (template: string, variables: TranslationVariables, key: str
     return String(value);
   });
 
-export function translate(language: LanguageCode, requestedKey: string, variables: TranslationVariables = {}) {
+export function translate(language: LanguageCode, requestedKey: string, variables: TranslationVariables = {}, fallback?: string) {
   const key = resolveKey(requestedKey);
-  const english = resources.en?.[key] || (bootstrap as Record<LanguageCode, Record<string, string>>).en[key];
+  const english = resources.en?.[key] || (bootstrap as Record<LanguageCode, Record<string, string>>).en[key] || fallback;
   if (!english) {
     warnOnce(`Missing glossary key "${requestedKey}".`);
     return requestedKey;
@@ -97,15 +118,23 @@ export function translate(language: LanguageCode, requestedKey: string, variable
   return interpolate(template, variables, key);
 }
 
+/**
+ * Compatibility helper for legacy JSX attributes/configuration values. New
+ * components should prefer `useTranslation().t`; this helper shares the same
+ * active locale and is only used for an exact, glossary-backed migration.
+ */
+export const tr = (key: string, fallback: string, variables: TranslationVariables = {}) =>
+  translate(activeLanguage, key, variables, fallback);
+
 type TranslationContextValue = {
   language: LanguageCode;
-  setLanguage: (code: LanguageCode) => void;
+  setLanguage: (code: LanguageCode) => Promise<void>;
   t: (key: string, variables?: TranslationVariables) => string;
   formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string;
 };
 const LanguageContext = createContext<TranslationContextValue>({
   language: "en",
-  setLanguage: () => undefined,
+  setLanguage: async () => undefined,
   t: (key, variables) => translate("en", key, variables),
   formatNumber: (value, options) => new Intl.NumberFormat(localeNames.en, options).format(value),
 });
@@ -113,42 +142,35 @@ const LanguageContext = createContext<TranslationContextValue>({
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<LanguageCode>("en");
   const [localeRevision, setLocaleRevision] = useState(0);
-  const isInitialLocaleLoad = useRef(true);
+  const setLanguage = useCallback(async (code: LanguageCode) => {
+    try {
+      await ensureLocaleResource(code);
+    } catch (error) {
+      warnOnce(`Could not load ${code} locale; using English. ${String(error)}`);
+      return;
+    }
+    window.localStorage.setItem("app_language", code);
+    activeLanguage = code;
+    setLanguageState(code);
+    setLocaleRevision((revision) => revision + 1);
+  }, []);
   useEffect(() => {
     const saved = window.localStorage.getItem("app_language");
-    if (LANGUAGES.some((item) => item.code === saved)) setLanguageState(saved as LanguageCode);
-  }, []);
-  useEffect(() => { document.documentElement.lang = language; }, [language]);
-  useEffect(() => {
-    if (resources[language]) return;
-    let active = true;
-    const loadLocale = () => void localeLoaders[language]().then(({ default: locale }) => {
-      if (!active) return;
-      resources[language] = locale;
-      setLocaleRevision((revision) => revision + 1);
-    }).catch((error) => {
-      warnOnce(`Could not load ${language} locale; using English. ${String(error)}`);
-    });
-    // English remains available through the tiny bootstrap dictionary. Load
-    // the full initial language only when the WebView has idle time; a player
-    // manually changing language gets the selected resource immediately.
-    if (isInitialLocaleLoad.current) {
-      isInitialLocaleLoad.current = false;
-      const idle = window.requestIdleCallback?.(loadLocale, { timeout: 1600 });
-      const timer = idle === undefined ? window.setTimeout(loadLocale, 600) : undefined;
-      return () => {
-        active = false;
-        if (idle !== undefined) window.cancelIdleCallback?.(idle);
-        if (timer !== undefined) window.clearTimeout(timer);
-      };
+    if (LANGUAGES.some((item) => item.code === saved) && saved !== "en") {
+      void setLanguage(saved as LanguageCode);
+      return;
     }
-    loadLocale();
-    return () => { active = false; };
-  }, [language]);
-  const setLanguage = useCallback((code: LanguageCode) => {
-    setLanguageState(code);
-    window.localStorage.setItem("app_language", code);
-  }, []);
+    const loadInitialEnglish = () => void ensureLocaleResource("en")
+      .then(() => setLocaleRevision((revision) => revision + 1))
+      .catch((error) => warnOnce(`Could not load en locale. ${String(error)}`));
+    const idle = window.requestIdleCallback?.(loadInitialEnglish, { timeout: 1600 });
+    const timer = idle === undefined ? window.setTimeout(loadInitialEnglish, 600) : undefined;
+    return () => {
+      if (idle !== undefined) window.cancelIdleCallback?.(idle);
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [setLanguage]);
+  useEffect(() => { document.documentElement.lang = language; }, [language]);
   const value = useMemo<TranslationContextValue>(() => ({
     language,
     setLanguage,
@@ -159,3 +181,13 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useTranslation = () => useContext(LanguageContext);
+
+/**
+ * Use this for exact static UI labels while migrating legacy JSX. It consumes
+ * the same provider as `useTranslation`, preserves the English label until a
+ * lazy language resource is ready, and returns a text node (no layout wrapper).
+ */
+export function LocalizedText({ id, fallback, values }: { id: string; fallback: string; values?: TranslationVariables }) {
+  const { language } = useTranslation();
+  return translate(language, id, values, fallback);
+}

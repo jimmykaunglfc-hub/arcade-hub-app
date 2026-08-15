@@ -1,5 +1,7 @@
 "use client";
 
+
+import { LocalizedText } from "../lib/i18n";
 import { useEffect, useState } from "react";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
@@ -98,8 +100,7 @@ export default function SocialAuthRedirectListener() {
         onClick={() => setErrorMessage(null)}
         className="rounded-lg px-2 py-1 text-xs font-bold text-red-100 transition hover:bg-white/10"
       >
-        Dismiss
-      </button>
+        <LocalizedText id="UI_1548" fallback="Dismiss" /></button>
     </div>
   );
 }

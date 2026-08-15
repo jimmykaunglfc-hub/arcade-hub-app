@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -359,12 +363,11 @@ export default function HomeTab({
             }
             className="mt-4 w-full rounded-xl bg-primary py-3 text-xs font-black text-on-primary"
           >
-            View tournament
-          </button>
+            <LocalizedText id="UI_1509" fallback={tr("UI_1509", "View tournament")} /></button>
           <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-3 text-left">
             <TournamentMetric
               icon="group"
-              label="Players"
+              label={tr("UI_0055", "Players")}
               value={`${
                 activeTournament.current_slots ??
                 activeTournament.registered_count ??
@@ -378,9 +381,9 @@ export default function HomeTab({
               iconTone={
                 activeTournament.prize_currency === "gems" ? "gem" : "points"
               }
-              label="Prize"
+              label={tr("UI_1510", "Prize")}
               value={`${activeTournament.prize_pool?.toLocaleString()} ${
-                activeTournament.prize_currency === "gems" ? "GEMS" : "PTS"
+                activeTournament.prize_currency === "gems" ? tr("UI_1655", "GEMS") : tr("UI_0338", "PTS")
               }`}
             />
             <TournamentMetric
@@ -394,13 +397,13 @@ export default function HomeTab({
                   ? "gem"
                   : "points"
               }
-              label="Entry"
+              label={tr("UI_1511", "Entry")}
               value={
                 activeTournament.entry_fee > 0
                   ? `${activeTournament.entry_fee.toLocaleString()} ${
                       activeTournament.entry_fee_currency === "points"
-                        ? "PTS"
-                        : "GEMS"
+                        ? tr("UI_0338", "PTS")
+                        : tr("UI_1655", "GEMS")
                     }`
                   : "Free"
               }
@@ -437,8 +440,7 @@ export default function HomeTab({
           <div className="min-w-0 flex-1 flex flex-col">
             <div className="opacity-80 mb-1">
               <span className="font-caps text-[10px] font-bold uppercase tracking-widest">
-                Current Season
-              </span>
+                <LocalizedText id="UI_1513" fallback="Current Season" /></span>
             </div>
             <h1 className="font-headline text-3xl font-black leading-tight tracking-tight">
               {currentTier}
@@ -446,22 +448,20 @@ export default function HomeTab({
             <p className="font-body text-xs font-medium text-on-primary opacity-80 mt-1">
               {rankData?.percentile
                 ? `Global rank #${rankData.globalRank ?? "—"} · Top ${rankData.percentile}%`
-                : "Complete a match to enter the global ranking"}
+                : tr("UI_1515", "Complete a match to enter the global ranking")}
             </p>
           </div>
           <button
             onClick={() => { router.push("/leaderboard"); }}
             className="shrink-0 rounded-xl border border-black/15 bg-black/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider transition hover:bg-black/15 active:scale-[0.98]"
           >
-            View
-          </button>
+            <LocalizedText id="UI_1516" fallback="View" /></button>
         </div>
 
         <div className="flex justify-between items-center mt-5 pt-4 border-t border-black/10">
           <div className="flex flex-col items-start">
             <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">
-              Win Rate
-            </span>
+              <LocalizedText id="UI_1517" fallback="Win Rate" /></span>
             <span className="font-headline text-lg font-black mt-0.5">
               {rankData?.winRate ? `${rankData.winRate}%` : `${stats.winRate}%`}
             </span>
@@ -469,8 +469,7 @@ export default function HomeTab({
           <div className="w-px h-8 bg-black/10"></div>
           <div className="flex flex-col items-center">
             <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">
-              Matches
-            </span>
+              <LocalizedText id="UI_1520" fallback="Matches" /></span>
             <span className="font-headline text-lg font-black mt-0.5">
               {rankData?.gamesPlayed ?? 0}
             </span>
@@ -478,10 +477,9 @@ export default function HomeTab({
           <div className="w-px h-8 bg-black/10"></div>
           <div className="flex flex-col items-end">
             <span className="font-caps text-[9px] font-bold opacity-60 uppercase tracking-widest">
-              Play time
-            </span>
+              <LocalizedText id="UI_1521" fallback="Play time" /></span>
             <span className="font-headline text-lg font-black mt-0.5">
-              {rankData?.playtime || "0m"}
+              {rankData?.playtime || tr("UI_1522", "0m")}
             </span>
           </div>
         </div>
@@ -490,8 +488,7 @@ export default function HomeTab({
       {/* ⚡ ACTIONS GRID */}
       <section className="mt-8">
         <h2 className="font-headline text-lg font-bold text-on-surface mb-3 tracking-wide">
-          Actions
-        </h2>
+          <LocalizedText id="UI_1523" fallback="Actions" /></h2>
         <div className="grid grid-cols-3 gap-3">
           <button
             onClick={() => onNavigate("explore")}
@@ -506,8 +503,7 @@ export default function HomeTab({
               </span>
             </div>
             <span className="font-headline text-sm font-bold text-on-surface">
-              Play
-            </span>
+              <LocalizedText id="UI_1469" fallback="Play" /></span>
           </button>
 
           <button
@@ -520,8 +516,7 @@ export default function HomeTab({
               </span>
             </div>
             <span className="font-headline text-sm font-bold text-on-surface">
-              Spin
-            </span>
+              <LocalizedText id="UI_0032" fallback="Spin" /></span>
           </button>
 
           <button
@@ -534,8 +529,7 @@ export default function HomeTab({
               </span>
             </div>
             <span className="font-headline text-sm font-bold text-on-surface">
-              Stats
-            </span>
+              <LocalizedText id="UI_1526" fallback="Stats" /></span>
           </button>
         </div>
       </section>
@@ -556,13 +550,11 @@ export default function HomeTab({
                   </span>
                 </button>
                 <h2 className="text-xl font-headline font-black text-on-surface">
-                  {selectedGame} History
-                </h2>
+                  {selectedGame} <LocalizedText id="UI_1527" fallback={tr("UI_1527", "History")} /></h2>
               </div>
               <span className="text-xs text-on-surface-variant font-bold">
                 {groupedMatches.find((g) => g[0] === selectedGame)?.[1].length}{" "}
-                Plays
-              </span>
+                <LocalizedText id="UI_1528" fallback={tr("UI_1528", "Plays")} /></span>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -594,7 +586,7 @@ export default function HomeTab({
                       </div>
                       <div>
                         <h4 className="text-sm font-bold text-on-surface mb-0.5">
-                          vs {match.opponentName || "Unknown"}
+                          vs {match.opponentName || tr("UI_1530", "Unknown")}
                         </h4>
                         <p className="text-[11px] text-on-surface-variant font-medium">
                           <span
@@ -623,14 +615,13 @@ export default function HomeTab({
           <div className="w-full">
             <div className="flex justify-between items-end mb-3 px-1">
               <h2 className="font-headline text-lg font-bold text-on-surface tracking-wide">
-                Recent Matches
-              </h2>
+                <LocalizedText id="UI_1533" fallback={tr("UI_1533", "Recent Matches")} /></h2>
               {groupedMatches.length > 5 && (
                 <button
                   onClick={() => setShowAllGames(!showAllGames)}
                   className="font-headline text-xs font-bold text-primary hover:opacity-80 transition-opacity uppercase tracking-wider"
                 >
-                  {showAllGames ? "Show Less" : "See All"}
+                  {showAllGames ? tr("UI_1535", "Show Less") : tr("UI_1534", "See All")}
                 </button>
               )}
             </div>
@@ -644,17 +635,14 @@ export default function HomeTab({
                     </span>
                   </div>
                   <h3 className="font-headline text-base font-bold text-on-surface mb-1">
-                    No Matches Yet
-                  </h3>
+                    <LocalizedText id="UI_1536" fallback={tr("UI_1536", "No Matches Yet")} /></h3>
                   <p className="font-body text-xs text-on-surface-variant mb-5">
-                    Jump into the arcade to start building your legacy.
-                  </p>
+                    <LocalizedText id="UI_1537" fallback={tr("UI_1537", "Jump into the arcade to start building your legacy.")} /></p>
                   <button
                     onClick={() => onNavigate("explore")}
                     className="bg-primary text-on-primary font-headline text-sm font-bold px-6 py-2.5 rounded-full hover:opacity-90 active:scale-95 transition-all shadow-sm touch-manipulation"
                   >
-                    Find a Game
-                  </button>
+                    <LocalizedText id="UI_1538" fallback={tr("UI_1538", "Find a Game")} /></button>
                 </div>
               ) : (
                 displayedGroups.map(([gameTitle, gameMatches], i) => {
@@ -681,16 +669,14 @@ export default function HomeTab({
                             {gameTitle}
                           </h3>
                           <p className="text-[11px] text-on-surface-variant font-medium flex items-center gap-1.5">
-                            {gameMatches.length} Matches
-                            <span className="w-1 h-1 rounded-full bg-on-surface-variant opacity-50"></span>
-                            {gameWins} Wins
-                          </p>
+                            {gameMatches.length} <LocalizedText id="UI_1520" fallback="Matches" /><span className="w-1 h-1 rounded-full bg-on-surface-variant opacity-50"></span>
+                            {gameWins} <LocalizedText id="UI_1539" fallback="Wins" /></p>
                         </div>
                       </div>
 
                       <div className="flex flex-col items-end gap-1 shrink-0">
                         <span className="text-[10px] text-on-surface-variant font-medium">
-                          Last: {latestMatch.timeAgo}
+                          <LocalizedText id="UI_1540" fallback="Last:" />{latestMatch.timeAgo}
                         </span>
                         <div className="w-6 h-6 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant group-hover:bg-surface-variant group-hover:text-on-surface transition-all">
                           <span className="material-symbols-outlined text-sm">
@@ -738,43 +724,37 @@ export default function HomeTab({
                   </span>
                 </div>
                 <h2 className="font-headline font-black text-xl text-on-surface uppercase tracking-tight">
-                  Player Statistics
-                </h2>
+                  <LocalizedText id="UI_1542" fallback="Player Statistics" /></h2>
                 <p className="text-xs text-on-surface-variant font-medium mt-1">
-                  Lifetime gameplay record
-                </p>
+                  <LocalizedText id="UI_1543" fallback="Lifetime gameplay record" /></p>
               </div>
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <div className="bg-surface-container border border-surface-container-highest rounded-2xl p-4 flex flex-col items-center text-center shadow-inner">
                   <span className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-1">
-                    Win Rate
-                  </span>
+                    <LocalizedText id="UI_1517" fallback="Win Rate" /></span>
                   <span className="text-2xl font-black text-[#CCFF00]">
                     {stats.winRate}%
                   </span>
                 </div>
                 <div className="bg-surface-container border border-surface-container-highest rounded-2xl p-4 flex flex-col items-center text-center shadow-inner">
                   <span className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-1">
-                    Matches
-                  </span>
+                    <LocalizedText id="UI_1520" fallback="Matches" /></span>
                   <span className="text-2xl font-black text-on-surface">
                     {stats.total}
                   </span>
                 </div>
                 <div className="bg-surface-container border border-surface-container-highest rounded-2xl p-4 flex flex-col items-center text-center shadow-inner">
                   <span className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-1">
-                    Victories
-                  </span>
+                    <LocalizedText id="UI_1544" fallback="Victories" /></span>
                   <span className="text-xl font-black text-blue-400">
                     {stats.wins}
                   </span>
                 </div>
                 <div className="bg-surface-container border border-surface-container-highest rounded-2xl p-4 flex flex-col items-center text-center justify-center shadow-inner">
                   <span className="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-1">
-                    Top Game
-                  </span>
+                    <LocalizedText id="UI_1545" fallback="Top Game" /></span>
                   <span className="text-sm font-bold text-on-surface truncate w-full">
                     {stats.favorite}
                   </span>
@@ -785,8 +765,7 @@ export default function HomeTab({
                 onClick={() => setShowStatsModal(false)}
                 className="w-full py-3.5 bg-surface-container-high hover:bg-surface-variant text-on-surface font-headline font-bold text-xs uppercase tracking-wider rounded-xl transition-all border border-surface-container-highest active:scale-95 touch-manipulation"
               >
-                Close Dashboard
-              </button>
+                <LocalizedText id="UI_1546" fallback="Close Dashboard" /></button>
             </div>
           </div>,
           document.body

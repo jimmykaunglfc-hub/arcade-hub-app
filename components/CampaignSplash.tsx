@@ -1,5 +1,9 @@
 "use client";
 
+
+
+import { tr } from "../lib/i18n";
+import { LocalizedText } from "../lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
@@ -76,7 +80,7 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
       >
         <div className="flex h-12 shrink-0 justify-end">
           <button type="button" onClick={dismiss} className="rounded-full border border-white/15 bg-black/25 px-4 py-2 text-xs font-bold text-white/80 backdrop-blur-md">
-            {canSkip ? "Skip" : `Skip ${remaining}s`}
+            {canSkip ? tr("UI_0130", "Skip") : `Skip ${remaining}s`}
           </button>
         </div>
 
@@ -97,7 +101,7 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
               {campaign.action_label}
             </button>
           ) : (
-            <button type="button" onClick={dismiss} className="w-full rounded-2xl border border-surface-container-highest bg-surface/70 px-5 py-4 font-headline text-base font-black text-on-surface transition active:scale-[0.98]">Continue</button>
+            <button type="button" onClick={dismiss} className="w-full rounded-2xl border border-surface-container-highest bg-surface/70 px-5 py-4 font-headline text-base font-black text-on-surface transition active:scale-[0.98]"><LocalizedText id="UI_0126" fallback={tr("UI_0126", "Continue")} /></button>
           )}
         </footer>
       </div>

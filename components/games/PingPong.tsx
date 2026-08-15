@@ -1,5 +1,10 @@
 "use client";
 
+
+
+
+import { tr } from "../../lib/i18n";
+import { LocalizedText } from "../../lib/i18n";
 import React, {
   useCallback,
   useEffect,
@@ -3185,7 +3190,7 @@ export default function PingPong(props: PingPongProps) {
     <section className="relative h-[100dvh] min-h-[560px] w-full overflow-hidden bg-[#153796] text-white">
       <canvas
         ref={canvasRef}
-        aria-label="London perspective table tennis arena"
+        aria-label={tr("UI_1272", "London perspective table tennis arena")}
         className="absolute inset-0 z-10 size-full touch-none select-none"
         style={{ touchAction: "none", WebkitUserSelect: "none" }}
         onPointerDown={handlePointerDown}
@@ -3202,7 +3207,7 @@ export default function PingPong(props: PingPongProps) {
             type="button"
             onClick={handleBack}
             className="pointer-events-auto flex h-10 items-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 text-xs font-black uppercase tracking-wide text-white transition hover:bg-white/20 active:scale-95"
-            aria-label="Back to arcade"
+            aria-label={tr("UI_0276", "Back to arcade")}
           >
             <svg
               aria-hidden="true"
@@ -3216,23 +3221,20 @@ export default function PingPong(props: PingPongProps) {
             >
               <path d="m15 18-6-6 6-6" />
             </svg>
-            Back
-          </button>
+            <LocalizedText id="UI_0281" fallback="Back" /></button>
 
           <div className="absolute left-1/2 -translate-x-1/2 text-center">
             <h1 className="whitespace-nowrap text-sm font-black uppercase tracking-[0.22em] text-white">
-              Ping Pong
-            </h1>
+              <LocalizedText id="UI_1485" fallback="Ping Pong" /></h1>
             <p className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.28em] text-cyan-200">
-              Joe Yoke Arena
-            </p>
+              <LocalizedText id="UI_1276" fallback="Joe Yoke Arena" /></p>
           </div>
 
           <button
             type="button"
             onClick={() => setShowRules(true)}
             className="pointer-events-auto ml-auto grid size-10 place-items-center rounded-full border border-[#ccff00]/70 bg-[#ccff00]/10 text-[#ccff00] shadow-[0_0_18px_rgba(204,255,0,0.18)] transition hover:bg-[#ccff00]/20 active:scale-95"
-            aria-label="How to play Ping Pong"
+            aria-label={tr("UI_1278", "How to play Ping Pong")}
           >
             <span className="text-lg font-black" aria-hidden="true">?</span>
           </button>
@@ -3243,7 +3245,7 @@ export default function PingPong(props: PingPongProps) {
       <div className="pointer-events-none absolute inset-x-0 top-[calc(var(--app-safe-top)+3.5rem)] z-20 bg-gradient-to-b from-[#052e61]/75 via-[#063969]/25 to-transparent px-3 pb-10 pt-3 sm:px-6">
         <div className="mx-auto grid max-w-2xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-1.5 sm:gap-3">
           <div className="flex min-w-0 flex-col items-center">
-            <Avatar player={localPlayer} fallback="You" accent="#22d3ee" />
+            <Avatar player={localPlayer} fallback={tr("UI_0084", "You")} accent="#22d3ee" />
             <p className="mt-1 w-full break-words text-center text-[clamp(10px,3vw,14px)] font-extrabold leading-[1.05] [overflow-wrap:anywhere]">
               {localName}
             </p>
@@ -3275,7 +3277,7 @@ export default function PingPong(props: PingPongProps) {
               </span>
             </div>
             <p className="mt-1.5 max-w-32 rounded-xl bg-black/45 px-2 py-1 text-center text-[7px] font-black uppercase leading-tight tracking-[0.11em] text-white/75 backdrop-blur-md">
-              Game {matchState.currentGameNumber} · {matchState.player1GamesWon}
+              <LocalizedText id="UI_1282" fallback="Game" />{matchState.currentGameNumber} · {matchState.player1GamesWon}
               –{matchState.player2GamesWon}
             </p>
           </div>
@@ -3283,7 +3285,7 @@ export default function PingPong(props: PingPongProps) {
           <div className="flex min-w-0 flex-col items-center">
             <Avatar
               player={opponentPlayer}
-              fallback="Opponent"
+              fallback={tr("UI_1501", "Opponent")}
               accent="#fb3155"
             />
             <p className="mt-1 w-full break-words text-center text-[clamp(10px,3vw,14px)] font-extrabold leading-[1.05] [overflow-wrap:anywhere]">
@@ -3308,7 +3310,7 @@ export default function PingPong(props: PingPongProps) {
       {/* Quick reactions inspired by the reference game's emoji strip. */}
       <div
         className="absolute bottom-[calc(max(1rem,env(safe-area-inset-bottom))+4rem)] left-3 z-30 flex items-center rounded-full border border-white/15 bg-[#08152d]/85 p-1 shadow-2xl backdrop-blur-md"
-        aria-label="Match reactions"
+        aria-label={tr("UI_1285", "Match reactions")}
       >
         {REACTIONS.map((reaction) => (
           <button
@@ -3340,7 +3342,7 @@ export default function PingPong(props: PingPongProps) {
               {status}
             </p>
             <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-white/45">
-              Ball {ballSpeed.toFixed(1)} m/s · Paddle{" "}
+              <LocalizedText id="UI_1287" fallback="Ball" />{ballSpeed.toFixed(1)} <LocalizedText id="UI_1288" fallback="m/s · Paddle" />{" "}
               {paddlePositions.local.x >= 0 ? "+" : ""}
               {paddlePositions.local.x.toFixed(1)}
             </p>
@@ -3352,8 +3354,7 @@ export default function PingPong(props: PingPongProps) {
         <div className="absolute inset-0 z-40 grid place-items-center bg-black/70 p-6 backdrop-blur-md">
           <div className="w-full max-w-sm rounded-[2rem] border border-white/15 bg-[#071018]/95 p-7 text-center shadow-2xl">
             <p className="text-xs font-black uppercase tracking-[0.32em] text-amber-300">
-              Match complete
-            </p>
+              <LocalizedText id="UI_1289" fallback={tr("UI_1289", "Match complete")} /></p>
             <div className="mt-5 flex justify-center">
               <div
                 className="grid size-20 place-items-center overflow-hidden rounded-full border-4 border-[#ccff00] bg-black bg-cover bg-center text-xl font-black text-white shadow-[0_0_30px_rgba(204,255,0,0.28)]"
@@ -3368,11 +3369,10 @@ export default function PingPong(props: PingPongProps) {
               </div>
             </div>
             <p className="mt-3 text-[10px] font-black uppercase tracking-[0.25em] text-[#ccff00]">
-              Winner
-            </p>
-            <h2 className="mt-3 text-3xl font-black">{winnerName} wins!</h2>
+              <LocalizedText id="UI_1291" fallback={tr("UI_1291", "Winner")} /></p>
+            <h2 className="mt-3 text-3xl font-black">{winnerName} <LocalizedText id="UI_1292" fallback={tr("UI_1292", "wins!")} /></h2>
             <p className="mt-2 text-sm text-white/55">
-              Match {matchState.player1GamesWon}–{matchState.player2GamesWon} ·
+              <LocalizedText id="UI_1294" fallback={tr("UI_1294", "Match")} />{matchState.player1GamesWon}–{matchState.player2GamesWon} ·
               Final game {score.local}–{score.opponent}
             </p>
             <button
@@ -3380,8 +3380,7 @@ export default function PingPong(props: PingPongProps) {
               onClick={handleBack}
               className="mt-6 w-full rounded-2xl bg-[#ccff00] px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition active:scale-[0.98]"
             >
-              Back to arcade
-            </button>
+              <LocalizedText id="UI_0276" fallback={tr("UI_0276", "Back to arcade")} /></button>
           </div>
         </div>
       )}
@@ -3398,15 +3397,15 @@ export default function PingPong(props: PingPongProps) {
               <div className="flex items-center gap-3">
                 <div className="grid size-12 place-items-center rounded-full border-2 border-[#ccff00] bg-[#ccff00]/10 text-2xl font-black text-[#ccff00]">?</div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ccff00]">Ping Pong</p>
-                  <h2 id="ping-pong-rules-title" className="text-2xl font-black">How to play</h2>
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#ccff00]"><LocalizedText id="UI_1485" fallback={tr("UI_1485", "Ping Pong")} /></p>
+                  <h2 id="ping-pong-rules-title" className="text-2xl font-black"><LocalizedText id="UI_1295" fallback={tr("UI_1295", "How to play")} /></h2>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowRules(false)}
                 className="grid size-10 place-items-center rounded-full bg-white/10 text-xl font-bold text-white transition hover:bg-white/20"
-                aria-label="Close rules"
+                aria-label={tr("UI_1296", "Close rules")}
               >
                 ×
               </button>
@@ -3414,11 +3413,11 @@ export default function PingPong(props: PingPongProps) {
 
             <div className="mt-5 space-y-3 text-sm">
               {[
-                ["🏆", "Score & serve", "Score 11 points and lead by two to win. Serve changes every two points, then every point from 10–10."],
-                ["🎾", "Start a legal serve", "Swipe to toss and strike. The ball must bounce on your side first, then on the receiver’s side."],
-                ["↩", "Bounce, then return", "Do not volley. Let the ball bounce once on your side, then swipe your racket to return it."],
-                ["⚡", "Aim, pace & spin", "Swipe left or right to aim. A fast up/down swipe adds pace; a circular stroke adds twist spin."],
-                ["⚠", "Win points", "Two bounces, an out ball, a wrong-side bounce, or a net fault gives the point away. A net-touching legal serve is replayed."],
+                ["🏆", tr("UI_1297", "Score & serve"), tr("UI_1298", "Score 11 points and lead by two to win. Serve changes every two points, then every point from 10–10.")],
+                ["🎾", tr("UI_1299", "Start a legal serve"), tr("UI_1300", "Swipe to toss and strike. The ball must bounce on your side first, then on the receiver’s side.")],
+                ["↩", tr("UI_1301", "Bounce, then return"), tr("UI_1302", "Do not volley. Let the ball bounce once on your side, then swipe your racket to return it.")],
+                ["⚡", tr("UI_1303", "Aim, pace & spin"), tr("UI_1304", "Swipe left or right to aim. A fast up/down swipe adds pace; a circular stroke adds twist spin.")],
+                ["⚠", tr("UI_1306", "Win points"), tr("UI_1305", "Two bounces, an out ball, a wrong-side bounce, or a net fault gives the point away. A net-touching legal serve is replayed.")],
               ].map(([icon, title, description]) => (
                 <div key={title} className="flex gap-3 rounded-2xl border border-white/10 bg-white/5 p-3.5">
                   <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-black/25 text-xl" aria-hidden="true">
@@ -3438,7 +3437,7 @@ export default function PingPong(props: PingPongProps) {
       {showMatchmaker && (
         <MatchmakingModal
           gameKey="ping-pong"
-          gameName="Ping Pong"
+          gameName={tr("UI_1485", "Ping Pong")}
           userId={currentUserId}
           fallbackAfterMs={45_000}
           onMatchFound={(matchData) => {
