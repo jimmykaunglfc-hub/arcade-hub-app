@@ -409,7 +409,7 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
           const isWinner = (playerColor === "white" && updatedGame.turn() === "b") || (playerColor === "black" && updatedGame.turn() === "w");
           soundEngine.playSFX(isWinner ? "victory" : "defeat");
         } else {
-          soundEngine.playGameSFX("chess_move");
+          soundEngine.playChessPieceDrop(0.65);
         }
       })
       .on("broadcast", { event: "reaction" }, (payload) => {
@@ -476,9 +476,9 @@ export default function ChessGame({ onClose, preloadedMatchId, opponent }: Chess
           : gameCopy.turn() === "b";
         soundEngine.playSFX(isWinner ? "victory" : "defeat");
       } else if (move.captured) {
-        soundEngine.playGameSFX("chess_move");
+        soundEngine.playChessPieceDrop(0.8);
       } else {
-        soundEngine.playGameSFX("chess_move");
+        soundEngine.playChessPieceDrop(0.65);
       }
 
       setGame(gameCopy);

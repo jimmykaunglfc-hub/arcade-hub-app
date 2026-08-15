@@ -835,6 +835,8 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     return () => document.removeEventListener("gesturestart", preventPinch);
   }, []);
 
+  useEffect(() => { soundEngine.preloadPhysicalSFX(["dice_shake", "dice_roll"]); }, []);
+
   useEffect(() => { isRollingRef.current = isRolling; }, [isRolling]);
   useEffect(() => { isMovingRef.current = isMoving; }, [isMoving]);
 

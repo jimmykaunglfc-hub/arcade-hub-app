@@ -169,6 +169,8 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
    return () => document.removeEventListener("gesturestart", preventPinch);
  }, []);
 
+ useEffect(() => { soundEngine.preloadPhysicalSFX(["card_place_light", "card_place_heavy"]); }, []);
+
  useEffect(() => {
    if (!turnDeadline) { setSecondsLeft(null); return; }
    timeoutRequested.current = null;
@@ -292,7 +294,7 @@ export default function BigTwoGame({onClose, onPlayAgain, roomId}:BigTwoGameProp
  }, [roomId]);
 
  const startGame=useCallback(()=>{ if(roomId) return; const deck=shuffledDeck(); const next=[0,1,2,3].map(i=>sortCards(deck.slice(i*13,(i+1)*13))); const starter=next.findIndex(hand=>hand.some(card=>card.rank===0&&card.suit===0)); setHands(next);setTurn(starter);setCurrentPlay(null);setSelected([]);setPasses(0);setOpening(true);setWinner(null);setMessage(starter===0?"You have 3♦. Lead the first trick.":`${playerNames[starter]} has 3♦ and starts.`); },[playerNames,roomId]);
- const playCards=useCallback((player:number,cards:Card[],value:HandValue)=>{ soundEngine.playPhysicalSFX(cards.length > 1 ? "card_place_heavy" : "card_place_light"); const nextHands=hands.map(hand=>[...hand]); nextHands[player]=nextHands[player].filter(card=>!cards.some(played=>played.id===card.id)); setHands(nextHands);setSelected([]);setCurrentPlay({cards,value,player});setPasses(0);setOpening(false);setFreeLead(false);setOneCardCalled(false); if(nextHands[player].length===0){setWinner(player);setMessage(player===0?"You win!":`${playerNames[player]} wins!`);return;} setMessage(`${playerNames[player]} played ${value.label}.`);setTurn((player+1)%4); },[hands,playerNames]);
+ const playCards=useCallback((player:number,cards:Card[],value:HandValue)=>{ soundEngine.playCardPlace(Math.min(1, cards.length / 5)); const nextHands=hands.map(hand=>[...hand]); nextHands[player]=nextHands[player].filter(card=>!cards.some(played=>played.id===card.id)); setHands(nextHands);setSelected([]);setCurrentPlay({cards,value,player});setPasses(0);setOpening(false);setFreeLead(false);setOneCardCalled(false); if(nextHands[player].length===0){setWinner(player);setMessage(player===0?"You win!":`${playerNames[player]} wins!`);return;} setMessage(`${playerNames[player]} played ${value.label}.`);setTurn((player+1)%4); },[hands,playerNames]);
 
  const passTurn=useCallback((player:number)=>{ if(!currentPlay)return; const nextPasses=passes+1; if(nextPasses>=3){setPasses(0);setFreeLead(true);setTurn(currentPlay.player);setMessage(`${playerNames[currentPlay.player]} controls the new trick.`);}else{setPasses(nextPasses);setTurn((player+1)%4);setMessage(`${playerNames[player]} passed.`);} },[currentPlay,passes,playerNames]);
 

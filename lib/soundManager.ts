@@ -31,15 +31,85 @@ export type PhysicalAudioEffect =
   | "dice_shake"
   | "dice_roll";
 
+type GameplayClip =
+  | "pingPongPaddle"
+  | "pingPongTable"
+  | "pingPongNet"
+  | "cueStrike"
+  | "ballCollision"
+  | "railCollision"
+  | "pocketEdge"
+  | "pocketDrop"
+  | "cueScratch"
+  | "carromStrike"
+  | "carromCollision"
+  | "carromBoundary"
+  | "carromPocket"
+  | "chessDrop"
+  | "cardSoft"
+  | "cardPlace"
+  | "cardSlap"
+  | "diceImpact"
+  | "diceShake";
+
+type GameplayPlayback = {
+  intensity?: number;
+  position?: number;
+  loop?: boolean;
+};
+
+type ClipDefinition = {
+  files: readonly string[];
+  minGain: number;
+  maxGain: number;
+  cooldownMs: number;
+  maxVoices: number;
+};
+
+// These are game-ready derivatives of the player's supplied recordings. The
+// originals are kept outside the app bundle and are never modified here.
+const GAMEPLAY_CLIPS: Record<GameplayClip, ClipDefinition> = {
+  pingPongPaddle: { files: ["/game-sfx/ping-paddle-1.m4a", "/game-sfx/ping-paddle-2.m4a", "/game-sfx/ping-paddle-3.m4a", "/game-sfx/ping-paddle-4.m4a"], minGain: 0.12, maxGain: 0.38, cooldownMs: 14, maxVoices: 6 },
+  pingPongTable: { files: ["/game-sfx/ping-paddle-2.m4a", "/game-sfx/ping-paddle-4.m4a"], minGain: 0.07, maxGain: 0.23, cooldownMs: 28, maxVoices: 4 },
+  pingPongNet: { files: ["/game-sfx/ping-paddle-3.m4a"], minGain: 0.06, maxGain: 0.18, cooldownMs: 55, maxVoices: 2 },
+  cueStrike: { files: ["/game-sfx/cue-strike.m4a"], minGain: 0.14, maxGain: 0.43, cooldownMs: 42, maxVoices: 3 },
+  ballCollision: { files: ["/game-sfx/ball-collision.m4a"], minGain: 0.05, maxGain: 0.30, cooldownMs: 12, maxVoices: 10 },
+  railCollision: { files: ["/game-sfx/ball-collision.m4a"], minGain: 0.04, maxGain: 0.20, cooldownMs: 24, maxVoices: 6 },
+  pocketEdge: { files: ["/game-sfx/pocket-edge.m4a"], minGain: 0.09, maxGain: 0.30, cooldownMs: 70, maxVoices: 4 },
+  pocketDrop: { files: ["/game-sfx/pocket-drop.m4a"], minGain: 0.12, maxGain: 0.36, cooldownMs: 90, maxVoices: 4 },
+  cueScratch: { files: ["/game-sfx/cue-scratch.m4a"], minGain: 0.12, maxGain: 0.34, cooldownMs: 160, maxVoices: 2 },
+  carromStrike: { files: ["/game-sfx/carrom-hit-1.m4a", "/game-sfx/carrom-hit-2.m4a"], minGain: 0.12, maxGain: 0.38, cooldownMs: 50, maxVoices: 4 },
+  carromCollision: { files: ["/game-sfx/carrom-hit-1.m4a", "/game-sfx/carrom-hit-2.m4a"], minGain: 0.05, maxGain: 0.27, cooldownMs: 14, maxVoices: 10 },
+  carromBoundary: { files: ["/game-sfx/carrom-boundary.m4a"], minGain: 0.06, maxGain: 0.22, cooldownMs: 34, maxVoices: 5 },
+  carromPocket: { files: ["/game-sfx/carrom-pocket.m4a"], minGain: 0.11, maxGain: 0.34, cooldownMs: 80, maxVoices: 4 },
+  chessDrop: { files: ["/game-sfx/chess-drop.m4a"], minGain: 0.10, maxGain: 0.30, cooldownMs: 60, maxVoices: 3 },
+  cardSoft: { files: ["/game-sfx/card-place-soft.m4a"], minGain: 0.07, maxGain: 0.18, cooldownMs: 42, maxVoices: 4 },
+  cardPlace: { files: ["/game-sfx/card-place-1.m4a", "/game-sfx/card-place-2.m4a"], minGain: 0.09, maxGain: 0.25, cooldownMs: 38, maxVoices: 5 },
+  cardSlap: { files: ["/game-sfx/card-place-slap.m4a"], minGain: 0.12, maxGain: 0.34, cooldownMs: 70, maxVoices: 3 },
+  diceImpact: { files: ["/game-sfx/dice-impact.m4a"], minGain: 0.08, maxGain: 0.27, cooldownMs: 40, maxVoices: 6 },
+  diceShake: { files: ["/game-sfx/dice-shake-loop.m4a"], minGain: 0.05, maxGain: 0.18, cooldownMs: 100, maxVoices: 1 },
+};
+
 class SoundEngine {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
   private bgmAudio: HTMLAudioElement | null = null;
   private bgmSource: string | null = null;
   private lastCarromSound = new Map<string, number>();
+  private gameplayBuffers = new Map<GameplayClip, AudioBuffer[]>();
+  private gameplayLoads = new Map<GameplayClip, Promise<AudioBuffer[]>>();
+  private activeGameplaySources = new Map<GameplayClip, AudioBufferSourceNode[]>();
+  private clipCursor = new Map<GameplayClip, number>();
+  private diceShakeSource: AudioBufferSourceNode | null = null;
 
   constructor() {
-    // AudioContext will be initialized on first user interaction
+    // AudioContext is initialized lazily. A looping shake must never resume
+    // unexpectedly after the app returns from the background.
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) this.stopDiceShake();
+      });
+    }
   }
 
   private initContext(resume = true) {
@@ -91,6 +161,7 @@ class SoundEngine {
     this.isMuted = muted;
     if (typeof window !== "undefined") localStorage.setItem("joeyoke_sound_enabled", muted ? "false" : "true");
     if (this.bgmAudio) this.bgmAudio.muted = muted;
+    if (muted) this.stopDiceShake();
   }
 
   public restorePreference() {
@@ -103,82 +174,167 @@ class SoundEngine {
     return this.isMuted;
   }
 
-  /** Keeps the existing game-screen API; effects are generated on demand. */
-  public preloadGameSFX(effects: readonly GameAudioEffect[]) {
-    // Gameplay effects are generated in code from the reference envelopes;
-    // no packaged audio sample is loaded or played.
-    void effects;
-  }
-
-  /** Plays the code-only gameplay effect matching the game action. */
-  public playGameSFX(effect: GameAudioEffect) {
-    const mappedEffect: Record<GameAudioEffect, PhysicalAudioEffect> = {
-      ping_pong_paddle: "ping_pong_paddle",
-      cue_shot: "cue_shot",
-      ball_pocket: "ball_pocket",
-      cue_scratch: "cue_scratch",
-      carrom_strike: "carrom_strike",
-      carrom_pocket: "carrom_pocket",
-      chess_move: "chess_move",
+  private clipsForGameEffect(effect: GameAudioEffect): GameplayClip[] {
+    const clips: Record<GameAudioEffect, GameplayClip[]> = {
+      ping_pong_paddle: ["pingPongPaddle"],
+      cue_shot: ["cueStrike"],
+      ball_pocket: ["pocketEdge", "pocketDrop"],
+      cue_scratch: ["cueScratch"],
+      carrom_strike: ["carromStrike"],
+      carrom_pocket: ["carromPocket"],
+      chess_move: ["chessDrop"],
     };
-    this.playPhysicalSFX(mappedEffect[effect]);
+    return clips[effect];
   }
 
-  /**
-   * Code-only effects shaped from the supplied reference categories. Every
-   * event creates its own AudioBufferSource, so rapid consecutive contacts
-   * cannot be blocked by a previous sound's playback duration.
-   */
-  public playPhysicalSFX(effect: PhysicalAudioEffect) {
+  private loadGameplayClip(clip: GameplayClip): Promise<AudioBuffer[]> {
+    const cached = this.gameplayBuffers.get(clip);
+    if (cached) return Promise.resolve(cached);
+    const inFlight = this.gameplayLoads.get(clip);
+    if (inFlight) return inFlight;
+    if (!this.ctx || typeof window === "undefined") return Promise.resolve([]);
+
+    const load = Promise.all(
+      GAMEPLAY_CLIPS[clip].files.map(async (src) => {
+        const response = await fetch(src);
+        if (!response.ok) throw new Error(`Unable to load gameplay SFX: ${src}`);
+        return this.ctx!.decodeAudioData(await response.arrayBuffer());
+      })
+    ).catch(() => [] as AudioBuffer[]).then((buffers) => {
+      if (buffers.length) this.gameplayBuffers.set(clip, buffers);
+      return buffers;
+    });
+    this.gameplayLoads.set(clip, load);
+    return load;
+  }
+
+  /** Preloads source-derived SFX while the game screen is opening. */
+  public preloadGameSFX(effects: readonly GameAudioEffect[]) {
+    this.initContext(false);
+    effects.flatMap((effect) => this.clipsForGameEffect(effect)).forEach((clip) => {
+      void this.loadGameplayClip(clip);
+    });
+  }
+
+  public preloadPhysicalSFX(effects: readonly PhysicalAudioEffect[]) {
+    this.initContext(false);
+    effects.map((effect) => this.clipForPhysicalEffect(effect)).forEach((clip) => {
+      void this.loadGameplayClip(clip);
+    });
+  }
+
+  private playClip(clip: GameplayClip, options: GameplayPlayback = {}) {
     if (this.isMuted) return;
     this.initContext();
     if (!this.ctx) return;
-    const cooldowns: Record<PhysicalAudioEffect, number> = {
-      ping_pong_paddle: 32, ping_pong_table: 45, ping_pong_net: 80,
-      cue_shot: 110, ball_pocket: 150, cue_scratch: 220,
-      pool_ball_hit: 40, pool_cushion: 70, snooker_ball_hit: 40,
-      snooker_cushion: 70, carrom_hit: 42, carrom_cushion: 68,
-      carrom_strike: 120, carrom_pocket: 160,
-      chess_move: 80, card_place_light: 65, card_place_heavy: 130,
-      dice_shake: 180, dice_roll: 120,
-    };
+    const definition = GAMEPLAY_CLIPS[clip];
     const nowMs = performance.now();
-    const last = this.lastCarromSound.get(effect) ?? -Infinity;
-    if (nowMs - last < cooldowns[effect]) return;
-    this.lastCarromSound.set(effect, nowMs);
-    const now = this.ctx.currentTime;
-    const designs: Record<PhysicalAudioEffect, [number, number, number, number, number]> = {
-      ping_pong_paddle: [1950, 680, .045, .12, .020],
-      ping_pong_table: [720, 220, .055, .09, .014],
-      ping_pong_net: [370, 95, .085, .075, .012],
-      cue_shot: [980, 220, .090, .13, .035],
-      ball_pocket: [480, 80, .200, .11, .040],
-      cue_scratch: [240, 55, .260, .10, .040],
-      pool_ball_hit: [1150, 420, .045, .105, .020],
-      pool_cushion: [260, 78, .080, .10, .026],
-      snooker_ball_hit: [1420, 560, .038, .09, .016],
-      snooker_cushion: [235, 72, .080, .085, .022],
-      carrom_strike: [520, 120, .120, .13, .035],
-      carrom_pocket: [290, 70, .160, .11, .030],
-      carrom_hit: [690, 160, .065, .12, .028],
-      carrom_cushion: [220, 65, .085, .10, .023],
-      chess_move: [480, 150, .095, .13, .010],
-      card_place_light: [760, 250, .060, .085, .012],
-      card_place_heavy: [390, 110, .135, .12, .022],
-      dice_shake: [310, 105, .110, .07, .040],
-      dice_roll: [640, 145, .180, .11, .050],
-    };
-    const [pitch, tail, duration, volume, noise] = designs[effect];
-    const oscillator = this.ctx.createOscillator();
+    const last = this.lastCarromSound.get(clip) ?? -Infinity;
+    if (nowMs - last < definition.cooldownMs) return;
+    this.lastCarromSound.set(clip, nowMs);
+
+    const buffers = this.gameplayBuffers.get(clip);
+    if (!buffers?.length) {
+      void this.loadGameplayClip(clip);
+      return;
+    }
+    const active = this.activeGameplaySources.get(clip) ?? [];
+    while (active.length >= definition.maxVoices) active.shift()?.stop();
+    const cursor = this.clipCursor.get(clip) ?? 0;
+    const buffer = buffers[cursor % buffers.length];
+    this.clipCursor.set(clip, cursor + 1);
+
+    const intensity = Math.max(0, Math.min(1, options.intensity ?? 0.65));
+    // A square-root curve keeps weak contacts audible without making a break
+    // shot merely a linear 100% volume version of a soft collision.
+    const gainValue = definition.minGain + (definition.maxGain - definition.minGain) * Math.sqrt(intensity);
+    const source = this.ctx.createBufferSource();
     const gain = this.ctx.createGain();
-    oscillator.type = effect === "chess_move" ? "sine" : "triangle";
-    oscillator.frequency.setValueAtTime(pitch, now);
-    oscillator.frequency.exponentialRampToValueAtTime(tail, now + duration);
-    gain.gain.setValueAtTime(volume, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-    oscillator.connect(gain); gain.connect(this.ctx.destination);
-    oscillator.start(now); oscillator.stop(now + duration + .01);
-    this.playNoiseBurst(now, Math.min(duration, .045), noise, pitch * 1.25);
+    source.buffer = buffer;
+    source.loop = options.loop ?? false;
+    source.playbackRate.value = 0.985 + Math.random() * 0.03;
+    gain.gain.setValueAtTime(gainValue, this.ctx.currentTime);
+    source.connect(gain);
+
+    if (typeof options.position === "number" && "createStereoPanner" in this.ctx) {
+      const panner = this.ctx.createStereoPanner();
+      panner.pan.setValueAtTime(Math.max(-1, Math.min(1, options.position)), this.ctx.currentTime);
+      gain.connect(panner);
+      panner.connect(this.ctx.destination);
+    } else {
+      gain.connect(this.ctx.destination);
+    }
+    active.push(source);
+    this.activeGameplaySources.set(clip, active);
+    source.onended = () => {
+      const sources = this.activeGameplaySources.get(clip);
+      if (!sources) return;
+      const index = sources.indexOf(source);
+      if (index >= 0) sources.splice(index, 1);
+      if (this.diceShakeSource === source) this.diceShakeSource = null;
+    };
+    source.start();
+    return source;
+  }
+
+  public playCueStrike(power: number) { this.playClip("cueStrike", { intensity: power }); }
+  public playBallCollision(relativeVelocity: number, position?: number) { this.playClip("ballCollision", { intensity: relativeVelocity / 12, position }); }
+  public playRailCollision(relativeVelocity: number, position?: number) { this.playClip("railCollision", { intensity: relativeVelocity / 8, position }); }
+  public playPocketEdge(velocity: number, position?: number) { this.playClip("pocketEdge", { intensity: velocity / 8, position }); }
+  public playPocketDrop(velocity: number, position?: number) { this.playClip("pocketDrop", { intensity: velocity / 8, position }); }
+  public playCueScratch(velocity: number, position?: number) { this.playClip("cueScratch", { intensity: velocity / 8, position }); }
+  public playCarromStrike(power: number) { this.playClip("carromStrike", { intensity: power }); }
+  public playCarromCollision(relativeVelocity: number, position?: number) { this.playClip("carromCollision", { intensity: relativeVelocity / 14, position }); }
+  public playCarromBoundary(relativeVelocity: number, position?: number) { this.playClip("carromBoundary", { intensity: relativeVelocity / 10, position }); }
+  public playCarromPocket(velocity: number, position?: number) { this.playClip("carromPocket", { intensity: velocity / 10, position }); }
+  public playPaddleHit(relativeVelocity: number, position?: number) { this.playClip("pingPongPaddle", { intensity: relativeVelocity / 9, position }); }
+  public playTableHit(relativeVelocity: number, position?: number) { this.playClip("pingPongTable", { intensity: relativeVelocity / 8, position }); }
+  public playNetHit(relativeVelocity: number, position?: number) { this.playClip("pingPongNet", { intensity: relativeVelocity / 7, position }); }
+  public playCardPlace(intensity = 0.6) {
+    this.playClip(intensity < 0.35 ? "cardSoft" : intensity > 0.8 ? "cardSlap" : "cardPlace", { intensity });
+  }
+  public playChessPieceDrop(intensity = 0.65) { this.playClip("chessDrop", { intensity }); }
+  public playDiceCollision(relativeVelocity: number, position?: number) { this.playClip("diceImpact", { intensity: relativeVelocity / 8, position }); }
+  public startDiceShake(intensity = 0.6) {
+    if (this.diceShakeSource) return;
+    const source = this.playClip("diceShake", { intensity });
+    if (source) this.diceShakeSource = source;
+  }
+  public stopDiceShake() {
+    this.diceShakeSource?.stop();
+    this.diceShakeSource = null;
+  }
+
+  /** Backward-compatible entry point for screens not yet migrated. */
+  public playGameSFX(effect: GameAudioEffect) {
+    const intensity = 0.7;
+    switch (effect) {
+      case "ping_pong_paddle": this.playPaddleHit(6); break;
+      case "cue_shot": this.playCueStrike(intensity); break;
+      case "ball_pocket": this.playPocketDrop(5); break;
+      case "cue_scratch": this.playCueScratch(5); break;
+      case "carrom_strike": this.playCarromStrike(intensity); break;
+      case "carrom_pocket": this.playCarromPocket(5); break;
+      case "chess_move": this.playChessPieceDrop(intensity); break;
+    }
+  }
+
+  private clipForPhysicalEffect(effect: PhysicalAudioEffect): GameplayClip {
+    const clips: Record<PhysicalAudioEffect, GameplayClip> = {
+      ping_pong_paddle: "pingPongPaddle", ping_pong_table: "pingPongTable", ping_pong_net: "pingPongNet",
+      cue_shot: "cueStrike", ball_pocket: "pocketDrop", cue_scratch: "cueScratch",
+      pool_ball_hit: "ballCollision", pool_cushion: "railCollision", snooker_ball_hit: "ballCollision", snooker_cushion: "railCollision",
+      carrom_strike: "carromStrike", carrom_pocket: "carromPocket", carrom_hit: "carromCollision", carrom_cushion: "carromBoundary",
+      chess_move: "chessDrop", card_place_light: "cardSoft", card_place_heavy: "cardSlap", dice_shake: "diceShake", dice_roll: "diceImpact",
+    };
+    return clips[effect];
+  }
+
+  /** Backward-compatible physical API; migrated games should call semantic methods. */
+  public playPhysicalSFX(effect: PhysicalAudioEffect) {
+    if (effect === "dice_shake") { this.startDiceShake(); return; }
+    if (effect === "dice_roll") { this.stopDiceShake(); this.playDiceCollision(5); return; }
+    this.playClip(this.clipForPhysicalEffect(effect));
   }
 
   // --- SYNTHESIZED SFX GENERATOR (Zero External Assets Required) ---

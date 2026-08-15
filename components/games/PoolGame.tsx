@@ -140,6 +140,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
   useEffect(() => {
     soundEngine.preloadGameSFX(["cue_shot", "ball_pocket", "cue_scratch"]);
+    soundEngine.preloadPhysicalSFX(["pool_ball_hit", "pool_cushion"]);
   }, []);
 
   // 💰 DYNAMIC POINTS & ENTRY FEE SYSTEM
@@ -415,7 +416,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           setIsMoving(true);
           didIShootRef.current = false;
           turnTrackingRef.current = { pottedNum: [], firstHitNum: -1, cueScratch: false };
-          soundEngine.playGameSFX("cue_shot");
+          soundEngine.playCueStrike(Math.hypot(vx, vy) / 22);
         }
       })
       .on("broadcast", { event: "turn_sync" }, (payload) => {
@@ -656,7 +657,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           cueBall.vy = Math.sin(aim) * power;
           
           setIsMoving(true);
-          soundEngine.playGameSFX("cue_shot");
+          soundEngine.playCueStrike(power / 22);
         }
       }, 2000);
       return () => clearTimeout(timer);
@@ -824,6 +825,8 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
           pockets.forEach((p) => {
             // Require the ball centre to enter the actual pocket throat.
             if (Math.hypot(ball.x - p.x, ball.y - p.y) < BALL_RADIUS * 2.1) {
+              const pocketSpeed = Math.hypot(ball.vx, ball.vy);
+              const pocketPosition = ball.x / TABLE_WIDTH * 2 - 1;
               ball.isPotted = true;
               ball.vx = 0;
               ball.vy = 0;
@@ -831,7 +834,8 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
               ball.y = p.y;
 
               if (ball.num === 0) {
-                soundEngine.playGameSFX("cue_scratch");
+                soundEngine.playPocketEdge(pocketSpeed, pocketPosition);
+                soundEngine.playCueScratch(pocketSpeed, pocketPosition);
                 // The remote player animates the same shot for visual feedback,
                 // but only the shooter may turn a locally simulated pocket into
                 // a real scratch/ball-in-hand result.
@@ -851,7 +855,8 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
                   }
                 }, 700);
               } else {
-                soundEngine.playGameSFX("ball_pocket");
+                soundEngine.playPocketEdge(pocketSpeed, pocketPosition);
+                soundEngine.playPocketDrop(pocketSpeed, pocketPosition);
                 turnTrackingRef.current.pottedNum.push(ball.num);
               }
             }
@@ -932,7 +937,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
             ball.y = ball.y < boundY ? boundY : TABLE_HEIGHT - boundY;
             hitCushion = true;
           }
-          if (hitCushion && speed > 2) soundEngine.playPhysicalSFX("pool_cushion");
+          if (hitCushion && speed > 2) soundEngine.playRailCollision(speed, ball.x / TABLE_WIDTH * 2 - 1);
         });
 
         for (let i = 0; i < balls.length; i++) {
@@ -972,7 +977,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
 
               b2.vx += impulse * Math.cos(angle);
               b2.vy += impulse * Math.sin(angle);
-              if (Math.abs(impulse) > 1) soundEngine.playPhysicalSFX("pool_ball_hit");
+              if (Math.abs(impulse) > 1) soundEngine.playBallCollision(Math.abs(impulse), (b1.x + b2.x) / TABLE_WIDTH - 1);
             }
           }
         }
@@ -1469,7 +1474,7 @@ export default function PoolGame({ onClose, preloadedMatchId, opponent }: PoolPr
     setIsMoving(true);
     setUiPower(0);
     didIShootRef.current = true;
-    soundEngine.playGameSFX("cue_shot");
+    soundEngine.playCueStrike(impulseSpeed / 22);
 
     if (playMode === "online" && channelRef.current) {
       channelRef.current.send({

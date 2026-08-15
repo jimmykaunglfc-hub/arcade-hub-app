@@ -289,6 +289,10 @@ export default function LudoGame({ onClose, onPlayAgain, roomId }: LudoGameProps
    window.setTimeout(() => finishTurn(player, roll, captured), 450);
  }, [finishTurn, roomId, tokens]);
 
+ useEffect(() => {
+   soundEngine.preloadPhysicalSFX(["dice_shake", "dice_roll"]);
+ }, []);
+
  const rollDice = useCallback((player: PlayerId) => {
    if (roomId) {
      if (player === mySeatIndex) {

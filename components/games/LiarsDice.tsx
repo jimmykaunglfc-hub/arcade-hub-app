@@ -128,8 +128,13 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
   
   const activeTheme = THEMES[themeIndex];
 
+  useEffect(() => {
+    soundEngine.preloadPhysicalSFX(["dice_shake", "dice_roll"]);
+  }, []);
+
   // --- CUSTOM CUP PHYSICS ENGINE ---
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    soundEngine.startDiceShake(0.45);
     setIsDragging(true);
     dragStartY.current = e.clientY - cupY;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -144,18 +149,19 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    soundEngine.stopDiceShake();
     setIsDragging(false);
     // Snap physics based on release position
     if (cupY < -60) {
       setCupY(-220); 
-      if (!isCupOpen) soundEngine.playPhysicalSFX("dice_shake");
+      if (!isCupOpen) soundEngine.playDiceCollision(2.5);
       setIsCupOpen(true);
       if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
         window.navigator.vibrate(30);
       }
     } else {
       setCupY(0); 
-      if (isCupOpen) soundEngine.playPhysicalSFX("dice_shake");
+      if (isCupOpen) soundEngine.playDiceCollision(2.5);
       setIsCupOpen(false);
     }
     e.currentTarget.releasePointerCapture(e.pointerId);
@@ -168,19 +174,21 @@ export default function LiarsDice({ onClose }: { onClose?: () => void }) {
     setCupY(0);
     setIsCupOpen(false);
 
-    soundEngine.playPhysicalSFX("dice_roll");
+    soundEngine.startDiceShake(0.8);
     if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
       window.navigator.vibrate([40, 30, 40, 30, 80]);
     }
 
     setTimeout(() => {
+      soundEngine.stopDiceShake();
+      soundEngine.playDiceCollision(6);
       setDiceValues(rollDice(diceCount));
       setIsRolling(false);
     }, 500);
   };
 
   const toggleCup = () => {
-    soundEngine.playPhysicalSFX("dice_shake");
+    soundEngine.playDiceCollision(2.5);
     if (isCupOpen) {
       setCupY(0);
       setIsCupOpen(false);

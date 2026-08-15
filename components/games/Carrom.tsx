@@ -119,6 +119,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
 
   useEffect(() => {
     soundEngine.preloadGameSFX(["carrom_strike", "carrom_pocket"]);
+    soundEngine.preloadPhysicalSFX(["carrom_hit", "carrom_cushion"]);
   }, []);
 
   // 🛍️ DIRECT SUPABASE EQUIPPED COSMETIC FETCH ENGINE
@@ -529,7 +530,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       isMovingRef.current = true;
       didIShootRef.current = true; 
       
-      soundEngine.playGameSFX("carrom_strike");
+      soundEngine.playCarromStrike(Math.hypot(vx, vy) / 60);
       requestAnimationFrame(physicsLoop);
 
       if (Math.random() <= 0.25) {
@@ -645,7 +646,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         const { vx, vy, startX } = payload.payload;
         const strikerObj = coinsRef.current.find(c => c.type === "striker");
         if (strikerObj) {
-          soundEngine.playGameSFX("carrom_strike");
+          soundEngine.playCarromStrike(Math.hypot(vx, vy) / 60);
           strikerObj.x = startX;
           strikerObj.y = turnRef.current === 1 ? 840 : 160;
           strikerObj.vx = vx;
@@ -812,7 +813,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       if (c1.x + c1.radius > BOUND_MAX) { c1.x = BOUND_MAX - c1.radius; c1.vx *= -RESTITUTION; hitCushion = true; }
       if (c1.y - c1.radius < BOUND_MIN) { c1.y = BOUND_MIN + c1.radius; c1.vy *= -RESTITUTION; hitCushion = true; }
       if (c1.y + c1.radius > BOUND_MAX) { c1.y = BOUND_MAX - c1.radius; c1.vy *= -RESTITUTION; hitCushion = true; }
-      if (hitCushion && Math.hypot(c1.vx, c1.vy) > 2) soundEngine.playPhysicalSFX("carrom_cushion");
+      if (hitCushion && Math.hypot(c1.vx, c1.vy) > 2) soundEngine.playCarromBoundary(Math.hypot(c1.vx, c1.vy) / 3, c1.x / BOARD_SIZE * 2 - 1);
 
       const pockets = [
         {x: HOLE_POS, y: HOLE_POS}, 
@@ -826,7 +827,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
         if (dist < POCKET_TRIGGER && !c1.falling) {
           c1.falling = true;
           if (c1.type === "striker") strikerPocketedThisTurnRef.current = true;
-          if (c1.type !== "striker") soundEngine.playGameSFX("carrom_pocket");
+          if (c1.type !== "striker") soundEngine.playCarromPocket(Math.hypot(c1.vx, c1.vy) / 3, c1.x / BOARD_SIZE * 2 - 1);
         }
       }
 
@@ -858,7 +859,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
           c1.vy -= p * c2.mass * ny * RESTITUTION;
           c2.vx += p * c1.mass * nx * RESTITUTION; 
           c2.vy += p * c1.mass * ny * RESTITUTION;
-          if (Math.abs(p) > 1) soundEngine.playPhysicalSFX("carrom_hit");
+          if (Math.abs(p) > 1) soundEngine.playCarromCollision(Math.abs(p) / 3, (c1.x + c2.x) / BOARD_SIZE - 1);
           
         }
       }
@@ -949,7 +950,6 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
     } else if (validPocket) {
       turnMsg = "Good Shot! Extra Turn.";
       msgType = "success";
-      soundEngine.playGameSFX("carrom_pocket");
       nextTurn = turnRef.current;
     } else {
       nextTurn = turnRef.current === 1 ? 2 : 1;
@@ -1074,7 +1074,7 @@ export default function Carrom({ onClose, preloadedMatchId, opponent }: CarromPr
       strikerObj.vy = vy;
       isMovingRef.current = true;
       didIShootRef.current = true; 
-      soundEngine.playGameSFX("carrom_strike");
+      soundEngine.playCarromStrike(Math.hypot(vx, vy) / 60);
       
       if (playMode === "online" && channelRef.current) {
         channelRef.current.send({
