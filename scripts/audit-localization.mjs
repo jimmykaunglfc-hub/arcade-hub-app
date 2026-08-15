@@ -67,6 +67,10 @@ const isRuntimeStateLiteral = (node) => {
   while (current.parent && !ts.isSourceFile(current.parent)) {
     const parent = current.parent;
     if (ts.isCallExpression(parent) && parent.arguments.includes(current)) return true;
+    // Object IDs are application state. They may deliberately use the same
+    // English words as a visible label, but translating them breaks routing
+    // and tab matching rather than localizing UI copy.
+    if (ts.isPropertyAssignment(parent) && parent.name.getText() === "id") return true;
     if (ts.isBinaryExpression(parent) && /^(?:===|!==|==|!=)$/.test(parent.operatorToken.getText())) return true;
     current = parent;
   }

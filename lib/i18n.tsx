@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import bootstrap from "./locales/bootstrap.json";
+import englishResource from "./locales/en.json";
 import placeholderIndex from "./locales/placeholder-index.json";
 
 export const LANGUAGES = [
@@ -20,7 +21,13 @@ export type LanguageCode = (typeof LANGUAGES)[number]["code"];
 export type TranslationVariables = Record<string, unknown>;
 export type TranslationKey = string;
 
-const resources: Partial<Record<LanguageCode, Record<string, string>>> = {};
+// English is the guaranteed runtime fallback.  It must be available before a
+// user can change language: most screens contain glossary keys beyond the
+// small navigation bootstrap set, and rendering a raw key while English is
+// still downloading can cause downstream UI to fail during a locale change.
+const resources: Partial<Record<LanguageCode, Record<string, string>>> = {
+  en: englishResource as Record<string, string>,
+};
 const pendingResourceLoads: Partial<Record<LanguageCode, Promise<Record<string, string>>>> = {};
 let activeLanguage: LanguageCode = "en";
 const localeLoaders: Record<LanguageCode, () => Promise<{ default: Record<string, string> }>> = {
@@ -95,12 +102,16 @@ const interpolate = (template: string, variables: TranslationVariables, key: str
 
 export function translate(language: LanguageCode, requestedKey: string, variables: TranslationVariables = {}, fallback?: string) {
   const key = resolveKey(requestedKey);
-  const english = resources.en?.[key] || (bootstrap as Record<LanguageCode, Record<string, string>>).en[key] || fallback;
+  const english = (englishResource as Record<string, string>)[key]
+    || (bootstrap as Record<LanguageCode, Record<string, string>>).en[key]
+    || fallback;
   if (!english) {
     warnOnce(`Missing glossary key "${requestedKey}".`);
     return requestedKey;
   }
-  const locale = resources[language];
+  const locale: Record<string, string> | undefined = language === "en"
+    ? (englishResource as Record<string, string>)
+    : resources[language];
   const localized = locale?.[key] || (bootstrap as Record<LanguageCode, Record<string, string>>)[language][key];
   if (locale && !localized) warnOnce(`Missing ${language} translation for ${key}; using English.`);
   let template = localized || english;
@@ -160,15 +171,9 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       void setLanguage(saved as LanguageCode);
       return;
     }
-    const loadInitialEnglish = () => void ensureLocaleResource("en")
-      .then(() => setLocaleRevision((revision) => revision + 1))
-      .catch((error) => warnOnce(`Could not load en locale. ${String(error)}`));
-    const idle = window.requestIdleCallback?.(loadInitialEnglish, { timeout: 1600 });
-    const timer = idle === undefined ? window.setTimeout(loadInitialEnglish, 600) : undefined;
-    return () => {
-      if (idle !== undefined) window.cancelIdleCallback?.(idle);
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
+    // English is statically bundled above, so there is no startup window in
+    // which a glossary-backed screen can render an unresolved key.
+    return undefined;
   }, [setLanguage]);
   useEffect(() => { document.documentElement.lang = language; }, [language]);
   const value = useMemo<TranslationContextValue>(() => ({

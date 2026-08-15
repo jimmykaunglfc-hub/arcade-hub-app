@@ -772,11 +772,14 @@ export default function Home() {
           }}
         >
           {[
-            { id: tr("UI_0039", "Home"), label: t("UI_0039"), icon: "home" },
-            { id: tr("UI_0040", "Explore"), label: t("UI_0040"), icon: "explore" },
-            { id: tr("UI_0037", "Store"), label: t("UI_0037"), icon: "local_mall" },
-            { id: tr("UI_0036", "Chats"), label: t("UI_0036"), icon: "chat_bubble" },
-            { id: tr("UI_0038", "Profile"), label: t("UI_0038"), icon: "person" },
+            // `id` is application state, not visible copy. Keep it stable
+            // across locales so the tab renderer can always match it; only
+            // `label` is translated for the player.
+            { id: "Home", label: t("UI_0039"), icon: "home" },
+            { id: "Explore", label: t("UI_0040"), icon: "explore" },
+            { id: "Store", label: t("UI_0037"), icon: "local_mall" },
+            { id: "Chats", label: t("UI_0036"), icon: "chat_bubble" },
+            { id: "Profile", label: t("UI_0038"), icon: "person" },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             return (
