@@ -41,6 +41,8 @@ export default function SiteSettingsPage() {
   const [groupCreationFreeLimit, setGroupCreationFreeLimit] = useState<number | "">(1);
   const [groupCreationCost, setGroupCreationCost] = useState<number | "">(100);
   const [groupCreationCurrency, setGroupCreationCurrency] = useState<"points" | "gems">("points");
+  const [gemExchangeGemCost, setGemExchangeGemCost] = useState<number | "">(1);
+  const [gemExchangePointsReward, setGemExchangePointsReward] = useState<number | "">(100);
 
   useEffect(() => {
     fetchConfig();
@@ -74,6 +76,8 @@ export default function SiteSettingsPage() {
         setGroupCreationFreeLimit(data.group_creation_free_limit ?? 1);
         setGroupCreationCost(data.group_creation_cost ?? 100);
         setGroupCreationCurrency(data.group_creation_currency === "gems" ? "gems" : "points");
+        setGemExchangeGemCost(data.gem_exchange_gem_cost ?? 1);
+        setGemExchangePointsReward(data.gem_exchange_points_reward ?? 100);
       }
     } catch (err: any) {
       console.error("Error fetching platform config:", err.message);
@@ -106,6 +110,8 @@ export default function SiteSettingsPage() {
         group_creation_free_limit: Math.max(0, Number(groupCreationFreeLimit || 0)),
         group_creation_cost: Math.max(0, Number(groupCreationCost || 0)),
         group_creation_currency: groupCreationCurrency,
+        gem_exchange_gem_cost: Math.max(1, Number(gemExchangeGemCost || 1)),
+        gem_exchange_points_reward: Math.max(1, Number(gemExchangePointsReward || 1)),
         updated_at: new Date().toISOString(),
       };
 
@@ -410,6 +416,48 @@ export default function SiteSettingsPage() {
           </div>
           <p className="mt-4 rounded-xl border border-sky-400/15 bg-sky-400/[0.06] px-4 py-3 text-[11px] leading-relaxed text-sky-200">
             The backend records every created group and debits the selected wallet automatically, so deleting a group does not restore a player&apos;s free allowance. Save Settings to publish changes.
+          </p>
+        </section>
+
+        <section className="bg-[#18181b] border border-violet-400/20 rounded-[24px] p-6 shadow-xl">
+          <div className="flex flex-col gap-4 border-b border-white/5 pb-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-400/10 text-violet-300">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-headline text-lg font-black text-white">Gem-to-Points Exchange</h3>
+                <p className="text-xs text-neutral-400">Set the only rate players can use to refill gameplay Points with Gems.</p>
+              </div>
+            </div>
+            <span className="w-fit rounded-full border border-violet-400/25 bg-violet-400/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-violet-200">
+              Server enforced
+            </span>
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <label className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Gems spent per exchange
+              <input
+                type="number"
+                min="1"
+                value={gemExchangeGemCost}
+                onChange={(e) => setGemExchangeGemCost(e.target.value === "" ? "" : Number(e.target.value))}
+                className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-mono text-white outline-none focus:border-[#CCFF00]"
+              />
+            </label>
+            <label className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Points received per exchange
+              <input
+                type="number"
+                min="1"
+                value={gemExchangePointsReward}
+                onChange={(e) => setGemExchangePointsReward(e.target.value === "" ? "" : Number(e.target.value))}
+                className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-mono text-white outline-none focus:border-[#CCFF00]"
+              />
+            </label>
+          </div>
+          <p className="mt-4 rounded-xl border border-violet-400/15 bg-violet-400/[0.06] px-4 py-3 text-[11px] leading-relaxed text-violet-100">
+            Players can only exchange complete bundles at this rate. For example, {Number(gemExchangeGemCost || 1)} Gem{Number(gemExchangeGemCost || 1) === 1 ? "" : "s"} grants {Number(gemExchangePointsReward || 1).toLocaleString()} Points. Wallet changes are performed atomically by the backend and recorded in activity history.
           </p>
         </section>
 

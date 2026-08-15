@@ -1,7 +1,15 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { Browser } from "@capacitor/browser";
+import { Capacitor } from "@capacitor/core";
 import { supabase } from "../lib/supabaseClient";
+import {
+  beginSocialLogin,
+  SOCIAL_AUTH_ERROR_EVENT,
+  SOCIAL_AUTH_EVENT,
+  type SocialLoginProvider,
+} from "@/lib/socialAuth";
 
 interface AuthViewProps {
   onAuthSuccess: () => void;
@@ -20,6 +28,19 @@ const providerDetails: Record<SocialProvider, { label: string; icon: string }> =
   telegram: { label: "Continue with Telegram", icon: "➤" },
 };
 
+function canUseAppleSignIn() {
+  // Apple sign-in is intentionally offered only in the iOS package and on
+  // Apple mobile browsers. It must not be shown in Android packages, where
+  // Google, email, and Telegram remain the supported sign-in choices.
+  if (Capacitor.getPlatform() === "ios") return true;
+  if (typeof navigator === "undefined") return false;
+
+  const appleMobileBrowser = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const iPadDesktopUserAgent =
+    navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  return appleMobileBrowser || iPadDesktopUserAgent;
+}
+
 export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: AuthViewProps) {
   const [stage, setStage] = useState<AuthStage>("email");
   const [email, setEmail] = useState("");
@@ -33,6 +54,46 @@ export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: Aut
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("ref");
     if (code?.trim()) setReferralCode(code.trim().toUpperCase());
+  }, []);
+
+  useEffect(() => {
+    const handleSuccess = () => {
+      setLoadingProvider(null);
+      clearFeedback();
+      onAuthSuccess();
+    };
+    const handleError = (event: Event) => {
+      const message =
+        event instanceof CustomEvent && typeof event.detail?.message === "string"
+          ? event.detail.message
+          : "We couldn't complete the social sign-in. Please try again.";
+      setErrorMsg(message);
+      setLoadingProvider(null);
+    };
+
+    window.addEventListener(SOCIAL_AUTH_EVENT, handleSuccess);
+    window.addEventListener(SOCIAL_AUTH_ERROR_EVENT, handleError);
+    return () => {
+      window.removeEventListener(SOCIAL_AUTH_EVENT, handleSuccess);
+      window.removeEventListener(SOCIAL_AUTH_ERROR_EVENT, handleError);
+    };
+  }, [onAuthSuccess]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let listener: { remove: () => Promise<void> } | undefined;
+
+    void Browser.addListener("browserFinished", () => {
+      setLoadingProvider((current) =>
+        current === "google" || current === "apple" ? null : current
+      );
+    }).then((handle) => {
+      listener = handle;
+    });
+
+    return () => {
+      void listener?.remove();
+    };
   }, []);
 
   const handleRequestOtp = async (event: FormEvent<HTMLFormElement>) => {
@@ -106,13 +167,12 @@ export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: Aut
     clearFeedback();
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        // Telegram must be configured in Supabase as a custom OIDC provider named "telegram".
-        provider: provider === "telegram" ? "custom:telegram" : provider,
-        options: { redirectTo: window.location.origin },
-      });
-
-      if (error) throw error;
+      await beginSocialLogin(
+        // Telegram remains available only when its custom OIDC provider is
+        // configured in Supabase. Google and Apple are first-class providers.
+        (provider === "telegram" ? "custom:telegram" : provider) as SocialLoginProvider,
+        referralCode
+      );
     } catch (error) {
       setErrorMsg(
         error instanceof Error
@@ -130,8 +190,8 @@ export default function AuthView({ onAuthSuccess, onCancel, dialogTitleId }: Aut
   };
 
   const isBusy = loadingProvider !== null;
-  const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
-  const availableProviders = (Object.keys(providerDetails) as SocialProvider[]).filter((provider) => provider !== "apple" || isIOS);
+  const availableProviders = (Object.keys(providerDetails) as SocialProvider[])
+    .filter((provider) => provider !== "apple" || canUseAppleSignIn());
 
   return (
     <section className="flex-1 flex items-center justify-center py-6">

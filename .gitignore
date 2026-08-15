@@ -23,6 +23,10 @@
 # misc
 .DS_Store
 *.pem
+# OAuth provider secrets — these belong only in the provider dashboards or a
+# secure local secret store, never in the app repository.
+*.p8
+client_secret_*.json
 
 # debug
 npm-debug.log*

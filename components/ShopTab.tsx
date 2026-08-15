@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 interface ShopTabProps {
   userId?: string | null;
+  onWalletUpdated?: () => void;
 }
 
 const getCosmeticSlot = (item: any) => {
@@ -16,26 +17,43 @@ const getCosmeticSlot = (item: any) => {
   return `game:${item?.game_target || item?.id || "unknown"}`;
 };
 
-export default function ShopTab({ userId }: ShopTabProps) {
-  const [activeTab, setActiveTab] = useState<"currency" | "cosmetics">("currency");
+export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
+  const [activeTab, setActiveTab] = useState<"gems" | "exchange" | "cosmetics">("gems");
   
   // Database States
   const [dbStoreItems, setDbStoreItems] = useState<any[]>([]);
   const [userInventory, setUserInventory] = useState<any[]>([]);
   const [rewardModal, setRewardModal] = useState<{ title: string; desc: string } | null>(null);
+  const [wallet, setWallet] = useState({ points: 0, gems: 0 });
+  const [exchangeConfig, setExchangeConfig] = useState({ gemCost: 1, pointsReward: 100 });
+  const [exchanging, setExchanging] = useState(false);
 
   // 📡 FETCH LIVE STORE DATA (From store_items & user_inventory)
   const fetchStoreData = async () => {
     if (!userId) return;
 
-    // 1. Fetch All Active Store Items
-    const { data: storeItems } = await supabase
+    const [{ data: storeItems }, { data: profile }, { data: exchangeSettings }] = await Promise.all([
+      supabase
       .from("store_items")
       .select("*")
       .eq("is_active", true)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }),
+      supabase.from("profiles").select("points, gems").eq("id", userId).maybeSingle(),
+      supabase.rpc("get_gem_exchange_config").maybeSingle(),
+    ]);
     
     if (storeItems) setDbStoreItems(storeItems);
+    if (profile) setWallet({ points: profile.points ?? 0, gems: profile.gems ?? 0 });
+    if (exchangeSettings) {
+      const settings = exchangeSettings as {
+        gem_cost?: number;
+        points_reward?: number;
+      };
+      setExchangeConfig({
+        gemCost: settings.gem_cost ?? 1,
+        pointsReward: settings.points_reward ?? 100,
+      });
+    }
 
     // 2. Fetch User Inventory
     const { data: inventory } = await supabase
@@ -80,16 +98,52 @@ export default function ShopTab({ userId }: ShopTabProps) {
     fetchStoreData();
   }, [userId]);
 
-  // 🛒 PURCHASE CURRENCY PACKS (Mocked IAP/Conversion)
+  // Real-money packs are intentionally not credited from the client. Apple
+  // and Google purchase receipt verification will call the server-side grant.
   const handleBuyCurrencyPack = async (item: any) => {
     if (!userId) return;
     
     soundEngine.playSFX("victory");
     
     setRewardModal({
-      title: "PURCHASE COMPLETE",
-      desc: `Successfully acquired ${item.name}. (Mocked Transaction)`,
+      title: "PLATFORM PURCHASE REQUIRED",
+      desc: `${item.name} grants ${Number(item.gem_amount || 0).toLocaleString()} Gems after Apple App Store or Google Play confirms the purchase. No Gems were added by this preview action.`,
     });
+  };
+
+  const handleExchange = async () => {
+    if (!userId || exchanging) return;
+    setExchanging(true);
+    try {
+      const { data, error } = await supabase
+        .rpc("exchange_gems_for_points", { p_quantity: 1 })
+        .single();
+      if (error) throw error;
+      const exchange = data as {
+        gems_spent: number;
+        points_received: number;
+        new_gems_balance: number;
+        new_points_balance: number;
+      };
+      setWallet({
+        gems: exchange.new_gems_balance,
+        points: exchange.new_points_balance,
+      });
+      onWalletUpdated?.();
+      soundEngine.playSFX("victory");
+      setRewardModal({
+        title: "POINTS REFILLED",
+        desc: `Exchanged ${exchange.gems_spent.toLocaleString()} Gems for ${exchange.points_received.toLocaleString()} Points.`,
+      });
+    } catch (error) {
+      soundEngine.playSFX("defeat");
+      setRewardModal({
+        title: "EXCHANGE UNAVAILABLE",
+        desc: error instanceof Error ? error.message : "We couldn't exchange your Gems right now.",
+      });
+    } finally {
+      setExchanging(false);
+    }
   };
 
   // 🛍️ BUY OR EQUIP COSMETIC ITEM
@@ -168,7 +222,7 @@ export default function ShopTab({ userId }: ShopTabProps) {
   };
 
   // Filter items for tabs
-  const currencyItems = dbStoreItems.filter(item => item.category === "currency");
+  const currencyItems = dbStoreItems.filter(item => item.category === "currency" && Number(item.gem_amount || 0) > 0);
   const cosmeticItems = dbStoreItems.filter(item => item.category === "digital" || item.category === "physical");
 
   return (
@@ -180,18 +234,28 @@ export default function ShopTab({ userId }: ShopTabProps) {
           className="h-[52px]"
         >
         <div
-          className="fixed left-1/2 z-[100] grid w-[calc(100%-40px)] max-w-md -translate-x-1/2 grid-cols-2 gap-3 rounded-2xl border border-surface-container-highest bg-surface-container p-1.5 shadow-lg"
+          className="fixed left-1/2 z-[100] grid w-[calc(100%-40px)] max-w-md -translate-x-1/2 grid-cols-3 gap-2 rounded-2xl border border-surface-container-highest bg-surface-container p-1.5 shadow-lg"
           style={{ top: "calc(90px + env(safe-area-inset-top))" }}
         >
           <button
-            onClick={() => setActiveTab("currency")}
+            onClick={() => setActiveTab("gems")}
             className={`py-3 rounded-xl font-headline font-bold text-xs uppercase tracking-wider transition-all ${
-              activeTab === "currency"
+              activeTab === "gems"
                 ? "bg-primary text-on-primary dark:bg-[#CCFF00] dark:text-black shadow-md"
                 : "text-on-surface-variant dark:text-neutral-400 hover:text-white"
             }`}
           >
-            Get Points
+            Get Gems
+          </button>
+          <button
+            onClick={() => setActiveTab("exchange")}
+            className={`py-3 rounded-xl font-headline font-bold text-xs uppercase tracking-wider transition-all ${
+              activeTab === "exchange"
+                ? "bg-primary text-on-primary dark:bg-[#CCFF00] dark:text-black shadow-md"
+                : "text-on-surface-variant dark:text-neutral-400 hover:text-white"
+            }`}
+          >
+            Exchange
           </button>
           <button
             onClick={() => setActiveTab("cosmetics")}
@@ -206,16 +270,16 @@ export default function ShopTab({ userId }: ShopTabProps) {
         </div>
         </div>
 
-        {/* Get Points: compact purchase cards matching the store reference. */}
-        {activeTab === "currency" && (
+        {/* Real-money Gem packs. */}
+        {activeTab === "gems" && (
           <div>
-            <div className="mb-4 rounded-[20px] bg-gradient-to-r from-lime-500 to-emerald-500 p-5 text-black">
-              <p className="font-headline text-sm font-black">Out of points?</p>
-              <p className="mt-1 max-w-[250px] text-[11px] font-semibold leading-relaxed">Purchase more points to keep playing matches and spinning the wheel.</p>
+            <div className="mb-4 rounded-[20px] bg-gradient-to-r from-violet-500 to-fuchsia-500 p-5 text-white">
+              <p className="font-headline text-sm font-black">Top up Gems</p>
+              <p className="mt-1 max-w-[260px] text-[11px] font-semibold leading-relaxed text-white/85">Gems are the only real-money purchase. Use them to refill Points or unlock Gem-priced cosmetics.</p>
             </div>
             <div className="space-y-3">
             {currencyItems.length === 0 ? (
-              <p className="text-center text-xs text-on-surface-variant mt-10">No point packs available.</p>
+              <p className="text-center text-xs text-on-surface-variant mt-10">No Gem packs are available.</p>
             ) : (
               currencyItems.map((item) => (
                 <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-surface-container-highest bg-surface p-3.5 shadow-sm dark:border-white/5 dark:bg-[#111a2c]">
@@ -226,17 +290,33 @@ export default function ShopTab({ userId }: ShopTabProps) {
                        <span className="material-symbols-outlined text-xl text-primary">bolt</span>
                     )}
                   </div>
-                  <div className="min-w-0 flex-1 text-left"><h3 className="font-headline text-sm font-black text-on-surface dark:text-white">{item.name}</h3><p className="truncate text-[10px] font-medium text-on-surface-variant">{item.description || "Points package"}</p></div>
+                  <div className="min-w-0 flex-1 text-left"><h3 className="font-headline text-sm font-black text-on-surface dark:text-white">{item.name}</h3><p className="truncate text-[10px] font-medium text-on-surface-variant">💎 {Number(item.gem_amount).toLocaleString()} Gems · {item.description || "Gem package"}</p></div>
                   <button
                     onClick={() => handleBuyCurrencyPack(item)}
                     className="shrink-0 rounded-xl bg-surface-container-highest px-4 py-2.5 text-xs font-black text-on-surface transition-colors active:scale-95 dark:bg-white dark:text-black"
                   >
-                    {item.price_currency === 'fiat_usd' ? `$${Number(item.price_fiat).toFixed(2)}` : `${item.price_points.toLocaleString()} PTS`}
+                    {item.price_currency === 'fiat_usd' ? `$${Number(item.price_fiat).toFixed(2)}` : "Purchase"}
                   </button>
                 </div>
               ))
             )}
             </div>
+          </div>
+        )}
+
+        {activeTab === "exchange" && (
+          <div className="rounded-[24px] border border-violet-400/20 bg-surface p-5 shadow-lg dark:bg-[#111a2c]">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined grid h-11 w-11 place-items-center rounded-2xl bg-violet-500/15 text-2xl text-violet-300">swap_horiz</span>
+              <div><h3 className="font-headline text-base font-black text-on-surface dark:text-white">Refill Points with Gems</h3><p className="mt-0.5 text-[11px] text-on-surface-variant">The rate is set by Joe Yoke administration.</p></div>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-violet-500/10 p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-violet-200">You spend</p><p className="mt-1 font-headline text-xl font-black text-violet-300">💎 {exchangeConfig.gemCost.toLocaleString()}</p></div>
+              <div className="rounded-2xl bg-primary/10 p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-primary">You receive</p><p className="mt-1 font-headline text-xl font-black text-primary">⚡ {exchangeConfig.pointsReward.toLocaleString()}</p></div>
+            </div>
+            <div className="mt-4 flex items-center justify-between rounded-xl border border-surface-container-highest bg-surface-container px-4 py-3 text-xs"><span className="text-on-surface-variant">Your Gems</span><b className="text-violet-300">💎 {wallet.gems.toLocaleString()}</b></div>
+            <button onClick={() => void handleExchange()} disabled={exchanging || wallet.gems < exchangeConfig.gemCost} className="mt-4 w-full rounded-2xl bg-primary py-3.5 font-headline text-sm font-black text-on-primary transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40">{exchanging ? "EXCHANGING…" : `EXCHANGE ${exchangeConfig.gemCost.toLocaleString()} GEMS`}</button>
+            <p className="mt-3 text-center text-[10px] text-on-surface-variant">Current Points: {wallet.points.toLocaleString()}</p>
           </div>
         )}
 

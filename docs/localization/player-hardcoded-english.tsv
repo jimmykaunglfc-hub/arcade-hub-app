@@ -1,0 +1,1784 @@
+key	locations	english	my	th	zh	km	lo	fr	de	es
+UI_0001	app/layout.tsx:10	Joe Yoke | Social Gaming Hub								
+UI_0002	app/layout.tsx:11	Play HTML5 games and chat with friends.								
+UI_0003	app/layout.tsx:15 | app/page.tsx:593	Joe Yoke								
+UI_0004	app/leaderboard/page.tsx:117	← Back								
+UI_0005	app/leaderboard/page.tsx:118	Global Leaderboard								
+UI_0006	app/leaderboard/page.tsx:119	Top 50 players by XP								
+UI_0007	app/leaderboard/page.tsx:131 | app/leaderboard/page.tsx:148	Profile ranking								
+UI_0008	app/leaderboard/page.tsx:131 | app/leaderboard/page.tsx:148 | components/games/MiniFighter.tsx:67 | components/games/MiniFighter.tsx:72	YOU								
+UI_0009	app/leaderboard/page.tsx:132 | app/leaderboard/page.tsx:148	Share my rank								
+UI_0010	app/leaderboard/page.tsx:132 | app/leaderboard/page.tsx:148 | components/ChatTab.tsx:1067	View profile								
+UI_0011	app/leaderboard/page.tsx:132 | app/leaderboard/page.tsx:148	XP								
+UI_0012	app/leaderboard/page.tsx:134	Loading leaderboard…								
+UI_0013	app/leaderboard/page.tsx:136	Loading 10 more players…								
+UI_0014	app/leaderboard/page.tsx:146	1st place								
+UI_0015	app/leaderboard/page.tsx:146	2nd place								
+UI_0016	app/leaderboard/page.tsx:146	3rd place								
+UI_0017	app/leaderboard/page.tsx:60	${Number(player.xp || 0).toLocaleString()} XP								
+UI_0018	app/leaderboard/page.tsx:60	${player.username} is climbing the Joe Yoke leaderboard								
+UI_0019	app/leaderboard/page.tsx:60	Global leaderboard								
+UI_0020	app/leaderboard/page.tsx:60	Global Rank #${rank}								
+UI_0021	app/leaderboard/page.tsx:61 | app/tournaments/[id]/page.tsx:153	Rank card downloaded and text copied.								
+UI_0022	app/leaderboard/page.tsx:61	Rank card shared.								
+UI_0023	app/leaderboard/page.tsx:61 | app/tournaments/[id]/page.tsx:153 | components/HomeTab.tsx:333 | components/RecentMatches.tsx:39	shared								
+UI_0024	app/page.tsx:107	Sign in to join Shan Koe Mee matchmaking.								
+UI_0025	app/page.tsx:126	Sign in to join Monopoly matchmaking.								
+UI_0026	app/page.tsx:51	Loading								
+UI_0027	app/page.tsx:573	is still open								
+UI_0028	app/page.tsx:574	Return within								
+UI_0029	app/page.tsx:574	s to continue where you left off.								
+UI_0030	app/page.tsx:576	Return								
+UI_0031	app/page.tsx:577	End game								
+UI_0032	app/page.tsx:581 | app/page.tsx:658 | app/page.tsx:701 | app/page.tsx:737 | components/HomeTab.tsx:533	Spin								
+UI_0033	app/page.tsx:596	Buy points								
+UI_0034	app/page.tsx:607	Buy gems								
+UI_0035	app/page.tsx:633	Open notifications								
+UI_0036	app/page.tsx:656 | app/page.tsx:687 | app/page.tsx:750	Chats								
+UI_0037	app/page.tsx:657 | app/page.tsx:699 | app/page.tsx:749	Store								
+UI_0038	app/page.tsx:659 | app/page.tsx:703 | app/page.tsx:751	Profile								
+UI_0039	app/page.tsx:663 | app/page.tsx:747	Home								
+UI_0040	app/page.tsx:678 | app/page.tsx:748	Explore								
+UI_0041	app/page.tsx:750	chats								
+UI_0042	app/page.tsx:751	profile								
+UI_0043	app/page.tsx:89	Sign in to join Big Two matchmaking.								
+UI_0044	app/page.tsx:98	Sign in to join Ludo matchmaking.								
+UI_0045	app/tournaments/[id]/page.tsx:100	You are registered. Good luck!								
+UI_0046	app/tournaments/[id]/page.tsx:109	Loading tournament…								
+UI_0047	app/tournaments/[id]/page.tsx:139	Sign in to play tournament games.								
+UI_0048	app/tournaments/[id]/page.tsx:140	Join the tournament before playing.								
+UI_0049	app/tournaments/[id]/page.tsx:146	No active fixture is assigned for this game yet. Wait for the organizer to create the round.								
+UI_0050	app/tournaments/[id]/page.tsx:152	${myRow.score || 0} tournament points								
+UI_0051	app/tournaments/[id]/page.tsx:152	${myRow.wins || 0} wins · ${myRow.draws || 0} draws · ${myRow.losses || 0} losses								
+UI_0052	app/tournaments/[id]/page.tsx:152	Tournament result								
+UI_0053	app/tournaments/[id]/page.tsx:153	Tournament rank shared.								
+UI_0054	app/tournaments/[id]/page.tsx:164	← Back to home								
+UI_0055	app/tournaments/[id]/page.tsx:189 | components/HomeTab.tsx:377 | components/games/Monopoly.tsx:795	Players								
+UI_0056	app/tournaments/[id]/page.tsx:195 | app/tournaments/[id]/page.tsx:246	Prize pool								
+UI_0057	app/tournaments/[id]/page.tsx:201	Entry fee								
+UI_0058	app/tournaments/[id]/page.tsx:217	Overview								
+UI_0059	app/tournaments/[id]/page.tsx:223	Rules								
+UI_0060	app/tournaments/[id]/page.tsx:229	Games								
+UI_0061	app/tournaments/[id]/page.tsx:235	Leaderboard								
+UI_0062	app/tournaments/[id]/page.tsx:240	overview								
+UI_0063	app/tournaments/[id]/page.tsx:242	About tournament								
+UI_0064	app/tournaments/[id]/page.tsx:244	A dedicated competitive event. Tournament results never affect the normal game lobby.								
+UI_0065	app/tournaments/[id]/page.tsx:246	${Number( tournament.prize_pool || 0 ).toLocaleString()} ${prizeCurrency}. Final placements and prizes are published by the tournament organizer.								
+UI_0066	app/tournaments/[id]/page.tsx:251	rules								
+UI_0067	app/tournaments/[id]/page.tsx:253	General rules								
+UI_0068	app/tournaments/[id]/page.tsx:254	Standard game rules apply.								
+UI_0069	app/tournaments/[id]/page.tsx:256	Terms & conditions								
+UI_0070	app/tournaments/[id]/page.tsx:258	By joining, you agree to follow the tournament rules and fair-play requirements.								
+UI_0071	app/tournaments/[id]/page.tsx:262	games								
+UI_0072	app/tournaments/[id]/page.tsx:286	leaderboard								
+UI_0073	app/tournaments/[id]/page.tsx:288	completed								
+UI_0074	app/tournaments/[id]/page.tsx:288	Share my final tournament rank								
+UI_0075	app/tournaments/[id]/page.tsx:290	, draw								
+UI_0076	app/tournaments/[id]/page.tsx:290	Score: win								
+UI_0077	app/tournaments/[id]/page.tsx:291	, loss								
+UI_0078	app/tournaments/[id]/page.tsx:292	. Ties use wins, fewer losses, matches played, then registration time.								
+UI_0079	app/tournaments/[id]/page.tsx:313 | app/tournaments/[id]/page.tsx:333 | components/games/BigTwoGame.tsx:281 | components/games/BigTwoGame.tsx:282 | components/games/BigTwoGame.tsx:357 | components/games/BigTwoGame.tsx:378 | components/games/CupPong.tsx:2935 | components/games/Monopoly.tsx:1197 | components/games/ShanKoeMeeGame.tsx:102	Player								
+UI_0080	app/tournaments/[id]/page.tsx:316 | app/tournaments/[id]/page.tsx:338 | app/tournaments/[id]/page.tsx:356 | components/games/SnookerGame.tsx:1923 | components/games/SnookerGame.tsx:1953	pts								
+UI_0081	app/tournaments/[id]/page.tsx:335	D ·								
+UI_0082	app/tournaments/[id]/page.tsx:335 | app/tournaments/[id]/page.tsx:353	W ·								
+UI_0083	app/tournaments/[id]/page.tsx:344	↕ Your rank								
+UI_0084	app/tournaments/[id]/page.tsx:351 | components/ChatTab.tsx:695 | components/games/BlockPuzzleGame.tsx:536 | components/games/BlockPuzzleGame.tsx:555 | components/games/DominoesGame.tsx:841 | components/games/Game2048.tsx:312 | components/games/MiniFighterChallengeCard.tsx:28 | components/games/ShanKoeMeeGame.tsx:143 | components/games/ShanKoeMeeGame.tsx:144 | components/games/TicTacToeGame.tsx:600 | components/games/TicTacToeGame.tsx:955 | components/games/UnoGame.tsx:942	You								
+UI_0085	app/tournaments/[id]/page.tsx:378	Join tournament								
+UI_0086	app/tournaments/[id]/page.tsx:378	Joining…								
+UI_0087	app/tournaments/[id]/page.tsx:378	Registered								
+UI_0088	app/tournaments/[id]/page.tsx:38	Tournament not found.								
+UI_0089	app/tournaments/[id]/page.tsx:398	Tournament match								
+UI_0090	app/tournaments/[id]/page.tsx:400	Opposing player								
+UI_0091	app/tournaments/[id]/page.tsx:402 | components/CompetitiveGameLaunch.tsx:141	Arena opponent								
+UI_0092	app/tournaments/[id]/page.tsx:402	Tournament opponent								
+UI_0093	app/tournaments/[id]/page.tsx:403 | components/CompetitiveGameLaunch.tsx:141	Enter Match&nbsp; →								
+UI_0094	app/tournaments/[id]/page.tsx:404 | components/ChatTab.tsx:800 | components/GamesTab.tsx:252 | components/games/DominoesGame.tsx:1817 | components/games/SudokuGame.tsx:1078	Cancel								
+UI_0095	app/tournaments/[id]/page.tsx:89	Sign in to join this tournament.								
+UI_0096	components/AuthView.tsx:145	Cancel sign in								
+UI_0097	components/AuthView.tsx:155	dialpad								
+UI_0098	components/AuthView.tsx:155	shield_lock								
+UI_0099	components/AuthView.tsx:155 | components/AuthView.tsx:160 | components/AuthView.tsx:163 | components/AuthView.tsx:175 | components/AuthView.tsx:197	verify								
+UI_0100	components/AuthView.tsx:158	Joe Yoke account								
+UI_0101	components/AuthView.tsx:160	Check your inbox								
+UI_0102	components/AuthView.tsx:160	Play with your account								
+UI_0103	components/AuthView.tsx:164	Enter the 6-digit code sent to ${email}.								
+UI_0104	components/AuthView.tsx:165	Sign in once to keep your progress, rewards, and game history in sync.								
+UI_0105	components/AuthView.tsx:178	Access code								
+UI_0106	components/AuthView.tsx:18	Continue with Google								
+UI_0107	components/AuthView.tsx:186	6-digit code								
+UI_0108	components/AuthView.tsx:19	Continue with Apple								
+UI_0109	components/AuthView.tsx:197	Verify & continue								
+UI_0110	components/AuthView.tsx:197	Verifying…								
+UI_0111	components/AuthView.tsx:20	Continue with Telegram								
+UI_0112	components/AuthView.tsx:200	Use a different email								
+UI_0113	components/AuthView.tsx:209 | components/AuthView.tsx:279	Not now								
+UI_0114	components/AuthView.tsx:217 | components/ProfileTab.tsx:1003	Email address								
+UI_0115	components/AuthView.tsx:222	you@example.com								
+UI_0116	components/AuthView.tsx:230	(optional)								
+UI_0117	components/AuthView.tsx:230	Referral code								
+UI_0118	components/AuthView.tsx:231	Friend's referral code								
+UI_0119	components/AuthView.tsx:238	Continue with email								
+UI_0120	components/AuthView.tsx:238	email								
+UI_0121	components/AuthView.tsx:238	Sending code…								
+UI_0122	components/AuthView.tsx:244	or								
+UI_0123	components/AuthView.tsx:263	Connecting…								
+UI_0124	components/AuthView.tsx:270	New here? Your account is created automatically the first time you continue.								
+UI_0125	components/CampaignSplash.tsx:104 | components/ShopTab.tsx:272 | components/ShopTab.tsx:323 | components/SpinTab.tsx:148 | components/games/Carrom.tsx:1458 | components/games/Checkers.tsx:900 | components/games/ChessGame.tsx:927 | components/games/NexusBreach.tsx:195 | components/games/PoolGame.tsx:1724 | components/games/SnookerGame.tsx:1759 | components/games/TicTacToeGame.tsx:779	auto_awesome								
+UI_0126	components/CampaignSplash.tsx:118 | components/SpinTab.tsx:148 | components/games/Monopoly.tsx:711	Continue								
+UI_0127	components/CampaignSplash.tsx:71	Loading Joe Yoke								
+UI_0128	components/CampaignSplash.tsx:77 | components/games/PingPong.tsx:1562 | lib/socialShare.ts:95	JOE YOKE								
+UI_0129	components/CampaignSplash.tsx:78	Loading arena								
+UI_0130	components/CampaignSplash.tsx:97 | components/games/Monopoly.tsx:698	Skip								
+UI_0131	components/CampaignSplash.tsx:97	Skip ${remaining}s								
+UI_0132	components/ChatTab.tsx:1001	Four-player tables								
+UI_0133	components/ChatTab.tsx:1004	Invite up to 3 friends								
+UI_0134	components/ChatTab.tsx:1011	four_player								
+UI_0135	components/ChatTab.tsx:1013	All accepted invites join one shared table.								
+UI_0136	components/ChatTab.tsx:1013	Invite 3 players								
+UI_0137	components/ChatTab.tsx:1014	add_circle								
+UI_0138	components/ChatTab.tsx:1014 | components/DailyLoginCard.tsx:164 | components/games/Carrom.tsx:1631 | components/games/MiniFighter.tsx:65	check_circle								
+UI_0139	components/ChatTab.tsx:1015	Add friends before creating a four-player table.								
+UI_0140	components/ChatTab.tsx:1016	Send table invitations								
+UI_0141	components/ChatTab.tsx:1020	carrom_mode								
+UI_0142	components/ChatTab.tsx:1025	Rule Mode								
+UI_0143	components/ChatTab.tsx:1029	Freestyle Mode (Fast)								
+UI_0144	components/ChatTab.tsx:1033	Classic Mode (Tactical)								
+UI_0145	components/ChatTab.tsx:1054	User								
+UI_0146	components/ChatTab.tsx:1060	Comms online								
+UI_0147	components/ChatTab.tsx:1060 | components/GameEngagementMenu.tsx:39 | components/games/Carrom.tsx:1414 | components/games/Checkers.tsx:856 | components/games/ChessGame.tsx:881 | components/games/PoolGame.tsx:1678 | components/games/SnookerGame.tsx:1712 | components/games/TicTacToeGame.tsx:734	Offline								
+UI_0148	components/ChatTab.tsx:1073	Loading conversation…								
+UI_0149	components/ChatTab.tsx:1076 | components/GamesTab.tsx:20 | components/games/UnoGame.tsx:178 | components/games/UnoGame.tsx:194 | components/games/UnoGame.tsx:393	Uno								
+UI_0150	components/ChatTab.tsx:1077 | components/games/TicTacToeGame.tsx:692	Tic-Tac-Toe								
+UI_0151	components/ChatTab.tsx:1078 | components/GamesTab.tsx:21 | components/games/Carrom.tsx:315 | components/games/Carrom.tsx:352 | components/games/Carrom.tsx:1141	Carrom								
+UI_0152	components/ChatTab.tsx:1079 | components/GamesTab.tsx:22 | components/games/ChessGame.tsx:324 | components/games/ChessGame.tsx:367 | components/games/ChessGame.tsx:687	Chess								
+UI_0153	components/ChatTab.tsx:1080 | components/GamesTab.tsx:24 | components/games/SnookerGame.tsx:221 | components/games/SnookerGame.tsx:264 | components/games/SnookerGame.tsx:1542	Snooker								
+UI_0154	components/ChatTab.tsx:1081 | components/games/PoolGame.tsx:456	Pool								
+UI_0155	components/ChatTab.tsx:1082 | components/GamesTab.tsx:40	Monopoly								
+UI_0156	components/ChatTab.tsx:1083 | components/GamesTab.tsx:37	Big Two								
+UI_0157	components/ChatTab.tsx:1084 | components/GamesTab.tsx:34 | components/games/LudoGame.tsx:573	Ludo								
+UI_0158	components/ChatTab.tsx:1085 | components/GamesTab.tsx:38	Shan Koe Mee								
+UI_0159	components/ChatTab.tsx:1115 | components/GamesTab.tsx:23 | components/games/Checkers.tsx:188 | components/games/Checkers.tsx:225 | components/games/Checkers.tsx:704	Checkers								
+UI_0160	components/ChatTab.tsx:1139	Open attachment								
+UI_0161	components/ChatTab.tsx:1163	Match Challenge								
+UI_0162	components/ChatTab.tsx:1169	Awaiting...								
+UI_0163	components/ChatTab.tsx:1213	declined								
+UI_0164	components/ChatTab.tsx:1213	Declined								
+UI_0165	components/ChatTab.tsx:1214	accepted								
+UI_0166	components/ChatTab.tsx:1226	Enter Arena								
+UI_0167	components/ChatTab.tsx:1249 | components/games/MiniFighterChallengeCard.tsx:23 | components/games/NeuralDuel.tsx:116 | components/games/NeuralDuel.tsx:220	swords								
+UI_0168	components/ChatTab.tsx:1261	Attach file								
+UI_0169	components/ChatTab.tsx:1261	attach_file								
+UI_0170	components/ChatTab.tsx:1271	Message...								
+UI_0171	components/ChatTab.tsx:1283	arrow_upward								
+UI_0172	components/ChatTab.tsx:180	Every successful invite								
+UI_0173	components/ChatTab.tsx:181	${rule.invitee_target} invitee milestone								
+UI_0174	components/ChatTab.tsx:182	Invitee spends $${Number(rule.minimum_purchase_amount).toFixed(2)}+								
+UI_0175	components/ChatTab.tsx:262 | components/ChatTab.tsx:269 | components/ChatTab.tsx:312 | components/ChatTab.tsx:532	direct_messages								
+UI_0176	components/ChatTab.tsx:264	and(sender_id.eq.${myUserId},receiver_id.eq.${activeChat.id}),and(sender_id.eq.${activeChat.id},receiver_id.eq.${myUserId})								
+UI_0177	components/ChatTab.tsx:265 | components/ChatTab.tsx:628	created_at								
+UI_0178	components/ChatTab.tsx:269	read_at								
+UI_0179	components/ChatTab.tsx:269	receiver_id								
+UI_0180	components/ChatTab.tsx:269	sender_id								
+UI_0181	components/ChatTab.tsx:309 | components/ChatTab.tsx:318 | components/ChatTab.tsx:1129	text								
+UI_0182	components/ChatTab.tsx:324	Attachments must be 5 MB or smaller.								
+UI_0183	components/ChatTab.tsx:328	Upload failed: ${error.message}								
+UI_0184	components/ChatTab.tsx:330 | components/ChatTab.tsx:1138	attachment								
+UI_0185	components/ChatTab.tsx:344	Matchmaking Halted: You cannot issue challenges with 0 credits.								
+UI_0186	components/ChatTab.tsx:354	waiting								
+UI_0187	components/ChatTab.tsx:362 | components/ChatTab.tsx:380 | components/ChatTab.tsx:397 | components/ChatTab.tsx:409 | components/ChatTab.tsx:426 | components/ChatTab.tsx:443 | components/ChatTab.tsx:467 | components/ChatTab.tsx:485 | components/ChatTab.tsx:518 | components/ChatTab.tsx:1142	game_invite								
+UI_0188	components/ChatTab.tsx:365 | components/ChatTab.tsx:383 | components/ChatTab.tsx:400 | components/ChatTab.tsx:412 | components/ChatTab.tsx:429 | components/ChatTab.tsx:446 | components/ChatTab.tsx:470 | components/ChatTab.tsx:488 | components/ChatTab.tsx:521 | components/ChatTab.tsx:1167	pending								
+UI_0189	components/ChatTab.tsx:459	Could not create the challenge room: ${roomError?.message || "Unknown error"}								
+UI_0190	components/ChatTab.tsx:459	Unknown error								
+UI_0191	components/ChatTab.tsx:508	Could not create the four-player room.								
+UI_0192	components/ChatTab.tsx:532 | components/DailyLoginCard.tsx:60	id								
+UI_0193	components/ChatTab.tsx:607	Join me on Joe Yoke								
+UI_0194	components/ChatTab.tsx:628 | components/ChatTab.tsx:638	chat_group_messages								
+UI_0195	components/ChatTab.tsx:628	group_id								
+UI_0196	components/ChatTab.tsx:628	id,content,created_at,sender_id,profiles(username)								
+UI_0197	components/ChatTab.tsx:670 | components/ChatTab.tsx:741 | components/ChatTab.tsx:793 | components/GamesTab.tsx:157	groups								
+UI_0198	components/ChatTab.tsx:675	Group conversation								
+UI_0199	components/ChatTab.tsx:696	Member								
+UI_0200	components/ChatTab.tsx:704	No messages yet. Say hello to the group.								
+UI_0201	components/ChatTab.tsx:716	Message the community…								
+UI_0202	components/ChatTab.tsx:717	Group message								
+UI_0203	components/ChatTab.tsx:723	Send group message								
+UI_0204	components/ChatTab.tsx:726 | components/ChatTab.tsx:1030 | components/ChatTab.tsx:1034	send								
+UI_0205	components/ChatTab.tsx:740	Direct								
+UI_0206	components/ChatTab.tsx:740 | components/ChatTab.tsx:758	dms								
+UI_0207	components/ChatTab.tsx:741	Groups								
+UI_0208	components/ChatTab.tsx:742	Invite								
+UI_0209	components/ChatTab.tsx:742 | components/ChatTab.tsx:814	network								
+UI_0210	components/ChatTab.tsx:760	Syncing conversations…								
+UI_0211	components/ChatTab.tsx:764	Connect via the Network tab.								
+UI_0212	components/ChatTab.tsx:764	Your inbox is empty.								
+UI_0213	components/ChatTab.tsx:782	Online now								
+UI_0214	components/ChatTab.tsx:782	Say hi and start a match								
+UI_0215	components/ChatTab.tsx:785 | components/ChatTab.tsx:924 | components/ChatTab.tsx:935 | components/ChatTab.tsx:946 | components/ChatTab.tsx:957 | components/ChatTab.tsx:966 | components/ChatTab.tsx:977 | components/ChatTab.tsx:988 | components/ChatTab.tsx:998 | components/HomeTab.tsx:707 | components/ProfileTab.tsx:703 | components/ProfileTab.tsx:732 | components/ProfileTab.tsx:737 | components/ProfileTab.tsx:739 | components/ProfileTab.tsx:815	chevron_right								
+UI_0216	components/ChatTab.tsx:795	${groupCreationPolicy.free_creations_remaining} free creation${groupCreationPolicy.free_creations_remaining === 1 ? "" : "s"} remaining								
+UI_0217	components/ChatTab.tsx:795	${groupCreationPolicy.paid_cost.toLocaleString()} ${groupCreationPolicy.paid_currency} per group								
+UI_0218	components/ChatTab.tsx:795	Create a new group								
+UI_0219	components/ChatTab.tsx:795	Free group creation								
+UI_0220	components/ChatTab.tsx:796	Create a group								
+UI_0221	components/ChatTab.tsx:797	This group costs ${groupCreationPolicy.paid_cost.toLocaleString()} ${groupCreationPolicy.paid_currency}.								
+UI_0222	components/ChatTab.tsx:797	This group is free.								
+UI_0223	components/ChatTab.tsx:797	This group is free. ${groupCreationPolicy.free_creations_remaining - 1} free creation${groupCreationPolicy.free_creations_remaining === 1 ? "" : "s"} will remain.								
+UI_0224	components/ChatTab.tsx:798	Group name								
+UI_0225	components/ChatTab.tsx:799	Description (optional)								
+UI_0226	components/ChatTab.tsx:800	Create group								
+UI_0227	components/ChatTab.tsx:800	Creating…								
+UI_0228	components/ChatTab.tsx:806	Community group								
+UI_0229	components/ChatTab.tsx:807 | components/GameEngagementMenu.tsx:42 | components/games/Carrom.tsx:1442 | components/games/Checkers.tsx:884 | components/games/ChessGame.tsx:909 | components/games/PoolGame.tsx:1707 | components/games/SnookerGame.tsx:1741 | components/games/TicTacToeGame.tsx:762	Join								
+UI_0230	components/ChatTab.tsx:807	Open chat								
+UI_0231	components/ChatTab.tsx:810	No groups yet. Start the first one.								
+UI_0232	components/ChatTab.tsx:817 | components/ChatTab.tsx:1005	group_add								
+UI_0233	components/ChatTab.tsx:818	Invite &amp; Earn!								
+UI_0234	components/ChatTab.tsx:819	Share your referral code and earn rewards when friends join.								
+UI_0235	components/ChatTab.tsx:821	Loading...								
+UI_0236	components/ChatTab.tsx:823 | components/ChatTab.tsx:844 | components/ProfileTab.tsx:654 | components/games/Carrom.tsx:1583 | components/games/Checkers.tsx:984 | components/games/ChessGame.tsx:990 | components/games/PoolGame.tsx:1778 | components/games/SnookerGame.tsx:1814 | components/games/TicTacToeGame.tsx:844	content_copy								
+UI_0237	components/ChatTab.tsx:826 | components/ChatTab.tsx:844	Share referral code								
+UI_0238	components/ChatTab.tsx:830	Add Friend by ID								
+UI_0239	components/ChatTab.tsx:834	Enter User ID...								
+UI_0240	components/ChatTab.tsx:839	Add								
+UI_0241	components/ChatTab.tsx:843 | components/ChatTab.tsx:1208	Accept								
+UI_0242	components/ChatTab.tsx:843	Connection requests								
+UI_0243	components/ChatTab.tsx:843 | components/ChatTab.tsx:1176 | components/GlobalInviteListener.tsx:107	Decline								
+UI_0244	components/ChatTab.tsx:844	Copy referral code								
+UI_0245	components/ChatTab.tsx:844	Copy your code to share it in any app.								
+UI_0246	components/ChatTab.tsx:858	Invite dashboard								
+UI_0247	components/ChatTab.tsx:861	REFERRAL PERFORMANCE								
+UI_0248	components/ChatTab.tsx:862	Your invite summary								
+UI_0249	components/ChatTab.tsx:863	Track invitees and see the rewards available in the current program.								
+UI_0250	components/ChatTab.tsx:867 | components/games/GlitchDeck.tsx:115	group								
+UI_0251	components/ChatTab.tsx:869	Invitees								
+UI_0252	components/ChatTab.tsx:874	Points earned								
+UI_0253	components/ChatTab.tsx:879	Gems earned								
+UI_0254	components/ChatTab.tsx:882	Available benefits								
+UI_0255	components/ChatTab.tsx:883	Rewards will appear when the referral program is configured.								
+UI_0256	components/ChatTab.tsx:884	Invitee information								
+UI_0257	components/ChatTab.tsx:885	· Joined								
+UI_0258	components/ChatTab.tsx:885 | components/games/NexusBreach.tsx:131	Active								
+UI_0259	components/ChatTab.tsx:885	No invitees yet. Share your code to get started.								
+UI_0260	components/ChatTab.tsx:906	game								
+UI_0261	components/ChatTab.tsx:909	Select Arena								
+UI_0262	components/ChatTab.tsx:914	Two-player challenges								
+UI_0263	components/ChatTab.tsx:920 | components/ChatTab.tsx:1090	style								
+UI_0264	components/ChatTab.tsx:922	Uno Card Battle								
+UI_0265	components/ChatTab.tsx:933 | components/games/TicTacToeGame.tsx:887	Tic-Tac-Toe Matrix								
+UI_0266	components/ChatTab.tsx:942 | components/ChatTab.tsx:963 | components/ChatTab.tsx:1098 | components/GameEngagementMenu.tsx:24 | components/games/PoolGame.tsx:1612 | components/games/SnookerGame.tsx:1646	sports_bar								
+UI_0267	components/ChatTab.tsx:944	Snooker 3D								
+UI_0268	components/ChatTab.tsx:953 | components/ChatTab.tsx:1096	psychology								
+UI_0269	components/ChatTab.tsx:955	Grandmaster Chess								
+UI_0270	components/ChatTab.tsx:964 | components/GamesTab.tsx:25 | components/games/PoolGame.tsx:265 | components/games/PoolGame.tsx:298 | components/games/PoolGame.tsx:1616	8-Ball Pool								
+UI_0271	components/ChatTab.tsx:973 | components/ChatTab.tsx:1094	radio_button_checked								
+UI_0272	components/ChatTab.tsx:975 | components/games/Carrom.tsx:1500	Carrom Matrix								
+UI_0273	components/ChatTab.tsx:986	Neon Checkers								
+UI_0274	components/ChatTab.tsx:996	Challenge one friend								
+UI_0275	components/CompetitiveGameLaunch.tsx:117	That room belongs to a different game.								
+UI_0276	components/CompetitiveGameLaunch.tsx:140 | components/CompetitiveGameLaunch.tsx:146 | components/games/MiniFighter.tsx:69 | components/games/PingPong.tsx:3192 | components/games/PingPong.tsx:3370 | components/games/ShanKoeMeeGame.tsx:141	Back to arcade								
+UI_0277	components/CompetitiveGameLaunch.tsx:141	· 1200 ELO								
+UI_0278	components/CompetitiveGameLaunch.tsx:141	Match Confirmed								
+UI_0279	components/CompetitiveGameLaunch.tsx:141 | components/games/Carrom.tsx:1477 | components/games/Checkers.tsx:919 | components/games/ChessGame.tsx:946 | components/games/PoolGame.tsx:1743 | components/games/SnookerGame.tsx:1778 | components/games/TicTacToeGame.tsx:798	Opposing Player								
+UI_0280	components/CompetitiveGameLaunch.tsx:141	Ranked								
+UI_0281	components/CompetitiveGameLaunch.tsx:143 | components/NotificationsCenter.tsx:149 | components/games/PingPong.tsx:3206	Back								
+UI_0282	components/CompetitiveGameLaunch.tsx:143	bingo								
+UI_0283	components/CompetitiveGameLaunch.tsx:143	Create a private room								
+UI_0284	components/CompetitiveGameLaunch.tsx:143	Create room								
+UI_0285	components/CompetitiveGameLaunch.tsx:143	dominoes								
+UI_0286	components/CompetitiveGameLaunch.tsx:143	Enter room								
+UI_0287	components/CompetitiveGameLaunch.tsx:143	ping-pong								
+UI_0288	components/CompetitiveGameLaunch.tsx:143 | components/FourPlayerMatchLobby.tsx:143	Share this room code								
+UI_0289	components/CompetitiveGameLaunch.tsx:143	Waiting for the other player…								
+UI_0290	components/CompetitiveGameLaunch.tsx:29	Sign in to play online.								
+UI_0291	components/CompetitiveGameLaunch.tsx:39	This game invitation is no longer available.								
+UI_0292	components/CompetitiveGameLaunch.tsx:63	Securing your match…								
+UI_0293	components/CompetitiveGameLaunch.tsx:66	Could not start match.								
+UI_0294	components/CompetitiveGameLaunch.tsx:66	INSUFFICIENT_POINTS								
+UI_0295	components/CompetitiveGameLaunch.tsx:66	Not enough points for this match.								
+UI_0296	components/DailyLoginCard.tsx:119	Error claiming reward:								
+UI_0297	components/DailyLoginCard.tsx:130 | components/DailyLoginCard.tsx:146	card_giftcard								
+UI_0298	components/DailyLoginCard.tsx:150	Daily Login								
+UI_0299	components/DailyLoginCard.tsx:154	Claimed today! Check back tomorrow.								
+UI_0300	components/DailyLoginCard.tsx:155	+${rewardPoints.toLocaleString()} Points to play!								
+UI_0301	components/DailyLoginCard.tsx:165	Claimed								
+UI_0302	components/DailyLoginCard.tsx:174	Claim								
+UI_0303	components/DailyLoginCard.tsx:174	Claiming...								
+UI_0304	components/DailyLoginCard.tsx:58	profiles								
+UI_0305	components/DailyLoginCard.tsx:59	last_login_claim, last_daily_claim_at								
+UI_0306	components/DailyLoginCard.tsx:72	Error checking daily login status:								
+UI_0307	components/FourPlayerMatchLobby.tsx:130	Could not enter the match.								
+UI_0308	components/FourPlayerMatchLobby.tsx:139	Create a room code and invite up to 3 friends								
+UI_0309	components/FourPlayerMatchLobby.tsx:139	ENTER ROOM CODE								
+UI_0310	components/FourPlayerMatchLobby.tsx:139	Exit arena								
+UI_0311	components/FourPlayerMatchLobby.tsx:139 | components/GameEngagementMenu.tsx:30 | components/games/Carrom.tsx:1391 | components/games/Checkers.tsx:833 | components/games/ChessGame.tsx:858 | components/games/PoolGame.tsx:1640 | components/games/SnookerGame.tsx:1674 | components/games/TicTacToeGame.tsx:711	Find Online Match								
+UI_0312	components/FourPlayerMatchLobby.tsx:139 | components/GameEngagementMenu.tsx:37	Host Play								
+UI_0313	components/FourPlayerMatchLobby.tsx:139	JOIN								
+UI_0314	components/FourPlayerMatchLobby.tsx:139	Match up to four players worldwide								
+UI_0315	components/FourPlayerMatchLobby.tsx:139 | components/GamesTab.tsx:157	Online								
+UI_0316	components/FourPlayerMatchLobby.tsx:139 | components/GameEngagementMenu.tsx:36 | components/games/Carrom.tsx:1401 | components/games/Checkers.tsx:843 | components/games/ChessGame.tsx:868 | components/games/PoolGame.tsx:1657 | components/games/SnookerGame.tsx:1691 | components/games/TicTacToeGame.tsx:721	Private								
+UI_0317	components/FourPlayerMatchLobby.tsx:139 | components/GameEngagementMenu.tsx:25 | components/games/Carrom.tsx:1358 | components/games/Checkers.tsx:815 | components/games/ChessGame.tsx:840 | components/games/PoolGame.tsx:1618 | components/games/SnookerGame.tsx:1652 | components/games/TicTacToeGame.tsx:693	Select engagement mode								
+UI_0318	components/FourPlayerMatchLobby.tsx:143	✓ Ready								
+UI_0319	components/FourPlayerMatchLobby.tsx:143	Copied ✓								
+UI_0320	components/FourPlayerMatchLobby.tsx:143 | components/games/Carrom.tsx:1584 | components/games/Checkers.tsx:985 | components/games/PoolGame.tsx:1779 | components/games/SnookerGame.tsx:1815	Copy								
+UI_0321	components/FourPlayerMatchLobby.tsx:143	enter match								
+UI_0322	components/FourPlayerMatchLobby.tsx:143 | components/games/Carrom.tsx:1484 | components/games/Checkers.tsx:926 | components/games/ChessGame.tsx:953 | components/games/PoolGame.tsx:1753 | components/games/SnookerGame.tsx:1788 | components/games/TicTacToeGame.tsx:805 | components/games/UnoGame.tsx:772	Enter Match								
+UI_0323	components/FourPlayerMatchLobby.tsx:143	Invite up to three friends from Chat, or let them enter this code.								
+UI_0324	components/FourPlayerMatchLobby.tsx:143	Leave lobby								
+UI_0325	components/FourPlayerMatchLobby.tsx:143	Matched								
+UI_0326	components/FourPlayerMatchLobby.tsx:143	of 4 players joined — accepted invitations enter this same room.								
+UI_0327	components/FourPlayerMatchLobby.tsx:143	Private Room								
+UI_0328	components/FourPlayerMatchLobby.tsx:143	Quick Match								
+UI_0329	components/FourPlayerMatchLobby.tsx:143 | components/games/Carrom.tsx:1490 | components/games/Checkers.tsx:932	searching								
+UI_0330	components/FourPlayerMatchLobby.tsx:143	Waiting for players…								
+UI_0331	components/FourPlayerMatchLobby.tsx:143	Waiting…								
+UI_0332	components/FourPlayerMatchLobby.tsx:44	Could not join matchmaking.								
+UI_0333	components/FourPlayerMatchLobby.tsx:45 | components/FourPlayerMatchLobby.tsx:57 | components/FourPlayerMatchLobby.tsx:69	Could not fund the match.								
+UI_0334	components/FourPlayerMatchLobby.tsx:56	Could not create the room.								
+UI_0335	components/FourPlayerMatchLobby.tsx:67	Could not join that room.								
+UI_0336	components/FourPlayerMatchLobby.tsx:68	That code belongs to a different game.								
+UI_0337	components/FourPlayerMatchLobby.tsx:81	Could not copy the room code. Please select it manually.								
+UI_0338	components/GameEngagementMenu.tsx:29 | components/GamesTab.tsx:222 | components/ProfileTab.tsx:928 | components/SpinTab.tsx:133 | components/games/Carrom.tsx:1285 | components/games/Carrom.tsx:1291 | components/games/Carrom.tsx:1384 | components/games/Checkers.tsx:742 | components/games/Checkers.tsx:748 | components/games/Checkers.tsx:826 | components/games/ChessGame.tsx:769 | components/games/ChessGame.tsx:775 | components/games/ChessGame.tsx:851 | components/games/PoolGame.tsx:1555 | components/games/PoolGame.tsx:1560 | components/games/PoolGame.tsx:1632 | components/games/SnookerGame.tsx:1578 | components/games/SnookerGame.tsx:1584 | components/games/SnookerGame.tsx:1666 | components/games/TicTacToeGame.tsx:623 | components/games/TicTacToeGame.tsx:629 | components/games/TicTacToeGame.tsx:704 | components/games/UnoGame.tsx:708	PTS								
+UI_0339	components/GameEngagementMenu.tsx:31 | components/games/Carrom.tsx:1392 | components/games/Checkers.tsx:834 | components/games/ChessGame.tsx:859 | components/games/PoolGame.tsx:1643 | components/games/SnookerGame.tsx:1677 | components/games/TicTacToeGame.tsx:712	matchmaking								
+UI_0340	components/GameEngagementMenu.tsx:31	Ranked &amp; casual global								
+UI_0341	components/GameEngagementMenu.tsx:36 | components/games/Carrom.tsx:1399 | components/games/Checkers.tsx:841 | components/games/ChessGame.tsx:866 | components/games/PoolGame.tsx:1654 | components/games/SnookerGame.tsx:1688 | components/games/TicTacToeGame.tsx:719	dns								
+UI_0342	components/GameEngagementMenu.tsx:37 | components/games/Carrom.tsx:1405 | components/games/Checkers.tsx:847 | components/games/ChessGame.tsx:872 | components/games/PoolGame.tsx:1662 | components/games/SnookerGame.tsx:1696 | components/games/TicTacToeGame.tsx:725	Create room code								
+UI_0343	components/GameEngagementMenu.tsx:39 | components/games/Carrom.tsx:1418 | components/games/Checkers.tsx:860 | components/games/ChessGame.tsx:885 | components/games/PoolGame.tsx:1683 | components/games/SnookerGame.tsx:1717 | components/games/TicTacToeGame.tsx:738	Local device								
+UI_0344	components/GameEngagementMenu.tsx:39	Pass &amp; Play								
+UI_0345	components/GameEngagementMenu.tsx:42	ENTER CODE								
+UI_0346	components/GameEngagementMenu.tsx:42	Enter room code								
+UI_0347	components/GameEngagementMenu.tsx:42 | components/games/Carrom.tsx:1426 | components/games/Checkers.tsx:868 | components/games/ChessGame.tsx:893 | components/games/PoolGame.tsx:1691 | components/games/SnookerGame.tsx:1725 | components/games/TicTacToeGame.tsx:746	vpn_key								
+UI_0348	components/GameEngagementMenu.tsx:43 | components/games/Bingo.tsx:574 | components/games/BiometricOverride.tsx:185 | components/games/Checkers.tsx:1106 | components/games/GlitchDeck.tsx:90 | components/games/NexusBreach.tsx:95	Exit Arena								
+UI_0349	components/GameEngagementMenu.tsx:43 | components/ProfileTab.tsx:825 | components/ProfileTab.tsx:826 | components/games/Carrom.tsx:1447 | components/games/Checkers.tsx:889 | components/games/ChessGame.tsx:914 | components/games/PoolGame.tsx:1715 | components/games/SnookerGame.tsx:1749 | components/games/TicTacToeGame.tsx:767	logout								
+UI_0350	components/GamePlayer.tsx:114	Game Not Found								
+UI_0351	components/GamePlayer.tsx:115	Unable to launch game slug:								
+UI_0352	components/GamePlayer.tsx:120 | components/GamePlayer.tsx:160	Back to Arcade								
+UI_0353	components/GamePlayer.tsx:134	Playing								
+UI_0354	components/GamePlayer.tsx:151	Game Player								
+UI_0355	components/GamePlayer.tsx:160	Game unavailable								
+UI_0356	components/GamePlayer.tsx:160	This game is currently being tested in the staging arcade.								
+UI_0357	components/games/BigTwoGame.tsx:207 | components/games/LudoGame.tsx:145	Bot resolver error: ${error.message}								
+UI_0358	components/games/BigTwoGame.tsx:276	Your opening play must include 3♦.								
+UI_0359	components/games/BigTwoGame.tsx:278	Your turn — ${lastAction} Beat it or pass.								
+UI_0360	components/games/BigTwoGame.tsx:279	Your turn. Lead the new trick.								
+UI_0361	components/games/BigTwoGame.tsx:281	${lastAction} ${displayedNames[displayTurn] || "Player"}'s turn.								
+UI_0362	components/games/BigTwoGame.tsx:282	${displayedNames[displayTurn] || "Player"}'s turn.								
+UI_0363	components/games/BigTwoGame.tsx:293	${playerNames[starter]} has 3♦ and starts.								
+UI_0364	components/games/BigTwoGame.tsx:293	You have 3♦. Lead the first trick.								
+UI_0365	components/games/BigTwoGame.tsx:294	${playerNames[player]} played ${value.label}.								
+UI_0366	components/games/BigTwoGame.tsx:294	${playerNames[player]} wins!								
+UI_0367	components/games/BigTwoGame.tsx:294 | components/games/BlockPuzzleGame.tsx:475 | components/games/WordBoxGame.tsx:570	You win!								
+UI_0368	components/games/BigTwoGame.tsx:296	${playerNames[currentPlay.player]} controls the new trick.								
+UI_0369	components/games/BigTwoGame.tsx:296	${playerNames[player]} passed.								
+UI_0370	components/games/BigTwoGame.tsx:333	Select a valid hand that beats the table.								
+UI_0371	components/games/BigTwoGame.tsx:333	Your opening play must be valid and include 3♦.								
+UI_0372	components/games/BigTwoGame.tsx:335	Waiting for the shared Big Two deal…								
+UI_0373	components/games/BigTwoGame.tsx:338 | components/games/BlockPuzzleGame.tsx:431 | components/games/BlockPuzzleGame.tsx:492 | components/games/CupPong.tsx:2775 | components/games/DominoesGame.tsx:1541 | components/games/FourInARow.tsx:470 | components/games/Game2048.tsx:254 | components/games/LudoGame.tsx:384 | components/games/SudokuGame.tsx:713 | components/games/WordBoxGame.tsx:437 | components/games/WordBoxGame.tsx:484	Back to Arcade Hub								
+UI_0374	components/games/BigTwoGame.tsx:338	BIG TWO								
+UI_0375	components/games/BigTwoGame.tsx:338	Classic · 4 Players								
+UI_0376	components/games/BigTwoGame.tsx:338	How to play Big Two								
+UI_0377	components/games/BigTwoGame.tsx:357	${playerNames[turn] || "Player"}'s turn								
+UI_0378	components/games/BigTwoGame.tsx:357	s ·								
+UI_0379	components/games/BigTwoGame.tsx:357 | components/games/DominoesGame.tsx:1660 | components/games/Monopoly.tsx:765	Your turn								
+UI_0380	components/games/BigTwoGame.tsx:359	· Free lead								
+UI_0381	components/games/BigTwoGame.tsx:359	${playerNames[currentPlay.player]} · ${currentPlay.value.label}${freeLead ? " · Free lead" : ""}								
+UI_0382	components/games/BigTwoGame.tsx:359	New trick — any valid combination								
+UI_0383	components/games/BigTwoGame.tsx:365	PASS								
+UI_0384	components/games/BigTwoGame.tsx:367	CALL 1 CARD								
+UI_0385	components/games/BigTwoGame.tsx:368	✓ 1 CARD CALLED								
+UI_0386	components/games/BigTwoGame.tsx:371	Tap cards to select								
+UI_0387	components/games/BigTwoGame.tsx:371	Your hand ·								
+UI_0388	components/games/BigTwoGame.tsx:377	3 is lowest and 2 is highest. Suits are ♦, ♣, ♥, ♠ from low to high.								
+UI_0389	components/games/BigTwoGame.tsx:377	Beat the table								
+UI_0390	components/games/BigTwoGame.tsx:377	Card order								
+UI_0391	components/games/BigTwoGame.tsx:377	Classic Big Two								
+UI_0392	components/games/BigTwoGame.tsx:377	Empty your hand								
+UI_0393	components/games/BigTwoGame.tsx:377 | components/games/Bingo.tsx:659 | components/games/BlockPuzzleGame.tsx:418 | components/games/CupPong.tsx:3146 | components/games/DominoesGame.tsx:1893 | components/games/FourInARow.tsx:691 | components/games/Game2048.tsx:306 | components/games/LudoGame.tsx:600 | components/games/SudokuGame.tsx:984 | components/games/WordBoxGame.tsx:423	Got It — Let&apos;s Play								
+UI_0394	components/games/BigTwoGame.tsx:377 | components/games/Bingo.tsx:613 | components/games/BlockPuzzleGame.tsx:370 | components/games/CupPong.tsx:3099 | components/games/DominoesGame.tsx:1845 | components/games/FourInARow.tsx:644 | components/games/Game2048.tsx:302 | components/games/LudoGame.tsx:574 | components/games/SudokuGame.tsx:958 | components/games/WordBoxGame.tsx:375	How to Play								
+UI_0395	components/games/BigTwoGame.tsx:377	Match the number of cards. Five-card hands rank: straight, flush, full house, four of a kind, straight flush.								
+UI_0396	components/games/BigTwoGame.tsx:377	Opening play								
+UI_0397	components/games/BigTwoGame.tsx:377	Pass and reset								
+UI_0398	components/games/BigTwoGame.tsx:377	Play a single, pair, triple, or five cards: straight, flush, full house, four of a kind plus one, or straight flush.								
+UI_0399	components/games/BigTwoGame.tsx:377	The first player to play all 13 cards wins.								
+UI_0400	components/games/BigTwoGame.tsx:377	The player holding 3♦ starts and must include it in the first play.								
+UI_0401	components/games/BigTwoGame.tsx:377	Valid plays								
+UI_0402	components/games/BigTwoGame.tsx:377	You may pass. After all three opponents pass, the last player starts a new trick with any valid play.								
+UI_0403	components/games/BigTwoGame.tsx:378	${winnerName || playerNames[winner] || "Player"} Wins								
+UI_0404	components/games/BigTwoGame.tsx:378	Big Two complete								
+UI_0405	components/games/BigTwoGame.tsx:378	Excellent play — you cleared your hand first.								
+UI_0406	components/games/BigTwoGame.tsx:378 | components/games/LudoGame.tsx:608	Exit to Arcade								
+UI_0407	components/games/BigTwoGame.tsx:378 | components/games/Bingo.tsx:574 | components/games/BlockPuzzleGame.tsx:592 | components/games/Checkers.tsx:1107 | components/games/CupPong.tsx:3200 | components/games/DominoesGame.tsx:1951 | components/games/Game2048.tsx:312 | components/games/LudoGame.tsx:608 | components/games/TicTacToeGame.tsx:1017 | components/games/WordBoxGame.tsx:572	Play Again								
+UI_0408	components/games/BigTwoGame.tsx:378	The match has ended. Ready for another round?								
+UI_0409	components/games/BigTwoGame.tsx:378 | components/games/DominoesGame.tsx:1912 | components/games/Game2048.tsx:312 | components/games/LudoGame.tsx:608	You Win!								
+UI_0410	components/games/BigTwoGame.tsx:40	Single								
+UI_0411	components/games/BigTwoGame.tsx:42 | components/games/ShanKoeMeeGame.tsx:36	Pair								
+UI_0412	components/games/BigTwoGame.tsx:43	Triple								
+UI_0413	components/games/BigTwoGame.tsx:48	Straight Flush								
+UI_0414	components/games/BigTwoGame.tsx:49	Four of a Kind								
+UI_0415	components/games/BigTwoGame.tsx:50	Full House								
+UI_0416	components/games/BigTwoGame.tsx:53	Flush								
+UI_0417	components/games/BigTwoGame.tsx:58 | components/games/ShanKoeMeeGame.tsx:34	Straight								
+UI_0418	components/games/Bingo.tsx:334	loading								
+UI_0419	components/games/Bingo.tsx:335	Loading Bingo room								
+UI_0420	components/games/Bingo.tsx:336 | components/games/Carrom.tsx:1348 | components/games/Carrom.tsx:1490 | components/games/Checkers.tsx:805 | components/games/Checkers.tsx:932 | components/games/PoolGame.tsx:1607 | components/games/SnookerGame.tsx:1641 | components/games/WordBoxGame.tsx:429	menu								
+UI_0421	components/games/Bingo.tsx:345 | components/games/Bingo.tsx:580	Exit Game								
+UI_0422	components/games/Bingo.tsx:351	BINGO SAFARI								
+UI_0423	components/games/Bingo.tsx:354 | components/games/Bingo.tsx:607	Bingo Safari								
+UI_0424	components/games/Bingo.tsx:354	Online Bingo Match								
+UI_0425	components/games/Bingo.tsx:363	Start Bingo								
+UI_0426	components/games/Bingo.tsx:377	Back to Bingo menu								
+UI_0427	components/games/Bingo.tsx:377	Exit Bingo game								
+UI_0428	components/games/Bingo.tsx:408	Auto Off								
+UI_0429	components/games/Bingo.tsx:408	Auto On								
+UI_0430	components/games/Bingo.tsx:414	How to play Bingo Safari								
+UI_0431	components/games/Bingo.tsx:431	Balls are called every 5 seconds								
+UI_0432	components/games/Bingo.tsx:432	Automatic caller is paused								
+UI_0433	components/games/Bingo.tsx:444	Call Next Ball								
+UI_0434	components/games/Bingo.tsx:456	Current Ball								
+UI_0435	components/games/Bingo.tsx:461	&apos;s progress								
+UI_0436	components/games/Bingo.tsx:461	Hidden								
+UI_0437	components/games/Bingo.tsx:470	BINGO!								
+UI_0438	components/games/Bingo.tsx:470	Your Lines: 0 / 1								
+UI_0439	components/games/Bingo.tsx:471	Opponent:								
+UI_0440	components/games/Bingo.tsx:497 | components/games/Bingo.tsx:520 | components/games/Bingo.tsx:540	FREE								
+UI_0441	components/games/Bingo.tsx:562 | components/games/TicTacToeGame.tsx:1005	Match Result								
+UI_0442	components/games/Bingo.tsx:565	BINGO! YOU WIN!								
+UI_0443	components/games/Bingo.tsx:565	COMPUTER WINS BINGO!								
+UI_0444	components/games/Bingo.tsx:565	OPPONENT WINS BINGO!								
+UI_0445	components/games/Bingo.tsx:580 | components/games/TicTacToeGame.tsx:1023	Main Menu								
+UI_0446	components/games/Bingo.tsx:621 | components/games/BlockPuzzleGame.tsx:378 | components/games/CupPong.tsx:3107 | components/games/DominoesGame.tsx:1853 | components/games/FourInARow.tsx:652 | components/games/Game2048.tsx:302 | components/games/LudoGame.tsx:577 | components/games/SudokuGame.tsx:961 | components/games/WordBoxGame.tsx:383	Close how to play								
+UI_0447	components/games/Bingo.tsx:630	Watch the caller								
+UI_0448	components/games/Bingo.tsx:630	When Auto is on, a new Bingo ball is called every 5 seconds.								
+UI_0449	components/games/Bingo.tsx:631	Find the called number and tap its square. Uncalled numbers cannot be marked.								
+UI_0450	components/games/Bingo.tsx:631	Mark your card								
+UI_0451	components/games/Bingo.tsx:632	The center FREE square starts marked and counts toward every crossing line.								
+UI_0452	components/games/Bingo.tsx:632	Use the free space								
+UI_0453	components/games/Bingo.tsx:633	Call Bingo								
+UI_0454	components/games/Bingo.tsx:633	Complete any row, column, or diagonal before your opponent.								
+UI_0455	components/games/BiometricOverride.tsx:204	fingerprint								
+UI_0456	components/games/BiometricOverride.tsx:207 | components/games/BiometricOverride.tsx:214 | components/games/NeuralDuel.tsx:113 | components/games/NeuralDuel.tsx:169 | components/games/NeuralDuel.tsx:181 | components/games/NeuralDuel.tsx:191 | components/games/NeuralDuel.tsx:217	idle								
+UI_0457	components/games/BiometricOverride.tsx:208	Awaiting Inputs								
+UI_0458	components/games/BiometricOverride.tsx:209 | components/games/BiometricOverride.tsx:216 | components/games/BiometricOverride.tsx:226	scanning								
+UI_0459	components/games/BiometricOverride.tsx:210	Scanning Biometrics								
+UI_0460	components/games/BiometricOverride.tsx:211	Target Locked								
+UI_0461	components/games/BiometricOverride.tsx:215	Everyone place one finger on the screen to begin.								
+UI_0462	components/games/BiometricOverride.tsx:217	Hold steady...								
+UI_0463	components/games/BiometricOverride.tsx:218	Release all fingers to reset.								
+UI_0464	components/games/BiometricOverride.tsx:241	selected								
+UI_0465	components/games/BlockPuzzleGame.tsx:263	Battle started! Build combos to win.								
+UI_0466	components/games/BlockPuzzleGame.tsx:263 | components/games/BlockPuzzleGame.tsx:474 | components/games/BlockPuzzleGame.tsx:513 | components/games/BlockPuzzleGame.tsx:532 | components/games/Carrom.tsx:1179 | components/games/Carrom.tsx:1519 | components/games/Carrom.tsx:1637 | components/games/Carrom.tsx:1670 | components/games/Checkers.tsx:940 | components/games/Checkers.tsx:941 | components/games/Checkers.tsx:997 | components/games/Checkers.tsx:1034 | components/games/Checkers.tsx:1100 | components/games/PoolGame.tsx:1797 | components/games/PoolGame.tsx:1890 | components/games/SnookerGame.tsx:1834 | components/games/SnookerGame.tsx:1952	bot								
+UI_0467	components/games/BlockPuzzleGame.tsx:263	Choose a block, then tap the board.								
+UI_0468	components/games/BlockPuzzleGame.tsx:310	Select one of the three blocks first.								
+UI_0469	components/games/BlockPuzzleGame.tsx:314	That block does not fit there.								
+UI_0470	components/games/BlockPuzzleGame.tsx:330	${result.lines} line${result.lines > 1 ? "s" : ""} cleared! +${gained}								
+UI_0471	components/games/BlockPuzzleGame.tsx:331	Block placed. +${gained}								
+UI_0472	components/games/BlockPuzzleGame.tsx:336	No more moves.								
+UI_0473	components/games/BlockPuzzleGame.tsx:364	Block Battle								
+UI_0474	components/games/BlockPuzzleGame.tsx:387	Choose a block								
+UI_0475	components/games/BlockPuzzleGame.tsx:387	Select one of the 3 shapes in your tray, then tap the board where you want its center placed.								
+UI_0476	components/games/BlockPuzzleGame.tsx:388	Every square in the shape must fit inside the 8×8 board and cannot overlap an occupied square.								
+UI_0477	components/games/BlockPuzzleGame.tsx:388	Find a valid space								
+UI_0478	components/games/BlockPuzzleGame.tsx:389	Clear complete lines								
+UI_0479	components/games/BlockPuzzleGame.tsx:389	Fill an entire row or column to clear it. A move can clear several lines at once.								
+UI_0480	components/games/BlockPuzzleGame.tsx:390	Build your score								
+UI_0481	components/games/BlockPuzzleGame.tsx:390	Placed squares earn points. Cleared lines and multi-line combos award large bonuses.								
+UI_0482	components/games/BlockPuzzleGame.tsx:391	Each selected shape is used once. After all 3 are placed, a new tray appears.								
+UI_0483	components/games/BlockPuzzleGame.tsx:391	Use all 3 shapes								
+UI_0484	components/games/BlockPuzzleGame.tsx:392	Battle lasts 90 seconds. The computer uses its own visible board and tray, makes legal placements, clears real lines, and earns real points.								
+UI_0485	components/games/BlockPuzzleGame.tsx:392	Watch the live battle								
+UI_0486	components/games/BlockPuzzleGame.tsx:452 | components/games/BlockPuzzleGame.tsx:522	How to play Block Puzzle Battle								
+UI_0487	components/games/BlockPuzzleGame.tsx:462	Block Puzzle Battle								
+UI_0488	components/games/BlockPuzzleGame.tsx:463	Fill rows and columns, build combos, and beat the clock.								
+UI_0489	components/games/BlockPuzzleGame.tsx:465	Solo High Score								
+UI_0490	components/games/BlockPuzzleGame.tsx:466	Battle Computer								
+UI_0491	components/games/BlockPuzzleGame.tsx:475	Draw!								
+UI_0492	components/games/BlockPuzzleGame.tsx:475	Opponent wins								
+UI_0493	components/games/BlockPuzzleGame.tsx:476	Game over								
+UI_0494	components/games/BlockPuzzleGame.tsx:512	BLOCK BATTLE								
+UI_0495	components/games/BlockPuzzleGame.tsx:537 | components/games/DominoesGame.tsx:1616 | components/games/DominoesGame.tsx:1661 | components/games/DominoesGame.tsx:1914 | components/games/Game2048.tsx:272 | components/games/Game2048.tsx:312	Computer								
+UI_0496	components/games/BlockPuzzleGame.tsx:549	Live board								
+UI_0497	components/games/BlockPuzzleGame.tsx:556	Best run								
+UI_0498	components/games/BlockPuzzleGame.tsx:575	Row ${row + 1}, column ${col + 1}								
+UI_0499	components/games/BlockPuzzleGame.tsx:597	@keyframes botBlockPop { 0% { transform: scale(0.55); opacity: 0.3; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }								
+UI_0500	components/games/Carrom.tsx:1179 | components/games/Carrom.tsx:1502 | components/games/Carrom.tsx:1519 | components/games/Carrom.tsx:1637 | components/games/Carrom.tsx:1670 | components/games/Checkers.tsx:940 | components/games/Checkers.tsx:941 | components/games/Checkers.tsx:997 | components/games/Checkers.tsx:1034 | components/games/Checkers.tsx:1100 | components/games/PoolGame.tsx:1797 | components/games/SnookerGame.tsx:1834	online								
+UI_0501	components/games/Carrom.tsx:1180	${activeRoleName} Aiming								
+UI_0502	components/games/Carrom.tsx:1180	Your Shot								
+UI_0503	components/games/Carrom.tsx:1181	Player ${turn} Aiming								
+UI_0504	components/games/Carrom.tsx:1200 | components/games/Checkers.tsx:1015 | components/games/ChessGame.tsx:1088	BOT								
+UI_0505	components/games/Carrom.tsx:1209 | components/games/Checkers.tsx:1047	P1								
+UI_0506	components/games/Carrom.tsx:1215	smart_toy								
+UI_0507	components/games/Carrom.tsx:1232 | components/games/Checkers.tsx:1029 | components/games/ChessGame.tsx:1063 | components/games/PoolGame.tsx:1868 | components/games/SnookerGame.tsx:1931 | components/games/TicTacToeGame.tsx:950	timer								
+UI_0508	components/games/Carrom.tsx:1251 | components/games/Carrom.tsx:1640	top								
+UI_0509	components/games/Carrom.tsx:1259	@keyframes confetti-fall { 0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg) scale(0.7); opacity: 0; } } @keyframes slide-down { 0% { transform: translateY(-20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } } .animate-slide-down { animation: slide-down 0.3s ease-out forwards; }								
+UI_0510	components/games/Carrom.tsx:1277 | components/games/Checkers.tsx:734 | components/games/ChessGame.tsx:761 | components/games/PoolGame.tsx:1549 | components/games/SnookerGame.tsx:1570 | components/games/TicTacToeGame.tsx:615 | components/games/UnoGame.tsx:705	monetization_on								
+UI_0511	components/games/Carrom.tsx:1281 | components/games/Checkers.tsx:738 | components/games/ChessGame.tsx:765 | components/games/PoolGame.tsx:1552 | components/games/SnookerGame.tsx:1574 | components/games/TicTacToeGame.tsx:619 | components/games/UnoGame.tsx:707	Insufficient Points								
+UI_0512	components/games/Carrom.tsx:1285	to play an online Carrom match.								
+UI_0513	components/games/Carrom.tsx:1285 | components/games/Checkers.tsx:742 | components/games/ChessGame.tsx:769 | components/games/PoolGame.tsx:1555 | components/games/SnookerGame.tsx:1578 | components/games/TicTacToeGame.tsx:623 | components/games/UnoGame.tsx:708	You need								
+UI_0514	components/games/Carrom.tsx:1289 | components/games/Checkers.tsx:746 | components/games/ChessGame.tsx:773 | components/games/PoolGame.tsx:1558 | components/games/SnookerGame.tsx:1582 | components/games/TicTacToeGame.tsx:627	Your Balance								
+UI_0515	components/games/Carrom.tsx:1303 | components/games/Checkers.tsx:760 | components/games/ChessGame.tsx:787 | components/games/PoolGame.tsx:1571 | components/games/SnookerGame.tsx:1596 | components/games/TicTacToeGame.tsx:641	shopping_cart								
+UI_0516	components/games/Carrom.tsx:1304 | components/games/Checkers.tsx:761 | components/games/ChessGame.tsx:788 | components/games/PoolGame.tsx:1572 | components/games/SnookerGame.tsx:1597 | components/games/TicTacToeGame.tsx:642 | components/games/UnoGame.tsx:711	Visit Store / Buy Points								
+UI_0517	components/games/Carrom.tsx:1316 | components/games/Checkers.tsx:773 | components/games/ChessGame.tsx:800 | components/games/SnookerGame.tsx:1609 | components/games/TicTacToeGame.tsx:654	💡 Tip: Claim free daily login rewards or earn points in local practice!								
+UI_0518	components/games/Carrom.tsx:1357	Carrom Arena								
+UI_0519	components/games/Carrom.tsx:1367 | components/games/Carrom.tsx:1508	Freestyle								
+UI_0520	components/games/Carrom.tsx:1373 | components/games/Carrom.tsx:1514	Classic								
+UI_0521	components/games/Carrom.tsx:1392 | components/games/Checkers.tsx:834 | components/games/ChessGame.tsx:859 | components/games/PoolGame.tsx:1643 | components/games/SnookerGame.tsx:1677 | components/games/TicTacToeGame.tsx:712	Ranked & casual global								
+UI_0522	components/games/Carrom.tsx:1404 | components/games/Checkers.tsx:846 | components/games/ChessGame.tsx:871 | components/games/PoolGame.tsx:1661 | components/games/SnookerGame.tsx:1695 | components/games/TicTacToeGame.tsx:724	Host Match								
+UI_0523	components/games/Carrom.tsx:1417 | components/games/Checkers.tsx:859 | components/games/ChessGame.tsx:884 | components/games/PoolGame.tsx:1682 | components/games/SnookerGame.tsx:1716 | components/games/TicTacToeGame.tsx:737 | components/games/TicTacToeGame.tsx:889	Pass & Play								
+UI_0524	components/games/Carrom.tsx:1430 | components/games/Checkers.tsx:872 | components/games/ChessGame.tsx:897 | components/games/PoolGame.tsx:1695 | components/games/SnookerGame.tsx:1729 | components/games/TicTacToeGame.tsx:750	ENTER ROOM CODE...								
+UI_0525	components/games/Carrom.tsx:1447 | components/games/Checkers.tsx:889 | components/games/ChessGame.tsx:914 | components/games/ChessGame.tsx:1026 | components/games/PoolGame.tsx:1715 | components/games/SnookerGame.tsx:1749 | components/games/TicTacToeGame.tsx:767	EXIT ARENA								
+UI_0526	components/games/Carrom.tsx:1455 | components/games/Carrom.tsx:1490 | components/games/Checkers.tsx:897 | components/games/Checkers.tsx:932 | components/games/PoolGame.tsx:1721 | components/games/SnookerGame.tsx:1756	confirmed								
+UI_0527	components/games/Carrom.tsx:1458 | components/games/Checkers.tsx:900 | components/games/ChessGame.tsx:927 | components/games/PoolGame.tsx:1724 | components/games/SnookerGame.tsx:1759 | components/games/TicTacToeGame.tsx:779	MATCH CONFIRMED								
+UI_0528	components/games/Carrom.tsx:1478 | components/games/Checkers.tsx:920 | components/games/ChessGame.tsx:947 | components/games/CupPong.tsx:2893 | components/games/CupPong.tsx:3181 | components/games/PoolGame.tsx:1744 | components/games/SnookerGame.tsx:1779 | components/games/TicTacToeGame.tsx:599 | components/games/TicTacToeGame.tsx:799 | components/games/TicTacToeGame.tsx:955 | components/games/UnoGame.tsx:770	Player 2								
+UI_0529	components/games/Carrom.tsx:1480 | components/games/Checkers.tsx:922 | components/games/ChessGame.tsx:949 | components/games/PoolGame.tsx:1746 | components/games/SnookerGame.tsx:1781 | components/games/TicTacToeGame.tsx:801	ELO								
+UI_0530	components/games/Carrom.tsx:1480 | components/games/Checkers.tsx:922 | components/games/ChessGame.tsx:949 | components/games/PoolGame.tsx:1746 | components/games/SnookerGame.tsx:1781 | components/games/TicTacToeGame.tsx:801	Ranked •								
+UI_0531	components/games/Carrom.tsx:1519	● ${gameRuleMode.toUpperCase()}								
+UI_0532	components/games/Carrom.tsx:1519 | components/games/Checkers.tsx:941	Connecting...								
+UI_0533	components/games/Carrom.tsx:1519 | components/games/Carrom.tsx:1563 | components/games/Carrom.tsx:1572 | components/games/Checkers.tsx:940 | components/games/Checkers.tsx:941 | components/games/Checkers.tsx:962 | components/games/Checkers.tsx:971 | components/games/PoolGame.tsx:1758 | components/games/PoolGame.tsx:1767 | components/games/SnookerGame.tsx:1794 | components/games/SnookerGame.tsx:1803	host								
+UI_0534	components/games/Carrom.tsx:1519 | components/games/Carrom.tsx:1563 | components/games/Carrom.tsx:1569 | components/games/Checkers.tsx:940 | components/games/Checkers.tsx:941 | components/games/Checkers.tsx:962 | components/games/Checkers.tsx:968 | components/games/PoolGame.tsx:1758 | components/games/PoolGame.tsx:1764 | components/games/SnookerGame.tsx:1794 | components/games/SnookerGame.tsx:1800	join								
+UI_0535	components/games/Carrom.tsx:1519 | components/games/Checkers.tsx:941	Local Mode								
+UI_0536	components/games/Carrom.tsx:1529 | components/games/LiarsDice.tsx:295	volume_off								
+UI_0537	components/games/Carrom.tsx:1535 | components/games/Checkers.tsx:947 | components/games/ChessGame.tsx:1219 | components/games/PoolGame.tsx:1900 | components/games/SnookerGame.tsx:1962 | components/games/TicTacToeGame.tsx:900 | components/games/UnoGame.tsx:812	add_reaction								
+UI_0538	components/games/Carrom.tsx:1569 | components/games/Checkers.tsx:968 | components/games/PoolGame.tsx:1764 | components/games/SnookerGame.tsx:1800	Awaiting Opponent								
+UI_0539	components/games/Carrom.tsx:1569 | components/games/Checkers.tsx:968 | components/games/PoolGame.tsx:1764 | components/games/SnookerGame.tsx:1800	Syncing Matrix...								
+UI_0540	components/games/Carrom.tsx:1574 | components/games/Checkers.tsx:973 | components/games/ChessGame.tsx:983 | components/games/PoolGame.tsx:1769 | components/games/SnookerGame.tsx:1805 | components/games/TicTacToeGame.tsx:836	Share This Room Code								
+UI_0541	components/games/Carrom.tsx:1584 | components/games/Checkers.tsx:985 | components/games/PoolGame.tsx:1779 | components/games/SnookerGame.tsx:1815	Copied								
+UI_0542	components/games/Carrom.tsx:1593 | components/games/Checkers.tsx:991 | components/games/PoolGame.tsx:1791 | components/games/SnookerGame.tsx:1827	Cancel Match								
+UI_0543	components/games/Carrom.tsx:1602	Carrom Guidelines								
+UI_0544	components/games/Carrom.tsx:1604	freestyle								
+UI_0545	components/games/Carrom.tsx:1606	Freestyle Points:								
+UI_0546	components/games/Carrom.tsx:1606	White = 3, Black = 2, Queen = 5.								
+UI_0547	components/games/Carrom.tsx:1607	🔸 Potting ANY coin grants an extra turn.								
+UI_0548	components/games/Carrom.tsx:1611	Classic Mode:								
+UI_0549	components/games/Carrom.tsx:1611	Potting the first coin dictates your assigned color.								
+UI_0550	components/games/Carrom.tsx:1612	🔸 Clear all your assigned color pieces to win!								
+UI_0551	components/games/Carrom.tsx:1613	🔸 Potting OPPONENT color is a foul.								
+UI_0552	components/games/Carrom.tsx:1616	🔸 Sinking the striker is a foul (-5 PTS in Freestyle) and ends your turn.								
+UI_0553	components/games/Carrom.tsx:1622	Got It								
+UI_0554	components/games/Carrom.tsx:1631 | components/games/NexusBreach.tsx:203 | components/games/NexusBreach.tsx:246	warning								
+UI_0555	components/games/Carrom.tsx:1637 | components/games/Checkers.tsx:997 | components/games/PingPong.tsx:988 | components/games/PingPong.tsx:2291 | components/games/PingPong.tsx:2722 | components/games/PingPong.tsx:2930 | components/games/PingPong.tsx:2936 | components/games/PoolGame.tsx:1797 | components/games/SnookerGame.tsx:1834	local								
+UI_0556	components/games/Carrom.tsx:1667	Victory Sequence								
+UI_0557	components/games/Carrom.tsx:1668	Arena Cleared!								
+UI_0558	components/games/Carrom.tsx:1670	Incredible skill! You claimed complete server victory.								
+UI_0559	components/games/Carrom.tsx:1670	Player ${winner} has completely pocketed their target roster!								
+UI_0560	components/games/Carrom.tsx:1670	The opponent cleared the board.								
+UI_0561	components/games/Carrom.tsx:1677 | components/games/LiarsDice.tsx:269 | components/games/WordBoxGame.tsx:573	Exit								
+UI_0562	components/games/Carrom.tsx:1683	Play Next								
+UI_0563	components/games/Carrom.tsx:1773 | components/games/Carrom.tsx:1805 | components/games/Carrom.tsx:1811	striker								
+UI_0564	components/games/Carrom.tsx:1775	url(#vCustomStriker)								
+UI_0565	components/games/Carrom.tsx:1777	url(#vNeonStriker)								
+UI_0566	components/games/Carrom.tsx:1778	url(#vStriker)								
+UI_0567	components/games/Carrom.tsx:1790	queen								
+UI_0568	components/games/Carrom.tsx:1790	url(#vRed)								
+UI_0569	components/games/Carrom.tsx:1791	url(#vWhite)								
+UI_0570	components/games/Carrom.tsx:1791 | components/games/ChessGame.tsx:1096 | components/games/ChessGame.tsx:1107 | components/games/ChessGame.tsx:1210 | components/games/ChessGame.tsx:1229	white								
+UI_0571	components/games/Carrom.tsx:1792	black								
+UI_0572	components/games/Carrom.tsx:1792	url(#vBlack)								
+UI_0573	components/games/Carrom.tsx:1820	bottom								
+UI_0574	components/games/Carrom.tsx:370 | components/games/SnookerGame.tsx:288	Playing against ${localOpponent.name}								
+UI_0575	components/games/Carrom.tsx:370 | components/games/Carrom.tsx:609 | components/games/Carrom.tsx:628 | components/games/Carrom.tsx:632 | components/games/Carrom.tsx:746 | components/games/Carrom.tsx:754 | components/games/Carrom.tsx:1631 | components/games/PoolGame.tsx:386 | components/games/PoolGame.tsx:389 | components/games/PoolGame.tsx:393 | components/games/PoolGame.tsx:1510 | components/games/PoolGame.tsx:1521 | components/games/SnookerGame.tsx:288 | components/games/SnookerGame.tsx:319 | components/games/SnookerGame.tsx:322 | components/games/SnookerGame.tsx:326 | components/games/SnookerGame.tsx:1501 | components/games/SnookerGame.tsx:1512	success								
+UI_0576	components/games/Carrom.tsx:445	${localOpponent?.name || "Bot"} timed out! Auto shooting...								
+UI_0577	components/games/Carrom.tsx:445 | components/games/Carrom.tsx:746 | components/games/Carrom.tsx:754 | components/games/ChessGame.tsx:1093 | components/games/PoolGame.tsx:1510 | components/games/PoolGame.tsx:1521 | components/games/PoolGame.tsx:1890 | components/games/SnookerGame.tsx:1501 | components/games/SnookerGame.tsx:1512 | components/games/SnookerGame.tsx:1952 | components/games/TicTacToeGame.tsx:601	Bot								
+UI_0578	components/games/Carrom.tsx:445 | components/games/Carrom.tsx:449 | components/games/Carrom.tsx:1631 | components/games/SnookerGame.tsx:551	foul								
+UI_0579	components/games/Carrom.tsx:449	Time's up! Turn lost.								
+UI_0580	components/games/Carrom.tsx:609 | components/games/PoolGame.tsx:386 | components/games/SnookerGame.tsx:319	Opponent joined the Arena!								
+UI_0581	components/games/Carrom.tsx:628 | components/games/PoolGame.tsx:389 | components/games/SnookerGame.tsx:322	Connected to Host Matrix!								
+UI_0582	components/games/Carrom.tsx:630 | components/games/Carrom.tsx:641 | components/games/Carrom.tsx:1556 | components/games/Carrom.tsx:1631 | components/games/LiarsDice.tsx:289 | components/games/PoolGame.tsx:391 | components/games/SnookerGame.tsx:324	info								
+UI_0583	components/games/Carrom.tsx:630 | components/games/PoolGame.tsx:391 | components/games/SnookerGame.tsx:324	Opponent reconnecting — 30 seconds remaining.								
+UI_0584	components/games/Carrom.tsx:632 | components/games/PoolGame.tsx:393 | components/games/SnookerGame.tsx:326	Opponent did not reconnect. You win by forfeit.								
+UI_0585	components/games/Carrom.tsx:641	Rule Updated: ${payload.payload.mode.toUpperCase()}								
+UI_0586	components/games/Carrom.tsx:701	click								
+UI_0587	components/games/Carrom.tsx:704	change_rules								
+UI_0588	components/games/Carrom.tsx:746 | components/games/Carrom.tsx:754 | components/games/PoolGame.tsx:1521	Playing against ${localOpponent?.name || 'Bot'}								
+UI_0589	components/games/Checkers.tsx:1012	P2								
+UI_0590	components/games/Checkers.tsx:1020 | components/games/Checkers.tsx:1050	Cap:								
+UI_0591	components/games/Checkers.tsx:1035	${localOpponent?.name || 'Opponent'}'s Turn								
+UI_0592	components/games/Checkers.tsx:1035	Your Turn								
+UI_0593	components/games/Checkers.tsx:1036	P1 Turn								
+UI_0594	components/games/Checkers.tsx:1036	P2 Turn								
+UI_0595	components/games/Checkers.tsx:1094	Match Concluded								
+UI_0596	components/games/Checkers.tsx:1097	Congratulations!								
+UI_0597	components/games/Checkers.tsx:1101	You outsmarted your opponent and claimed victory.								
+UI_0598	components/games/Checkers.tsx:1101	Your opponent won this round.								
+UI_0599	components/games/Checkers.tsx:1102	Player ${winner} has completely dominated the board.								
+UI_0600	components/games/Checkers.tsx:488	Must be logged in to play online.								
+UI_0601	components/games/Checkers.tsx:512 | components/games/Checkers.tsx:552 | components/games/Checkers.tsx:582 | components/games/GlitchDeck.tsx:255 | components/games/NexusBreach.tsx:131 | components/games/NexusBreach.tsx:215	playing								
+UI_0602	components/games/Checkers.tsx:517	Invalid Room Code or Match Already Occupied.								
+UI_0603	components/games/Checkers.tsx:721	@keyframes confetti-fall { 0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg) scale(0.8); opacity: 0; } }								
+UI_0604	components/games/Checkers.tsx:742	to play an online Checkers match.								
+UI_0605	components/games/Checkers.tsx:814	Checkers Arena								
+UI_0606	components/games/Checkers.tsx:938	Checkers Matrix								
+UI_0607	components/games/Checkers.tsx:941 | components/games/ChessGame.tsx:1055	Bot Match								
+UI_0608	components/games/Checkers.tsx:941 | components/games/TicTacToeGame.tsx:889	Live Network								
+UI_0609	components/games/ChessGame.tsx:1018	handshake								
+UI_0610	components/games/ChessGame.tsx:1020	${gameOver.winner} Wins!								
+UI_0611	components/games/ChessGame.tsx:1020	It's a Draw!								
+UI_0612	components/games/ChessGame.tsx:1023	PLAY AGAIN								
+UI_0613	components/games/ChessGame.tsx:1041	${p.color}${p.type}								
+UI_0614	components/games/ChessGame.tsx:1055	Live Arena								
+UI_0615	components/games/ChessGame.tsx:1055	Local Play								
+UI_0616	components/games/ChessGame.tsx:1068	⚠️ CHECK								
+UI_0617	components/games/ChessGame.tsx:1068	${currentTurnColor} turn								
+UI_0618	components/games/ChessGame.tsx:1068	WAITING								
+UI_0619	components/games/ChessGame.tsx:1074	restart_alt								
+UI_0620	components/games/ChessGame.tsx:1085	robot_2								
+UI_0621	components/games/ChessGame.tsx:1093	Awaiting Opponent...								
+UI_0622	components/games/ChessGame.tsx:1093	Player 2 (Black)								
+UI_0623	components/games/ChessGame.tsx:1096	Playing ${playerColor === "white" ? "Black" : "White"}								
+UI_0624	components/games/ChessGame.tsx:1096 | components/games/ChessGame.tsx:1210	To Move								
+UI_0625	components/games/ChessGame.tsx:1096 | components/games/ChessGame.tsx:1210	Waiting...								
+UI_0626	components/games/ChessGame.tsx:1130	${file}${rank}								
+UI_0627	components/games/ChessGame.tsx:1139	${piece.color}${piece.type}								
+UI_0628	components/games/ChessGame.tsx:1205	face								
+UI_0629	components/games/ChessGame.tsx:1208	Player 1 (White)								
+UI_0630	components/games/ChessGame.tsx:1210	Playing ${playerColor === "white" ? "White" : "Black"}								
+UI_0631	components/games/ChessGame.tsx:440	Game Over								
+UI_0632	components/games/ChessGame.tsx:443 | components/games/ChessGame.tsx:1096 | components/games/ChessGame.tsx:1210	Black								
+UI_0633	components/games/ChessGame.tsx:443 | components/games/ChessGame.tsx:1096 | components/games/ChessGame.tsx:1210	White								
+UI_0634	components/games/ChessGame.tsx:444	by Checkmate								
+UI_0635	components/games/ChessGame.tsx:445	by Draw								
+UI_0636	components/games/ChessGame.tsx:446	by Stalemate								
+UI_0637	components/games/ChessGame.tsx:769	to play an online Chess match.								
+UI_0638	components/games/ChessGame.tsx:839	Chess Arena								
+UI_0639	components/games/ChessGame.tsx:968	Chess Matrix								
+UI_0640	components/games/ChessGame.tsx:971 | components/games/TicTacToeGame.tsx:823	CONNECTING...								
+UI_0641	components/games/ChessGame.tsx:982 | components/games/TicTacToeGame.tsx:835	AWAITING OPPONENT								
+UI_0642	components/games/ChessGame.tsx:991 | components/games/TicTacToeGame.tsx:845	COPIED								
+UI_0643	components/games/ChessGame.tsx:991 | components/games/TicTacToeGame.tsx:845	COPY								
+UI_0644	components/games/ChessGame.tsx:995 | components/games/TicTacToeGame.tsx:850 | components/games/UnoGame.tsx:780	CANCEL MATCH								
+UI_0645	components/games/CupPong.tsx:2800	Mode								
+UI_0646	components/games/CupPong.tsx:2810	Restart								
+UI_0647	components/games/CupPong.tsx:2816	How to play Cup Pong								
+UI_0648	components/games/CupPong.tsx:2829	single								
+UI_0649	components/games/CupPong.tsx:2834	Cups								
+UI_0650	components/games/CupPong.tsx:2844	Balls								
+UI_0651	components/games/CupPong.tsx:2862 | components/games/CupPong.tsx:2921	Re-rack ·								
+UI_0652	components/games/CupPong.tsx:2877 | components/games/CupPong.tsx:3171 | components/games/TicTacToeGame.tsx:599 | components/games/TicTacToeGame.tsx:955	Player 1								
+UI_0653	components/games/CupPong.tsx:2903	Turn balls								
+UI_0654	components/games/CupPong.tsx:2929	🔥 Balls back — two extra shots								
+UI_0655	components/games/CupPong.tsx:2933 | components/games/CupPong.tsx:3160 | components/games/CupPong.tsx:3167	two								
+UI_0656	components/games/CupPong.tsx:2935	&apos;s turn								
+UI_0657	components/games/CupPong.tsx:2943	Shot power								
+UI_0658	components/games/CupPong.tsx:2962	Pull back · aim · release								
+UI_0659	components/games/CupPong.tsx:2974	Close mode selection								
+UI_0660	components/games/CupPong.tsx:2983	${liquidType === "beer" ? "Beer" : "Cola"} party cup								
+UI_0661	components/games/CupPong.tsx:2983	beer								
+UI_0662	components/games/CupPong.tsx:2983 | components/games/CupPong.tsx:3018	Beer								
+UI_0663	components/games/CupPong.tsx:2983 | components/games/CupPong.tsx:3036	Cola								
+UI_0664	components/games/CupPong.tsx:2996	Ready to Play								
+UI_0665	components/games/CupPong.tsx:3004	Choose a drink, then pick your table.								
+UI_0666	components/games/CupPong.tsx:3022	Golden beer with foam								
+UI_0667	components/games/CupPong.tsx:3040	Dark fizzy liquid								
+UI_0668	components/games/CupPong.tsx:3052	1 Player								
+UI_0669	components/games/CupPong.tsx:3056	Clear all cups before the balls run out.								
+UI_0670	components/games/CupPong.tsx:3066	2 Players								
+UI_0671	components/games/CupPong.tsx:3070	Each player throws three balls per turn.								
+UI_0672	components/games/CupPong.tsx:3116	Aim and throw								
+UI_0673	components/games/CupPong.tsx:3116	Drag upward toward the cup you want, then release to throw the ball.								
+UI_0674	components/games/CupPong.tsx:3117	Land the ball inside a cup to score and remove that cup from the table.								
+UI_0675	components/games/CupPong.tsx:3117	Sink the ball								
+UI_0676	components/games/CupPong.tsx:3118	Clear the rack								
+UI_0677	components/games/CupPong.tsx:3118	In 1 Player mode, clear all 10 cups before you run out of balls.								
+UI_0678	components/games/CupPong.tsx:3119	Earn balls back								
+UI_0679	components/games/CupPong.tsx:3119	Sink both shots in a two-shot set to receive two bonus balls.								
+UI_0680	components/games/CupPong.tsx:3120	In 2 Players mode, each player throws 3 balls per turn. Most points wins.								
+UI_0681	components/games/CupPong.tsx:3120	Play with a friend								
+UI_0682	components/games/CupPong.tsx:3163	Table Cleared								
+UI_0683	components/games/CupPong.tsx:3164	Out of Balls								
+UI_0684	components/games/CupPong.tsx:3208	Change Mode								
+UI_0685	components/games/CupPong.tsx:414	You cleared every cup!								
+UI_0686	components/games/CupPong.tsx:415	You ran out of balls.								
+UI_0687	components/games/CupPong.tsx:429	Player 1 wins!								
+UI_0688	components/games/CupPong.tsx:431	Player 2 wins!								
+UI_0689	components/games/CupPong.tsx:433	The game is a draw!								
+UI_0690	components/games/CupPong.tsx:723 | components/games/PingPong.tsx:399 | components/games/PingPong.tsx:1289 | components/games/PingPong.tsx:2990 | lib/socialShare.ts:71	2d								
+UI_0691	components/games/DominoesGame.tsx:1077 | components/games/DominoesGame.tsx:1659 | components/games/DominoesGame.tsx:1727 | components/games/DominoesGame.tsx:1903 | components/games/DominoesGame.tsx:1911 | components/games/Game2048.tsx:172 | components/games/Game2048.tsx:312 | components/games/MiniFighter.tsx:69	you								
+UI_0692	components/games/DominoesGame.tsx:1079	Computer starts the game.								
+UI_0693	components/games/DominoesGame.tsx:1158	That domino must match the ${side} open end.								
+UI_0694	components/games/DominoesGame.tsx:1183	You played every domino!								
+UI_0695	components/games/DominoesGame.tsx:1194	Computer is thinking...								
+UI_0696	components/games/DominoesGame.tsx:1209	Computer played every domino.								
+UI_0697	components/games/DominoesGame.tsx:1242	Play the highlighted opening double first.								
+UI_0698	components/games/DominoesGame.tsx:1254	That domino does not match either open end.								
+UI_0699	components/games/DominoesGame.tsx:1292	Choose which open end to connect.								
+UI_0700	components/games/DominoesGame.tsx:1326	Choose one of your matching dominoes.								
+UI_0701	components/games/DominoesGame.tsx:1354	The pile is empty. You pass.								
+UI_0702	components/games/DominoesGame.tsx:1380	You drew a playable domino.								
+UI_0703	components/games/DominoesGame.tsx:1384	No match. Draw again.								
+UI_0704	components/games/DominoesGame.tsx:1480	Computer draws a domino.								
+UI_0705	components/games/DominoesGame.tsx:1505	Computer passes. Your turn.								
+UI_0706	components/games/DominoesGame.tsx:1541	Quit Dominoes match								
+UI_0707	components/games/DominoesGame.tsx:1566	Double-Six Draw								
+UI_0708	components/games/DominoesGame.tsx:1578	Quit								
+UI_0709	components/games/DominoesGame.tsx:1593	How to play Dominoes								
+UI_0710	components/games/DominoesGame.tsx:1624 | components/games/DominoesGame.tsx:1685	tiles								
+UI_0711	components/games/DominoesGame.tsx:1640	Pile								
+UI_0712	components/games/DominoesGame.tsx:1661	${roomId ? opponentName : "Computer"}'s turn								
+UI_0713	components/games/DominoesGame.tsx:1681	Your hand								
+UI_0714	components/games/DominoesGame.tsx:1693 | components/games/UnoGame.tsx:882	Tap to Draw								
+UI_0715	components/games/DominoesGame.tsx:1708	Draw a domino. ${drawPile.length} remaining.								
+UI_0716	components/games/DominoesGame.tsx:1709	Pass your turn								
+UI_0717	components/games/DominoesGame.tsx:1718	Draw (${drawPile.length})								
+UI_0718	components/games/DominoesGame.tsx:1719	Pass								
+UI_0719	components/games/DominoesGame.tsx:1766	Choose an End								
+UI_0720	components/games/DominoesGame.tsx:1770	This domino matches both open sides.								
+UI_0721	components/games/DominoesGame.tsx:1791	Connect Left								
+UI_0722	components/games/DominoesGame.tsx:1805	Connect Right								
+UI_0723	components/games/DominoesGame.tsx:1862	1. Start with seven								
+UI_0724	components/games/DominoesGame.tsx:1862	You and the computer each receive seven dominoes.								
+UI_0725	components/games/DominoesGame.tsx:1863	2. Match an open end								
+UI_0726	components/games/DominoesGame.tsx:1863	Play a tile whose number matches the left or right end of the chain.								
+UI_0727	components/games/DominoesGame.tsx:1864	3. Choose either side								
+UI_0728	components/games/DominoesGame.tsx:1864	Select a playable domino, then choose the highlighted end where you want to place it.								
+UI_0729	components/games/DominoesGame.tsx:1865	4. Doubles stand upright								
+UI_0730	components/games/DominoesGame.tsx:1865	Double dominoes stay the same size and are always shown in portrait position.								
+UI_0731	components/games/DominoesGame.tsx:1866	5. Draw when blocked								
+UI_0732	components/games/DominoesGame.tsx:1866	If no tile matches, draw from the pile. Pass only when the pile is empty.								
+UI_0733	components/games/DominoesGame.tsx:1867	6. Empty your hand								
+UI_0734	components/games/DominoesGame.tsx:1867	The first player with no dominoes wins. If blocked, the lowest remaining pip total wins.								
+UI_0735	components/games/DominoesGame.tsx:1905 | components/games/Game2048.tsx:172 | components/games/Game2048.tsx:312 | components/games/TicTacToeGame.tsx:1002 | components/games/TicTacToeGame.tsx:1008	draw								
+UI_0736	components/games/DominoesGame.tsx:1913	computer								
+UI_0737	components/games/DominoesGame.tsx:1914	${roomId ? opponentName : "Computer"} Wins								
+UI_0738	components/games/DominoesGame.tsx:1915	Draw Game								
+UI_0739	components/games/DominoesGame.tsx:1925	Your pips								
+UI_0740	components/games/DominoesGame.tsx:1935	${opponentName} pips								
+UI_0741	components/games/DominoesGame.tsx:1935	Computer pips								
+UI_0742	components/games/DominoesGame.tsx:418	, playable								
+UI_0743	components/games/DominoesGame.tsx:418	${domino.left}-${domino.right}${playable ? ", playable" : ""}								
+UI_0744	components/games/DominoesGame.tsx:740	Play the first domino								
+UI_0745	components/games/DominoesGame.tsx:841	${winnerSeat === actualSeat ? "You" : opponent?.display_name || "Opponent"} win${winnerSeat === actualSeat ? "" : "s"}.								
+UI_0746	components/games/DominoesGame.tsx:841	Blocked game — draw.								
+UI_0747	components/games/DominoesGame.tsx:845	${opponent?.display_name || "Opponent"} is thinking...								
+UI_0748	components/games/DominoesGame.tsx:845 | components/games/DominoesGame.tsx:1078 | components/games/DominoesGame.tsx:1218	Your turn. Choose a matching domino.								
+UI_0749	components/games/DominoesGame.tsx:969	You win with ${yourPips} pips against ${computerPips}.								
+UI_0750	components/games/DominoesGame.tsx:977	Computer wins with ${computerPips} pips against ${yourPips}.								
+UI_0751	components/games/DominoesGame.tsx:983	The game is tied at ${yourPips} pips each.								
+UI_0752	components/games/FourInARow.tsx:491	4 IN A ROW								
+UI_0753	components/games/FourInARow.tsx:500 | components/games/TicTacToeGame.tsx:915	RESET								
+UI_0754	components/games/FourInARow.tsx:507	How to play Four in a Row								
+UI_0755	components/games/FourInARow.tsx:525	DRAW GAME!								
+UI_0756	components/games/FourInARow.tsx:527	${playerNames[1]} WINS!								
+UI_0757	components/games/FourInARow.tsx:527	PLAYER 1 WINS!								
+UI_0758	components/games/FourInARow.tsx:528	${playerNames[2]} WINS!								
+UI_0759	components/games/FourInARow.tsx:528	PLAYER 2 WINS!								
+UI_0760	components/games/FourInARow.tsx:529	${activePlayerName}'S TURN								
+UI_0761	components/games/FourInARow.tsx:529	MATCH PREPARING…								
+UI_0762	components/games/FourInARow.tsx:565	Winning four — red								
+UI_0763	components/games/FourInARow.tsx:565	Winning four — yellow								
+UI_0764	components/games/FourInARow.tsx:661	You always use the red discs and make the first move.								
+UI_0765	components/games/FourInARow.tsx:661	You play red								
+UI_0766	components/games/FourInARow.tsx:662	Choose a column								
+UI_0767	components/games/FourInARow.tsx:662	Tap any open column. Your disc falls into its lowest empty space.								
+UI_0768	components/games/FourInARow.tsx:663	After your move, the computer studies the board and drops a yellow disc.								
+UI_0769	components/games/FourInARow.tsx:663	Computer plays yellow								
+UI_0770	components/games/FourInARow.tsx:664	Connect four								
+UI_0771	components/games/FourInARow.tsx:664	Win by connecting 4 discs horizontally, vertically, or diagonally.								
+UI_0772	components/games/FourInARow.tsx:665	Avoid a draw								
+UI_0773	components/games/FourInARow.tsx:665	If every space fills before either side connects four, the match is a draw.								
+UI_0774	components/games/FourInARow.tsx:707	Match Finished								
+UI_0775	components/games/FourInARow.tsx:711	IT'S A DRAW!								
+UI_0776	components/games/FourInARow.tsx:713	${playerNames[winner]} WINS!								
+UI_0777	components/games/FourInARow.tsx:715	YOU WON!								
+UI_0778	components/games/FourInARow.tsx:716	OPPONENT WINS!								
+UI_0779	components/games/FourInARow.tsx:726	Restart Your Game								
+UI_0780	components/games/FourInARow.tsx:734	Exit Main Menu								
+UI_0781	components/games/Game2048.tsx:160	Swipe the board to make your move.								
+UI_0782	components/games/Game2048.tsx:172	Computer wins the battle.								
+UI_0783	components/games/Game2048.tsx:172	The battle ends in a draw!								
+UI_0784	components/games/Game2048.tsx:172	You win the battle!								
+UI_0785	components/games/Game2048.tsx:180	That direction cannot move any tile.								
+UI_0786	components/games/Game2048.tsx:192	You reached 2048 first!								
+UI_0787	components/games/Game2048.tsx:197	Computer is choosing a move…								
+UI_0788	components/games/Game2048.tsx:215	Computer reached 2048 first.								
+UI_0789	components/games/Game2048.tsx:219	Computer moved ${computerDirection}. Your turn!								
+UI_0790	components/games/Game2048.tsx:256	2048 BATTLE								
+UI_0791	components/games/Game2048.tsx:256	You vs Computer								
+UI_0792	components/games/Game2048.tsx:259	How to play 2048 Battle								
+UI_0793	components/games/Game2048.tsx:268	Your score								
+UI_0794	components/games/Game2048.tsx:276	Live AI board								
+UI_0795	components/games/Game2048.tsx:280	Best								
+UI_0796	components/games/Game2048.tsx:280	Your board								
+UI_0797	components/games/Game2048.tsx:302	2048 Battle								
+UI_0798	components/games/Game2048.tsx:304	After every valid move, the computer evaluates and moves its own visible board.								
+UI_0799	components/games/Game2048.tsx:304	If a board has no moves, scores and highest tiles decide the winner.								
+UI_0800	components/games/Game2048.tsx:304	Locked board								
+UI_0801	components/games/Game2048.tsx:304	Merge matching tiles								
+UI_0802	components/games/Game2048.tsx:304	One move each								
+UI_0803	components/games/Game2048.tsx:304	Reach 2048 first								
+UI_0804	components/games/Game2048.tsx:304	Real computer board								
+UI_0805	components/games/Game2048.tsx:304	Swipe to move								
+UI_0806	components/games/Game2048.tsx:304	Swipe your board up, down, left, or right. All tiles move together.								
+UI_0807	components/games/Game2048.tsx:304	The first side to create a 2048 tile wins the battle.								
+UI_0808	components/games/Game2048.tsx:304	Two equal tiles combine into one larger tile and add to your score.								
+UI_0809	components/games/Game2048.tsx:304	You and the computer receive one move per turn. Invalid swipes do not cost a turn.								
+UI_0810	components/games/Game2048.tsx:312	Computer Wins								
+UI_0811	components/games/Game2048.tsx:312	Draw Battle								
+UI_0812	components/games/Game2048.tsx:315	@keyframes tilePop { 0% { transform: scale(.72); opacity: .35; } 75% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }								
+UI_0813	components/games/GlitchDeck.tsx:102 | components/games/GlitchDeck.tsx:216	layers								
+UI_0814	components/games/GlitchDeck.tsx:105	Glitch Deck								
+UI_0815	components/games/GlitchDeck.tsx:108	Take turns tapping system nodes. Avoid drawing the corrupted glitch matrix.								
+UI_0816	components/games/GlitchDeck.tsx:116	Total Nodes								
+UI_0817	components/games/GlitchDeck.tsx:136 | components/games/NeuralDuel.tsx:144 | components/games/NeuralDuel.tsx:248 | components/games/NexusBreach.tsx:138	skull								
+UI_0818	components/games/GlitchDeck.tsx:137	Breach Penalty:								
+UI_0819	components/games/GlitchDeck.tsx:144 | components/games/GlitchDeck.tsx:287 | components/games/NexusBreach.tsx:148 | components/games/NexusBreach.tsx:258	Drink								
+UI_0820	components/games/GlitchDeck.tsx:146 | components/games/GlitchDeck.tsx:288 | components/games/NexusBreach.tsx:150 | components/games/NexusBreach.tsx:259	Truth								
+UI_0821	components/games/GlitchDeck.tsx:148 | components/games/GlitchDeck.tsx:289 | components/games/NexusBreach.tsx:152 | components/games/NexusBreach.tsx:260	Dare								
+UI_0822	components/games/GlitchDeck.tsx:158	INITIALIZE MATRIX								
+UI_0823	components/games/GlitchDeck.tsx:169	Secure Modules Left								
+UI_0824	components/games/GlitchDeck.tsx:183 | components/games/GlitchDeck.tsx:302 | components/games/LiarsDice.tsx:358 | components/games/NeuralDuel.tsx:174 | components/games/NexusBreach.tsx:225	refresh								
+UI_0825	components/games/GlitchDeck.tsx:234	GLITCH								
+UI_0826	components/games/GlitchDeck.tsx:240	verified								
+UI_0827	components/games/GlitchDeck.tsx:243	SECURE								
+UI_0828	components/games/GlitchDeck.tsx:255	⚡ Access a node module ⚡								
+UI_0829	components/games/GlitchDeck.tsx:255	💀 Security breach detected 💀								
+UI_0830	components/games/GlitchDeck.tsx:279 | components/games/NexusBreach.tsx:250	System Breached								
+UI_0831	components/games/GlitchDeck.tsx:284	System Execution								
+UI_0832	components/games/GlitchDeck.tsx:287 | components/games/NexusBreach.tsx:258	Take a shot! 🥃								
+UI_0833	components/games/GlitchDeck.tsx:288	Reveal a Secret! 🤫								
+UI_0834	components/games/GlitchDeck.tsx:289	Execute a Dare! 🎯								
+UI_0835	components/games/GlitchDeck.tsx:290	Node compromised. You lose! 💥								
+UI_0836	components/games/GlitchDeck.tsx:290 | components/games/NexusBreach.tsx:261	Standard								
+UI_0837	components/games/GlitchDeck.tsx:302	Reboot Deck								
+UI_0838	components/games/GlitchDeck.tsx:93	GLITCH DECK v1.0								
+UI_0839	components/games/GlitchDeck.tsx:99 | components/games/GlitchDeck.tsx:164	setup								
+UI_0840	components/games/LiarsDice.tsx:276	Dice Count								
+UI_0841	components/games/LiarsDice.tsx:282	expand_more								
+UI_0842	components/games/LiarsDice.tsx:334	Pull cup to peek • Tap to roll								
+UI_0843	components/games/LiarsDice.tsx:345 | components/games/LiarsDice.tsx:390	SHAKE DICE								
+UI_0844	components/games/LiarsDice.tsx:345	SHAKING...								
+UI_0845	components/games/LiarsDice.tsx:352	CLOSE CUP								
+UI_0846	components/games/LiarsDice.tsx:352	OPEN CUP								
+UI_0847	components/games/LiarsDice.tsx:360	Roll Again								
+UI_0848	components/games/LiarsDice.tsx:366	Themes								
+UI_0849	components/games/LiarsDice.tsx:383	Liar's Dice Rules								
+UI_0850	components/games/LiarsDice.tsx:389	1. The Setup								
+UI_0851	components/games/LiarsDice.tsx:390	and keeps their cup closed.								
+UI_0852	components/games/LiarsDice.tsx:390	Each player uses their own device. Set your agreed dice count (default: 5). Everyone hits								
+UI_0853	components/games/LiarsDice.tsx:394	2. Secret Peeking								
+UI_0854	components/games/LiarsDice.tsx:395	Do not let others see!								
+UI_0855	components/games/LiarsDice.tsx:395	Slowly drag your cup upward to peek at your roll.								
+UI_0856	components/games/LiarsDice.tsx:399	3. The First Bid								
+UI_0857	components/games/LiarsDice.tsx:400	(e.g. "I bet there are at least four 3s total").								
+UI_0858	components/games/LiarsDice.tsx:400	all players' cups combined								
+UI_0859	components/games/LiarsDice.tsx:400	number of a specific dice face under								
+UI_0860	components/games/LiarsDice.tsx:400	The starting player guesses the								
+UI_0861	components/games/LiarsDice.tsx:400	total								
+UI_0862	components/games/LiarsDice.tsx:404	4. Raising the Stakes								
+UI_0863	components/games/LiarsDice.tsx:405	Moving clockwise, the next player must either:								
+UI_0864	components/games/LiarsDice.tsx:407	Raise the quantity (e.g., "Five 3s")								
+UI_0865	components/games/LiarsDice.tsx:408	Raise the face value (e.g., "Four 4s")								
+UI_0866	components/games/LiarsDice.tsx:409	"Liar!"								
+UI_0867	components/games/LiarsDice.tsx:409	Call the previous player a								
+UI_0868	components/games/LiarsDice.tsx:414	5. The Reveal								
+UI_0869	components/games/LiarsDice.tsx:415	If "Liar!" is called, everyone opens their cups. Count the dice!								
+UI_0870	components/games/LiarsDice.tsx:417	If the bid was true (there are enough dice), the challenger loses a die.								
+UI_0871	components/games/LiarsDice.tsx:418	If the bid was a lie (not enough dice), the bidder loses a die.								
+UI_0872	components/games/LiarsDice.tsx:423	Advanced Rule: Wildcards								
+UI_0873	components/games/LiarsDice.tsx:424	1s (the big red dots) count as wildcards! They represent any number... unless a player specifically bids on 1s.								
+UI_0874	components/games/LiarsDice.tsx:433	Close Rulebook								
+UI_0875	components/games/LudoGame.tsx:228	${displayNames[displayCurrent]} wins.								
+UI_0876	components/games/LudoGame.tsx:228	Match complete.								
+UI_0877	components/games/LudoGame.tsx:229	${displayNames[displayCurrent]} is choosing a token.								
+UI_0878	components/games/LudoGame.tsx:229	You rolled ${match.state.dice}. Choose a token.								
+UI_0879	components/games/LudoGame.tsx:230	${displayNames[displayCurrent]}'s turn to roll.								
+UI_0880	components/games/LudoGame.tsx:230 | components/games/LudoGame.tsx:246 | components/games/LudoGame.tsx:256	Your turn. Roll the dice!								
+UI_0881	components/games/LudoGame.tsx:252	${PLAYERS[player].name} gets another roll!								
+UI_0882	components/games/LudoGame.tsx:256	${PLAYERS[next].name} is thinking...								
+UI_0883	components/games/LudoGame.tsx:285	${PLAYERS[player].name} wins!								
+UI_0884	components/games/LudoGame.tsx:287	${PLAYERS[player].name} captured a piece!								
+UI_0885	components/games/LudoGame.tsx:287	${PLAYERS[player].name} moved ${roll}.								
+UI_0886	components/games/LudoGame.tsx:294	${PLAYERS[player].name} is rolling...								
+UI_0887	components/games/LudoGame.tsx:300	${PLAYERS[player].name} rolled ${roll}. No valid move.								
+UI_0888	components/games/LudoGame.tsx:304	${PLAYERS[player].name} rolled ${roll}.								
+UI_0889	components/games/LudoGame.tsx:304	You rolled ${roll}. Choose a piece.								
+UI_0890	components/games/LudoGame.tsx:359	Loading shared Ludo board…								
+UI_0891	components/games/LudoGame.tsx:396	LUDO								
+UI_0892	components/games/LudoGame.tsx:397	Classic Race								
+UI_0893	components/games/LudoGame.tsx:405	How to play Ludo								
+UI_0894	components/games/LudoGame.tsx:429	· ${playerNames[current] || "Opponent"}'s turn								
+UI_0895	components/games/LudoGame.tsx:429	· Your turn								
+UI_0896	components/games/LudoGame.tsx:533	${PLAYERS[player].name} pawn ${piece + 1}								
+UI_0897	components/games/LudoGame.tsx:555 | components/games/Monopoly.tsx:1656	Roll dice								
+UI_0898	components/games/LudoGame.tsx:562	Roll 6 to leave home · Exact roll to finish								
+UI_0899	components/games/LudoGame.tsx:582	1. Roll to begin								
+UI_0900	components/games/LudoGame.tsx:582	Roll a 6 to move one of your red tokens out of home and onto the track.								
+UI_0901	components/games/LudoGame.tsx:583	2. Move your token								
+UI_0902	components/games/LudoGame.tsx:583	After rolling, tap a glowing red token. It moves forward by the exact dice value.								
+UI_0903	components/games/LudoGame.tsx:584	3. Use safe squares								
+UI_0904	components/games/LudoGame.tsx:584	Tokens standing on a star-marked safe square cannot be captured.								
+UI_0905	components/games/LudoGame.tsx:585	4. Capture opponents								
+UI_0906	components/games/LudoGame.tsx:585	Land on an opponent outside a safe square to send that token back home.								
+UI_0907	components/games/LudoGame.tsx:586	5. Earn another roll								
+UI_0908	components/games/LudoGame.tsx:586	Rolling a 6 or capturing an opponent gives you another turn.								
+UI_0909	components/games/LudoGame.tsx:587	6. Bring all four home								
+UI_0910	components/games/LudoGame.tsx:587	Move around the board and use an exact roll to finish. The first player to finish all four tokens wins.								
+UI_0911	components/games/LudoGame.tsx:608	${playerNames[winner]} Wins!								
+UI_0912	components/games/LudoGame.tsx:608	The shared Ludo match is complete.								
+UI_0913	components/games/MiniFighter.tsx:65	1V1 Arena								
+UI_0914	components/games/MiniFighter.tsx:65	Choose your fighter								
+UI_0915	components/games/MiniFighter.tsx:65	FIND A FIGHT								
+UI_0916	components/games/MiniFighter.tsx:65	Special move								
+UI_0917	components/games/MiniFighter.tsx:67	FIGHT								
+UI_0918	components/games/MiniFighter.tsx:67	Head to head · 7 — 5								
+UI_0919	components/games/MiniFighter.tsx:67 | components/games/MiniFighterChallengeCard.tsx:27	VS								
+UI_0920	components/games/MiniFighter.tsx:69	+32 XP · 3 WIN STREAK								
+UI_0921	components/games/MiniFighter.tsx:69	${enemyName} takes this round								
+UI_0922	components/games/MiniFighter.tsx:69	CHANGE FIGHTER								
+UI_0923	components/games/MiniFighter.tsx:69	Defeat								
+UI_0924	components/games/MiniFighter.tsx:69	Head to Head								
+UI_0925	components/games/MiniFighter.tsx:69	MESSAGE								
+UI_0926	components/games/MiniFighter.tsx:69	REMATCH								
+UI_0927	components/games/MiniFighter.tsx:69	SO CLOSE								
+UI_0928	components/games/MiniFighter.tsx:69	Victory								
+UI_0929	components/games/MiniFighter.tsx:69	YOU 8 —								
+UI_0930	components/games/MiniFighter.tsx:69	YOU WIN								
+UI_0931	components/games/MiniFighter.tsx:72	ATTACK								
+UI_0932	components/games/MiniFighter.tsx:72	BLOCK								
+UI_0933	components/games/MiniFighter.tsx:72	ROUND 1								
+UI_0934	components/games/MiniFighter.tsx:72	SPECIAL								
+UI_0935	components/games/MiniFighter.tsx:72	SPECIAL!								
+UI_0936	components/games/MiniFighter.tsx:72	SUDDEN DEATH								
+UI_0937	components/games/MiniFighterChallengeCard.tsx:23	Fight challenge								
+UI_0938	components/games/MiniFighterChallengeCard.tsx:24	challenged you								
+UI_0939	components/games/MiniFighterChallengeCard.tsx:30	Head to head								
+UI_0940	components/games/MiniFighterChallengeCard.tsx:31	ACCEPT FIGHT								
+UI_0941	components/games/MiniFighterChallengeCard.tsx:31 | components/games/Monopoly.tsx:752	DECLINE								
+UI_0942	components/games/Monopoly.tsx:1055	${mover.username} arrived								
+UI_0943	components/games/Monopoly.tsx:1063	${mover.username} was sent to Jail								
+UI_0944	components/games/Monopoly.tsx:1064	${mover.username} landed on GO TO JAIL. Press CONTINUE to pass the turn.								
+UI_0945	components/games/Monopoly.tsx:1064 | components/games/Monopoly.tsx:1117	IN JAIL								
+UI_0946	components/games/Monopoly.tsx:1066	${mover.username} reached GO								
+UI_0947	components/games/Monopoly.tsx:1069	+$200 GO BONUS READY								
+UI_0948	components/games/Monopoly.tsx:1069	${mover.username} will collect the GO bonus after CONTINUE.								
+UI_0949	components/games/Monopoly.tsx:1075	CHANCE DRAWN								
+UI_0950	components/games/Monopoly.tsx:1075	CHEST DRAWN								
+UI_0951	components/games/Monopoly.tsx:1076	· JAIL-FREE CARD								
+UI_0952	components/games/Monopoly.tsx:1076	${card.description} ${cashDelta >= 0 ? "+" : ""}${currency.format(cashDelta)}${card.jailFreeCards ? " · JAIL-FREE CARD" : ""}								
+UI_0953	components/games/Monopoly.tsx:1080	INCOME TAX DUE								
+UI_0954	components/games/Monopoly.tsx:1081	${mover.username} owes the bank ${currency.format(amount)} in income tax.								
+UI_0955	components/games/Monopoly.tsx:1081	Pay Income Tax								
+UI_0956	components/games/Monopoly.tsx:1088 | components/games/Monopoly.tsx:1089	${landedSpace.label} is available								
+UI_0957	components/games/Monopoly.tsx:1089	Buy this ${landedSpace.kind === "station" ? "station" : "city"} for ${currency.format(purchasePrice)} or skip it for now.								
+UI_0958	components/games/Monopoly.tsx:1089	city								
+UI_0959	components/games/Monopoly.tsx:1091	${mover.username} cannot afford								
+UI_0960	components/games/Monopoly.tsx:1092	${mover.username} needs ${currency.format(purchasePrice)} to buy ${landedSpace.label}.								
+UI_0961	components/games/Monopoly.tsx:1092 | components/games/Monopoly.tsx:1182	Purchase unavailable								
+UI_0962	components/games/Monopoly.tsx:1095	${landedSpace.label} is mortgaged								
+UI_0963	components/games/Monopoly.tsx:1097	${owner.username} cannot collect rent from ${landedSpace.label}. Press CONTINUE to pass the turn.								
+UI_0964	components/games/Monopoly.tsx:1097	Mortgaged property								
+UI_0965	components/games/Monopoly.tsx:1102	${mover.username} owes ${owner.username}								
+UI_0966	components/games/Monopoly.tsx:1103	${mover.username} owes ${owner.username} ${currency.format(rent)} for landing on ${landedSpace.label}.								
+UI_0967	components/games/Monopoly.tsx:1106	${mover.username} owns this city								
+UI_0968	components/games/Monopoly.tsx:1107 | components/games/Monopoly.tsx:1110	${landedSpace.label} is yours								
+UI_0969	components/games/Monopoly.tsx:1107	This city is at hotel level. Use SELL to manage its buildings.								
+UI_0970	components/games/Monopoly.tsx:1107	Use BUILD, SELL, MORTGAGE, REDEEM, or TRADE from the action bar to manage this city.								
+UI_0971	components/games/Monopoly.tsx:1109	${mover.username} owns this transport hub								
+UI_0972	components/games/Monopoly.tsx:1110	No rent is due on your own ${landedSpace.label}. Press CONTINUE to pass the turn.								
+UI_0973	components/games/Monopoly.tsx:1113	${mover.username} is taking a break								
+UI_0974	components/games/Monopoly.tsx:1114	${mover.username} can rest here safely. Press CONTINUE to pass the turn.								
+UI_0975	components/games/Monopoly.tsx:1116	${mover.username} reached Jail								
+UI_0976	components/games/Monopoly.tsx:1117	${mover.username} is visiting Jail and remains free to move next turn. Press CONTINUE to pass the turn.								
+UI_0977	components/games/Monopoly.tsx:1136	${mover.username} is moving								
+UI_0978	components/games/Monopoly.tsx:1153	Board updated								
+UI_0979	components/games/Monopoly.tsx:1162	${rollingPlayer.username} rolled the dice								
+UI_0980	components/games/Monopoly.tsx:1182	This property is no longer available to buy.								
+UI_0981	components/games/Monopoly.tsx:1185	${buyer.username} bought								
+UI_0982	components/games/Monopoly.tsx:1197	${player?.username ?? "Player"} passed on								
+UI_0983	components/games/Monopoly.tsx:1236	SALE CANCELLED								
+UI_0984	components/games/Monopoly.tsx:1236	TRADE CANCELLED								
+UI_0985	components/games/Monopoly.tsx:1247 | components/games/Monopoly.tsx:1250	BUILD BLOCKED								
+UI_0986	components/games/Monopoly.tsx:1252	${owner.username} built on ${space.label}								
+UI_0987	components/games/Monopoly.tsx:1263	SALE BLOCKED								
+UI_0988	components/games/Monopoly.tsx:1272	clear								
+UI_0989	components/games/Monopoly.tsx:1272	hotel								
+UI_0990	components/games/Monopoly.tsx:1272	hotel and 4 houses sold								
+UI_0991	components/games/Monopoly.tsx:1272	hotel downgraded to 4 houses								
+UI_0992	components/games/Monopoly.tsx:1272	one house sold								
+UI_0993	components/games/Monopoly.tsx:1273	${owner.username} ${soldLabel}								
+UI_0994	components/games/Monopoly.tsx:1284	MORTGAGE BLOCKED								
+UI_0995	components/games/Monopoly.tsx:1287	${space.label} mortgaged								
+UI_0996	components/games/Monopoly.tsx:1299	REDEEM BLOCKED								
+UI_0997	components/games/Monopoly.tsx:1301	${space.label} redeemed								
+UI_0998	components/games/Monopoly.tsx:1326	TRADE BLOCKED								
+UI_0999	components/games/Monopoly.tsx:1327	${proposer.username} proposed a trade								
+UI_1000	components/games/Monopoly.tsx:1342 | components/games/Monopoly.tsx:1368	TRADE DECLINED								
+UI_1001	components/games/Monopoly.tsx:1361	TRADE CONFIRMED								
+UI_1002	components/games/Monopoly.tsx:1407	${space.label} is already at its maximum rent tier.								
+UI_1003	components/games/Monopoly.tsx:1407	Hotel level reached								
+UI_1004	components/games/Monopoly.tsx:1408	Full color set required								
+UI_1005	components/games/Monopoly.tsx:1408	Own every ${space.color} property and redeem mortgages before building on ${space.label}.								
+UI_1006	components/games/Monopoly.tsx:1409	Build evenly								
+UI_1007	components/games/Monopoly.tsx:1409	Build the lowest-level property in the ${space.color} color set before adding another level to ${space.label}.								
+UI_1008	components/games/Monopoly.tsx:1412	${owner.username} needs ${currency.format(upgradeCost)} to reach level ${nextLevel}.								
+UI_1009	components/games/Monopoly.tsx:1412	Upgrade unavailable								
+UI_1010	components/games/Monopoly.tsx:1414	${owner.username} upgraded ${space.label}								
+UI_1011	components/games/Monopoly.tsx:1414	${space.label} is now level ${nextLevel}. Rent is ${currency.format(getPropertyRent(space, nextLevel))}.								
+UI_1012	components/games/Monopoly.tsx:1414	City upgraded								
+UI_1013	components/games/Monopoly.tsx:1432	No auction bidders								
+UI_1014	components/games/Monopoly.tsx:1432	No remaining player has enough cash to make an offer.								
+UI_1015	components/games/Monopoly.tsx:1433	${seller.username} opened an auction								
+UI_1016	components/games/Monopoly.tsx:1433	${space.label} is for sale								
+UI_1017	components/games/Monopoly.tsx:1433	The remaining players have submitted their competitive bids.								
+UI_1018	components/games/Monopoly.tsx:1447	Auction cancelled								
+UI_1019	components/games/Monopoly.tsx:1447	No valid bidder was available for this property.								
+UI_1020	components/games/Monopoly.tsx:1458	${buyer.username} won ${space.label} with a ${currency.format(bid)} bid.								
+UI_1021	components/games/Monopoly.tsx:1458	${buyer.username} won the auction								
+UI_1022	components/games/Monopoly.tsx:1458	Auction complete								
+UI_1023	components/games/Monopoly.tsx:1469	${space.label} · LEVEL ${level}								
+UI_1024	components/games/Monopoly.tsx:1469	Owned by ${owner.username}. Current rent is ${currency.format(getPropertyRent(space, level, hasCompleteColorSet(owner, space)))}.								
+UI_1025	components/games/Monopoly.tsx:1564	${activePlayer.username} used a Jail-Free card								
+UI_1026	components/games/Monopoly.tsx:1574	${activePlayer.username} serves a Jail turn								
+UI_1027	components/games/Monopoly.tsx:1602	Loading shared Monopoly board…								
+UI_1028	components/games/Monopoly.tsx:1633	Exit Monopoly								
+UI_1029	components/games/Monopoly.tsx:1634	ROUNDS · LAST PLAYER TAKES THE POT								
+UI_1030	components/games/Monopoly.tsx:1634	SOUTHEAST ASIA EDITION								
+UI_1031	components/games/Monopoly.tsx:1635	Open rules								
+UI_1032	components/games/Monopoly.tsx:1641	Southeast Asia Monopoly board								
+UI_1033	components/games/Monopoly.tsx:1650	Player dashboard								
+UI_1034	components/games/Monopoly.tsx:1656	${activePlayer.username}'s turn								
+UI_1035	components/games/Monopoly.tsx:1656	Crystal action								
+UI_1036	components/games/Monopoly.tsx:1656	End turn								
+UI_1037	components/games/Monopoly.tsx:1656	Moving								
+UI_1038	components/games/Monopoly.tsx:1656	Rolling								
+UI_1039	components/games/Monopoly.tsx:1661	+$200 GO BONUS · CONFIRM TO COLLECT								
+UI_1040	components/games/Monopoly.tsx:1663	Crystal table rules								
+UI_1041	components/games/Monopoly.tsx:1663	Every player starts with their paid entry × 10 as in-game cash.								
+UI_1042	components/games/Monopoly.tsx:1663	Got it								
+UI_1043	components/games/Monopoly.tsx:1663	Neon Monopoly								
+UI_1044	components/games/Monopoly.tsx:1663	Passing GO adds								
+UI_1045	components/games/Monopoly.tsx:1663	Roll, build, trade, mortgage, and collect rent. A player who cannot pay is bankrupt and transfers their holdings.								
+UI_1046	components/games/Monopoly.tsx:1663	The last survivor takes the full circulation balance. At the selected checkpoint, highest net worth wins if multiple players remain. The winner receives 10% as points.								
+UI_1047	components/games/Monopoly.tsx:1663	to the circulation balance.								
+UI_1048	components/games/Monopoly.tsx:1665	cash × 10%								
+UI_1049	components/games/Monopoly.tsx:1665	Change players								
+UI_1050	components/games/Monopoly.tsx:1665	Final points:								
+UI_1051	components/games/Monopoly.tsx:1665	Play again								
+UI_1052	components/games/Monopoly.tsx:1665	PTS ·								
+UI_1053	components/games/Monopoly.tsx:1665	Southeast Asia champion								
+UI_1054	components/games/Monopoly.tsx:186	ASEAN visitors boost your city campaign.								
+UI_1055	components/games/Monopoly.tsx:186	Tourism grant								
+UI_1056	components/games/Monopoly.tsx:187	Platform repair								
+UI_1057	components/games/Monopoly.tsx:187	Your crystal table needs a quick repair.								
+UI_1058	components/games/Monopoly.tsx:188	Festival dividend								
+UI_1059	components/games/Monopoly.tsx:188	Your local festival sold out.								
+UI_1060	components/games/Monopoly.tsx:192	A regional investor backs your next move.								
+UI_1061	components/games/Monopoly.tsx:192	Investor spotlight								
+UI_1062	components/games/Monopoly.tsx:193	Last-minute flight								
+UI_1063	components/games/Monopoly.tsx:193	Pay for a surprise travel detour.								
+UI_1064	components/games/Monopoly.tsx:194	Neon landmark award								
+UI_1065	components/games/Monopoly.tsx:194	Your skyline earns a design award.								
+UI_1066	components/games/Monopoly.tsx:195	Keep this card for a future Jail escape or trade it with another player.								
+UI_1067	components/games/Monopoly.tsx:195	Travel clearance								
+UI_1068	components/games/Monopoly.tsx:201	${card.title} ${card.description}								
+UI_1069	components/games/Monopoly.tsx:210 | components/games/Monopoly.tsx:794	GO								
+UI_1070	components/games/Monopoly.tsx:211	MANILA								
+UI_1071	components/games/Monopoly.tsx:212	CEBU								
+UI_1072	components/games/Monopoly.tsx:213	INCOME TAX								
+UI_1073	components/games/Monopoly.tsx:214	BUS TERMINAL								
+UI_1074	components/games/Monopoly.tsx:215	PHNOM PENH								
+UI_1075	components/games/Monopoly.tsx:216	SIEM REAP								
+UI_1076	components/games/Monopoly.tsx:217	SIHANOUKVILLE								
+UI_1077	components/games/Monopoly.tsx:218	JAIL								
+UI_1078	components/games/Monopoly.tsx:219	PHUKET								
+UI_1079	components/games/Monopoly.tsx:220	BANGKOK								
+UI_1080	components/games/Monopoly.tsx:221 | components/games/Monopoly.tsx:588 | components/games/Monopoly.tsx:681	CHANCE								
+UI_1081	components/games/Monopoly.tsx:222	MANDALAY								
+UI_1082	components/games/Monopoly.tsx:223	YANGON								
+UI_1083	components/games/Monopoly.tsx:224	BAGAN								
+UI_1084	components/games/Monopoly.tsx:225	RAILWAY STATION								
+UI_1085	components/games/Monopoly.tsx:226 | components/games/Monopoly.tsx:1114	FREE PARKING								
+UI_1086	components/games/Monopoly.tsx:227	HANOI								
+UI_1087	components/games/Monopoly.tsx:228	HO CHI MINH								
+UI_1088	components/games/Monopoly.tsx:229	AIRPORT								
+UI_1089	components/games/Monopoly.tsx:230	KUALA LUMPUR								
+UI_1090	components/games/Monopoly.tsx:231	PENANG								
+UI_1091	components/games/Monopoly.tsx:232	MALACCA								
+UI_1092	components/games/Monopoly.tsx:233	JOHOR BAHRU								
+UI_1093	components/games/Monopoly.tsx:234	GO TO JAIL								
+UI_1094	components/games/Monopoly.tsx:235	JAKARTA								
+UI_1095	components/games/Monopoly.tsx:236	SURABAYA								
+UI_1096	components/games/Monopoly.tsx:237	BALI								
+UI_1097	components/games/Monopoly.tsx:238 | components/games/Monopoly.tsx:588	CHEST								
+UI_1098	components/games/Monopoly.tsx:239	VIENTIANE								
+UI_1099	components/games/Monopoly.tsx:240	LUANG PRABANG								
+UI_1100	components/games/Monopoly.tsx:241	PORT								
+UI_1101	components/games/Monopoly.tsx:412	TURN AUTO-PASSED								
+UI_1102	components/games/Monopoly.tsx:413	NEXT PLAYER READY								
+UI_1103	components/games/Monopoly.tsx:450	Crystal table ready								
+UI_1104	components/games/Monopoly.tsx:466	${player.username} pawn								
+UI_1105	components/games/Monopoly.tsx:544	${level} house${level === 1 ? "" : "s"}								
+UI_1106	components/games/Monopoly.tsx:544 | components/games/Monopoly.tsx:658	Hotel								
+UI_1107	components/games/Monopoly.tsx:544	Owned property								
+UI_1108	components/games/Monopoly.tsx:557	chance								
+UI_1109	components/games/Monopoly.tsx:557 | components/games/Monopoly.tsx:681 | components/games/Monopoly.tsx:1075	chest								
+UI_1110	components/games/Monopoly.tsx:557 | components/games/Monopoly.tsx:576	tax								
+UI_1111	components/games/Monopoly.tsx:564	MORTGAGED								
+UI_1112	components/games/Monopoly.tsx:568 | components/games/Monopoly.tsx:1089	station								
+UI_1113	components/games/Monopoly.tsx:576	PAY $								
+UI_1114	components/games/Monopoly.tsx:591	${label} card deck								
+UI_1115	components/games/Monopoly.tsx:602	WARNING: 40s reached. Turn auto-passes at 1 min.								
+UI_1116	components/games/Monopoly.tsx:606	00:${String(secondsLeft).padStart(2, "0")}								
+UI_1117	components/games/Monopoly.tsx:617	CRYSTAL TABLE - ACTIVE TURN								
+UI_1118	components/games/Monopoly.tsx:619	TURN TIMER ·								
+UI_1119	components/games/Monopoly.tsx:626	ALL PLAYERS ARE ON GO.								
+UI_1120	components/games/Monopoly.tsx:626	ROLL TO START THE JOURNEY								
+UI_1121	components/games/Monopoly.tsx:628	Roll two dice on the white stage								
+UI_1122	components/games/Monopoly.tsx:633	Rolling two dice…								
+UI_1123	components/games/Monopoly.tsx:633	Tap stage to end turn								
+UI_1124	components/games/Monopoly.tsx:633	Tap white stage to roll								
+UI_1125	components/games/Monopoly.tsx:648	1x HOUSE								
+UI_1126	components/games/Monopoly.tsx:648	2x HOUSE								
+UI_1127	components/games/Monopoly.tsx:648	3x HOUSE								
+UI_1128	components/games/Monopoly.tsx:648	4x HOUSE								
+UI_1129	components/games/Monopoly.tsx:648 | components/games/Monopoly.tsx:649 | components/games/Monopoly.tsx:748 | components/games/Monopoly.tsx:749	HOTEL								
+UI_1130	components/games/Monopoly.tsx:649	1H								
+UI_1131	components/games/Monopoly.tsx:649	2H								
+UI_1132	components/games/Monopoly.tsx:649	3H								
+UI_1133	components/games/Monopoly.tsx:649	4H								
+UI_1134	components/games/Monopoly.tsx:655	BASE PRICE								
+UI_1135	components/games/Monopoly.tsx:658	${level} houses								
+UI_1136	components/games/Monopoly.tsx:658	Construction ${currency.format(nextUpgradeCost)}								
+UI_1137	components/games/Monopoly.tsx:658	Construction complete								
+UI_1138	components/games/Monopoly.tsx:658 | components/games/Monopoly.tsx:748	Hotel complete								
+UI_1139	components/games/Monopoly.tsx:658	Landing rent ${currency.format(currentRent)}								
+UI_1140	components/games/Monopoly.tsx:658	Mort.								
+UI_1141	components/games/Monopoly.tsx:658	Mortgage								
+UI_1142	components/games/Monopoly.tsx:658	Next								
+UI_1143	components/games/Monopoly.tsx:658	Next build ${currency.format(nextUpgradeCost)}								
+UI_1144	components/games/Monopoly.tsx:658	Rent								
+UI_1145	components/games/Monopoly.tsx:667	Landing on								
+UI_1146	components/games/Monopoly.tsx:681	COMMUNITY CHEST								
+UI_1147	components/games/Monopoly.tsx:690	City management								
+UI_1148	components/games/Monopoly.tsx:690	Crystal table alert								
+UI_1149	components/games/Monopoly.tsx:690	Decision required								
+UI_1150	components/games/Monopoly.tsx:690	Live city auction								
+UI_1151	components/games/Monopoly.tsx:690	Rent settlement								
+UI_1152	components/games/Monopoly.tsx:691 | components/games/Monopoly.tsx:1103	Rent payment due								
+UI_1153	components/games/Monopoly.tsx:697	Buy								
+UI_1154	components/games/Monopoly.tsx:702	Upgrade next level								
+UI_1155	components/games/Monopoly.tsx:703	Sell / Auction								
+UI_1156	components/games/Monopoly.tsx:707	Award highest bid								
+UI_1157	components/games/Monopoly.tsx:708	Cancel sale								
+UI_1158	components/games/Monopoly.tsx:722 | components/games/Monopoly.tsx:748	BUILD								
+UI_1159	components/games/Monopoly.tsx:723	SELL								
+UI_1160	components/games/Monopoly.tsx:724 | components/games/Monopoly.tsx:750	MORTGAGE								
+UI_1161	components/games/Monopoly.tsx:725 | components/games/Monopoly.tsx:751	REDEEM								
+UI_1162	components/games/Monopoly.tsx:726	TRADE								
+UI_1163	components/games/Monopoly.tsx:730	Property actions								
+UI_1164	components/games/Monopoly.tsx:747	Property control								
+UI_1165	components/games/Monopoly.tsx:748	${currency.format(upgradeCost)} for ${nextLevel === MAX_PROPERTY_LEVEL ? "HOTEL" : `HOUSE ${nextLevel}`}								
+UI_1166	components/games/Monopoly.tsx:748	${level} HOUSES								
+UI_1167	components/games/Monopoly.tsx:748	build								
+UI_1168	components/games/Monopoly.tsx:748	Build lowest title first								
+UI_1169	components/games/Monopoly.tsx:748	Full set required								
+UI_1170	components/games/Monopoly.tsx:748	HOUSE ${nextLevel}								
+UI_1171	components/games/Monopoly.tsx:748	No properties owned.								
+UI_1172	components/games/Monopoly.tsx:749	50% REFUND								
+UI_1173	components/games/Monopoly.tsx:749	CLEAR +								
+UI_1174	components/games/Monopoly.tsx:749	H${level}								
+UI_1175	components/games/Monopoly.tsx:749	HOTEL → 4H +								
+UI_1176	components/games/Monopoly.tsx:749	No houses or hotels to sell.								
+UI_1177	components/games/Monopoly.tsx:749	sell								
+UI_1178	components/games/Monopoly.tsx:749	SELL 1 HOUSE +								
+UI_1179	components/games/Monopoly.tsx:750	Already mortgaged								
+UI_1180	components/games/Monopoly.tsx:750	mortgage								
+UI_1181	components/games/Monopoly.tsx:750	Receive ${currency.format(getMortgageValue(space))}								
+UI_1182	components/games/Monopoly.tsx:750	Sell all color-set buildings first								
+UI_1183	components/games/Monopoly.tsx:751	No mortgaged properties.								
+UI_1184	components/games/Monopoly.tsx:751	Principal + 10% =								
+UI_1185	components/games/Monopoly.tsx:751	redeem								
+UI_1186	components/games/Monopoly.tsx:752	AWAITING RECIPIENT								
+UI_1187	components/games/Monopoly.tsx:752	CANCEL								
+UI_1188	components/games/Monopoly.tsx:752	Cash:								
+UI_1189	components/games/Monopoly.tsx:752	Choose opponent								
+UI_1190	components/games/Monopoly.tsx:752	None								
+UI_1191	components/games/Monopoly.tsx:752	OFFER JAIL-FREE								
+UI_1192	components/games/Monopoly.tsx:752	OFFER TITLE								
+UI_1193	components/games/Monopoly.tsx:752	offered /								
+UI_1194	components/games/Monopoly.tsx:752	PROPOSE TRADE								
+UI_1195	components/games/Monopoly.tsx:752	REQUEST JAIL-FREE								
+UI_1196	components/games/Monopoly.tsx:752	REQUEST TITLE								
+UI_1197	components/games/Monopoly.tsx:752	requested								
+UI_1198	components/games/Monopoly.tsx:752	TO CONFIRM								
+UI_1199	components/games/Monopoly.tsx:752	trade								
+UI_1200	components/games/Monopoly.tsx:752	WAITING FOR								
+UI_1201	components/games/Monopoly.tsx:752	YOU OFFER CASH								
+UI_1202	components/games/Monopoly.tsx:752	YOU REQUEST CASH								
+UI_1203	components/games/Monopoly.tsx:760	Open seat								
+UI_1204	components/games/Monopoly.tsx:777	@keyframes monopoly-pawn { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-3px) scale(1.06); } } @keyframes monopoly-aura { 0%,100% { opacity: .45; transform: scale(.75); } 50% { opacity: 1; transform: scale(1.18); } } @keyframes monopoly-badge { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-3px); } } @keyframes monopoly-go-bonus-toast { 0% { opacity: 0; transform: translate(-50%,-8px) scale(.9); } 12%,78% { opacity: 1; transform: translate(-50%,0) scale(1); } 100% { opacity: 0; transform: translate(-50%,-8px) scale(.96); } } @media (max-height: 720px) { .portrait-player-card { min-height: 48px !important; padding-top: 4px !important; padding-bottom: 4px !important; } .portrait-header { height: 40px !important; } .portrait-controls { padding-top: 7px !important; padding-bottom: 8px !important; } }								
+UI_1205	components/games/Monopoly.tsx:789	NEON MONOPOLY								
+UI_1206	components/games/Monopoly.tsx:791	Glowing diamond above a futuristic skyline								
+UI_1207	components/games/Monopoly.tsx:794	Choose 2–4 players. Every toy pawn starts together on								
+UI_1208	components/games/Monopoly.tsx:794	Choose your players								
+UI_1209	components/games/Monopoly.tsx:794	Southeast Asia edition								
+UI_1210	components/games/Monopoly.tsx:796	Final checkpoint								
+UI_1211	components/games/Monopoly.tsx:796	Play until one player remains. If no one is bankrupt at this checkpoint, the highest net worth wins.								
+UI_1212	components/games/Monopoly.tsx:796	ROUNDS								
+UI_1213	components/games/Monopoly.tsx:798	START GAME								
+UI_1214	components/games/NeuralDuel.tsx:119	Player 2 Zone								
+UI_1215	components/games/NeuralDuel.tsx:123 | components/games/NeuralDuel.tsx:227	standby								
+UI_1216	components/games/NeuralDuel.tsx:125 | components/games/NeuralDuel.tsx:229	Standby...								
+UI_1217	components/games/NeuralDuel.tsx:128 | components/games/NeuralDuel.tsx:232	execute								
+UI_1218	components/games/NeuralDuel.tsx:134 | components/games/NeuralDuel.tsx:238	EXECUTE!								
+UI_1219	components/games/NeuralDuel.tsx:137 | components/games/NeuralDuel.tsx:142 | components/games/NeuralDuel.tsx:173 | components/games/NeuralDuel.tsx:181 | components/games/NeuralDuel.tsx:191 | components/games/NeuralDuel.tsx:241 | components/games/NeuralDuel.tsx:246 | components/games/NexusBreach.tsx:165 | components/games/NexusBreach.tsx:166	gameover								
+UI_1220	components/games/NeuralDuel.tsx:137 | components/games/NeuralDuel.tsx:142	p2								
+UI_1221	components/games/NeuralDuel.tsx:139 | components/games/NeuralDuel.tsx:243	WINNER								
+UI_1222	components/games/NeuralDuel.tsx:146 | components/games/NeuralDuel.tsx:250	early-tap								
+UI_1223	components/games/NeuralDuel.tsx:146 | components/games/NeuralDuel.tsx:250	SHORT CIRCUIT!								
+UI_1224	components/games/NeuralDuel.tsx:146 | components/games/NeuralDuel.tsx:250	TOO SLOW!								
+UI_1225	components/games/NeuralDuel.tsx:149 | components/games/NeuralDuel.tsx:253	Penalty:								
+UI_1226	components/games/NeuralDuel.tsx:171	Duel								
+UI_1227	components/games/NeuralDuel.tsx:171	Start								
+UI_1228	components/games/NeuralDuel.tsx:186	Mode:								
+UI_1229	components/games/NeuralDuel.tsx:223	Player 1 Zone								
+UI_1230	components/games/NeuralDuel.tsx:241 | components/games/NeuralDuel.tsx:246	p1								
+UI_1231	components/games/NexusBreach.tsx:109	Nodes Recovered								
+UI_1232	components/games/NexusBreach.tsx:112	security								
+UI_1233	components/games/NexusBreach.tsx:122	System Status								
+UI_1234	components/games/NexusBreach.tsx:131	Breached								
+UI_1235	components/games/NexusBreach.tsx:140	Penalty Mode:								
+UI_1236	components/games/NexusBreach.tsx:190	hexagon								
+UI_1237	components/games/NexusBreach.tsx:217	15 safe nodes. 1 corrupted trap.								
+UI_1238	components/games/NexusBreach.tsx:217	Push your luck.								
+UI_1239	components/games/NexusBreach.tsx:226	Reboot System								
+UI_1240	components/games/NexusBreach.tsx:255	Penalty Required								
+UI_1241	components/games/NexusBreach.tsx:259	Reveal a Truth! 🤫								
+UI_1242	components/games/NexusBreach.tsx:260	Complete a Dare! 🎯								
+UI_1243	components/games/NexusBreach.tsx:261	Node corrupted. You lose. 💥								
+UI_1244	components/games/NexusBreach.tsx:269	Accept Penalty								
+UI_1245	components/games/NexusBreach.tsx:98	Nexus Breach								
+UI_1246	components/games/PingPong.tsx:1018	${reason} · Match complete								
+UI_1247	components/games/PingPong.tsx:1020	${reason} · Game won — changing ends								
+UI_1248	components/games/PingPong.tsx:1022	Deciding game — change ends at five								
+UI_1249	components/games/PingPong.tsx:1161	Twist serve - toss up!								
+UI_1250	components/games/PingPong.tsx:1163	Toss up - serve aimed left								
+UI_1251	components/games/PingPong.tsx:1165	Toss up - serve aimed right								
+UI_1252	components/games/PingPong.tsx:1166	Toss up - power serve								
+UI_1253	components/games/PingPong.tsx:1192	Twist loaded - strike on descent								
+UI_1254	components/games/PingPong.tsx:1404	JOE YOKE ARENA								
+UI_1255	components/games/PingPong.tsx:1407	TABLE TENNIS CLUB								
+UI_1256	components/games/PingPong.tsx:1568	ARENA								
+UI_1257	components/games/PingPong.tsx:2293	Twist spin!								
+UI_1258	components/games/PingPong.tsx:2295	Power drive!								
+UI_1259	components/games/PingPong.tsx:2296	Clean return!								
+UI_1260	components/games/PingPong.tsx:2297	Opponent returns								
+UI_1261	components/games/PingPong.tsx:2722	Opponent serves								
+UI_1262	components/games/PingPong.tsx:2722	Your serve								
+UI_1263	components/games/PingPong.tsx:2796	Net cord — possible let								
+UI_1264	components/games/PingPong.tsx:2796	Tape clip								
+UI_1265	components/games/PingPong.tsx:2808	Net fault — ball stopped								
+UI_1266	components/games/PingPong.tsx:2911	Let serve — replay								
+UI_1267	components/games/PingPong.tsx:2923	Serve bounced on server side								
+UI_1268	components/games/PingPong.tsx:2931	Valid serve — return it!								
+UI_1269	components/games/PingPong.tsx:2932	Valid serve								
+UI_1270	components/games/PingPong.tsx:2936	Valid shot								
+UI_1271	components/games/PingPong.tsx:2936	Your bounce — return it!								
+UI_1272	components/games/PingPong.tsx:3175	London perspective table tennis arena								
+UI_1273	components/games/PingPong.tsx:319	Fire								
+UI_1274	components/games/PingPong.tsx:320	Nice shot								
+UI_1275	components/games/PingPong.tsx:321	Cool								
+UI_1276	components/games/PingPong.tsx:3214	Joe Yoke Arena								
+UI_1277	components/games/PingPong.tsx:322	Peace								
+UI_1278	components/games/PingPong.tsx:3222	How to play Ping Pong								
+UI_1279	components/games/PingPong.tsx:323	Playful								
+UI_1280	components/games/PingPong.tsx:3244 | components/games/PoolGame.tsx:1854 | components/games/SnookerGame.tsx:1916	player1								
+UI_1281	components/games/PingPong.tsx:3245	${localName} is serving								
+UI_1282	components/games/PingPong.tsx:3265	Game								
+UI_1283	components/games/PingPong.tsx:3286 | components/games/PoolGame.tsx:1884 | components/games/SnookerGame.tsx:1946	player2								
+UI_1284	components/games/PingPong.tsx:3287	${opponentName} is serving								
+UI_1285	components/games/PingPong.tsx:3298	Match reactions								
+UI_1286	components/games/PingPong.tsx:3306	Send ${reaction.label} reaction								
+UI_1287	components/games/PingPong.tsx:3330	Ball								
+UI_1288	components/games/PingPong.tsx:3330	m/s · Paddle								
+UI_1289	components/games/PingPong.tsx:3342	Match complete								
+UI_1290	components/games/PingPong.tsx:3352	${winnerName} winner profile								
+UI_1291	components/games/PingPong.tsx:3358	Winner								
+UI_1292	components/games/PingPong.tsx:3360	wins!								
+UI_1293	components/games/PingPong.tsx:3362	· Final game								
+UI_1294	components/games/PingPong.tsx:3362	Match								
+UI_1295	components/games/PingPong.tsx:3389	How to play								
+UI_1296	components/games/PingPong.tsx:3396	Close rules								
+UI_1297	components/games/PingPong.tsx:3404	Score & serve								
+UI_1298	components/games/PingPong.tsx:3404	Score 11 points and lead by two to win. Serve changes every two points, then every point from 10–10.								
+UI_1299	components/games/PingPong.tsx:3405	Start a legal serve								
+UI_1300	components/games/PingPong.tsx:3405	Swipe to toss and strike. The ball must bounce on your side first, then on the receiver’s side.								
+UI_1301	components/games/PingPong.tsx:3406	Bounce, then return								
+UI_1302	components/games/PingPong.tsx:3406	Do not volley. Let the ball bounce once on your side, then swipe your racket to return it.								
+UI_1303	components/games/PingPong.tsx:3407	Aim, pace & spin								
+UI_1304	components/games/PingPong.tsx:3407	Swipe left or right to aim. A fast up/down swipe adds pace; a circular stroke adds twist spin.								
+UI_1305	components/games/PingPong.tsx:3408	Two bounces, an out ball, a wrong-side bounce, or a net fault gives the point away. A net-touching legal serve is replayed.								
+UI_1306	components/games/PingPong.tsx:3408	Win points								
+UI_1307	components/games/PingPong.tsx:499	${name} avatar								
+UI_1308	components/games/PingPong.tsx:903	Opponent tosses the ball								
+UI_1309	components/games/PingPong.tsx:989	Your serve — swipe left or right								
+UI_1310	components/games/PingPong.tsx:990	Opponent serve — get ready								
+UI_1311	components/games/PoolGame.tsx:1510 | components/games/SnookerGame.tsx:1501 | components/games/SnookerGame.tsx:1512	Playing against ${localOpponent?.name || "Bot"}								
+UI_1312	components/games/PoolGame.tsx:1555	to play an online Pool match.								
+UI_1313	components/games/PoolGame.tsx:1820 | components/games/SnookerGame.tsx:1864	Cue Ball Strike Point								
+UI_1314	components/games/PoolGame.tsx:1833	, Y:								
+UI_1315	components/games/PoolGame.tsx:1833	Spin (X:								
+UI_1316	components/games/PoolGame.tsx:1842 | components/games/SnookerGame.tsx:1900	Wins!								
+UI_1317	components/games/PoolGame.tsx:1847 | components/games/SnookerGame.tsx:1908	Play Again 🔄								
+UI_1318	components/games/PoolGame.tsx:1856 | components/games/PoolGame.tsx:1886 | components/games/SnookerGame.tsx:1918 | components/games/SnookerGame.tsx:1948	TURN								
+UI_1319	components/games/PoolGame.tsx:1873 | components/games/SnookerGame.tsx:1936	TARGET								
+UI_1320	components/games/PoolGame.tsx:1876	Solids								
+UI_1321	components/games/PoolGame.tsx:1922 | components/games/SnookerGame.tsx:1984	EXIT								
+UI_1322	components/games/PoolGame.tsx:1928 | components/games/SnookerGame.tsx:1999	PULL								
+UI_1323	components/games/PoolGame.tsx:1959	CONFIRM POSITION								
+UI_1324	components/games/PoolGame.tsx:1965 | components/games/SnookerGame.tsx:2052	TUNE								
+UI_1325	components/games/PoolGame.tsx:1987	Set Spin								
+UI_1326	components/games/PoolGame.tsx:1999	RESET MATCH								
+UI_1327	components/games/ShanKoeMeeGame.tsx:115	Natural Shan hand — showdown is ready.								
+UI_1328	components/games/ShanKoeMeeGame.tsx:115	Squeeze your cards, then draw or stay within 15 seconds.								
+UI_1329	components/games/ShanKoeMeeGame.tsx:122	${outcome}. Banker: ${label(updatedHands[banker])}.								
+UI_1330	components/games/ShanKoeMeeGame.tsx:131	Banker selection: highest card wins the five-round table.								
+UI_1331	components/games/ShanKoeMeeGame.tsx:131	Choose your stake, then deal the cards.								
+UI_1332	components/games/ShanKoeMeeGame.tsx:141	en								
+UI_1333	components/games/ShanKoeMeeGame.tsx:141	EN								
+UI_1334	components/games/ShanKoeMeeGame.tsx:141	Four-player traditional table · Round								
+UI_1335	components/games/ShanKoeMeeGame.tsx:141	ရှမ်းကိုးမီး · Shan Koe Mee								
+UI_1336	components/games/ShanKoeMeeGame.tsx:142	4 PLAYER TABLE								
+UI_1337	components/games/ShanKoeMeeGame.tsx:142	SHAN KOE MEE								
+UI_1338	components/games/ShanKoeMeeGame.tsx:143	👑 Banker ·								
+UI_1339	components/games/ShanKoeMeeGame.tsx:144	Auto action in								
+UI_1340	components/games/ShanKoeMeeGame.tsx:144	banker								
+UI_1341	components/games/ShanKoeMeeGame.tsx:144	betting								
+UI_1342	components/games/ShanKoeMeeGame.tsx:144	choice								
+UI_1343	components/games/ShanKoeMeeGame.tsx:144	Deal cards								
+UI_1344	components/games/ShanKoeMeeGame.tsx:144	Draw card								
+UI_1345	components/games/ShanKoeMeeGame.tsx:144	Exit table								
+UI_1346	components/games/ShanKoeMeeGame.tsx:144	Next round								
+UI_1347	components/games/ShanKoeMeeGame.tsx:144	result								
+UI_1348	components/games/ShanKoeMeeGame.tsx:144	Stay								
+UI_1349	components/games/ShanKoeMeeGame.tsx:144	Traditional table								
+UI_1350	components/games/ShanKoeMeeGame.tsx:28	Shan ${score}								
+UI_1351	components/games/ShanKoeMeeGame.tsx:32	Three of a kind								
+UI_1352	components/games/ShanKoeMeeGame.tsx:33	Straight flush								
+UI_1353	components/games/ShanKoeMeeGame.tsx:34	Three face cards								
+UI_1354	components/games/ShanKoeMeeGame.tsx:34	Three flush								
+UI_1355	components/games/ShanKoeMeeGame.tsx:36	${score} points · ${hand[0].rank === hand[1].rank ? "Pair" : "Double suit"}								
+UI_1356	components/games/ShanKoeMeeGame.tsx:36	Double suit								
+UI_1357	components/games/ShanKoeMeeGame.tsx:37	${score} points								
+UI_1358	components/games/ShanKoeMeeGame.tsx:37	Boo								
+UI_1359	components/games/SnookerGame.tsx:1557	@keyframes confetti-fall { 0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg) scale(0.7); opacity: 0; } }								
+UI_1360	components/games/SnookerGame.tsx:1578	to play an online Snooker match.								
+UI_1361	components/games/SnookerGame.tsx:1650	Snooker Matrix								
+UI_1362	components/games/SnookerGame.tsx:1902	Match Completed! Score: Player 1 (								
+UI_1363	components/games/SnookerGame.tsx:1902	pts)								
+UI_1364	components/games/SnookerGame.tsx:1902	pts) - Player 2 (								
+UI_1365	components/games/SnookerGame.tsx:2042	🖐️ PLACE CUE BALL INSIDE D-ZONE								
+UI_1366	components/games/SnookerGame.tsx:2076	Set Spin / English								
+UI_1367	components/games/SnookerGame.tsx:2096	Reset Match								
+UI_1368	components/games/SnookerGame.tsx:551	Time expired! Auto shot executed.								
+UI_1369	components/games/SudokuGame.tsx:1000	Your progress and timer are paused.								
+UI_1370	components/games/SudokuGame.tsx:1008	Resume Game								
+UI_1371	components/games/SudokuGame.tsx:1021	Choose a level								
+UI_1372	components/games/SudokuGame.tsx:1022	New Sudoku								
+UI_1373	components/games/SudokuGame.tsx:1026	Close new game menu								
+UI_1374	components/games/SudokuGame.tsx:1030	Select the challenge that feels right for you.								
+UI_1375	components/games/SudokuGame.tsx:1036 | components/games/SudokuGame.tsx:1054 | components/games/SudokuGame.tsx:1060	easy								
+UI_1376	components/games/SudokuGame.tsx:1037 | components/games/SudokuGame.tsx:1054 | components/games/SudokuGame.tsx:1061	medium								
+UI_1377	components/games/SudokuGame.tsx:1038 | components/games/SudokuGame.tsx:1062	hard								
+UI_1378	components/games/SudokuGame.tsx:1060	More clues for a relaxed puzzle.								
+UI_1379	components/games/SudokuGame.tsx:1061	Fewer clues and more deduction.								
+UI_1380	components/games/SudokuGame.tsx:1062	Minimal clues for expert solvers.								
+UI_1381	components/games/SudokuGame.tsx:1090	Puzzle Complete								
+UI_1382	components/games/SudokuGame.tsx:1094	You completed the								
+UI_1383	components/games/SudokuGame.tsx:1098	puzzle.								
+UI_1384	components/games/SudokuGame.tsx:1140	Play Another Puzzle								
+UI_1385	components/games/SudokuGame.tsx:1150	Change Difficulty								
+UI_1386	components/games/SudokuGame.tsx:36	Easy								
+UI_1387	components/games/SudokuGame.tsx:37	Medium								
+UI_1388	components/games/SudokuGame.tsx:38	Hard								
+UI_1389	components/games/SudokuGame.tsx:732	Pause game								
+UI_1390	components/games/SudokuGame.tsx:733	How to play Sudoku								
+UI_1391	components/games/SudokuGame.tsx:744	Level								
+UI_1392	components/games/SudokuGame.tsx:754 | components/games/SudokuGame.tsx:1104 | components/games/WordBoxGame.tsx:522	Time								
+UI_1393	components/games/SudokuGame.tsx:764 | components/games/SudokuGame.tsx:1114	Mistakes								
+UI_1394	components/games/SudokuGame.tsx:780 | components/games/SudokuGame.tsx:1124	Hints								
+UI_1395	components/games/SudokuGame.tsx:859	Erase								
+UI_1396	components/games/SudokuGame.tsx:885	Notes								
+UI_1397	components/games/SudokuGame.tsx:885	Off								
+UI_1398	components/games/SudokuGame.tsx:885	On								
+UI_1399	components/games/SudokuGame.tsx:897	Hint								
+UI_1400	components/games/SudokuGame.tsx:966	1. Fill every square								
+UI_1401	components/games/SudokuGame.tsx:967	2. Avoid repeats								
+UI_1402	components/games/SudokuGame.tsx:967	Each row, column, and outlined 3×3 box must contain every number once.								
+UI_1403	components/games/SudokuGame.tsx:968	3. Enter a number								
+UI_1404	components/games/SudokuGame.tsx:968	Select an empty square, then tap a number below the board. Blue numbers are your entries.								
+UI_1405	components/games/SudokuGame.tsx:969	4. Use Notes								
+UI_1406	components/games/SudokuGame.tsx:969	Turn Notes on to add or remove small candidate numbers without committing an answer.								
+UI_1407	components/games/SudokuGame.tsx:970	5. Ask for a hint								
+UI_1408	components/games/SudokuGame.tsx:970	Hint completes one unfinished or incorrect square and adds to your hint count.								
+UI_1409	components/games/SudokuGame.tsx:971	6. Complete the puzzle								
+UI_1410	components/games/SudokuGame.tsx:971	Wrong answers appear red and increase Mistakes. Correct every square to finish the puzzle.								
+UI_1411	components/games/SudokuGame.tsx:996	Game Paused								
+UI_1412	components/games/TicTacToeGame.tsx:1008	${playerLabel(winner)} WINS!								
+UI_1413	components/games/TicTacToeGame.tsx:1008	IT'S A TIE!								
+UI_1414	components/games/TicTacToeGame.tsx:523	TicTacToe								
+UI_1415	components/games/TicTacToeGame.tsx:623	to play an online Tic-Tac-Toe match.								
+UI_1416	components/games/TicTacToeGame.tsx:820	Tic-Tac-Toe Room								
+UI_1417	components/games/TicTacToeGame.tsx:889	Joe Yoke Bot								
+UI_1418	components/games/TicTacToeGame.tsx:925	${localOpponent?.name || "Opponent"} (X)								
+UI_1419	components/games/TicTacToeGame.tsx:925	Player 1 (X)								
+UI_1420	components/games/TicTacToeGame.tsx:925	You (X)								
+UI_1421	components/games/TicTacToeGame.tsx:931	Ties								
+UI_1422	components/games/TicTacToeGame.tsx:937	${localOpponent?.name || "Opponent"} (O)								
+UI_1423	components/games/TicTacToeGame.tsx:937	Bot (O)								
+UI_1424	components/games/TicTacToeGame.tsx:937	Player 2 (O)								
+UI_1425	components/games/TicTacToeGame.tsx:937	You (O)								
+UI_1426	components/games/TicTacToeGame.tsx:955	Turn:								
+UI_1427	components/games/UnoGame.tsx:1010	heart_broken								
+UI_1428	components/games/UnoGame.tsx:1013	GAME OVER								
+UI_1429	components/games/UnoGame.tsx:1013	VICTORY!								
+UI_1430	components/games/UnoGame.tsx:1014	${winnerPlayer?.name || "Opponent"} cleared their hand first.								
+UI_1431	components/games/UnoGame.tsx:1014	Incredible card strategy!								
+UI_1432	components/games/UnoGame.tsx:1015	Back to Lobby								
+UI_1433	components/games/UnoGame.tsx:664 | components/games/UnoGame.tsx:807 | components/games/UnoGame.tsx:900 | components/games/UnoGame.tsx:959	UNO								
+UI_1434	components/games/UnoGame.tsx:708	to play an online Uno match.								
+UI_1435	components/games/UnoGame.tsx:807	MATRIX								
+UI_1436	components/games/UnoGame.tsx:993	Select Target Color								
+UI_1437	components/games/WordBoxGame.tsx:369	Word Box								
+UI_1438	components/games/WordBoxGame.tsx:392	Select a 3×3, 4×4, 5×5, or 6×6 letter board. Larger boards offer more paths.								
+UI_1439	components/games/WordBoxGame.tsx:393	Drag through letters								
+UI_1440	components/games/WordBoxGame.tsx:393	Start on any tile and drag through adjacent horizontal, vertical, or diagonal tiles.								
+UI_1441	components/games/WordBoxGame.tsx:394	A tile cannot be reused in the same word. Drag back to the previous tile to undo one step.								
+UI_1442	components/games/WordBoxGame.tsx:394	Build one path								
+UI_1443	components/games/WordBoxGame.tsx:395	Make a valid word								
+UI_1444	components/games/WordBoxGame.tsx:395	Words need at least 3 letters and must be accepted by the dictionary.								
+UI_1445	components/games/WordBoxGame.tsx:396	Every unique valid word earns 10 points for each letter. Duplicate words do not score again.								
+UI_1446	components/games/WordBoxGame.tsx:396	Score points								
+UI_1447	components/games/WordBoxGame.tsx:397	Shuffle carefully								
+UI_1448	components/games/WordBoxGame.tsx:397	Shuffle creates a new letter board and resets your found words and score.								
+UI_1449	components/games/WordBoxGame.tsx:456	WORDBOX								
+UI_1450	components/games/WordBoxGame.tsx:457	Select Grid Size								
+UI_1451	components/games/WordBoxGame.tsx:468	Grid								
+UI_1452	components/games/WordBoxGame.tsx:505	Words Found								
+UI_1453	components/games/WordBoxGame.tsx:515	Target								
+UI_1454	components/games/WordBoxGame.tsx:528 | components/games/WordBoxGame.tsx:571	Score								
+UI_1455	components/games/WordBoxGame.tsx:537	Checking word								
+UI_1456	components/games/WordBoxGame.tsx:548	SHUFFLE								
+UI_1457	components/games/WordBoxGame.tsx:554	How to play Word Box								
+UI_1458	components/games/WordBoxGame.tsx:570	Round over								
+UI_1459	components/games/WordBoxGame.tsx:588	Drag to connect								
+UI_1460	components/games/WordBoxGame.tsx:692	Swipe across tiles to connect								
+UI_1461	components/games/WordBoxGame.tsx:692	words of 3 or more letters								
+UI_1462	components/GamesTab.tsx:157	(-${entryFee.toLocaleString()} Pts)								
+UI_1463	components/GamesTab.tsx:157	${selectedGame.title} is ready to play in the Joe Yoke arcade. Challenge friends or start a match when you are ready.								
+UI_1464	components/GamesTab.tsx:157	About this game								
+UI_1465	components/GamesTab.tsx:157	Active players								
+UI_1466	components/GamesTab.tsx:157 | components/GamesTab.tsx:232 | components/ProfileTab.tsx:955	Arcade								
+UI_1467	components/GamesTab.tsx:157	Category								
+UI_1468	components/GamesTab.tsx:157 | components/GamesTab.tsx:236 | components/games/BigTwoGame.tsx:338 | components/games/BlockPuzzleGame.tsx:517 | components/games/DominoesGame.tsx:1586 | components/games/Game2048.tsx:258 | components/games/LudoGame.tsx:401 | components/games/SudokuGame.tsx:910	New								
+UI_1469	components/GamesTab.tsx:157 | components/HomeTab.tsx:519	Play								
+UI_1470	components/GamesTab.tsx:157	Save game								
+UI_1471	components/GamesTab.tsx:157	shield								
+UI_1472	components/GamesTab.tsx:157 | components/GamesTab.tsx:235 | components/GamesTab.tsx:251 | components/ProfileTab.tsx:739 | components/ProfileTab.tsx:955 | components/games/Checkers.tsx:1184	star								
+UI_1473	components/GamesTab.tsx:173	All								
+UI_1474	components/GamesTab.tsx:193	Trending Games								
+UI_1475	components/GamesTab.tsx:234	Rate ${game.title}								
+UI_1476	components/GamesTab.tsx:246 | components/ProfileTab.tsx:829 | components/ProfileTab.tsx:1121	undefined								
+UI_1477	components/GamesTab.tsx:248	Rate ${ratingGame.title}								
+UI_1478	components/GamesTab.tsx:249	Rate								
+UI_1479	components/GamesTab.tsx:250	Your rating helps players discover great games.								
+UI_1480	components/GamesTab.tsx:26 | components/games/TicTacToeGame.tsx:134 | components/games/TicTacToeGame.tsx:179	Tic Tac Toe								
+UI_1481	components/GamesTab.tsx:27	Biometric Override								
+UI_1482	components/GamesTab.tsx:28 | components/games/CupPong.tsx:3000 | components/games/CupPong.tsx:3093	Cup Pong								
+UI_1483	components/GamesTab.tsx:29 | components/games/FourInARow.tsx:638	Four in a Row								
+UI_1484	components/GamesTab.tsx:30	Bingo								
+UI_1485	components/GamesTab.tsx:31 | components/games/PingPong.tsx:3211 | components/games/PingPong.tsx:3388	Ping Pong								
+UI_1486	components/GamesTab.tsx:32	Wordbox								
+UI_1487	components/GamesTab.tsx:33 | components/games/SudokuGame.tsx:724 | components/games/SudokuGame.tsx:957	Sudoku								
+UI_1488	components/GamesTab.tsx:35 | components/games/DominoesGame.tsx:1562 | components/games/DominoesGame.tsx:1839	Dominoes								
+UI_1489	components/GamesTab.tsx:39	Block Puzzle								
+UI_1490	components/GamesTab.tsx:44	Fast 1v1 fighting with specials, guard breaks, and instant rematches.								
+UI_1491	components/GamesTab.tsx:44 | components/games/MiniFighter.tsx:48	Mini Fighter								
+UI_1492	components/GlobalInviteListener.tsx:113	Accept Match								
+UI_1493	components/GlobalInviteListener.tsx:89	Sender								
+UI_1494	components/GlobalInviteListener.tsx:94	Incoming Challenge								
+UI_1495	components/GlobalInviteListener.tsx:97	invited you to play								
+UI_1496	components/GlobalNotificationListener.tsx:94	You have a new update.								
+UI_1497	components/GuestActionGate.tsx:71	Sign in to claim rewards and play online.								
+UI_1498	components/HomeTab.tsx:327	Play history								
+UI_1499	components/HomeTab.tsx:328	${outcome} in ${match.gameName}								
+UI_1500	components/HomeTab.tsx:329	${username} vs ${match.opponentName || "Opponent"}								
+UI_1501	components/HomeTab.tsx:329 | components/RecentMatches.tsx:35 | components/RecentMatches.tsx:126 | components/games/Checkers.tsx:1035 | components/games/ChessGame.tsx:1093 | components/games/DominoesGame.tsx:841 | components/games/DominoesGame.tsx:845 | components/games/LudoGame.tsx:429 | components/games/TicTacToeGame.tsx:601 | components/games/TicTacToeGame.tsx:925 | components/games/TicTacToeGame.tsx:937 | components/games/TicTacToeGame.tsx:955 | components/games/UnoGame.tsx:1014	Opponent								
+UI_1502	components/HomeTab.tsx:330 | components/RecentMatches.tsx:36	A hard-fought draw								
+UI_1503	components/HomeTab.tsx:330 | components/RecentMatches.tsx:36	Ready for the rematch								
+UI_1504	components/HomeTab.tsx:331 | components/RecentMatches.tsx:37	lime								
+UI_1505	components/HomeTab.tsx:331 | components/RecentMatches.tsx:37	violet								
+UI_1506	components/HomeTab.tsx:333	Match result shared.								
+UI_1507	components/HomeTab.tsx:333 | components/RecentMatches.tsx:39	Share card downloaded and text copied.								
+UI_1508	components/HomeTab.tsx:363 | components/HomeTab.tsx:599 | components/games/Carrom.tsx:1665 | components/games/Checkers.tsx:1090 | components/games/ChessGame.tsx:1018 | components/games/SnookerGame.tsx:1898 | components/games/UnoGame.tsx:1010	emoji_events								
+UI_1509	components/HomeTab.tsx:372	View tournament								
+UI_1510	components/HomeTab.tsx:391	Prize								
+UI_1511	components/HomeTab.tsx:407	Entry								
+UI_1512	components/HomeTab.tsx:435	${currentTier} rank badge								
+UI_1513	components/HomeTab.tsx:450	Current Season								
+UI_1514	components/HomeTab.tsx:458	Global rank #${rankData.globalRank ?? "—"} · Top ${rankData.percentile}%								
+UI_1515	components/HomeTab.tsx:459	Complete a match to enter the global ranking								
+UI_1516	components/HomeTab.tsx:466	View								
+UI_1517	components/HomeTab.tsx:473 | components/HomeTab.tsx:762	Win Rate								
+UI_1518	components/HomeTab.tsx:476	${rankData.winRate}%								
+UI_1519	components/HomeTab.tsx:476	${stats.winRate}%								
+UI_1520	components/HomeTab.tsx:482 | components/HomeTab.tsx:694 | components/HomeTab.tsx:770	Matches								
+UI_1521	components/HomeTab.tsx:491	Play time								
+UI_1522	components/HomeTab.tsx:494	0m								
+UI_1523	components/HomeTab.tsx:503	Actions								
+UI_1524	components/HomeTab.tsx:529	donut_large								
+UI_1525	components/HomeTab.tsx:543	polyline								
+UI_1526	components/HomeTab.tsx:547	Stats								
+UI_1527	components/HomeTab.tsx:569	History								
+UI_1528	components/HomeTab.tsx:574	Plays								
+UI_1529	components/HomeTab.tsx:601	balance								
+UI_1530	components/HomeTab.tsx:607	Unknown								
+UI_1531	components/HomeTab.tsx:607 | components/RecentMatches.tsx:126	vs								
+UI_1532	components/HomeTab.tsx:626	Share ${match.gameName} result								
+UI_1533	components/HomeTab.tsx:636 | components/RecentMatches.tsx:89	Recent Matches								
+UI_1534	components/HomeTab.tsx:643	See All								
+UI_1535	components/HomeTab.tsx:643	Show Less								
+UI_1536	components/HomeTab.tsx:657	No Matches Yet								
+UI_1537	components/HomeTab.tsx:660	Jump into the arcade to start building your legacy.								
+UI_1538	components/HomeTab.tsx:666	Find a Game								
+UI_1539	components/HomeTab.tsx:696 | components/games/Checkers.tsx:1005 | components/games/Checkers.tsx:1043	Wins								
+UI_1540	components/HomeTab.tsx:703	Last:								
+UI_1541	components/HomeTab.tsx:747	query_stats								
+UI_1542	components/HomeTab.tsx:751	Player Statistics								
+UI_1543	components/HomeTab.tsx:754	Lifetime gameplay record								
+UI_1544	components/HomeTab.tsx:778	Victories								
+UI_1545	components/HomeTab.tsx:786	Top Game								
+UI_1546	components/HomeTab.tsx:798	Close Dashboard								
+UI_1547	components/InAppBroadcastDialog.tsx:78 | components/games/PoolGame.tsx:1874	Open								
+UI_1548	components/InAppBroadcastDialog.tsx:79 | components/games/Carrom.tsx:1311 | components/games/Checkers.tsx:768 | components/games/ChessGame.tsx:795 | components/games/PoolGame.tsx:1578 | components/games/SnookerGame.tsx:1604 | components/games/TicTacToeGame.tsx:649 | components/games/UnoGame.tsx:714	Dismiss								
+UI_1549	components/JoeYokeLogo.tsx:12 | components/JoeYokeLogo.tsx:17	Joe Yoke Logo								
+UI_1550	components/MatchmakingModal.tsx:230 | components/games/BiometricOverride.tsx:286	radar								
+UI_1551	components/MatchmakingModal.tsx:238	Searching for an online player...								
+UI_1552	components/MatchmakingModal.tsx:243	0${searchTime}								
+UI_1553	components/MatchmakingModal.tsx:255	Cancel Search								
+UI_1554	components/NotificationsCenter.tsx:138	Sign in to see your notifications.								
+UI_1555	components/NotificationsCenter.tsx:153	Notifications								
+UI_1556	components/NotificationsCenter.tsx:155	Game activity, automated updates, and announcements from the team.								
+UI_1557	components/NotificationsCenter.tsx:163	Mark all read								
+UI_1558	components/NotificationsCenter.tsx:167	all								
+UI_1559	components/NotificationsCenter.tsx:167 | components/NotificationsCenter.tsx:209	general								
+UI_1560	components/NotificationsCenter.tsx:167	promotion								
+UI_1561	components/NotificationsCenter.tsx:167	system								
+UI_1562	components/NotificationsCenter.tsx:185	Loading notifications…								
+UI_1563	components/NotificationsCenter.tsx:189	You’re all caught up.								
+UI_1564	components/NotificationsCenter.tsx:205 | components/games/Carrom.tsx:704	broadcast								
+UI_1565	components/NotificationsCenter.tsx:205	campaign								
+UI_1566	components/NotificationsCenter.tsx:219	Unread								
+UI_1567	components/ProfileTab.tsx:1012	Profile card design								
+UI_1568	components/ProfileTab.tsx:1013	Choose a purchased avatar border or card background.								
+UI_1569	components/ProfileTab.tsx:1014	EQUIP DESIGN								
+UI_1570	components/ProfileTab.tsx:1014	No profile designs purchased yet.								
+UI_1571	components/ProfileTab.tsx:1014	Profile cosmetic								
+UI_1572	components/ProfileTab.tsx:1017	, as set by the game team.								
+UI_1573	components/ProfileTab.tsx:1017	Your first profile edit is free. Later edits cost								
+UI_1574	components/ProfileTab.tsx:1025	Saving…								
+UI_1575	components/ProfileTab.tsx:1026	Save changes${ identityCost ? ` (${identityCost} PTS)` : "" }								
+UI_1576	components/ProfileTab.tsx:1027	(${identityCost} PTS)								
+UI_1577	components/ProfileTab.tsx:1035	Submit an account request for backend review. Admin approval or rejection will be shown in your account request record.								
+UI_1578	components/ProfileTab.tsx:1046	Change email address								
+UI_1579	components/ProfileTab.tsx:1047	Delete account								
+UI_1580	components/ProfileTab.tsx:1048	Other account request								
+UI_1581	components/ProfileTab.tsx:1053	Tell the team what you need								
+UI_1582	components/ProfileTab.tsx:1061	Send for review								
+UI_1583	components/ProfileTab.tsx:1071	Contact								
+UI_1584	components/ProfileTab.tsx:1089	Subject								
+UI_1585	components/ProfileTab.tsx:1095	How can we help?								
+UI_1586	components/ProfileTab.tsx:1105	Send support request								
+UI_1587	components/ProfileTab.tsx:1132	Upload profile photo								
+UI_1588	components/ProfileTab.tsx:1136	Close photo options								
+UI_1589	components/ProfileTab.tsx:1149	photo_library								
+UI_1590	components/ProfileTab.tsx:1150	Photo Library								
+UI_1591	components/ProfileTab.tsx:1157	photo_camera								
+UI_1592	components/ProfileTab.tsx:1158	Take Photo								
+UI_1593	components/ProfileTab.tsx:1168	folder_open								
+UI_1594	components/ProfileTab.tsx:1169	Choose File								
+UI_1595	components/ProfileTab.tsx:507	Privacy Policy								
+UI_1596	components/ProfileTab.tsx:507 | components/ProfileTab.tsx:791 | components/ProfileTab.tsx:1109	privacy-policy								
+UI_1597	components/ProfileTab.tsx:507	Terms of Service								
+UI_1598	components/ProfileTab.tsx:527	Loading profile…								
+UI_1599	components/ProfileTab.tsx:534 | components/games/GlitchDeck.tsx:231	error								
+UI_1600	components/ProfileTab.tsx:537	Profile Not Synced								
+UI_1601	components/ProfileTab.tsx:540	Please sign in again to restore your profile.								
+UI_1602	components/ProfileTab.tsx:546	Sign Out								
+UI_1603	components/ProfileTab.tsx:593	User ID copied.								
+UI_1604	components/ProfileTab.tsx:617 | components/ProfileTab.tsx:844	Edit Profile								
+UI_1605	components/ProfileTab.tsx:619	edit								
+UI_1606	components/ProfileTab.tsx:625	Profile avatar								
+UI_1607	components/ProfileTab.tsx:634 | components/ProfileTab.tsx:646	Equipped avatar border								
+UI_1608	components/ProfileTab.tsx:663 | components/SpinTab.tsx:78 | components/SpinTab.tsx:106	points								
+UI_1609	components/ProfileTab.tsx:671 | components/ProfileTab.tsx:907 | components/ProfileTab.tsx:928 | components/ShopTab.tsx:286 | components/SpinTab.tsx:78 | components/SpinTab.tsx:106 | components/SpinTab.tsx:133	gems								
+UI_1610	components/ProfileTab.tsx:677 | components/ShopTab.tsx:244	cosmetics								
+UI_1611	components/ProfileTab.tsx:684 | components/ProfileTab.tsx:851 | components/ProfileTab.tsx:870	language								
+UI_1612	components/ProfileTab.tsx:696 | components/ProfileTab.tsx:852	appLanguage								
+UI_1613	components/ProfileTab.tsx:710	profileActivity								
+UI_1614	components/ProfileTab.tsx:720	receipt_long								
+UI_1615	components/ProfileTab.tsx:723 | components/ProfileTab.tsx:846	Activity history								
+UI_1616	components/ProfileTab.tsx:726	${ledger.length} ${t("recentWalletActivities")}								
+UI_1617	components/ProfileTab.tsx:726	recentWalletActivities								
+UI_1618	components/ProfileTab.tsx:727	Points, gems and reward activity								
+UI_1619	components/ProfileTab.tsx:737	inventory_2								
+UI_1620	components/ProfileTab.tsx:737 | components/ProfileTab.tsx:848	My inventory								
+UI_1621	components/ProfileTab.tsx:737	purchased cosmetics								
+UI_1622	components/ProfileTab.tsx:739	${favoriteGames.length} saved game${favoriteGames.length === 1 ? "" : "s"}								
+UI_1623	components/ProfileTab.tsx:739 | components/ProfileTab.tsx:850	Favorite games								
+UI_1624	components/ProfileTab.tsx:739	No saved games yet								
+UI_1625	components/ProfileTab.tsx:744	appPreferences								
+UI_1626	components/ProfileTab.tsx:749	darkAppearance								
+UI_1627	components/ProfileTab.tsx:750	adjustAppearance								
+UI_1628	components/ProfileTab.tsx:754 | components/games/Carrom.tsx:1529 | components/games/LiarsDice.tsx:293	volume_up								
+UI_1629	components/ProfileTab.tsx:755	soundEffects								
+UI_1630	components/ProfileTab.tsx:756	inGameAudio								
+UI_1631	components/ProfileTab.tsx:764	vibration								
+UI_1632	components/ProfileTab.tsx:765	hapticFeedback								
+UI_1633	components/ProfileTab.tsx:766	vibrationInteractions								
+UI_1634	components/ProfileTab.tsx:771	pushNotifications								
+UI_1635	components/ProfileTab.tsx:772	adminAlerts								
+UI_1636	components/ProfileTab.tsx:782	accountLegal								
+UI_1637	components/ProfileTab.tsx:786 | components/ProfileTab.tsx:853 | components/ProfileTab.tsx:1032	account								
+UI_1638	components/ProfileTab.tsx:786	manage_accounts								
+UI_1639	components/ProfileTab.tsx:786	manageAccount								
+UI_1640	components/ProfileTab.tsx:787	help								
+UI_1641	components/ProfileTab.tsx:787	helpSupport								
+UI_1642	components/ProfileTab.tsx:789	policy								
+UI_1643	components/ProfileTab.tsx:790	privacyPolicy								
+UI_1644	components/ProfileTab.tsx:794 | components/games/GlitchDeck.tsx:275	gavel								
+UI_1645	components/ProfileTab.tsx:795	termsService								
+UI_1646	components/ProfileTab.tsx:796 | components/ProfileTab.tsx:1110	terms-of-service								
+UI_1647	components/ProfileTab.tsx:843 | components/ProfileTab.tsx:956	identity								
+UI_1648	components/ProfileTab.tsx:845 | components/ProfileTab.tsx:892	activity								
+UI_1649	components/ProfileTab.tsx:847 | components/ProfileTab.tsx:939	inventory								
+UI_1650	components/ProfileTab.tsx:849 | components/ProfileTab.tsx:955	favorites								
+UI_1651	components/ProfileTab.tsx:854	Manage Account								
+UI_1652	components/ProfileTab.tsx:855 | components/ProfileTab.tsx:1065	support								
+UI_1653	components/ProfileTab.tsx:856	Help & Support								
+UI_1654	components/ProfileTab.tsx:861	Close								
+UI_1655	components/ProfileTab.tsx:928 | components/SpinTab.tsx:133	GEMS								
+UI_1656	components/ProfileTab.tsx:934	No activity recorded yet.								
+UI_1657	components/ProfileTab.tsx:941	All cosmetics you have purchased. Equip profile card backgrounds and avatar borders here; equipping one automatically replaces the currently equipped cosmetic of that same type.								
+UI_1658	components/ProfileTab.tsx:943	other								
+UI_1659	components/ProfileTab.tsx:946 | components/games/LiarsDice.tsx:364	palette								
+UI_1660	components/ProfileTab.tsx:947	Purchased cosmetic								
+UI_1661	components/ProfileTab.tsx:949 | components/ProfileTab.tsx:950 | components/ProfileTab.tsx:1014	EQUIPPED								
+UI_1662	components/ProfileTab.tsx:950 | components/ShopTab.tsx:308	EQUIP								
+UI_1663	components/ProfileTab.tsx:952	No cosmetics purchased yet. Visit the Shop to unlock some.								
+UI_1664	components/ProfileTab.tsx:955	No saved games yet. Tap the star on a game detail page to add one.								
+UI_1665	components/ProfileTab.tsx:955 | components/games/BigTwoGame.tsx:366	PLAY								
+UI_1666	components/ProfileTab.tsx:961	Avatar preview								
+UI_1667	components/ProfileTab.tsx:973	Upload photo								
+UI_1668	components/ProfileTab.tsx:989	Remove photo								
+UI_1669	components/ProfileTab.tsx:994	Display name								
+UI_1670	components/PublicProfileCardModal.tsx:20	Loading…								
+UI_1671	components/PublicProfileCardModal.tsx:21	Player profile								
+UI_1672	components/PublicProfileCardModal.tsx:23	This public view only shows the player’s equipped profile cosmetics.								
+UI_1673	components/RecentMatches.tsx:100	No matches played yet. Jump into an arena!								
+UI_1674	components/RecentMatches.tsx:148	+${match.reward_points} PTS								
+UI_1675	components/RecentMatches.tsx:150	0 PTS								
+UI_1676	components/RecentMatches.tsx:151	LOSS								
+UI_1677	components/RecentMatches.tsx:154	Share ${match.game_title} result								
+UI_1678	components/RecentMatches.tsx:33	Match result								
+UI_1679	components/RecentMatches.tsx:34	${outcome} in ${match.game_title}								
+UI_1680	components/RecentMatches.tsx:35	vs ${match.opponent_name || "Opponent"}								
+UI_1681	components/RecentMatches.tsx:36	+${match.reward_points.toLocaleString()} points								
+UI_1682	components/RecentMatches.tsx:36 | components/RecentMatches.tsx:37 | components/RecentMatches.tsx:106 | components/games/FourInARow.tsx:524 | components/games/FourInARow.tsx:563 | components/games/FourInARow.tsx:710	Draw								
+UI_1683	components/RecentMatches.tsx:36 | components/RecentMatches.tsx:37 | components/RecentMatches.tsx:105	Win								
+UI_1684	components/RecentMatches.tsx:39	Achievement shared.								
+UI_1685	components/RecentMatches.tsx:86	history								
+UI_1686	components/RecentMatches.tsx:93	GAMES								
+UI_1687	components/RecentMatches.tsx:93	LAST								
+UI_1688	components/ShopTab.tsx:147	TRANSACTION FAILED								
+UI_1689	components/ShopTab.tsx:156	INSUFFICIENT FUNDS								
+UI_1690	components/ShopTab.tsx:165	COSMETIC UNLOCKED!								
+UI_1691	components/ShopTab.tsx:194	Get Points								
+UI_1692	components/ShopTab.tsx:204	Cosmetics								
+UI_1693	components/ShopTab.tsx:210	currency								
+UI_1694	components/ShopTab.tsx:213	Out of points?								
+UI_1695	components/ShopTab.tsx:214	Purchase more points to keep playing matches and spinning the wheel.								
+UI_1696	components/ShopTab.tsx:218	No point packs available.								
+UI_1697	components/ShopTab.tsx:229	Points package								
+UI_1698	components/ShopTab.tsx:234	${item.price_points.toLocaleString()} PTS								
+UI_1699	components/ShopTab.tsx:234	$${Number(item.price_fiat).toFixed(2)}								
+UI_1700	components/ShopTab.tsx:234	fiat_usd								
+UI_1701	components/ShopTab.tsx:247	No cosmetics available.								
+UI_1702	components/ShopTab.tsx:282	UNLOCKED								
+UI_1703	components/ShopTab.tsx:308	EQUIPPED ✓								
+UI_1704	components/ShopTab.tsx:308	UNLOCK								
+UI_1705	components/ShopTab.tsx:340 | components/games/Monopoly.tsx:752	ACCEPT								
+UI_1706	components/ShopTab.tsx:90	PURCHASE COMPLETE								
+UI_1707	components/SpinTab.tsx:106	+${winner.value.toLocaleString()} ${winner.type === "gems" ? "gems" : "points"} added to your wallet.${spinCost ? ` ${spinCost.toLocaleString()} ${spinCurrency} was used for this spin.` : ""}								
+UI_1708	components/SpinTab.tsx:106	${spinCost.toLocaleString()} ${spinCurrency} was used for this spin.								
+UI_1709	components/SpinTab.tsx:106	You won!								
+UI_1710	components/SpinTab.tsx:113	Back to home								
+UI_1711	components/SpinTab.tsx:114 | components/games/BiometricOverride.tsx:185 | components/games/GlitchDeck.tsx:90 | components/games/LiarsDice.tsx:269 | components/games/NeuralDuel.tsx:197 | components/games/NexusBreach.tsx:95	arrow_back_ios_new								
+UI_1712	components/SpinTab.tsx:116	Spin &amp; Win								
+UI_1713	components/SpinTab.tsx:121	Test Your Luck								
+UI_1714	components/SpinTab.tsx:122	Use your points to spin the wheel and win huge point multipliers or rare Gems!								
+UI_1715	components/SpinTab.tsx:133	${slot.value} ${slot.type === "gems" ? "GEMS" : "PTS"}								
+UI_1716	components/SpinTab.tsx:141	Next spin in ${formatCooldown(cooldown)}								
+UI_1717	components/SpinTab.tsx:143	Come back later								
+UI_1718	components/SpinTab.tsx:143	Spin for ${spinCost}								
+UI_1719	components/SpinTab.tsx:143	Spinning…								
+UI_1720	components/SpinTab.tsx:24	250 PTS								
+UI_1721	components/SpinTab.tsx:25	5 GEMS								
+UI_1722	components/SpinTab.tsx:26	500 PTS								
+UI_1723	components/SpinTab.tsx:27	100 PTS								
+UI_1724	components/SpinTab.tsx:28	10 GEMS								
+UI_1725	components/SpinTab.tsx:29	1,000 PTS								
+UI_1726	components/SpinTab.tsx:78	${spinCost.toLocaleString()} ${spinCurrency === "gems" ? "gems" : "points"}								
+UI_1727	components/SpinTab.tsx:78	Free spin								
+UI_1728	components/SpinTab.tsx:92	Spin unavailable								
+UI_1729	components/SpinTab.tsx:92	The wheel is being configured right now.								
+UI_1730	lib/backendEngine.ts:114	Refueled currency package: ${product.title}								
+UI_1731	lib/backendEngine.ts:144	Unlocked cosmetic layout asset: ${product.title}								
+UI_1732	lib/backendEngine.ts:33	Account sync failure.								
+UI_1733	lib/backendEngine.ts:34	Access Denied: Account suspended.								
+UI_1734	lib/backendEngine.ts:36	Insufficient arena credits. Online matchmaking is locked.								
+UI_1735	lib/backendEngine.ts:47	Ledger transaction failure.								
+UI_1736	lib/backendEngine.ts:55	Wager locked for game session: ${sessionId}								
+UI_1737	lib/backendEngine.ts:80	Victory prize pool payout claimed.								
+UI_1738	lib/firebasePushNotifications.ts:36	Match invitations, rewards, and account updates.								
+UI_1739	lib/matchManager.ts:81	Could not secure the match stake.								
+UI_1740	lib/matchManager.ts:84	Network Error								
+UI_1741	lib/pingPongCosmetics.ts:22	string								
+UI_1742	lib/socialShare.ts:100	ACHIEVEMENT								
+UI_1743	lib/socialShare.ts:102	Play. Compete. Connect.								
+UI_1744	lib/socialShare.ts:134 | lib/socialShare.ts:165	Joe Yoke achievement								
+UI_1745	lib/socialShare.ts:137	Share achievement								
+I18N_home	lib/i18n.tsx:19	Home								
+I18N_explore	lib/i18n.tsx:20	Explore								
+I18N_store	lib/i18n.tsx:21	Store								
+I18N_chats	lib/i18n.tsx:22	Chats								
+I18N_profile	lib/i18n.tsx:23	Profile								
+I18N_notifications	lib/i18n.tsx:24	Notifications								
+I18N_back	lib/i18n.tsx:25	Back								
+I18N_language	lib/i18n.tsx:26	Language								
+I18N_appLanguage	lib/i18n.tsx:27	App language								
+I18N_activityHistory	lib/i18n.tsx:28	Activity history								
+I18N_general	lib/i18n.tsx:29	General								
+I18N_system	lib/i18n.tsx:30	System								
+I18N_promotion	lib/i18n.tsx:31	Promotion								
+I18N_save	lib/i18n.tsx:32	Save								
+I18N_cancel	lib/i18n.tsx:33	Cancel								
+I18N_points	lib/i18n.tsx:34	Points								
+I18N_gems	lib/i18n.tsx:35	Gems								
+I18N_settings	lib/i18n.tsx:36	Settings								
+I18N_darkAppearance	lib/i18n.tsx:37	Dark appearance								
+I18N_soundEffects	lib/i18n.tsx:38	Sound Effects								
+I18N_hapticFeedback	lib/i18n.tsx:39	Haptic Feedback								
+I18N_pushNotifications	lib/i18n.tsx:40	Push Notifications								
+I18N_logout	lib/i18n.tsx:41	Logout Session								
+I18N_loading	lib/i18n.tsx:42	Loading…								
+I18N_cosmetics	lib/i18n.tsx:43	Cosmetics								
+I18N_profileActivity	lib/i18n.tsx:44	Profile activity								
+I18N_recentWalletActivities	lib/i18n.tsx:45	recent wallet activities								
+I18N_appPreferences	lib/i18n.tsx:46	App preferences								
+I18N_adjustAppearance	lib/i18n.tsx:47	Adjust interface appearance								
+I18N_inGameAudio	lib/i18n.tsx:48	In-game audio cues								
+I18N_vibrationInteractions	lib/i18n.tsx:49	Vibration on interactions								
+I18N_adminAlerts	lib/i18n.tsx:50	Admin alerts, game invites and messages								
+I18N_accountLegal	lib/i18n.tsx:51	Account & legal								
+I18N_manageAccount	lib/i18n.tsx:52	Manage Account								
+I18N_helpSupport	lib/i18n.tsx:53	Help & Support								
+I18N_privacyPolicy	lib/i18n.tsx:54	Privacy Policy								
+I18N_termsService	lib/i18n.tsx:55	Terms of Service								
+I18N_editNamePhoto	lib/i18n.tsx:56	Edit Profile								

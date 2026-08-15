@@ -7,5 +7,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase Environment Variables inside .env.local');
 }
 
-// 🌐 The single instance your entire app will use to read/write data!
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// The single instance used by the web app and the Capacitor packages.
+//
+// Social providers return a PKCE authorization code. On the web the global
+// callback listener exchanges it after the browser returns; on iOS/Android it
+// is exchanged after Capacitor receives the registered deep link.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    flowType: "pkce",
+    detectSessionInUrl: false,
+  },
+});

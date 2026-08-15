@@ -46,6 +46,9 @@ export default function StoreManagement() {
   const [formPricePoints, setFormPricePoints] = useState<number | "">(100);
   const [formPriceFiat, setFormPriceFiat] = useState<number | "">("");
   const [formPriceCurrency, setFormPriceCurrency] = useState("points");
+  const [formGemAmount, setFormGemAmount] = useState<number | "">(100);
+  const [formAppleProductId, setFormAppleProductId] = useState("");
+  const [formGoogleProductId, setFormGoogleProductId] = useState("");
   const [formStock, setFormStock] = useState<number | "">(-1);
   const [isInfiniteStock, setIsInfiniteStock] = useState(true);
   const [formIsActive, setFormIsActive] = useState(true);
@@ -88,6 +91,9 @@ export default function StoreManagement() {
     setFormPricePoints(100);
     setFormPriceFiat("");
     setFormPriceCurrency("points");
+    setFormGemAmount(100);
+    setFormAppleProductId("");
+    setFormGoogleProductId("");
     setFormStock(-1);
     setIsInfiniteStock(true);
     setFormIsActive(true);
@@ -110,6 +116,9 @@ export default function StoreManagement() {
     setFormPricePoints(item.price_points ?? 0);
     setFormPriceFiat(item.price_fiat ?? "");
     setFormPriceCurrency(item.price_currency || "points");
+    setFormGemAmount(item.gem_amount ?? 0);
+    setFormAppleProductId(item.apple_product_id || "");
+    setFormGoogleProductId(item.google_product_id || "");
     const stockVal = item.stock_quantity ?? -1;
     setFormStock(stockVal);
     setIsInfiniteStock(stockVal === -1);
@@ -150,6 +159,7 @@ export default function StoreManagement() {
     if (val === "currency") {
       setFormPriceCurrency("fiat_usd");
       setFormPricePoints(0);
+      setFormGemAmount((current) => current === "" || current <= 0 ? 100 : current);
     } else if (formPriceCurrency === "fiat_usd") {
       setFormPriceCurrency("points");
       setFormPriceFiat("");
@@ -159,6 +169,17 @@ export default function StoreManagement() {
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formSku.trim()) return alert("Name and SKU are required.");
+    if (formCategory === "currency") {
+      if (formGemAmount === "" || Number(formGemAmount) <= 0) {
+        return alert("Enter the number of Gems this pack grants.");
+      }
+      if (formPriceFiat === "" || Number(formPriceFiat) <= 0) {
+        return alert("Enter a valid USD price for this Gem pack.");
+      }
+      if (formIsActive && (!formAppleProductId.trim() || !formGoogleProductId.trim())) {
+        return alert("Active Gem packs require both Apple and Google product IDs. Save it as inactive if the store products are not created yet.");
+      }
+    }
     if (
       formCategory === "digital" &&
       formCosmeticType === "avatar_frame" &&
@@ -202,6 +223,9 @@ export default function StoreManagement() {
         price_points: formCategory === "currency" ? 0 : (formPricePoints === "" ? 0 : Number(formPricePoints)),
         price_fiat: formCategory === "currency" ? (formPriceFiat === "" ? null : Number(formPriceFiat)) : null,
         price_currency: formPriceCurrency,
+        gem_amount: formCategory === "currency" ? Number(formGemAmount || 0) : 0,
+        apple_product_id: formCategory === "currency" ? formAppleProductId.trim() || null : null,
+        google_product_id: formCategory === "currency" ? formGoogleProductId.trim() || null : null,
         stock_quantity: finalStock,
         is_active: formIsActive,
         image_url: finalImageUrl || "https://img.icons8.com/color/96/present.png",
@@ -299,7 +323,7 @@ export default function StoreManagement() {
             <option value="all" className="bg-[#18181b]">All Categories</option>
             <option value="digital" className="bg-[#18181b]">Digital Cosmetics</option>
             <option value="physical" className="bg-[#18181b]">Physical Prizes</option>
-            <option value="currency" className="bg-[#18181b]">Token / Gem Packs</option>
+            <option value="currency" className="bg-[#18181b]">Gem Packs</option>
           </select>
         </div>
       </div>
@@ -388,6 +412,12 @@ export default function StoreManagement() {
               </div>
 
               <div className="p-6 flex-1 flex flex-col justify-end space-y-4 bg-white/[0.02]">
+                {item.category === "currency" && (
+                  <div className="flex items-center justify-between rounded-xl border border-violet-400/15 bg-violet-400/[0.06] px-3 py-2">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-violet-200">Grants</span>
+                    <span className="font-headline text-sm font-black text-violet-300">💎 {Number(item.gem_amount || 0).toLocaleString()} Gems</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="font-headline text-[10px] font-bold text-neutral-500 uppercase tracking-widest flex items-center gap-1.5">
                     <Coins className={`w-3.5 h-3.5 ${item.price_currency === 'fiat_usd' ? 'text-emerald-500' : item.price_currency === 'gems' ? 'text-indigo-400' : 'text-amber-500'}`} /> Price
@@ -469,7 +499,7 @@ export default function StoreManagement() {
                   >
                     <option value="digital" className="bg-[#18181b]">Digital Cosmetic</option>
                     <option value="physical" className="bg-[#18181b]">Physical Prize</option>
-                    <option value="currency" className="bg-[#18181b]">Token / Gem Pack</option>
+                    <option value="currency" className="bg-[#18181b]">Gem Pack</option>
                   </select>
                 </div>
               </div>
@@ -543,6 +573,19 @@ export default function StoreManagement() {
               {/* DYNAMIC PRICING SECTION */}
               <div className="flex gap-3">
                 {formCategory === "currency" ? (
+                  <>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Gems Granted</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formGemAmount}
+                      onChange={(e) => setFormGemAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                      placeholder="e.g. 500"
+                      required
+                      className="w-full bg-white/5 border border-violet-400/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors"
+                    />
+                  </div>
                   <div className="flex-1">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Price (USD)</label>
                     <input 
@@ -556,6 +599,7 @@ export default function StoreManagement() {
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
                     />
                   </div>
+                  </>
                 ) : (
                   <div className="flex-1">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Price Amount</label>
@@ -590,6 +634,30 @@ export default function StoreManagement() {
                   </select>
                 </div>
               </div>
+
+              {formCategory === "currency" && (
+                <div className="space-y-3 rounded-xl border border-sky-400/20 bg-sky-400/[0.04] p-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Apple App Store Product ID</label>
+                    <input
+                      value={formAppleProductId}
+                      onChange={(e) => setFormAppleProductId(e.target.value.trim())}
+                      placeholder="com.joeyoke.gems.500"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-mono text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#CCFF00]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Google Play Product ID</label>
+                    <input
+                      value={formGoogleProductId}
+                      onChange={(e) => setFormGoogleProductId(e.target.value.trim())}
+                      placeholder="gems_500"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-mono text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#CCFF00]"
+                    />
+                  </div>
+                  <p className="text-[10px] leading-relaxed text-sky-200">Real-money packs always grant Gems. An active pack needs both product IDs so the future Apple and Google receipt verification can match the purchase to this exact catalog item.</p>
+                </div>
+              )}
 
               <div className="space-y-2 bg-white/[0.02] p-3 rounded-xl border border-white/5">
                 <div className="flex items-center justify-between">

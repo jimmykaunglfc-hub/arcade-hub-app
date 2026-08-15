@@ -696,7 +696,7 @@ export default function Home() {
                 />
               )}
 
-              {activeTab === "Store" && <ShopTab userId={myUserId} />}
+              {activeTab === "Store" && <ShopTab userId={myUserId} onWalletUpdated={() => myUserId && fetchLiveBalance(myUserId)} />}
 
               {activeTab === "Spin" && <SpinTab userId={myUserId} onBack={() => setActiveTab("Home")} onWalletUpdated={() => myUserId && fetchLiveBalance(myUserId)} />}
 
