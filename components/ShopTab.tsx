@@ -37,6 +37,8 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
       .from("store_items")
       .select("*")
       .eq("is_active", true)
+      .eq("status", "active")
+      .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false }),
       supabase.from("profiles").select("points, gems").eq("id", userId).maybeSingle(),
       supabase.rpc("get_gem_exchange_config").maybeSingle(),
@@ -107,7 +109,7 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
     
     setRewardModal({
       title: "PLATFORM PURCHASE REQUIRED",
-      desc: `${item.name} grants ${Number(item.gem_amount || 0).toLocaleString()} Gems after Apple App Store or Google Play confirms the purchase. No Gems were added by this preview action.`,
+      desc: `${item.name} grants ${(Number(item.gem_amount || 0) + Number(item.bonus_gems || 0)).toLocaleString()} Gems after Apple App Store or Google Play confirms the purchase. No Gems were added by this preview action.`,
     });
   };
 
@@ -290,7 +292,7 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
                        <span className="material-symbols-outlined text-xl text-primary">bolt</span>
                     )}
                   </div>
-                  <div className="min-w-0 flex-1 text-left"><h3 className="font-headline text-sm font-black text-on-surface dark:text-white">{item.name}</h3><p className="truncate text-[10px] font-medium text-on-surface-variant">💎 {Number(item.gem_amount).toLocaleString()} Gems · {item.description || "Gem package"}</p></div>
+                  <div className="min-w-0 flex-1 text-left"><h3 className="font-headline text-sm font-black text-on-surface dark:text-white">{item.name}</h3><p className="truncate text-[10px] font-medium text-on-surface-variant">💎 {(Number(item.gem_amount || 0) + Number(item.bonus_gems || 0)).toLocaleString()} Gems{Number(item.bonus_gems || 0) > 0 ? ` (${Number(item.gem_amount).toLocaleString()} + ${Number(item.bonus_gems).toLocaleString()} bonus)` : ""} · {item.description || "Gem package"}</p></div>
                   <button
                     onClick={() => handleBuyCurrencyPack(item)}
                     className="shrink-0 rounded-xl bg-surface-container-highest px-4 py-2.5 text-xs font-black text-on-surface transition-colors active:scale-95 dark:bg-white dark:text-black"

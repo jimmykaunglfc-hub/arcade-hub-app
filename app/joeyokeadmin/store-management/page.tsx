@@ -47,11 +47,13 @@ export default function StoreManagement() {
   const [formPriceFiat, setFormPriceFiat] = useState<number | "">("");
   const [formPriceCurrency, setFormPriceCurrency] = useState("points");
   const [formGemAmount, setFormGemAmount] = useState<number | "">(100);
+  const [formBonusGems, setFormBonusGems] = useState<number | "">(0);
   const [formAppleProductId, setFormAppleProductId] = useState("");
   const [formGoogleProductId, setFormGoogleProductId] = useState("");
+  const [formStatus, setFormStatus] = useState<"draft" | "active" | "disabled">("active");
+  const [formSortOrder, setFormSortOrder] = useState<number | "">(0);
   const [formStock, setFormStock] = useState<number | "">(-1);
   const [isInfiniteStock, setIsInfiniteStock] = useState(true);
-  const [formIsActive, setFormIsActive] = useState(true);
   const [formImageFile, setFormImageFile] = useState<File | null>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState("");
 
@@ -66,6 +68,7 @@ export default function StoreManagement() {
       const { data, error } = await supabase
         .from("store_items")
         .select("*")
+        .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -92,11 +95,13 @@ export default function StoreManagement() {
     setFormPriceFiat("");
     setFormPriceCurrency("points");
     setFormGemAmount(100);
+    setFormBonusGems(0);
     setFormAppleProductId("");
     setFormGoogleProductId("");
+    setFormStatus("active");
+    setFormSortOrder(0);
     setFormStock(-1);
     setIsInfiniteStock(true);
-    setFormIsActive(true);
     setFormImageFile(null);
     setCurrentImageUrl("");
     setIsModalOpen(true);
@@ -117,12 +122,14 @@ export default function StoreManagement() {
     setFormPriceFiat(item.price_fiat ?? "");
     setFormPriceCurrency(item.price_currency || "points");
     setFormGemAmount(item.gem_amount ?? 0);
+    setFormBonusGems(item.bonus_gems ?? 0);
     setFormAppleProductId(item.apple_product_id || "");
     setFormGoogleProductId(item.google_product_id || "");
+    setFormStatus(item.status || (item.is_active ? "active" : "disabled"));
+    setFormSortOrder(item.sort_order ?? 0);
     const stockVal = item.stock_quantity ?? -1;
     setFormStock(stockVal);
     setIsInfiniteStock(stockVal === -1);
-    setFormIsActive(item.is_active);
     setFormImageFile(null);
     setCurrentImageUrl(item.image_url || "");
     setIsModalOpen(true);
@@ -160,6 +167,7 @@ export default function StoreManagement() {
       setFormPriceCurrency("fiat_usd");
       setFormPricePoints(0);
       setFormGemAmount((current) => current === "" || current <= 0 ? 100 : current);
+      setFormStatus((current) => current === "active" ? "draft" : current);
     } else if (formPriceCurrency === "fiat_usd") {
       setFormPriceCurrency("points");
       setFormPriceFiat("");
@@ -170,14 +178,14 @@ export default function StoreManagement() {
     e.preventDefault();
     if (!formName.trim() || !formSku.trim()) return alert("Name and SKU are required.");
     if (formCategory === "currency") {
-      if (formGemAmount === "" || Number(formGemAmount) <= 0) {
+      if (formStatus === "active" && (formGemAmount === "" || Number(formGemAmount) <= 0)) {
         return alert("Enter the number of Gems this pack grants.");
       }
-      if (formPriceFiat === "" || Number(formPriceFiat) <= 0) {
+      if (formStatus === "active" && (formPriceFiat === "" || Number(formPriceFiat) <= 0)) {
         return alert("Enter a valid USD price for this Gem pack.");
       }
-      if (formIsActive && (!formAppleProductId.trim() || !formGoogleProductId.trim())) {
-        return alert("Active Gem packs require both Apple and Google product IDs. Save it as inactive if the store products are not created yet.");
+      if (formStatus === "active" && !formAppleProductId.trim() && !formGoogleProductId.trim()) {
+        return alert("An active Gem pack needs at least one storefront product ID. Keep it as Draft until Apple App Store or Google Play is configured.");
       }
     }
     if (
@@ -224,10 +232,13 @@ export default function StoreManagement() {
         price_fiat: formCategory === "currency" ? (formPriceFiat === "" ? null : Number(formPriceFiat)) : null,
         price_currency: formPriceCurrency,
         gem_amount: formCategory === "currency" ? Number(formGemAmount || 0) : 0,
+        bonus_gems: formCategory === "currency" ? Number(formBonusGems || 0) : 0,
         apple_product_id: formCategory === "currency" ? formAppleProductId.trim() || null : null,
         google_product_id: formCategory === "currency" ? formGoogleProductId.trim() || null : null,
+        status: formStatus,
+        sort_order: formSortOrder === "" ? 0 : Number(formSortOrder),
         stock_quantity: finalStock,
-        is_active: formIsActive,
+        is_active: formStatus === "active",
         image_url: finalImageUrl || "https://img.icons8.com/color/96/present.png",
       };
 
@@ -261,7 +272,7 @@ export default function StoreManagement() {
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     const { error } = await supabase
       .from("store_items")
-      .update({ is_active: !currentStatus })
+      .update({ status: currentStatus ? "disabled" : "active", is_active: !currentStatus })
       .eq("id", id);
     if (error) alert("Error toggling item status: " + error.message);
     else fetchStoreItems();
@@ -357,18 +368,18 @@ export default function StoreManagement() {
             <div 
               key={item.id} 
               className={`bg-[#18181b] border rounded-[24px] overflow-hidden shadow-xl flex flex-col group relative transition-all ${
-                item.is_active ? "border-white/10 hover:border-white/20" : "border-rose-500/20 opacity-60"
+                item.status === "active" ? "border-white/10 hover:border-white/20" : item.status === "draft" ? "border-amber-400/30" : "border-rose-500/20 opacity-60"
               }`}
             >
               <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10">
                 <button 
-                  onClick={() => handleToggleActive(item.id, item.is_active)}
+                  onClick={() => handleToggleActive(item.id, item.status === "active")}
                   className={`p-2 rounded-xl text-white shadow-lg transition-all ${
-                    item.is_active ? "bg-black/60 hover:bg-rose-500" : "bg-emerald-500 hover:bg-emerald-600"
+                    item.status === "active" ? "bg-black/60 hover:bg-rose-500" : "bg-emerald-500 hover:bg-emerald-600"
                   }`}
-                  title={item.is_active ? "Deactivate Item" : "Activate Item"}
+                  title={item.status === "active" ? "Disable Item" : "Activate Item"}
                 >
-                  {item.is_active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {item.status === "active" ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
                 <button 
                   onClick={() => openEditModal(item)}
@@ -400,6 +411,11 @@ export default function StoreManagement() {
                     }`}>
                       {item.category === "currency" ? "Gem Pack" : item.category}
                     </span>
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest border ${
+                      item.status === "active" ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" :
+                      item.status === "draft" ? "border-amber-500/20 bg-amber-500/10 text-amber-300" :
+                      "border-rose-500/20 bg-rose-500/10 text-rose-300"
+                    }`}>{item.status || (item.is_active ? "active" : "disabled")}</span>
                     {item.category === "digital" && (
                       <span className="px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/20">
                         {(item.cosmetic_type || "game_cosmetic").replaceAll("_", " ")}
@@ -415,7 +431,7 @@ export default function StoreManagement() {
                 {item.category === "currency" && (
                   <div className="flex items-center justify-between rounded-xl border border-violet-400/15 bg-violet-400/[0.06] px-3 py-2">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-violet-200">Grants</span>
-                    <span className="font-headline text-sm font-black text-violet-300">💎 {Number(item.gem_amount || 0).toLocaleString()} Gems</span>
+                    <span className="font-headline text-sm font-black text-violet-300">💎 {(Number(item.gem_amount || 0) + Number(item.bonus_gems || 0)).toLocaleString()} Gems</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between">
@@ -504,6 +520,31 @@ export default function StoreManagement() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Catalog Status</label>
+                  <select
+                    value={formStatus}
+                    onChange={(e) => setFormStatus(e.target.value as "draft" | "active" | "disabled")}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors appearance-none cursor-pointer"
+                  >
+                    <option value="draft" className="bg-[#18181b]">Draft — hidden from players</option>
+                    <option value="active" className="bg-[#18181b]">Active — available to players</option>
+                    <option value="disabled" className="bg-[#18181b]">Disabled — not for sale</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Sort Order</label>
+                  <input
+                    type="number"
+                    value={formSortOrder}
+                    onChange={(e) => setFormSortOrder(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="0"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors"
+                  />
+                </div>
+              </div>
+
               {formCategory === "digital" && (
                 <div className="space-y-2 rounded-xl border border-[#CCFF00]/20 bg-[#CCFF00]/[0.03] p-3">
                   <div>
@@ -578,11 +619,10 @@ export default function StoreManagement() {
                     <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Gems Granted</label>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
                       value={formGemAmount}
                       onChange={(e) => setFormGemAmount(e.target.value === "" ? "" : Number(e.target.value))}
                       placeholder="e.g. 500"
-                      required
                       className="w-full bg-white/5 border border-violet-400/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors"
                     />
                   </div>
@@ -595,8 +635,18 @@ export default function StoreManagement() {
                       value={formPriceFiat} 
                       onChange={(e) => setFormPriceFiat(e.target.value === "" ? "" : Number(e.target.value))} 
                       placeholder="e.g. 4.99"
-                      required
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors" 
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block mb-1">Bonus Gems</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formBonusGems}
+                      onChange={(e) => setFormBonusGems(e.target.value === "" ? "" : Number(e.target.value))}
+                      placeholder="0"
+                      className="w-full bg-white/5 border border-violet-400/30 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#CCFF00] transition-colors"
                     />
                   </div>
                   </>
@@ -655,7 +705,7 @@ export default function StoreManagement() {
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-mono text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#CCFF00]"
                     />
                   </div>
-                  <p className="text-[10px] leading-relaxed text-sky-200">Real-money packs always grant Gems. An active pack needs both product IDs so the future Apple and Google receipt verification can match the purchase to this exact catalog item.</p>
+                  <p className="text-[10px] leading-relaxed text-sky-200">Real-money packs always grant Gems. A draft can be incomplete; an active pack requires at least one storefront product ID. Product IDs become locked after the first verified purchase.</p>
                 </div>
               )}
 
