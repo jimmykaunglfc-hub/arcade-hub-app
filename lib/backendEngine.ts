@@ -11,6 +11,22 @@ export interface PurchasePayload {
   productId: string;
 }
 
+export interface MultiplayerGameStatePayload<TState extends object> {
+  gameKey: string;
+  matchId: string;
+  userId: string;
+  state: TState;
+}
+
+export interface MultiplayerGameStateSubscription<TState extends object> {
+  gameKey: string;
+  matchId: string;
+  userId: string;
+  onState: (state: TState) => void;
+  onPresence?: (userIds: string[]) => void;
+  onStatus?: (status: string) => void;
+}
+
 export const JoeYokeEngine = {
   
   // ==========================================================================
@@ -156,6 +172,98 @@ export const JoeYokeEngine = {
   async refreshGlobalLeaderboardIndexes(): Promise<void> {
     // Uses structural RPC commands to clean and rebuild cache layouts instantly
     await supabase.rpc("refresh_leaderboard_view");
+  },
+
+  // ========================================================================
+  // 4. GENERIC REALTIME GAME-STATE TRANSPORT
+  // ========================================================================
+  /** Persists the latest authoritative snapshot for a multiplayer match. */
+  async pushGameState<TState extends object>({
+    gameKey,
+    matchId,
+    userId,
+    state,
+  }: MultiplayerGameStatePayload<TState>): Promise<{ success: boolean; error?: string }> {
+    const { error } = await supabase.from("multiplayer_game_states").upsert({
+      game_key: gameKey,
+      match_id: matchId,
+      state,
+      updated_by: userId,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "match_id" });
+
+    if (error) {
+      console.error("Game-state push failed:", error.message);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  },
+
+  /** Pulls the most recent snapshot so reconnecting players can resume. */
+  async pullGameState<TState extends object>(
+    gameKey: string,
+    matchId: string,
+  ): Promise<TState | null> {
+    const { data, error } = await supabase
+      .from("multiplayer_game_states")
+      .select("state")
+      .eq("game_key", gameKey)
+      .eq("match_id", matchId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Game-state pull failed:", error.message);
+      return null;
+    }
+
+    return (data?.state as TState | undefined) ?? null;
+  },
+
+  /** Subscribes to persisted state updates and Supabase Presence. */
+  subscribeToGameState<TState extends object>({
+    gameKey,
+    matchId,
+    userId,
+    onState,
+    onPresence,
+    onStatus,
+  }: MultiplayerGameStateSubscription<TState>): () => void {
+    const channel = supabase.channel(`${gameKey}_${matchId}`, {
+      config: {
+        broadcast: { self: false },
+        presence: { key: userId },
+      },
+    });
+
+    channel
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "multiplayer_game_states",
+          filter: `match_id=eq.${matchId}`,
+        },
+        (payload) => {
+          const row = payload.new as { game_key?: string; state?: TState };
+          if (row.game_key === gameKey && row.state) onState(row.state);
+        },
+      )
+      .on("presence", { event: "sync" }, () => {
+        onPresence?.(Object.keys(channel.presenceState()).sort());
+      })
+      .subscribe(async (status) => {
+        onStatus?.(status);
+        if (status === "SUBSCRIBED") {
+          await channel.track({ user_id: userId, online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      void channel.untrack();
+      void supabase.removeChannel(channel);
+    };
   },
 
   /**
