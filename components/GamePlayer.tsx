@@ -9,6 +9,7 @@ import TicTacToeGame from "./games/TicTacToeGame";
 import BiometricOverride from "./games/BiometricOverride";
 import PoolGame from "./games/PoolGame";
 import MiniFighter from "./games/MiniFighter";
+import FootballClash from "./games/FootballClash";
 import { isMiniFighterEnabled } from "@/lib/deployment";
 
 interface GamePlayerProps {
@@ -102,6 +103,15 @@ export default function GamePlayer({
         }
         return (
           <MiniFighter onClose={onClose} preloadedMatchId={matchId} opponent={opponent} />
+        );
+      case "football-clash":
+      case "footballclash":
+        return (
+          <FootballClash
+            onClose={onClose}
+            preloadedMatchId={matchId}
+            opponent={opponent}
+          />
         );
       default:
         // Fallback if slug is not matched

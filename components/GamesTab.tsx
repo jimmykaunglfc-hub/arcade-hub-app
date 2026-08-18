@@ -41,6 +41,7 @@ const DEFAULT_GAMES = [
 
 const STAGING_ONLY_GAMES = [
   { id: "mini_fighter", title: "Mini Fighter", category: "Arcade", entry_fee: 0, rating: "New", icon: "swords", description: "Fast 1v1 fighting with specials, guard breaks, and instant rematches." },
+  { id: "football_clash", title: "Football Clash", category: "Sports", entry_fee: 0, rating: "New", icon: "sports_soccer", description: "A live 1v1 penalty shootout with swipe control, wind, and sudden death." },
 ];
 
 const catalogGames = isMiniFighterEnabled
