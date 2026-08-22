@@ -7,10 +7,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
 
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Game effects are Web Audio clips played inside Capacitor's WKWebView.
-        // Explicit playback keeps them audible on iPhone even when the hardware
-        // silent switch is enabled, while mixing with any existing audio.
+    private func activateGameAudioSession() {
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
@@ -18,6 +15,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         } catch {
             NSLog("Joe Yoke audio session setup failed: %@", error.localizedDescription)
         }
+    }
+
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Game effects are Web Audio clips played inside Capacitor's WKWebView.
+        // Explicit playback keeps them audible on iPhone even when the hardware
+        // silent switch is enabled, while mixing with any existing audio.
+        activateGameAudioSession()
         return true
     }
 
@@ -36,7 +40,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        // Camera, phone-call and interruption flows can deactivate the media
+        // session, so make game effects available again when the app returns.
+        activateGameAudioSession()
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

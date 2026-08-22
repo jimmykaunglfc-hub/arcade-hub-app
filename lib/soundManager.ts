@@ -100,8 +100,12 @@ class SoundEngine {
   private gameplayLoads = new Map<GameplayClip, Promise<AudioBuffer[]>>();
   private activeGameplaySources = new Map<GameplayClip, AudioBufferSourceNode[]>();
   private clipCursor = new Map<GameplayClip, number>();
+  private nativeAudioPools = new Map<GameplayClip, HTMLAudioElement[]>();
+  private nativeAudioCursor = new Map<GameplayClip, number>();
   private diceShakeSource: AudioBufferSourceNode | null = null;
+  private diceShakeAudio: HTMLAudioElement | null = null;
   private outputPrimed = false;
+  private nativeOutputPrimed = false;
 
   constructor() {
     // AudioContext is initialized lazily. A looping shake must never resume
@@ -142,6 +146,7 @@ class SoundEngine {
    * forgiving, which is why the same game clips could work there only.
    */
   public unlockForUserGesture() {
+    this.primeNativeOutput();
     this.initContext(false);
     if (!this.ctx) return;
 
@@ -180,6 +185,69 @@ class SoundEngine {
     }
   }
 
+  private isIOSWebKit() {
+    if (typeof navigator === "undefined") return false;
+    return /iPad|iPhone|iPod/.test(navigator.userAgent)
+      || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  }
+
+  /**
+   * iOS can decode AAC/M4A differently in Web Audio across WKWebView releases.
+   * Keep a native-media pool ready as the iPhone playback path, which avoids
+   * decodeAudioData altogether while retaining the same supplied source clips.
+   */
+  private nativePoolFor(clip: GameplayClip) {
+    const existing = this.nativeAudioPools.get(clip);
+    if (existing) return existing;
+    if (typeof Audio === "undefined") return [];
+
+    const definition = GAMEPLAY_CLIPS[clip];
+    const pool = Array.from({ length: definition.maxVoices }, (_, index) => {
+      const audio = new Audio(definition.files[index % definition.files.length]);
+      audio.preload = "auto";
+      return audio;
+    });
+    this.nativeAudioPools.set(clip, pool);
+    return pool;
+  }
+
+  /** Establish iOS media playback permission during the first physical gesture. */
+  private primeNativeOutput() {
+    if (!this.isIOSWebKit() || this.nativeOutputPrimed || typeof Audio === "undefined") return;
+    const audio = this.nativePoolFor("pingPongPaddle")[0];
+    if (!audio) return;
+    audio.muted = true;
+    audio.volume = 0;
+    audio.currentTime = 0;
+    void audio.play().then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+      this.nativeOutputPrimed = true;
+    }).catch((error) => {
+      console.warn("[GameAudio] iOS media output unlock was blocked; it will retry on the next tap.", error);
+    });
+  }
+
+  private playNativeClip(clip: GameplayClip, gainValue: number, loop = false) {
+    const pool = this.nativePoolFor(clip);
+    if (!pool.length) return;
+    const cursor = this.nativeAudioCursor.get(clip) ?? 0;
+    const audio = pool[cursor % pool.length];
+    this.nativeAudioCursor.set(clip, cursor + 1);
+    audio.pause();
+    try { audio.currentTime = 0; } catch { /* A not-yet-seekable short clip starts at its natural beginning. */ }
+    audio.loop = loop;
+    audio.muted = false;
+    // The Web Audio gains were calibrated for a graph; scale them to the
+    // HTML media element's direct output while retaining their relative impact.
+    audio.volume = Math.max(0.12, Math.min(0.75, gainValue * 1.65));
+    void audio.play().catch((error) => {
+      console.warn(`[GameAudio] iOS playback failed for ${clip}.`, error);
+    });
+    return audio;
+  }
+
   /** A tiny, original noise transient for physical impacts; no recorded samples are used. */
   private playNoiseBurst(now: number, duration: number, volume: number, frequency: number) {
     if (!this.ctx) return;
@@ -215,6 +283,7 @@ class SoundEngine {
     this.isMuted = muted;
     if (typeof window !== "undefined") localStorage.setItem("joeyoke_sound_enabled", muted ? "false" : "true");
     if (this.bgmAudio) this.bgmAudio.muted = muted;
+    if (muted) this.nativeAudioPools.forEach((pool) => pool.forEach((audio) => audio.pause()));
     if (muted) this.stopDiceShake();
   }
 
@@ -254,7 +323,10 @@ class SoundEngine {
         if (!response.ok) throw new Error(`Unable to load gameplay SFX: ${src}`);
         return this.ctx!.decodeAudioData(await response.arrayBuffer());
       })
-    ).catch(() => [] as AudioBuffer[]).then((buffers) => {
+    ).catch((error) => {
+      console.warn(`[GameAudio] Web Audio decode failed for ${clip}; using native media fallback where available.`, error);
+      return [] as AudioBuffer[];
+    }).then((buffers) => {
       if (buffers.length) this.gameplayBuffers.set(clip, buffers);
       return buffers;
     });
@@ -266,6 +338,7 @@ class SoundEngine {
   public preloadGameSFX(effects: readonly GameAudioEffect[]) {
     this.initContext(false);
     effects.flatMap((effect) => this.clipsForGameEffect(effect)).forEach((clip) => {
+      if (this.isIOSWebKit()) this.nativePoolFor(clip);
       void this.loadGameplayClip(clip);
     });
   }
@@ -273,6 +346,7 @@ class SoundEngine {
   public preloadPhysicalSFX(effects: readonly PhysicalAudioEffect[]) {
     this.initContext(false);
     effects.map((effect) => this.clipForPhysicalEffect(effect)).forEach((clip) => {
+      if (this.isIOSWebKit()) this.nativePoolFor(clip);
       void this.loadGameplayClip(clip);
     });
   }
@@ -280,12 +354,22 @@ class SoundEngine {
   private playClip(clip: GameplayClip, options: GameplayPlayback = {}) {
     if (this.isMuted) return;
     this.initContext();
-    if (!this.ctx) return;
     const definition = GAMEPLAY_CLIPS[clip];
     const nowMs = performance.now();
     const last = this.lastCarromSound.get(clip) ?? -Infinity;
     if (nowMs - last < definition.cooldownMs) return;
     this.lastCarromSound.set(clip, nowMs);
+
+    const intensity = Math.max(0, Math.min(1, options.intensity ?? 0.65));
+    // A square-root curve keeps weak contacts audible without making a break
+    // shot merely a linear 100% volume version of a soft collision.
+    const gainValue = definition.minGain + (definition.maxGain - definition.minGain) * Math.sqrt(intensity);
+
+    // Prefer the platform's native media pipeline on iPhone/iPad. It is more
+    // reliable than decoding bundled AAC clips through WKWebView Web Audio.
+    if (this.isIOSWebKit()) return this.playNativeClip(clip, gainValue, options.loop ?? false);
+
+    if (!this.ctx) return;
 
     const buffers = this.gameplayBuffers.get(clip);
     if (!buffers?.length) {
@@ -298,10 +382,6 @@ class SoundEngine {
     const buffer = buffers[cursor % buffers.length];
     this.clipCursor.set(clip, cursor + 1);
 
-    const intensity = Math.max(0, Math.min(1, options.intensity ?? 0.65));
-    // A square-root curve keeps weak contacts audible without making a break
-    // shot merely a linear 100% volume version of a soft collision.
-    const gainValue = definition.minGain + (definition.maxGain - definition.minGain) * Math.sqrt(intensity);
     const source = this.ctx.createBufferSource();
     const gain = this.ctx.createGain();
     source.buffer = buffer;
@@ -350,13 +430,17 @@ class SoundEngine {
   public playChessPieceDrop(intensity = 0.65) { this.playClip("chessDrop", { intensity }); }
   public playDiceCollision(relativeVelocity: number, position?: number) { this.playClip("diceImpact", { intensity: relativeVelocity / 8, position }); }
   public startDiceShake(intensity = 0.6) {
-    if (this.diceShakeSource) return;
+    if (this.diceShakeSource || this.diceShakeAudio) return;
     const source = this.playClip("diceShake", { intensity });
-    if (source) this.diceShakeSource = source;
+    if (typeof HTMLAudioElement !== "undefined" && source instanceof HTMLAudioElement) this.diceShakeAudio = source;
+    else if (source && "stop" in source) this.diceShakeSource = source;
   }
   public stopDiceShake() {
     this.diceShakeSource?.stop();
     this.diceShakeSource = null;
+    this.diceShakeAudio?.pause();
+    if (this.diceShakeAudio) this.diceShakeAudio.currentTime = 0;
+    this.diceShakeAudio = null;
   }
 
   /** Backward-compatible entry point for screens not yet migrated. */

@@ -8,3 +8,8 @@ export const deploymentEnvironment =
 export const isStagingDeployment = deploymentEnvironment === "staging";
 
 export const isMiniFighterEnabled = isStagingDeployment;
+
+// Shan Koe Mee remains available to the staging build while it is being
+// completed. Keeping this separate makes it impossible for a production
+// catalogue, chat challenge, or stale deep link to expose the unfinished game.
+export const isShanKoeMeeEnabled = isStagingDeployment;

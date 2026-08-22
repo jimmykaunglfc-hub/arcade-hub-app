@@ -8,7 +8,7 @@ import { LocalizedText } from "../lib/i18n";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../lib/supabaseClient";
-import { isMiniFighterEnabled } from "../lib/deployment";
+import { isMiniFighterEnabled, isShanKoeMeeEnabled } from "../lib/deployment";
 
 interface GamesTabProps {
   currentPoints: number;
@@ -40,18 +40,20 @@ const DEFAULT_GAMES = [
   { id: "dominoes", title: "Dominoes", category: "Board", entry_fee: 0, rating: "New", icon: "view_module" },
   { id: "game_2048", title: "2048", category: "Puzzle", entry_fee: 0, rating: "New", icon: "grid_view" },
   { id: "big_two", title: "Big Two", category: "Card", entry_fee: 0, rating: "New", icon: "playing_cards" },
-  { id: "shan_koe_mee", title: "Shan Koe Mee", category: "Card", entry_fee: 0, rating: "New", icon: "style" },
   { id: "block_puzzle", title: "Block Puzzle", category: "Puzzle", entry_fee: 0, rating: "New", icon: "extension" },
   { id: "monopoly", title: "Monopoly", category: "Board", entry_fee: 0, rating: "New", icon: "account_balance" },
 ];
 
 const STAGING_ONLY_GAMES = [
   { id: "mini_fighter", title: "Mini Fighter", category: "Arcade", entry_fee: 0, rating: "New", icon: "swords", description: "Fast 1v1 fighting with specials, guard breaks, and instant rematches." },
+  { id: "shan_koe_mee", title: "Shan Koe Mee", category: "Card", entry_fee: 0, rating: "New", icon: "style" },
 ];
 
-const catalogGames = isMiniFighterEnabled
-  ? [...DEFAULT_GAMES, ...STAGING_ONLY_GAMES]
-  : DEFAULT_GAMES;
+const catalogGames = [
+  ...DEFAULT_GAMES,
+  ...(isMiniFighterEnabled ? STAGING_ONLY_GAMES.filter((game) => game.id === "mini_fighter") : []),
+  ...(isShanKoeMeeEnabled ? STAGING_ONLY_GAMES.filter((game) => game.id === "shan_koe_mee") : []),
+];
 
 export default function GamesTab({ 
   currentPoints, 
@@ -102,10 +104,13 @@ export default function GamesTab({
       // 2. Fetch Active Games
       const { data: gameData } = await supabase.rpc("get_game_catalog");
       
-      const activeGames = (gameData || []).filter((game: any) =>
-        game.status === "active" &&
-        (isMiniFighterEnabled || catalogKey(String(game.title)) !== "minifighter")
-      );
+      const activeGames = (gameData || []).filter((game: any) => {
+        const key = catalogKey(String(game.title));
+        const isDisabledInProduction =
+          (!isMiniFighterEnabled && key === "minifighter") ||
+          (!isShanKoeMeeEnabled && key === "shankoemee");
+        return game.status === "active" && !isDisabledInProduction;
+      });
       if (activeGames.length > 0) {
         const knownTitles = new Set(activeGames.map((game: any) => catalogKey(String(game.title))));
         setDbGames([...activeGames, ...catalogGames.filter((game) => !knownTitles.has(catalogKey(game.title)))]);

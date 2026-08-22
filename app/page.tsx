@@ -11,6 +11,7 @@ import { Capacitor } from "@capacitor/core";
 import { supabase } from "../lib/supabaseClient";
 import { markPerformance } from "../lib/performance";
 import { soundEngine } from "../lib/soundManager";
+import { isShanKoeMeeEnabled } from "../lib/deployment";
 
 // 👇 Ranking utilities
 import { getHoursPlayed } from "../lib/rankingUtils";
@@ -41,7 +42,9 @@ const LudoGame = dynamic(() => import("../components/games/LudoGame"), { ssr: fa
 const DominoesGame = dynamic(() => import("../components/games/DominoesGame"), { ssr: false });
 const Game2048 = dynamic(() => import("../components/games/Game2048"), { ssr: false });
 const BigTwoGame = dynamic(() => import("../components/games/BigTwoGame"), { ssr: false });
-const ShanKoeMeeGame = dynamic(() => import("../components/games/ShanKoeMeeGame"), { ssr: false });
+const ShanKoeMeeGame = isShanKoeMeeEnabled
+  ? dynamic(() => import("../components/games/ShanKoeMeeGame"), { ssr: false })
+  : null;
 const BlockPuzzleGame = dynamic(() => import("../components/games/BlockPuzzleGame"), { ssr: false });
 const MonopolyGame = dynamic(() => import("../components/games/Monopoly"), { ssr: false });
 import { useTranslation } from "../lib/i18n";
@@ -113,6 +116,19 @@ function ShanKoeMeeFourPlayerArena({ onClose, preloadedRoomId }: { onClose: () =
   const [roomId, setRoomId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null)); }, []);
+  if (!isShanKoeMeeEnabled || !ShanKoeMeeGame) {
+    return (
+      <div className="fixed inset-0 grid place-items-center bg-[#09090b] px-6 text-center text-white">
+        <div>
+          <p className="text-xl font-bold"><LocalizedText id="UI_0355" fallback="Game unavailable" /></p>
+          <p className="mt-2 text-sm text-white/65"><LocalizedText id="UI_0356" fallback="This game is currently being tested in staging." /></p>
+          <button type="button" onClick={onClose} className="mt-6 rounded-xl bg-lime-400 px-5 py-3 font-bold text-black">
+            <LocalizedText id="UI_0096" fallback="Back" />
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (!userId) return <div className="fixed inset-0 grid place-items-center bg-[#09090b] text-white"><LocalizedText id="UI_0024" fallback="Sign in to join Shan Koe Mee matchmaking." /></div>;
   if (!roomId) return <FourPlayerMatchLobby gameKey="shan-koe-mee" gameName={tr("UI_0158", "Shan Koe Mee")} userId={userId} preloadedRoomId={preloadedRoomId} onStart={setRoomId} onCancel={onClose} />;
   return <ShanKoeMeeGame onClose={onClose} onPlayAgain={() => setRoomId(null)} roomId={roomId} />;
