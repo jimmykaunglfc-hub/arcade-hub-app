@@ -324,6 +324,35 @@ export default function Home() {
     };
   }, [deferredStartupReady]);
 
+  // Social apps feel immediate because their inbox is already warm before the
+  // player opens it. After the home shell is idle, mount the signed-in chat hub
+  // invisibly so its cache and first network refresh finish in the background.
+  useEffect(() => {
+    if (!deferredStartupReady || !session || typeof window === "undefined") return;
+
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") return;
+
+    const primeChat = () => {
+      if (document.visibilityState !== "visible") return;
+      setVisitedTabs((currentTabs) => {
+        if (currentTabs.has("Chats")) return currentTabs;
+        const nextTabs = new Set(currentTabs);
+        nextTabs.add("Chats");
+        return nextTabs;
+      });
+    };
+    const idleCallback = window.requestIdleCallback?.(primeChat, { timeout: 3_500 });
+    const fallbackTimer = idleCallback === undefined ? window.setTimeout(primeChat, 1_200) : undefined;
+
+    return () => {
+      if (idleCallback !== undefined) window.cancelIdleCallback?.(idleCallback);
+      if (fallbackTimer !== undefined) window.clearTimeout(fallbackTimer);
+    };
+  }, [deferredStartupReady, session]);
+
   useEffect(() => {
     const cachedTheme = localStorage.getItem("app_theme");
     if (cachedTheme === "light") {

@@ -36,6 +36,62 @@ type ChatNetworkSnapshot = {
 
 let chatNetworkSnapshot: ChatNetworkSnapshot | null = null;
 
+const CHAT_NETWORK_CACHE_PREFIX = "joeyoke.chat-network.v1";
+const DIRECT_HISTORY_CACHE_PREFIX = "joeyoke.direct-history.v1";
+const DIRECT_HISTORY_LIMIT = 50;
+const directHistorySnapshot = new Map<string, DirectMessage[]>();
+
+const networkCacheKey = (userId: string) => `${CHAT_NETWORK_CACHE_PREFIX}:${userId}`;
+const directHistoryCacheKey = (userId: string, friendId: string) =>
+  `${DIRECT_HISTORY_CACHE_PREFIX}:${userId}:${friendId}`;
+
+const readNetworkCache = (userId: string): ChatNetworkSnapshot | null => {
+  try {
+    const raw = window.localStorage.getItem(networkCacheKey(userId));
+    if (!raw) return null;
+    const snapshot = JSON.parse(raw) as ChatNetworkSnapshot;
+    return snapshot.userId === userId ? snapshot : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeNetworkCache = (snapshot: ChatNetworkSnapshot) => {
+  try {
+    window.localStorage.setItem(networkCacheKey(snapshot.userId), JSON.stringify(snapshot));
+  } catch {
+    // Storage is only a speed optimisation. The live Supabase result remains authoritative.
+  }
+};
+
+const readDirectHistoryCache = (userId: string, friendId: string): DirectMessage[] | null => {
+  const key = directHistoryCacheKey(userId, friendId);
+  const memorySnapshot = directHistorySnapshot.get(key);
+  if (memorySnapshot) return memorySnapshot;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const messages = JSON.parse(raw) as DirectMessage[];
+    if (!Array.isArray(messages)) return null;
+    const recentMessages = messages.slice(-DIRECT_HISTORY_LIMIT);
+    directHistorySnapshot.set(key, recentMessages);
+    return recentMessages;
+  } catch {
+    return null;
+  }
+};
+
+const writeDirectHistoryCache = (userId: string, friendId: string, messages: DirectMessage[]) => {
+  const key = directHistoryCacheKey(userId, friendId);
+  const recentMessages = messages.slice(-DIRECT_HISTORY_LIMIT);
+  directHistorySnapshot.set(key, recentMessages);
+  try {
+    window.localStorage.setItem(key, JSON.stringify(recentMessages));
+  } catch {
+    // Ignore unavailable or full storage; the current in-memory conversation still works.
+  }
+};
+
 interface DirectMessage {
   id: string;
   sender_id: string;
@@ -154,7 +210,8 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
   const isLockedOut = currentPoints <= 0;
 
   const loadNetwork = useCallback(async (id: string) => {
-    setNetworkLoading(true);
+    // The direct-message list is the first screen players see. Do not hold it
+    // hostage while referral rewards, group policy, and avatar frames load.
     const [{ data: myProfile }, { data: links }, { data: allGroups }, { data: memberships }, { data: unread }] = await Promise.all([
       supabase.from("profiles").select("username, network_id, referral_code").eq("id", id).single(),
       supabase.from("friendships").select("id, requester_id, receiver_id, status").or(`requester_id.eq.${id},receiver_id.eq.${id}`),
@@ -162,34 +219,6 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
       supabase.from("chat_group_members").select("group_id").eq("user_id", id),
       supabase.from("direct_messages").select("sender_id").eq("receiver_id", id).is("read_at", null),
     ]);
-    const [{ data: referralProgram }, { data: milestones }, { data: purchases }, { data: groupPolicy }] = await Promise.all([
-      supabase.rpc("get_my_referral_program"),
-      supabase.from("referral_milestone_rules").select("invitee_target,reward_points,reward_gems").eq("is_active", true).order("invitee_target"),
-      supabase.from("referral_purchase_rules").select("minimum_purchase_amount,reward_points,reward_gems").eq("is_active", true).order("minimum_purchase_amount"),
-      supabase.rpc("get_my_group_creation_policy"),
-    ]);
-    const referralData = Array.isArray(referralProgram) ? referralProgram[0] : referralProgram;
-    if (referralData) {
-      const invited = Number(referralData.invited || 0);
-      setReferralStats({
-        invited,
-        points: Number(referralData.earned || 0),
-        gems: invited * Number(referralData.inviter_gems || 0),
-      });
-    }
-    const policy = Array.isArray(groupPolicy) ? groupPolicy[0] : groupPolicy;
-    if (policy) setGroupCreationPolicy({
-      free_creations_remaining: Number(policy.free_creations_remaining || 0),
-      paid_cost: Number(policy.paid_cost || 0),
-      paid_currency: policy.paid_currency === "gems" ? "gems" : "points",
-    });
-    setReferralBenefits([
-      referralData ? { label: "Every successful invite", detail: `You receive +${Number(referralData.inviter_points || 0).toLocaleString()} points · +${Number(referralData.inviter_gems || 0)} gems. New player receives +${Number(referralData.new_user_points || 0).toLocaleString()} points.` } : null,
-      ...(milestones || []).map((rule: any) => ({ label: `${rule.invitee_target} invitee milestone`, detail: `+${Number(rule.reward_points || 0).toLocaleString()} points · +${Number(rule.reward_gems || 0)} gems` })),
-      ...(purchases || []).map((rule: any) => ({ label: `Invitee spends $${Number(rule.minimum_purchase_amount).toFixed(2)}+`, detail: `+${Number(rule.reward_points || 0).toLocaleString()} points · +${Number(rule.reward_gems || 0)} gems` })),
-    ].filter(Boolean) as Array<{ label: string; detail: string }>);
-    const { data: invitees } = await supabase.rpc("get_my_referral_invitees");
-    if (invitees) setReferralInvitees(invitees as Array<{ username: string; network_id: string; created_at: string }>);
     if (myProfile) {
       setMyUsername(myProfile.network_id || myProfile.username);
       setMyReferralCode(myProfile.referral_code || "");
@@ -199,12 +228,10 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
     const acceptedFriendIds = [...new Set(accepted.map((link) => link.requester_id === id ? link.receiver_id : link.requester_id))];
     const requestedFriendIds = [...new Set(requested.map((link) => link.requester_id))];
     const profileIds = [...new Set([...acceptedFriendIds, ...requestedFriendIds])];
-    const [{ data: profiles }, publicCards] = await Promise.all([
-      profileIds.length ? supabase.from("profiles").select("id, username, avatar_url, last_seen_at").in("id", profileIds) : Promise.resolve({ data: [] as Friend[] }),
-      Promise.all(profileIds.map((userId) => supabase.rpc("get_public_profile_card", { target_user_id: userId }).single())),
-    ]);
-    const frameByUser = new Map(publicCards.flatMap(({ data }) => data ? [[(data as { user_id: string; avatar_frame_url: string | null }).user_id, (data as { avatar_frame_url: string | null }).avatar_frame_url] as [string, string | null]] : []));
-    const profileById = new Map((profiles || []).map((profile) => [profile.id, { ...profile, avatar_frame_url: frameByUser.get(profile.id) || null, is_online: Boolean(profile.last_seen_at && Date.now() - new Date(profile.last_seen_at).getTime() < 3 * 60 * 1000) }]));
+    const { data: profiles } = profileIds.length
+      ? await supabase.from("profiles").select("id, username, avatar_url, last_seen_at").in("id", profileIds)
+      : { data: [] as Friend[] };
+    const profileById = new Map((profiles || []).map((profile) => [profile.id, { ...profile, avatar_frame_url: null, is_online: Boolean(profile.last_seen_at && Date.now() - new Date(profile.last_seen_at).getTime() < 3 * 60 * 1000) }]));
     const resolvedFriends = (acceptedFriendIds.map((friendId) => profileById.get(friendId)).filter(Boolean) as Friend[]).sort((a, b) => Number(Boolean(b.is_online)) - Number(Boolean(a.is_online)) || a.username.localeCompare(b.username));
     const resolvedRequests = requestedFriendIds.map((friendId) => {
       const request = requested.find((link) => link.requester_id === friendId);
@@ -219,8 +246,49 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
     const counts: Record<string, number> = {};
     (unread || []).forEach((message) => { counts[message.sender_id] = (counts[message.sender_id] || 0) + 1; });
     setUnreadByFriend(counts);
-    chatNetworkSnapshot = { userId: id, username: myProfile?.network_id || myProfile?.username || "", referralCode: myProfile?.referral_code || "", friends: resolvedFriends, pendingRequests: resolvedRequests, groups: resolvedGroups, joinedGroupIds: resolvedGroupIds, unreadByFriend: counts };
+    const snapshot = { userId: id, username: myProfile?.network_id || myProfile?.username || "", referralCode: myProfile?.referral_code || "", friends: resolvedFriends, pendingRequests: resolvedRequests, groups: resolvedGroups, joinedGroupIds: resolvedGroupIds, unreadByFriend: counts };
+    chatNetworkSnapshot = snapshot;
+    writeNetworkCache(snapshot);
     setNetworkLoading(false);
+
+    // Avatar frames are decorative, not a reason to delay the chat list. Fill
+    // them in after the list is visible instead of waiting for one RPC per friend.
+    void Promise.all(profileIds.map((profileId) => supabase.rpc("get_public_profile_card", { target_user_id: profileId }).single()))
+      .then((publicCards) => {
+        const frameByUser = new Map(publicCards.flatMap(({ data }) => data ? [[(data as { user_id: string; avatar_frame_url: string | null }).user_id, (data as { avatar_frame_url: string | null }).avatar_frame_url] as [string, string | null]] : []));
+        if (!frameByUser.size) return;
+        const withFrames = <T extends Friend>(people: T[]): T[] => people.map((person) => ({ ...person, avatar_frame_url: frameByUser.get(person.id) || null }));
+        const updatedSnapshot = { ...snapshot, friends: withFrames(snapshot.friends), pendingRequests: withFrames(snapshot.pendingRequests) };
+        setFriends(updatedSnapshot.friends);
+        setPendingRequests(updatedSnapshot.pendingRequests);
+        chatNetworkSnapshot = updatedSnapshot;
+        writeNetworkCache(updatedSnapshot);
+      });
+
+    // Referral and group-pricing information is only needed after a player
+    // opens those sections. Keeping it asynchronous removes several RPCs from
+    // the first chat paint while retaining the same live data.
+    void Promise.all([
+      supabase.rpc("get_my_referral_program"),
+      supabase.from("referral_milestone_rules").select("invitee_target,reward_points,reward_gems").eq("is_active", true).order("invitee_target"),
+      supabase.from("referral_purchase_rules").select("minimum_purchase_amount,reward_points,reward_gems").eq("is_active", true).order("minimum_purchase_amount"),
+      supabase.rpc("get_my_group_creation_policy"),
+      supabase.rpc("get_my_referral_invitees"),
+    ]).then(([{ data: referralProgram }, { data: milestones }, { data: purchases }, { data: groupPolicy }, { data: invitees }]) => {
+      const referralData = Array.isArray(referralProgram) ? referralProgram[0] : referralProgram;
+      if (referralData) {
+        const invited = Number(referralData.invited || 0);
+        setReferralStats({ invited, points: Number(referralData.earned || 0), gems: invited * Number(referralData.inviter_gems || 0) });
+      }
+      const policy = Array.isArray(groupPolicy) ? groupPolicy[0] : groupPolicy;
+      if (policy) setGroupCreationPolicy({ free_creations_remaining: Number(policy.free_creations_remaining || 0), paid_cost: Number(policy.paid_cost || 0), paid_currency: policy.paid_currency === "gems" ? "gems" : "points" });
+      setReferralBenefits([
+        referralData ? { label: "Every successful invite", detail: `You receive +${Number(referralData.inviter_points || 0).toLocaleString()} points · +${Number(referralData.inviter_gems || 0)} gems. New player receives +${Number(referralData.new_user_points || 0).toLocaleString()} points.` } : null,
+        ...(milestones || []).map((rule: any) => ({ label: `${rule.invitee_target} invitee milestone`, detail: `+${Number(rule.reward_points || 0).toLocaleString()} points · +${Number(rule.reward_gems || 0)} gems` })),
+        ...(purchases || []).map((rule: any) => ({ label: `Invitee spends $${Number(rule.minimum_purchase_amount).toFixed(2)}+`, detail: `+${Number(rule.reward_points || 0).toLocaleString()} points · +${Number(rule.reward_gems || 0)} gems` })),
+      ].filter(Boolean) as Array<{ label: string; detail: string }>);
+      if (invitees) setReferralInvitees(invitees as Array<{ username: string; network_id: string; created_at: string }>);
+    });
   }, []);
 
   useEffect(() => {
@@ -229,14 +297,18 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
       if (!user) return;
       if (userId && userId !== user.id) return;
       setMyUserId(user.id);
-      if (chatNetworkSnapshot?.userId === user.id) {
-        setMyUsername(chatNetworkSnapshot.username);
-        setMyReferralCode(chatNetworkSnapshot.referralCode);
-        setFriends(chatNetworkSnapshot.friends);
-        setPendingRequests(chatNetworkSnapshot.pendingRequests);
-        setGroups(chatNetworkSnapshot.groups);
-        setJoinedGroupIds(chatNetworkSnapshot.joinedGroupIds);
-        setUnreadByFriend(chatNetworkSnapshot.unreadByFriend);
+      const cachedNetwork = chatNetworkSnapshot?.userId === user.id
+        ? chatNetworkSnapshot
+        : readNetworkCache(user.id);
+      if (cachedNetwork) {
+        chatNetworkSnapshot = cachedNetwork;
+        setMyUsername(cachedNetwork.username);
+        setMyReferralCode(cachedNetwork.referralCode);
+        setFriends(cachedNetwork.friends);
+        setPendingRequests(cachedNetwork.pendingRequests);
+        setGroups(cachedNetwork.groups);
+        setJoinedGroupIds(cachedNetwork.joinedGroupIds);
+        setUnreadByFriend(cachedNetwork.unreadByFriend);
         setNetworkLoading(false);
         void loadNetwork(user.id);
       } else {
@@ -251,10 +323,12 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
     if (!myUserId) return;
     const refresh = () => loadNetwork(myUserId);
     const channel = supabase.channel(`chat-hub-${myUserId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "direct_messages", filter: `receiver_id=eq.${myUserId}` }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "chat_groups" }, refresh)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships", filter: `requester_id=eq.${myUserId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships", filter: `receiver_id=eq.${myUserId}` }, refresh)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages", filter: `receiver_id=eq.${myUserId}` }, (payload) => {
+        const message = payload.new as DirectMessage;
+        setUnreadByFriend((previous) => ({ ...previous, [message.sender_id]: (previous[message.sender_id] || 0) + 1 }));
+      })
       .subscribe();
     const heartbeat = window.setInterval(() => { supabase.rpc("touch_chat_presence"); }, 60000);
     return () => { window.clearInterval(heartbeat); supabase.removeChannel(channel); };
@@ -262,41 +336,59 @@ export default function ChatTab({ currentPoints, userId, onPlay, onChatOpenChang
 
   useEffect(() => {
     if (!myUserId || !activeChat || activeView !== "chat") return;
+    let cancelled = false;
+    const conversationUserId = myUserId;
+    const conversationFriendId = activeChat.id;
 
     const fetchMessages = async () => {
-      setChatLoading(true);
+      const cachedMessages = readDirectHistoryCache(conversationUserId, conversationFriendId);
+      setMessages(cachedMessages || []);
+      setChatLoading(!cachedMessages);
       const { data } = await supabase
         .from("direct_messages")
         .select("*")
-        .or(`and(sender_id.eq.${myUserId},receiver_id.eq.${activeChat.id}),and(sender_id.eq.${activeChat.id},receiver_id.eq.${myUserId})`)
-        .order("created_at", { ascending: true })
-        .limit(50);
+        .or(`and(sender_id.eq.${conversationUserId},receiver_id.eq.${conversationFriendId}),and(sender_id.eq.${conversationFriendId},receiver_id.eq.${conversationUserId})`)
+        .order("created_at", { ascending: false })
+        .limit(DIRECT_HISTORY_LIMIT);
         
-      if (data) setMessages(data);
-      await supabase.from("direct_messages").update({ read_at: new Date().toISOString() }).eq("receiver_id", myUserId).eq("sender_id", activeChat.id).is("read_at", null);
-      setUnreadByFriend((previous) => ({ ...previous, [activeChat.id]: 0 }));
+      if (cancelled) return;
+      if (data) {
+        const recentMessages = [...data].reverse();
+        setMessages(recentMessages);
+        writeDirectHistoryCache(conversationUserId, conversationFriendId, recentMessages);
+      }
+      setUnreadByFriend((previous) => ({ ...previous, [conversationFriendId]: 0 }));
       setChatLoading(false);
+      void supabase
+        .from("direct_messages")
+        .update({ read_at: new Date().toISOString() })
+        .eq("receiver_id", conversationUserId)
+        .eq("sender_id", conversationFriendId)
+        .is("read_at", null);
     };
 
-    fetchMessages();
+    void fetchMessages();
 
-    const channel = supabase.channel(`chat_${activeChat.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages' }, (payload) => {
+    const onConversationEvent = (payload: { eventType: "INSERT" | "UPDATE" | "DELETE"; new: unknown }) => {
         if (payload.eventType === 'INSERT') {
           const newMsg = payload.new as DirectMessage;
           if (
-            (newMsg.sender_id === myUserId && newMsg.receiver_id === activeChat.id) || 
-            (newMsg.sender_id === activeChat.id && newMsg.receiver_id === myUserId)
+            (newMsg.sender_id === conversationUserId && newMsg.receiver_id === conversationFriendId) || 
+            (newMsg.sender_id === conversationFriendId && newMsg.receiver_id === conversationUserId)
           ) {
-            setMessages((prev) => [...prev, newMsg]);
+            setMessages((previous) => previous.some((message) => message.id === newMsg.id) ? previous : [...previous, newMsg].slice(-DIRECT_HISTORY_LIMIT));
           }
         } else if (payload.eventType === 'UPDATE') {
           const updatedMsg = payload.new as DirectMessage;
-          setMessages((prev) => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
+          setMessages((previous) => previous.map((message) => message.id === updatedMsg.id ? updatedMsg : message));
         }
-      }).subscribe();
+    };
+    const channel = supabase.channel(`chat_${conversationUserId}_${conversationFriendId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages', filter: `sender_id=eq.${conversationUserId}` }, onConversationEvent)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages', filter: `receiver_id=eq.${conversationUserId}` }, onConversationEvent)
+      .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { cancelled = true; supabase.removeChannel(channel); };
   }, [myUserId, activeChat, activeView]);
 
   useEffect(() => {
