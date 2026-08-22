@@ -9,7 +9,13 @@ import { supabase } from "../../lib/supabaseClient";
 type Team = "home" | "away";
 type MatchPhase = "ready" | "playing" | "goal" | "finished";
 type ConnectionState = "idle" | "connecting" | "connected" | "error";
+type GameView = "menu" | "country" | "road" | "lineup" | "matchmaking" | "play";
 
+interface Country {
+  code: string;
+  name: string;
+  flag: string;
+}
 interface OpponentProfile {
   name: string;
   isBot: boolean;
@@ -54,7 +60,7 @@ interface FlickAction {
 }
 
 interface ArenaState {
-  schemaVersion: 2;
+  schemaVersion: 3;
   gameKey: typeof GAME_KEY;
   matchId: string;
   revision: number;
@@ -81,19 +87,45 @@ interface DragState {
 
 const GAME_KEY = "football-clash" as const;
 const GAME_NAME = "Football Clash";
-const WIDTH = 720;
-const HEIGHT = 1180;
+const COUNTRIES: Country[] = [
+  { code: "MM", name: "Myanmar", flag: "🇲🇲" },
+  { code: "AR", name: "Argentina", flag: "🇦🇷" },
+  { code: "AU", name: "Australia", flag: "🇦🇺" },
+  { code: "BE", name: "Belgium", flag: "🇧🇪" },
+  { code: "BR", name: "Brazil", flag: "🇧🇷" },
+  { code: "CA", name: "Canada", flag: "🇨🇦" },
+  { code: "HR", name: "Croatia", flag: "🇭🇷" },
+  { code: "DK", name: "Denmark", flag: "🇩🇰" },
+  { code: "EC", name: "Ecuador", flag: "🇪🇨" },
+  { code: "EN", name: "England", flag: "🏴" },
+  { code: "FR", name: "France", flag: "🇫🇷" },
+  { code: "DE", name: "Germany", flag: "🇩🇪" },
+  { code: "GH", name: "Ghana", flag: "🇬🇭" },
+  { code: "JP", name: "Japan", flag: "🇯🇵" },
+  { code: "KR", name: "South Korea", flag: "🇰🇷" },
+  { code: "MX", name: "Mexico", flag: "🇲🇽" },
+  { code: "MA", name: "Morocco", flag: "🇲🇦" },
+  { code: "NL", name: "Netherlands", flag: "🇳🇱" },
+  { code: "PL", name: "Poland", flag: "🇵🇱" },
+  { code: "PT", name: "Portugal", flag: "🇵🇹" },
+  { code: "SN", name: "Senegal", flag: "🇸🇳" },
+  { code: "ES", name: "Spain", flag: "🇪🇸" },
+  { code: "CH", name: "Switzerland", flag: "🇨🇭" },
+  { code: "US", name: "United States", flag: "🇺🇸" },
+];
+const WIDTH = 1600;
+const HEIGHT = 900;
 const MATCH_SECONDS = 75;
-const PLAYER_RADIUS = 37;
-const BALL_RADIUS = 18;
+const PLAYER_RADIUS = 48;
+const BALL_RADIUS = 24;
 const FIELD = {
-  left: 62,
-  right: 658,
-  top: 116,
-  bottom: 1064,
-  goalLeft: 245,
-  goalRight: 475,
-  goalDepth: 58,
+  left: 150,
+  right: 1450,
+  top: 118,
+  bottom: 812,
+  goalTop: 310,
+  goalBottom: 620,
+  goalDepth: 78,
 };
 
 const clamp = (value: number, min: number, max: number) =>
@@ -120,12 +152,12 @@ function formationPlayers(): PlayerDisc[] {
   });
 
   return [
-    create("home-7", "home", 7, 360, 865),
-    create("home-10", "home", 10, 215, 760),
-    create("home-11", "home", 11, 505, 760),
-    create("away-9", "away", 9, 360, 315),
-    create("away-6", "away", 6, 215, 420),
-    create("away-8", "away", 8, 505, 420),
+    create("home-7", "home", 7, 410, 285),
+    create("home-10", "home", 10, 545, 465),
+    create("home-11", "home", 11, 410, 645),
+    create("away-9", "away", 9, 1190, 285),
+    create("away-6", "away", 6, 1055, 465),
+    create("away-8", "away", 8, 1190, 645),
   ];
 }
 
@@ -135,7 +167,7 @@ function makeInitialState(
   active: boolean,
 ): ArenaState {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     gameKey: GAME_KEY,
     matchId,
     revision: 0,
@@ -172,7 +204,7 @@ function isArenaState(value: unknown): value is ArenaState {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<ArenaState>;
   return (
-    candidate.schemaVersion === 2 &&
+    candidate.schemaVersion === 3 &&
     candidate.gameKey === GAME_KEY &&
     typeof candidate.matchId === "string" &&
     typeof candidate.revision === "number" &&
@@ -274,42 +306,42 @@ function advancePhysics(
     state.ball.vx = 0;
     state.ball.vy = 0;
   }
-  if (state.ball.x - state.ball.radius < FIELD.left) {
-    state.ball.x = FIELD.left + state.ball.radius;
-    state.ball.vx = Math.abs(state.ball.vx) * 0.78;
-  } else if (state.ball.x + state.ball.radius > FIELD.right) {
-    state.ball.x = FIELD.right - state.ball.radius;
-    state.ball.vx = -Math.abs(state.ball.vx) * 0.78;
-  }
-
   const insideGoalMouth =
-    state.ball.x > FIELD.goalLeft + state.ball.radius * 0.2 &&
-    state.ball.x < FIELD.goalRight - state.ball.radius * 0.2;
+    state.ball.y > FIELD.goalTop + state.ball.radius * 0.2 &&
+    state.ball.y < FIELD.goalBottom - state.ball.radius * 0.2;
   let goal: Team | null = null;
-  if (insideGoalMouth && state.ball.y < FIELD.top - FIELD.goalDepth * 0.45) {
-    goal = "home";
-  } else if (insideGoalMouth && state.ball.y > FIELD.bottom + FIELD.goalDepth * 0.45) {
+  if (insideGoalMouth && state.ball.x < FIELD.left - FIELD.goalDepth * 0.45) {
     goal = "away";
+  } else if (insideGoalMouth && state.ball.x > FIELD.right + FIELD.goalDepth * 0.45) {
+    goal = "home";
   } else {
-    if (!insideGoalMouth && state.ball.y - state.ball.radius < FIELD.top) {
+    if (!insideGoalMouth && state.ball.x - state.ball.radius < FIELD.left) {
+      state.ball.x = FIELD.left + state.ball.radius;
+      state.ball.vx = Math.abs(state.ball.vx) * 0.8;
+    }
+    if (!insideGoalMouth && state.ball.x + state.ball.radius > FIELD.right) {
+      state.ball.x = FIELD.right - state.ball.radius;
+      state.ball.vx = -Math.abs(state.ball.vx) * 0.8;
+    }
+    if (insideGoalMouth) {
+      const goalLeft = FIELD.left - FIELD.goalDepth;
+      const goalRight = FIELD.right + FIELD.goalDepth;
+      if (state.ball.x - state.ball.radius < goalLeft) {
+        state.ball.x = goalLeft + state.ball.radius;
+        state.ball.vx = Math.abs(state.ball.vx) * 0.72;
+      }
+      if (state.ball.x + state.ball.radius > goalRight) {
+        state.ball.x = goalRight - state.ball.radius;
+        state.ball.vx = -Math.abs(state.ball.vx) * 0.72;
+      }
+    }
+    if (state.ball.y - state.ball.radius < FIELD.top) {
       state.ball.y = FIELD.top + state.ball.radius;
       state.ball.vy = Math.abs(state.ball.vy) * 0.8;
     }
-    if (!insideGoalMouth && state.ball.y + state.ball.radius > FIELD.bottom) {
+    if (state.ball.y + state.ball.radius > FIELD.bottom) {
       state.ball.y = FIELD.bottom - state.ball.radius;
       state.ball.vy = -Math.abs(state.ball.vy) * 0.8;
-    }
-    if (insideGoalMouth) {
-      const goalTop = FIELD.top - FIELD.goalDepth;
-      const goalBottom = FIELD.bottom + FIELD.goalDepth;
-      if (state.ball.y - state.ball.radius < goalTop) {
-        state.ball.y = goalTop + state.ball.radius;
-        state.ball.vy = Math.abs(state.ball.vy) * 0.72;
-      }
-      if (state.ball.y + state.ball.radius > goalBottom) {
-        state.ball.y = goalBottom - state.ball.radius;
-        state.ball.vy = -Math.abs(state.ball.vy) * 0.72;
-      }
     }
   }
 
@@ -340,25 +372,24 @@ function drawRoundedRect(
   context.closePath();
 }
 
-function drawGoal(context: CanvasRenderingContext2D, top: boolean) {
-  const y = top ? FIELD.top - FIELD.goalDepth : FIELD.bottom;
+function drawGoal(context: CanvasRenderingContext2D, left: boolean) {
+  const x = left ? FIELD.left - FIELD.goalDepth : FIELD.right;
   context.save();
   context.strokeStyle = "rgba(226,255,205,.9)";
   context.lineWidth = 5;
-  context.strokeRect(FIELD.goalLeft, y, FIELD.goalRight - FIELD.goalLeft, FIELD.goalDepth);
+  context.strokeRect(x, FIELD.goalTop, FIELD.goalDepth, FIELD.goalBottom - FIELD.goalTop);
   context.strokeStyle = "rgba(163,230,53,.28)";
   context.lineWidth = 1.5;
-  for (let x = FIELD.goalLeft + 18; x < FIELD.goalRight; x += 18) {
+  for (let lineX = x + 16; lineX < x + FIELD.goalDepth; lineX += 16) {
     context.beginPath();
-    context.moveTo(x, y);
-    context.lineTo(x, y + FIELD.goalDepth);
+    context.moveTo(lineX, FIELD.goalTop);
+    context.lineTo(lineX, FIELD.goalBottom);
     context.stroke();
   }
-  for (let line = 1; line < 4; line += 1) {
-    const lineY = y + (FIELD.goalDepth / 4) * line;
+  for (let lineY = FIELD.goalTop + 22; lineY < FIELD.goalBottom; lineY += 22) {
     context.beginPath();
-    context.moveTo(FIELD.goalLeft, lineY);
-    context.lineTo(FIELD.goalRight, lineY);
+    context.moveTo(x, lineY);
+    context.lineTo(x + FIELD.goalDepth, lineY);
     context.stroke();
   }
   context.restore();
@@ -371,94 +402,154 @@ function drawPlayer(
   selected: boolean,
 ) {
   const home = player.team === "home";
+  const kit = home
+    ? { shirt: "#a3e635", dark: "#365314", shorts: "#f8fafc", socks: "#38bdf8" }
+    : { shirt: "#38bdf8", dark: "#075985", shorts: "#082f49", socks: "#f8fafc" };
+  const skinTones = ["#f4c99b", "#c98d63", "#8a5739"];
+  const skin = skinTones[player.number % skinTones.length];
+  const hair = player.number % 3 === 0 ? "#111827" : player.number % 3 === 1 ? "#7c2d12" : "#3f2a1d";
+
   context.save();
   context.translate(player.x, player.y);
-  context.fillStyle = "rgba(0,0,0,.28)";
+  context.fillStyle = "rgba(15,23,42,.25)";
   context.beginPath();
-  context.ellipse(4, player.radius * 0.78, player.radius * 0.9, 13, 0, 0, Math.PI * 2);
+  context.ellipse(5, 51, 55, 15, 0, 0, Math.PI * 2);
   context.fill();
+
   if (active || selected) {
-    context.strokeStyle = selected ? "#fff" : home ? "#bef264" : "#7dd3fc";
-    context.lineWidth = selected ? 7 : 4;
+    context.strokeStyle = selected ? "#ffffff" : home ? "#facc15" : "#f8fafc";
+    context.lineWidth = selected ? 8 : 5;
     context.beginPath();
-    context.arc(0, 0, player.radius + (selected ? 9 : 5), 0, Math.PI * 2);
+    context.ellipse(0, 44, 60, 22, 0, 0, Math.PI * 2);
     context.stroke();
   }
-  const rim = context.createLinearGradient(-30, -30, 30, 32);
-  rim.addColorStop(0, home ? "#d9f99d" : "#bae6fd");
-  rim.addColorStop(1, home ? "#4d7c0f" : "#075985");
-  context.fillStyle = rim;
-  context.beginPath();
-  context.arc(0, 0, player.radius, 0, Math.PI * 2);
+
+  context.strokeStyle = "#172033";
+  context.lineWidth = 5;
+  context.lineCap = "round";
+  context.fillStyle = kit.socks;
+  drawRoundedRect(context, -32, 24, 24, 28, 8);
   context.fill();
-  context.strokeStyle = "rgba(255,255,255,.55)";
-  context.lineWidth = 3;
   context.stroke();
-  context.fillStyle = home ? "#17240e" : "#101b34";
-  context.beginPath();
-  context.arc(0, 3, player.radius - 8, 0, Math.PI * 2);
+  drawRoundedRect(context, 8, 24, 24, 28, 8);
   context.fill();
-  context.fillStyle = home ? "#a3e635" : "#38bdf8";
+  context.stroke();
+
+  context.fillStyle = home ? "#ffffff" : "#f59e0b";
+  drawRoundedRect(context, -39, 43, 34, 14, 7);
+  context.fill();
+  context.stroke();
+  drawRoundedRect(context, 5, 43, 34, 14, 7);
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = kit.shorts;
+  drawRoundedRect(context, -37, 5, 74, 31, 9);
+  context.fill();
+  context.stroke();
   context.beginPath();
-  context.arc(0, 8, 22, 0, Math.PI, false);
-  context.lineTo(-22, 19);
-  context.quadraticCurveTo(0, 31, 22, 19);
+  context.moveTo(0, 10);
+  context.lineTo(0, 34);
+  context.stroke();
+
+  context.fillStyle = skin;
+  context.beginPath();
+  context.arc(-43, -5, 15, 0, Math.PI * 2);
+  context.arc(43, -5, 15, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = kit.shirt;
+  context.beginPath();
+  context.moveTo(-35, -38);
+  context.quadraticCurveTo(-55, -30, -52, -5);
+  context.lineTo(-34, 4);
+  context.lineTo(34, 4);
+  context.lineTo(52, -5);
+  context.quadraticCurveTo(55, -30, 35, -38);
   context.closePath();
   context.fill();
-  const skinTones = ["#f4c99b", "#c98d63", "#8a5739"];
-  context.fillStyle = skinTones[player.number % skinTones.length];
+  context.strokeStyle = kit.dark;
+  context.lineWidth = 7;
   context.beginPath();
-  context.arc(0, -5, 14, 0, Math.PI * 2);
-  context.fill();
-  context.fillStyle = player.number % 2 ? "#1c120d" : "#3c2517";
+  context.moveTo(-36, -32);
+  context.lineTo(-50, -9);
+  context.moveTo(36, -32);
+  context.lineTo(50, -9);
+  context.stroke();
+
+  context.fillStyle = skin;
+  context.strokeStyle = "#172033";
+  context.lineWidth = 5;
   context.beginPath();
-  context.arc(0, -10, 14, Math.PI, Math.PI * 2);
+  context.arc(0, -58, 39, 0, Math.PI * 2);
   context.fill();
-  context.fillStyle = "#07110b";
+  context.stroke();
+
+  context.fillStyle = hair;
   context.beginPath();
-  context.arc(-5, -4, 1.7, 0, Math.PI * 2);
-  context.arc(5, -4, 1.7, 0, Math.PI * 2);
+  context.moveTo(-38, -65);
+  context.quadraticCurveTo(-32, -103, 2, -99);
+  context.lineTo(13, -111);
+  context.lineTo(17, -96);
+  context.lineTo(32, -104);
+  context.lineTo(27, -88);
+  context.quadraticCurveTo(43, -81, 37, -58);
+  context.quadraticCurveTo(26, -77, 0, -75);
+  context.quadraticCurveTo(-24, -78, -38, -65);
+  context.closePath();
   context.fill();
-  context.fillStyle = home ? "#07110b" : "#e0f2fe";
-  context.font = "900 13px system-ui, sans-serif";
+  context.stroke();
+
+  context.fillStyle = "#ffffff";
+  context.beginPath();
+  context.ellipse(-14, -57, 8, 10, 0, 0, Math.PI * 2);
+  context.ellipse(14, -57, 8, 10, 0, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = "#172033";
+  context.beginPath();
+  context.arc(-13, -56, 3.4, 0, Math.PI * 2);
+  context.arc(13, -56, 3.4, 0, Math.PI * 2);
+  context.fill();
+  context.strokeStyle = "#6b3f2c";
+  context.lineWidth = 3;
+  context.beginPath();
+  context.arc(0, -42, 10, 0.2, Math.PI - 0.2);
+  context.stroke();
+
+  context.fillStyle = home ? "#172033" : "#ffffff";
+  context.font = "900 21px system-ui, sans-serif";
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(String(player.number), 0, 17);
+  context.fillText(String(player.number), 0, -14);
   context.restore();
 }
 
 function drawBall(context: CanvasRenderingContext2D, ball: BallBody) {
   context.save();
   context.translate(ball.x, ball.y);
-  context.fillStyle = "rgba(0,0,0,.3)";
+  context.fillStyle = "rgba(15,23,42,.25)";
   context.beginPath();
-  context.ellipse(4, ball.radius + 7, ball.radius * 0.85, 7, 0, 0, Math.PI * 2);
+  context.ellipse(5, ball.radius + 11, ball.radius * 0.95, 9, 0, 0, Math.PI * 2);
   context.fill();
-  context.fillStyle = "#f8fafc";
+  context.fillStyle = "#ffffff";
   context.beginPath();
   context.arc(0, 0, ball.radius, 0, Math.PI * 2);
   context.fill();
-  context.strokeStyle = "#07110b";
-  context.lineWidth = 2;
+  context.strokeStyle = "#172033";
+  context.lineWidth = 3;
   context.stroke();
-  context.fillStyle = "#07110b";
+  context.fillStyle = "#172033";
   context.beginPath();
   for (let point = 0; point < 5; point += 1) {
     const angle = -Math.PI / 2 + point * (Math.PI * 2 / 5);
-    const x = Math.cos(angle) * 7;
-    const y = Math.sin(angle) * 7;
+    const x = Math.cos(angle) * 9;
+    const y = Math.sin(angle) * 9;
     if (point === 0) context.moveTo(x, y);
     else context.lineTo(x, y);
   }
   context.closePath();
   context.fill();
-  for (let spoke = 0; spoke < 5; spoke += 1) {
-    const angle = -Math.PI / 2 + spoke * (Math.PI * 2 / 5);
-    context.beginPath();
-    context.moveTo(Math.cos(angle) * 7, Math.sin(angle) * 7);
-    context.lineTo(Math.cos(angle) * 15, Math.sin(angle) * 15);
-    context.stroke();
-  }
   context.restore();
 }
 
@@ -466,85 +557,89 @@ function drawArena(canvas: HTMLCanvasElement, state: ArenaState | null, drag: Dr
   const context = canvas.getContext("2d");
   if (!context) return;
   context.clearRect(0, 0, WIDTH, HEIGHT);
-  const backdrop = context.createLinearGradient(0, 0, 0, HEIGHT);
-  backdrop.addColorStop(0, "#071a12");
-  backdrop.addColorStop(0.5, "#020a07");
-  backdrop.addColorStop(1, "#071a12");
-  context.fillStyle = backdrop;
-  context.fillRect(0, 0, WIDTH, HEIGHT);
-  context.fillStyle = "#0c2418";
-  context.fillRect(0, 0, WIDTH, 98);
-  context.fillRect(0, HEIGHT - 98, WIDTH, 98);
-  for (let row = 0; row < 3; row += 1) {
-    for (let column = 0; column < 24; column += 1) {
-      const x = 18 + column * 30 + (row % 2) * 7;
-      const colorIndex = (column * 7 + row * 11) % 4;
-      context.fillStyle = ["#bef264", "#38bdf8", "#f8fafc", "#f59e0b"][colorIndex];
-      context.globalAlpha = 0.35 + ((column + row) % 3) * 0.16;
-      context.beginPath();
-      context.arc(x, 20 + row * 24, 5, 0, Math.PI * 2);
-      context.fill();
-      context.beginPath();
-      context.arc(x, HEIGHT - 20 - row * 24, 5, 0, Math.PI * 2);
-      context.fill();
-    }
+
+  const sky = context.createLinearGradient(0, 0, 0, 140);
+  sky.addColorStop(0, "#082f49");
+  sky.addColorStop(1, "#0f766e");
+  context.fillStyle = sky;
+  context.fillRect(0, 0, WIDTH, 128);
+
+  context.fillStyle = "#163e35";
+  context.fillRect(0, 66, WIDTH, 62);
+  for (let section = 0; section < 32; section += 1) {
+    context.fillStyle = ["#a3e635", "#38bdf8", "#facc15", "#f8fafc"][section % 4];
+    context.globalAlpha = 0.72;
+    context.beginPath();
+    context.arc(28 + section * 51, 91 + (section % 2) * 12, 8, 0, Math.PI * 2);
+    context.fill();
   }
   context.globalAlpha = 1;
-  const pitch = context.createLinearGradient(FIELD.left, 0, FIELD.right, 0);
-  pitch.addColorStop(0, "#0e5c35");
-  pitch.addColorStop(0.5, "#168247");
-  pitch.addColorStop(1, "#0e5c35");
-  context.fillStyle = pitch;
-  context.fillRect(FIELD.left, FIELD.top, FIELD.right - FIELD.left, FIELD.bottom - FIELD.top);
-  const stripeHeight = (FIELD.bottom - FIELD.top) / 10;
-  for (let stripe = 0; stripe < 10; stripe += 1) {
-    if (stripe % 2 === 0) {
-      context.fillStyle = "rgba(190,242,100,.055)";
-      context.fillRect(FIELD.left, FIELD.top + stripe * stripeHeight, FIELD.right - FIELD.left, stripeHeight);
-    }
+
+  context.fillStyle = "#8fd02d";
+  context.fillRect(0, 108, WIDTH, HEIGHT - 108);
+  const stripeHeight = (FIELD.bottom - FIELD.top) / 7;
+  for (let stripe = 0; stripe < 7; stripe += 1) {
+    context.fillStyle = stripe % 2 === 0 ? "#96d630" : "#7bbb28";
+    context.fillRect(0, FIELD.top + stripe * stripeHeight, WIDTH, stripeHeight);
   }
+
+  context.fillStyle = "rgba(3,35,24,.22)";
+  context.fillRect(0, 0, WIDTH, 72);
+  context.fillStyle = "#d9f99d";
+  context.font = "900 24px system-ui, sans-serif";
+  context.textAlign = "left";
+  context.fillText("JOE YOKE ARENA", 32, 45);
+  context.textAlign = "right";
+  context.fillStyle = "#bae6fd";
+  context.fillText("MYAN HUB CUP", WIDTH - 32, 45);
+
   drawGoal(context, true);
   drawGoal(context, false);
-  context.strokeStyle = "rgba(239,255,231,.78)";
-  context.lineWidth = 4;
+
+  context.strokeStyle = "#ffffff";
+  context.lineWidth = 6;
   context.strokeRect(FIELD.left, FIELD.top, FIELD.right - FIELD.left, FIELD.bottom - FIELD.top);
   context.beginPath();
-  context.moveTo(FIELD.left, HEIGHT / 2);
-  context.lineTo(FIELD.right, HEIGHT / 2);
+  context.moveTo(WIDTH / 2, FIELD.top);
+  context.lineTo(WIDTH / 2, FIELD.bottom);
   context.stroke();
   context.beginPath();
-  context.arc(WIDTH / 2, HEIGHT / 2, 88, 0, Math.PI * 2);
+  context.arc(WIDTH / 2, HEIGHT / 2 + 15, 104, 0, Math.PI * 2);
   context.stroke();
-  context.fillStyle = "rgba(239,255,231,.82)";
+  context.fillStyle = "#ffffff";
   context.beginPath();
-  context.arc(WIDTH / 2, HEIGHT / 2, 5, 0, Math.PI * 2);
+  context.arc(WIDTH / 2, HEIGHT / 2 + 15, 7, 0, Math.PI * 2);
   context.fill();
-  context.strokeRect(176, FIELD.top, 368, 155);
-  context.strokeRect(176, FIELD.bottom - 155, 368, 155);
+
+  context.strokeRect(FIELD.left, 260, 190, 410);
+  context.strokeRect(FIELD.right - 190, 260, 190, 410);
   context.beginPath();
-  context.arc(WIDTH / 2, FIELD.top + 112, 4, 0, Math.PI * 2);
-  context.arc(WIDTH / 2, FIELD.bottom - 112, 4, 0, Math.PI * 2);
+  context.arc(FIELD.left + 130, HEIGHT / 2 + 15, 6, 0, Math.PI * 2);
+  context.arc(FIELD.right - 130, HEIGHT / 2 + 15, 6, 0, Math.PI * 2);
+  context.fill();
+
+  context.fillStyle = "rgba(7,17,11,.88)";
+  drawRoundedRect(context, 18, 380, 78, 170, 24);
   context.fill();
   context.save();
-  context.fillStyle = "rgba(2,8,5,.86)";
-  drawRoundedRect(context, 8, 300, 44, 185, 12);
-  context.fill();
-  drawRoundedRect(context, WIDTH - 52, 695, 44, 185, 12);
-  context.fill();
-  context.translate(30, 393);
+  context.translate(57, 465);
   context.rotate(-Math.PI / 2);
   context.fillStyle = "#bef264";
-  context.font = "900 17px system-ui, sans-serif";
+  context.font = "900 20px system-ui, sans-serif";
   context.textAlign = "center";
-  context.fillText("JOE YOKE", 0, 6);
+  context.fillText("JOE YOKE", 0, 7);
   context.restore();
+
+  context.fillStyle = "rgba(7,17,11,.88)";
+  drawRoundedRect(context, WIDTH - 96, 380, 78, 170, 24);
+  context.fill();
   context.save();
-  context.translate(WIDTH - 30, 788);
+  context.translate(WIDTH - 57, 465);
   context.rotate(Math.PI / 2);
   context.fillStyle = "#7dd3fc";
-  context.font = "900 17px system-ui, sans-serif";
+  context.font = "900 20px system-ui, sans-serif";
   context.textAlign = "center";
-  context.fillText("MYAN HUB", 0, 6);
+  context.fillText("MYAN HUB", 0, 7);
   context.restore();
 
   if (!state) return;
@@ -552,43 +647,45 @@ function drawArena(canvas: HTMLCanvasElement, state: ArenaState | null, drag: Dr
     drawPlayer(context, player, state.phase === "playing" && state.currentTurn === player.team, drag?.playerId === player.id);
   }
   drawBall(context, state.ball);
+
   if (drag) {
     const dx = drag.current.x - drag.origin.x;
     const dy = drag.current.y - drag.origin.y;
     const distance = Math.hypot(dx, dy);
     if (distance > 2) {
-      const capped = Math.min(distance, 190);
+      const capped = Math.min(distance, 260);
       const nx = dx / distance;
       const ny = dy / distance;
       const endX = drag.origin.x + nx * capped;
       const endY = drag.origin.y + ny * capped;
       context.save();
-      context.strokeStyle = "rgba(255,255,255,.92)";
-      context.lineWidth = 8;
+      context.strokeStyle = "rgba(255,255,255,.95)";
+      context.lineWidth = 10;
       context.lineCap = "round";
-      context.setLineDash([15, 10]);
+      context.setLineDash([20, 13]);
       context.beginPath();
       context.moveTo(drag.origin.x, drag.origin.y);
       context.lineTo(endX, endY);
       context.stroke();
       context.setLineDash([]);
-      context.fillStyle = "#bef264";
+      context.fillStyle = "#facc15";
       context.beginPath();
-      context.moveTo(endX + nx * 13, endY + ny * 13);
-      context.lineTo(endX - ny * 13 - nx * 9, endY + nx * 13 - ny * 9);
-      context.lineTo(endX + ny * 13 - nx * 9, endY - nx * 13 - ny * 9);
+      context.moveTo(endX + nx * 18, endY + ny * 18);
+      context.lineTo(endX - ny * 16 - nx * 12, endY + nx * 16 - ny * 12);
+      context.lineTo(endX + ny * 16 - nx * 12, endY - nx * 16 - ny * 12);
       context.closePath();
       context.fill();
-      context.fillStyle = "rgba(2,8,5,.86)";
-      drawRoundedRect(context, WIDTH / 2 - 122, HEIGHT - 75, 244, 22, 11);
+
+      context.fillStyle = "rgba(7,17,11,.84)";
+      drawRoundedRect(context, WIDTH / 2 - 170, HEIGHT - 54, 340, 24, 12);
       context.fill();
-      const power = capped / 190;
-      const powerGradient = context.createLinearGradient(WIDTH / 2 - 117, 0, WIDTH / 2 + 117, 0);
+      const power = capped / 260;
+      const powerGradient = context.createLinearGradient(WIDTH / 2 - 164, 0, WIDTH / 2 + 164, 0);
       powerGradient.addColorStop(0, "#38bdf8");
       powerGradient.addColorStop(0.65, "#bef264");
       powerGradient.addColorStop(1, "#fb7185");
       context.fillStyle = powerGradient;
-      drawRoundedRect(context, WIDTH / 2 - 117, HEIGHT - 70, 234 * power, 12, 6);
+      drawRoundedRect(context, WIDTH / 2 - 164, HEIGHT - 48, 328 * power, 12, 6);
       context.fill();
       context.restore();
     }
@@ -620,6 +717,63 @@ function formatClock(seconds: number): string {
   return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+function StadiumBackdrop() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      <div className="absolute inset-x-0 top-0 h-[48%] bg-[linear-gradient(180deg,#38bdf8_0%,#67e8f9_55%,#99f6e4_100%)]" />
+      <div className="absolute -left-[8%] top-[18%] h-[52%] w-[62%] origin-left -skew-y-[10deg] border-y-[18px] border-[#d8b4fe]/55 bg-[#243b4a] shadow-[inset_0_70px_0_rgba(255,255,255,.12),inset_0_130px_0_rgba(56,189,248,.08)]" />
+      <div className="absolute -right-[8%] top-[18%] h-[52%] w-[62%] origin-right skew-y-[10deg] border-y-[18px] border-[#d8b4fe]/55 bg-[#243b4a] shadow-[inset_0_70px_0_rgba(255,255,255,.12),inset_0_130px_0_rgba(56,189,248,.08)]" />
+      <div className="absolute inset-x-0 bottom-0 h-[30%] bg-[#8fd02d]" />
+      <div className="absolute inset-x-[18%] bottom-0 h-[30%] [clip-path:polygon(38%_0,62%_0,100%_100%,0_100%)] bg-[repeating-linear-gradient(90deg,#96d630_0_12%,#7bbb28_12%_24%)]" />
+      <div className="absolute bottom-[3%] left-1/2 h-[22%] w-[46%] -translate-x-1/2 border-x-2 border-t-2 border-white/75 [clip-path:polygon(38%_0,62%_0,100%_100%,0_100%)]" />
+      <div className="absolute bottom-[20%] left-1/2 h-[9%] w-[12%] -translate-x-1/2 border-4 border-white/85 bg-white/5 shadow-[inset_0_0_0_2px_rgba(255,255,255,.22)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,transparent_0%,transparent_35%,rgba(2,8,23,.18)_100%)]" />
+    </div>
+  );
+}
+
+function TournamentLogo({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className="relative text-center drop-shadow-[0_10px_0_rgba(20,83,45,.28)]">
+      <FootballClashLogo className={`mx-auto ${compact ? "h-20 w-20" : "h-24 w-24 sm:h-32 sm:w-32"}`} />
+      <div className="-mt-3 -rotate-1 rounded-[28px] border-4 border-[#052e2b] bg-gradient-to-b from-lime-300 to-lime-500 px-7 py-2 shadow-[0_6px_0_#075985]">
+        <p className={`${compact ? "text-lg" : "text-2xl sm:text-4xl"} font-black uppercase italic leading-none tracking-[-.05em] text-[#052e2b]`}>Football Clash</p>
+        <p className="mt-1 text-[9px] font-black uppercase tracking-[.32em] text-[#075985]">Joe Yoke Cup</p>
+      </div>
+    </div>
+  );
+}
+
+function CartoonButton({ children, onClick, tone = "lime", disabled = false, className = "" }: { children: React.ReactNode; onClick: () => void; tone?: "lime" | "sky" | "violet" | "amber"; disabled?: boolean; className?: string }) {
+  const colors = {
+    lime: "border-lime-200 bg-lime-400 text-[#12310c] shadow-[0_7px_0_#3f6212]",
+    sky: "border-cyan-100 bg-cyan-400 text-[#083344] shadow-[0_7px_0_#0e7490]",
+    violet: "border-fuchsia-200 bg-fuchsia-500 text-white shadow-[0_7px_0_#86198f]",
+    amber: "border-yellow-100 bg-yellow-400 text-[#422006] shadow-[0_7px_0_#a16207]",
+  };
+  return <button type="button" onClick={onClick} disabled={disabled} className={`rounded-[22px] border-4 px-6 py-3 text-sm font-black uppercase tracking-[.08em] transition active:translate-y-1 active:shadow-none disabled:opacity-45 ${colors[tone]} ${className}`}>{children}</button>;
+}
+
+function ChibiPreview({ team, variant }: { team: Team; variant: number }) {
+  const shirt = team === "home" ? ["#a3e635", "#facc15", "#f8fafc"][variant % 3] : ["#38bdf8", "#fb7185", "#c084fc"][variant % 3];
+  return (
+    <svg viewBox="0 0 90 120" className="h-24 w-20 drop-shadow-[0_6px_0_rgba(0,0,0,.18)]" aria-hidden="true">
+      <ellipse cx="45" cy="111" rx="31" ry="7" fill="rgba(0,0,0,.22)" />
+      <rect x="21" y="88" width="19" height="20" rx="7" fill="#f8fafc" stroke="#172033" strokeWidth="4" />
+      <rect x="50" y="88" width="19" height="20" rx="7" fill="#f8fafc" stroke="#172033" strokeWidth="4" />
+      <rect x="13" y="101" width="28" height="11" rx="5" fill="#38bdf8" stroke="#172033" strokeWidth="4" />
+      <rect x="49" y="101" width="28" height="11" rx="5" fill="#38bdf8" stroke="#172033" strokeWidth="4" />
+      <path d="M16 58Q8 67 15 87l17-5h26l17 5q7-20-1-29L61 48H29Z" fill={shirt} stroke="#172033" strokeWidth="4" />
+      <rect x="28" y="79" width="34" height="18" rx="6" fill="#f8fafc" stroke="#172033" strokeWidth="4" />
+      <circle cx="45" cy="39" r="27" fill="#d69b6b" stroke="#172033" strokeWidth="4" />
+      <path d="M19 38Q17 8 46 9l9-8 1 10 13-5-5 12q10 8 7 24-12-15-28-14-14 0-24 10Z" fill="#172033" stroke="#172033" strokeWidth="3" />
+      <circle cx="35" cy="41" r="5" fill="white" /><circle cx="55" cy="41" r="5" fill="white" />
+      <circle cx="36" cy="42" r="2" fill="#172033" /><circle cx="54" cy="42" r="2" fill="#172033" />
+      <path d="M39 53q6 5 12 0" fill="none" stroke="#7c2d12" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function FootballClash({
   onClose,
   preloadedMatchId,
@@ -628,7 +782,7 @@ export default function FootballClash({
   role: suppliedRole,
 }: FootballClashProps) {
   const incomingMatchId = preloadedMatchId ?? suppliedMatchId ?? null;
-  const [view, setView] = useState<"menu" | "matchmaking" | "play">(incomingMatchId ? "play" : "menu");
+  const [view, setView] = useState<GameView>(incomingMatchId ? "play" : "menu");
   const [activeMatchId, setActiveMatchId] = useState<string | null>(incomingMatchId);
   const [localOpponent, setLocalOpponent] = useState<OpponentProfile | null>(opponent ?? null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -644,6 +798,11 @@ export default function FootballClash({
   const [drag, setDrag] = useState<DragState | null>(null);
   const [clock, setClock] = useState(MATCH_SECONDS);
   const [message, setMessage] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<Country>(COUNTRIES[0]);
+  const [opponentCountry, setOpponentCountry] = useState<Country>(COUNTRIES[8]);
+  const [homeKit, setHomeKit] = useState(0);
+  const [awayKit, setAwayKit] = useState(0);
+  const [soundOn, setSoundOn] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameRef = useRef<ArenaState | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -926,8 +1085,8 @@ export default function FootballClash({
         Math.hypot(second.x - current.ball.x, second.y - current.ball.y),
       )[0];
       if (!selected) return;
-      const targetX = current.ball.x + (WIDTH / 2 - current.ball.x) * 0.16;
-      const targetY = current.ball.y + 105;
+      const targetX = current.ball.x - 105;
+      const targetY = current.ball.y + (HEIGHT / 2 - current.ball.y) * 0.12;
       const targetDx = targetX - selected.x;
       const targetDy = targetY - selected.y;
       const targetDistance = Math.hypot(targetDx, targetDy) || 1;
@@ -997,7 +1156,7 @@ export default function FootballClash({
       window.setTimeout(() => setMessage(null), 1300);
       return;
     }
-    const power = Math.min(distance, 190) / 10.3;
+    const power = Math.min(distance, 260) / 14.05;
     performFlick(active.playerId, { x: (dx / distance) * power, y: (dy / distance) * power });
   };
 
@@ -1013,8 +1172,8 @@ export default function FootballClash({
     actionOwnerRef.current = false;
     gameRef.current = null;
     setGame(null);
-    if (isGuest) setPlayerName("Guest Squad");
-    setLocalOpponent({ name: "Neon Strikers", isBot: true, avatarIcon: "NS", elo: 1180 });
+    setPlayerName(selectedCountry.name);
+    setLocalOpponent({ name: opponentCountry.name, isBot: true, avatarIcon: opponentCountry.code, elo: 1180 });
     setActiveMatchId(`bot_joe_yoke_arena_${Date.now()}`);
     setRole("home");
     setMatchmakerRole(1);
@@ -1048,31 +1207,131 @@ export default function FootballClash({
 
   if (view === "menu") {
     return (
-      <div className="fixed inset-0 z-[100] overflow-hidden bg-[#030a07] text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_8%,rgba(163,230,53,.22),transparent_32%),radial-gradient(circle_at_80%_70%,rgba(56,189,248,.12),transparent_34%),linear-gradient(165deg,#092417_0%,#020705_70%)]" />
-        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-lime-300 via-sky-300 to-lime-300" />
-        <div className="relative flex h-full flex-col items-center justify-center overflow-y-auto px-5 py-10 text-center" style={{ paddingTop: "max(2.5rem, env(safe-area-inset-top))", paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}>
-          {onClose && <button onClick={onClose} className="absolute left-5 top-[max(1.25rem,env(safe-area-inset-top))] grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-black/25 text-xl backdrop-blur-md active:scale-95" aria-label="Close Football Clash">{"\u00d7"}</button>}
-          <div className="relative mb-4">
-            <div className="absolute inset-2 rounded-full bg-lime-300/25 blur-2xl" />
-            <FootballClashLogo className="relative h-28 w-28 drop-shadow-[0_16px_40px_rgba(163,230,53,.25)]" />
+      <div className="fixed inset-0 z-[100] select-none overflow-hidden bg-[#082f49] text-white">
+        <StadiumBackdrop />
+        <div className="relative flex h-full flex-col items-center justify-center overflow-y-auto px-5 py-6 text-center" style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+          {onClose && <button onClick={onClose} className="absolute left-4 top-[max(1rem,env(safe-area-inset-top))] grid h-12 w-12 place-items-center rounded-2xl border-4 border-yellow-100 bg-yellow-400 text-2xl font-black text-[#422006] shadow-[0_6px_0_#a16207] active:translate-y-1 active:shadow-none" aria-label="Close Football Clash">{"←"}</button>}
+          <div className="mb-5 sm:mb-8"><TournamentLogo /></div>
+          <div className="flex w-full max-w-sm flex-col gap-4">
+            <CartoonButton onClick={() => setView("country")} disabled={!authReady} tone="sky" className="w-full text-base sm:text-lg">
+              <span className="mr-3 text-xl">▶</span>{authReady ? "New tournament" : "Loading arena..."}
+            </CartoonButton>
+            <CartoonButton onClick={() => {
+              const rivals = COUNTRIES.filter((country) => country.code !== selectedCountry.code);
+              setOpponentCountry(rivals[Math.floor(Math.random() * rivals.length)]);
+              setView("lineup");
+            }} disabled={!authReady} tone="lime" className="w-full">
+              <span className="mr-3">⚡</span>Quick match
+            </CartoonButton>
+            {!isGuest && <CartoonButton onClick={() => void beginOnlineMatch()} tone="violet" className="w-full text-xs">Online arena</CartoonButton>}
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[.42em] text-lime-300">Joe Yoke Arena</p>
-          <h1 className="mt-2 text-4xl font-black uppercase italic tracking-[-.06em] sm:text-5xl">Football Clash</h1>
-          <p className="mt-3 max-w-sm text-sm leading-6 text-white/58">Command a three-player squad. Drag to aim, release to strike, and own the neon arena.</p>
-          <div className="mt-6 grid w-full max-w-sm grid-cols-3 gap-2 text-left">
-            {[["01", "Choose", "Pick a player"], ["02", "Aim", "Drag to power"], ["03", "Strike", "Release to move"]].map(([number, title, detail]) => (
-              <div key={number} className="rounded-2xl border border-white/10 bg-white/[.045] p-3 backdrop-blur-sm">
-                <span className="text-[9px] font-black text-lime-300">{number}</span>
-                <p className="mt-1 text-[11px] font-black uppercase">{title}</p>
-                <p className="mt-1 text-[9px] leading-4 text-white/42">{detail}</p>
-              </div>
-            ))}
+          <p className="mt-5 rounded-full bg-[#052e2b]/75 px-5 py-2 text-[10px] font-black uppercase tracking-[.18em] text-lime-200 backdrop-blur">{isGuest ? "Guest mode · no sign-in required" : "Tournament or live multiplayer"}</p>
+          <button onClick={() => setSoundOn((current) => !current)} className="absolute bottom-[max(1.1rem,env(safe-area-inset-bottom))] left-4 grid h-14 w-14 place-items-center rounded-2xl border-4 border-yellow-100 bg-yellow-400 text-2xl shadow-[0_6px_0_#a16207] active:translate-y-1 active:shadow-none" aria-label={soundOn ? "Mute sound" : "Enable sound"}>{soundOn ? "🔊" : "🔇"}</button>
+          <button onClick={() => { setMessage("Choose a player, drag toward the target, then release."); window.setTimeout(() => setMessage(null), 2600); }} className="absolute bottom-[max(1.1rem,env(safe-area-inset-bottom))] right-4 grid h-14 w-14 place-items-center rounded-2xl border-4 border-yellow-100 bg-yellow-400 text-2xl font-black text-[#422006] shadow-[0_6px_0_#a16207] active:translate-y-1 active:shadow-none" aria-label="How to play">i</button>
+          {message && <div className="absolute bottom-24 left-1/2 w-[min(90%,420px)] -translate-x-1/2 rounded-2xl border-2 border-white/50 bg-[#052e2b]/90 px-4 py-3 text-xs font-bold shadow-xl">{message}</div>}
+        </div>
+      </div>
+    );
+  }
+
+  if (view === "country") {
+    return (
+      <div className="fixed inset-0 z-[100] select-none overflow-y-auto bg-[#082f49] text-white">
+        <StadiumBackdrop />
+        <div className="relative mx-auto flex min-h-full max-w-6xl flex-col px-4 py-5 sm:px-8" style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+          <div className="flex items-center justify-between">
+            <CartoonButton onClick={() => setView("menu")} tone="violet" className="px-4 py-2">← Back</CartoonButton>
+            <div className="hidden sm:block"><TournamentLogo compact /></div>
+            <div className="w-24" />
           </div>
-          <button onClick={startBotMatch} disabled={!authReady} className="mt-6 w-full max-w-sm rounded-2xl bg-lime-300 px-6 py-4 text-sm font-black uppercase tracking-[.2em] text-[#07110b] shadow-[0_16px_45px_rgba(163,230,53,.22)] transition active:scale-[.98] disabled:opacity-50">{authReady ? "Kick off vs AI" : "Loading arena..."}</button>
-          {!isGuest && <button onClick={() => void beginOnlineMatch()} className="mt-3 w-full max-w-sm rounded-2xl border border-sky-300/30 bg-sky-300/8 px-6 py-3.5 text-xs font-black uppercase tracking-[.18em] text-sky-200 transition active:scale-[.98]">Online arena</button>}
-          <p className="mt-4 text-[10px] font-bold uppercase tracking-[.18em] text-white/35">{isGuest ? "Guest play enabled - no sign-in required" : "AI practice or live 1v1"}</p>
-          {message && <p className="mt-3 text-xs font-semibold text-rose-300">{message}</p>}
+          <section className="my-auto rounded-[38px] border-4 border-white/30 bg-[#082f49]/85 p-4 shadow-[0_12px_0_rgba(4,47,46,.55)] backdrop-blur-md sm:p-7">
+            <p className="text-center text-xs font-black uppercase tracking-[.3em] text-lime-300">Joe Yoke Cup</p>
+            <h2 className="mt-1 text-center text-2xl font-black uppercase italic sm:text-4xl">Choose your nation</h2>
+            <div className="mt-5 grid grid-cols-4 gap-2 sm:grid-cols-8 sm:gap-3">
+              {COUNTRIES.map((country) => {
+                const active = selectedCountry.code === country.code;
+                return (
+                  <button key={country.code} onClick={() => setSelectedCountry(country)} className={"group rounded-2xl border-4 p-2 transition active:scale-95 " + (active ? "border-yellow-300 bg-lime-300/25 shadow-[0_5px_0_#a16207]" : "border-white/12 bg-white/8 hover:bg-white/15")} aria-label={"Select " + country.name}>
+                    <span className="block text-3xl sm:text-4xl">{country.flag}</span>
+                    <span className={"mt-1 block truncate text-[8px] font-black uppercase sm:text-[10px] " + (active ? "text-yellow-200" : "text-white/70")}>{country.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+          <div className="mt-5 flex items-center justify-center gap-3">
+            <CartoonButton onClick={() => setSelectedCountry(COUNTRIES[Math.floor(Math.random() * COUNTRIES.length)])} tone="lime">↝ Random</CartoonButton>
+            <CartoonButton onClick={() => {
+              const rivals = COUNTRIES.filter((country) => country.code !== selectedCountry.code);
+              setOpponentCountry(rivals[Math.floor(Math.random() * rivals.length)]);
+              setView("road");
+            }} tone="sky">Next ▶</CartoonButton>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === "road") {
+    const stages = ["Matchday 1", "Matchday 2", "Matchday 3", "Round of 16", "Quarter final", "Semi final", "Final"];
+    return (
+      <div className="fixed inset-0 z-[100] select-none overflow-y-auto bg-[#082f49] text-white">
+        <StadiumBackdrop />
+        <div className="relative mx-auto flex min-h-full max-w-7xl flex-col px-4 py-5 sm:px-8" style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+          <div className="flex items-center justify-between">
+            <CartoonButton onClick={() => setView("country")} tone="violet" className="px-4 py-2">← Back</CartoonButton>
+            <h2 className="rounded-b-[28px] border-x-4 border-b-4 border-white/25 bg-[#334155]/90 px-7 py-3 text-xl font-black uppercase italic shadow-[0_7px_0_rgba(15,23,42,.45)] sm:text-3xl">Road to the final</h2>
+            <span className="text-4xl drop-shadow-lg" aria-label="Trophy">🏆</span>
+          </div>
+          <section className="my-auto rounded-[38px] border-4 border-white/30 bg-[#082f49]/82 p-4 shadow-[0_12px_0_rgba(4,47,46,.55)] backdrop-blur-md sm:p-7">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-7">
+              {stages.map((stage, index) => (
+                <div key={stage} className={"rounded-2xl border-4 p-3 text-center " + (index === 0 ? "border-yellow-300 bg-yellow-300/12" : "border-white/10 bg-white/8")}>
+                  <p className="min-h-8 text-[9px] font-black uppercase leading-4 text-white/70">{stage}</p>
+                  <div className="mt-3 flex items-center justify-center gap-2 text-2xl">
+                    <span>{selectedCountry.flag}</span>
+                    <span className="text-xs font-black">VS</span>
+                    <span>{index === 0 ? opponentCountry.flag : "❔"}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 flex items-center justify-center gap-3 rounded-2xl bg-black/20 px-4 py-3 text-center">
+              <span className="text-4xl">{selectedCountry.flag}</span>
+              <div><p className="text-[9px] font-black uppercase tracking-widest text-lime-300">Opening match</p><p className="text-lg font-black uppercase">{selectedCountry.name} vs {opponentCountry.name}</p></div>
+              <span className="text-4xl">{opponentCountry.flag}</span>
+            </div>
+          </section>
+          <div className="mt-5 flex justify-center"><CartoonButton onClick={() => setView("lineup")} tone="lime" className="min-w-56 text-lg">Build squad ▶</CartoonButton></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === "lineup") {
+    return (
+      <div className="fixed inset-0 z-[100] select-none overflow-y-auto bg-[#082f49] text-white">
+        <StadiumBackdrop />
+        <div className="relative mx-auto flex min-h-full max-w-6xl flex-col px-4 py-5 sm:px-8" style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+          <div className="flex items-center justify-between">
+            <CartoonButton onClick={() => setView("road")} tone="violet" className="px-4 py-2">← Back</CartoonButton>
+            <div className="rounded-[24px] border-4 border-white/25 bg-[#334155]/90 px-6 py-2 text-center shadow-[0_6px_0_rgba(15,23,42,.45)]"><p className="text-[9px] font-black uppercase tracking-widest text-lime-300">Matchday 1</p><p className="text-xl font-black uppercase italic">Squad selection</p></div>
+            <div className="w-24" />
+          </div>
+          <section className="my-auto grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+            <div className="rounded-[34px] border-4 border-lime-200/60 bg-[#052e2b]/82 p-4 text-center shadow-[0_10px_0_#365314] backdrop-blur">
+              <div className="flex items-center justify-center gap-2"><span className="text-4xl">{selectedCountry.flag}</span><h3 className="text-xl font-black uppercase">{selectedCountry.name}</h3></div>
+              <div className="mt-4 flex items-end justify-center">{[0, 1, 2].map((index) => <ChibiPreview key={index} team="home" variant={homeKit + index} />)}</div>
+              <CartoonButton onClick={() => setHomeKit((value) => (value + 1) % 3)} tone="amber" className="mt-3 px-4 py-2 text-xs">↝ Change kit</CartoonButton>
+            </div>
+            <div className="text-center text-4xl font-black italic drop-shadow-[0_5px_0_#0f172a]">VS</div>
+            <div className="rounded-[34px] border-4 border-sky-200/60 bg-[#082f49]/82 p-4 text-center shadow-[0_10px_0_#075985] backdrop-blur">
+              <div className="flex items-center justify-center gap-2"><span className="text-4xl">{opponentCountry.flag}</span><h3 className="text-xl font-black uppercase">{opponentCountry.name}</h3></div>
+              <div className="mt-4 flex items-end justify-center">{[0, 1, 2].map((index) => <ChibiPreview key={index} team="away" variant={awayKit + index} />)}</div>
+              <CartoonButton onClick={() => setAwayKit((value) => (value + 1) % 3)} tone="amber" className="mt-3 px-4 py-2 text-xs">↝ Change rival</CartoonButton>
+            </div>
+          </section>
+          <div className="mt-5 flex justify-center"><CartoonButton onClick={startBotMatch} disabled={!authReady} tone="lime" className="min-w-64 text-xl">▶ Play match</CartoonButton></div>
         </div>
       </div>
     );
@@ -1095,20 +1354,20 @@ export default function FootballClash({
 
   return (
     <div className="fixed inset-0 z-[100] select-none overflow-hidden bg-[#020705] text-white" style={{ WebkitUserSelect: "none" }}>
-      <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#143b28_0%,#020705_68%)]">
-        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} aria-label="Joe Yoke three versus three football arena" className={`h-full max-h-full w-full max-w-[660px] object-contain ${canFlick ? "cursor-crosshair" : "cursor-default"}`} style={{ touchAction: "none" }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={finishPointer} onPointerCancel={cancelPointer} />
+      <div className="absolute inset-0 flex items-center justify-center bg-[#071a12]">
+        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} aria-label="Joe Yoke three versus three football arena" className={`${canFlick ? "cursor-crosshair" : "cursor-default"}`} style={{ touchAction: "none", width: "min(100vw, 177.778vh)", height: "min(56.25vw, 100vh)" }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={finishPointer} onPointerCancel={cancelPointer} />
       </div>
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 px-3" style={{ paddingTop: "max(.65rem, env(safe-area-inset-top))" }}>
-        <div className="mx-auto grid max-w-[620px] grid-cols-[42px_1fr_42px] items-center gap-2">
-          <button onClick={onClose} className="pointer-events-auto grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-black/55 text-xl backdrop-blur-md active:scale-95" aria-label="Leave arena">{"\u00d7"}</button>
-          <div className="overflow-hidden rounded-2xl border border-white/12 bg-black/62 shadow-2xl backdrop-blur-xl">
+        <div className="mx-auto grid max-w-4xl grid-cols-[48px_1fr_48px] items-center gap-2">
+          <button onClick={onClose ?? (() => setView("menu"))} className="pointer-events-auto grid h-11 w-11 place-items-center rounded-2xl border-4 border-yellow-100 bg-yellow-400 text-xl font-black text-[#422006] shadow-[0_5px_0_#a16207] active:translate-y-1 active:shadow-none" aria-label="Leave arena">{"Ⅱ"}</button>
+          <div className="overflow-hidden rounded-[22px] border-4 border-white/30 bg-[#365314]/92 shadow-[0_7px_0_rgba(20,83,45,.65)] backdrop-blur-xl">
             <div className="grid grid-cols-[1fr_auto_1fr] items-center">
-              <div className={`min-w-0 px-3 py-2 ${game?.currentTurn === "home" ? "bg-lime-300/12" : ""}`}><p className="truncate text-[9px] font-black uppercase tracking-wide text-lime-200">{playerLabels.home}</p><p className="text-2xl font-black tabular-nums">{game?.score.home ?? 0}</p></div>
-              <div className="grid min-w-[74px] place-items-center border-x border-white/10 px-2 py-2"><p className={`text-sm font-black tabular-nums ${game?.suddenDeath ? "text-rose-300" : "text-white"}`}>{displayClock}</p><p className="mt-0.5 text-[7px] font-black uppercase tracking-[.22em] text-white/35">Arena</p></div>
-              <div className={`min-w-0 px-3 py-2 text-right ${game?.currentTurn === "away" ? "bg-sky-300/12" : ""}`}><p className="truncate text-[9px] font-black uppercase tracking-wide text-sky-200">{playerLabels.away}</p><p className="text-2xl font-black tabular-nums">{game?.score.away ?? 0}</p></div>
+              <div className={`flex min-w-0 items-center gap-2 px-3 py-1.5 ${game?.currentTurn === "home" ? "bg-lime-300/20" : ""}`}><span className="text-2xl sm:text-3xl">{selectedCountry.flag}</span><p className="hidden truncate text-[9px] font-black uppercase tracking-wide text-lime-100 sm:block">{playerLabels.home}</p><p className="ml-auto text-2xl font-black tabular-nums">{game?.score.home ?? 0}</p></div>
+              <div className="grid min-w-[94px] place-items-center border-x border-white/20 bg-black/15 px-3 py-1.5"><p className={`text-lg font-black tabular-nums ${game?.suddenDeath ? "text-rose-300" : "text-white"}`}>{displayClock}</p><p className="text-[7px] font-black uppercase tracking-[.22em] text-lime-200">Joe Yoke</p></div>
+              <div className={`flex min-w-0 items-center gap-2 px-3 py-1.5 text-right ${game?.currentTurn === "away" ? "bg-sky-300/20" : ""}`}><p className="text-2xl font-black tabular-nums">{game?.score.away ?? 0}</p><p className="hidden min-w-0 flex-1 truncate text-[9px] font-black uppercase tracking-wide text-sky-100 sm:block">{playerLabels.away}</p><span className="ml-auto text-2xl sm:text-3xl">{opponentCountry.flag}</span></div>
             </div>
           </div>
-          <div className={`grid h-10 w-10 place-items-center rounded-full border bg-black/55 backdrop-blur-md ${connection === "error" ? "border-rose-400/60 text-rose-300" : "border-white/15 text-lime-300"}`} aria-label={`Network ${connection}`}>{connection === "error" ? "!" : <span className="h-2 w-2 rounded-full bg-lime-300" aria-hidden="true" />}</div>
+          <div className={`grid h-11 w-11 place-items-center rounded-2xl border-4 bg-[#052e2b]/90 text-lg font-black shadow-[0_5px_0_#0f172a] ${connection === "error" ? "border-rose-300 text-rose-300" : "border-lime-200 text-lime-300"}`} aria-label={`Network ${connection}`}>{connection === "error" ? "!" : "●"}</div>
         </div>
         <div className="mx-auto mt-2 max-w-sm rounded-full border border-white/10 bg-black/55 px-4 py-2 text-center text-[9px] font-black uppercase tracking-[.16em] text-white/75 backdrop-blur-md">{statusText}</div>
       </header>
@@ -1116,7 +1375,7 @@ export default function FootballClash({
       {!showingLoader && !opponentReady && <div className="absolute inset-x-5 top-1/2 z-30 -translate-y-1/2 rounded-3xl border border-white/10 bg-black/76 p-6 text-center backdrop-blur-xl"><div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/10 border-t-lime-300" /><p className="mt-4 text-sm font-black uppercase tracking-[.18em]">Waiting for opponent</p></div>}
       {!showingLoader && opponentReady && game?.phase !== "finished" && <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 text-center" style={{ paddingBottom: "max(.8rem, env(safe-area-inset-bottom))" }}><div className={`mx-auto max-w-sm rounded-2xl border px-4 py-3 backdrop-blur-xl ${canFlick ? "border-lime-300/35 bg-[#07110b]/82" : "border-white/10 bg-black/58"}`}><p className={`text-[10px] font-black uppercase tracking-[.2em] ${canFlick ? "text-lime-300" : "text-white/55"}`}>{canFlick ? "Choose player - drag - release" : statusText}</p>{canFlick && <p className="mt-1 text-[9px] text-white/42">Longer drag gives more power. Bank shots off players and walls.</p>}</div></div>}
       {message && game?.phase !== "finished" && <div className="pointer-events-none absolute left-1/2 top-[20%] z-40 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/12 bg-black/82 px-5 py-2 text-xs font-black uppercase tracking-[.18em] text-white shadow-2xl">{message}</div>}
-      {game?.phase === "finished" && game.winner && role && <div className="absolute inset-0 z-50 grid place-items-center bg-black/78 px-6 backdrop-blur-md"><div className="w-full max-w-sm rounded-[34px] border border-white/12 bg-[#091710] p-7 text-center shadow-2xl"><FootballClashLogo className="mx-auto h-20 w-20" /><p className="mt-4 text-[10px] font-black uppercase tracking-[.34em] text-lime-300">Full time</p><h2 className="mt-2 text-3xl font-black uppercase italic tracking-tight">{game.winner === role ? "Arena champions" : `${playerLabels[game.winner]} win`}</h2><p className="mt-3 text-sm text-white/50">Final score <span className="ml-1 font-black text-white">{game.score.home} - {game.score.away}</span></p>{isBotMatch && <button onClick={startBotMatch} className="mt-7 w-full rounded-2xl bg-lime-300 py-4 text-xs font-black uppercase tracking-[.18em] text-black active:scale-[.98]">Play again</button>}<button onClick={onClose} className="mt-3 w-full rounded-2xl border border-white/12 py-3.5 text-xs font-black uppercase tracking-[.16em] text-white/75 active:scale-[.98]">Back to arcade</button></div></div>}
+      {game?.phase === "finished" && game.winner && role && <div className="absolute inset-0 z-50 grid place-items-center bg-[#052e2b]/82 px-6 backdrop-blur-md"><div className="w-full max-w-md rounded-[38px] border-4 border-lime-200/60 bg-[#091710] p-7 text-center shadow-[0_12px_0_#365314]"><FootballClashLogo className="mx-auto h-20 w-20" /><p className="mt-4 text-[10px] font-black uppercase tracking-[.34em] text-lime-300">Full time</p><h2 className="mt-2 text-3xl font-black uppercase italic tracking-tight">{game.winner === role ? "Arena champions" : `${playerLabels[game.winner]} win`}</h2><p className="mt-3 text-sm text-white/50">Final score <span className="ml-1 font-black text-white">{game.score.home} - {game.score.away}</span></p>{isBotMatch && <CartoonButton onClick={startBotMatch} tone="lime" className="mt-7 w-full">Play again</CartoonButton>}<CartoonButton onClick={onClose ?? (() => setView("menu"))} tone="sky" className="mt-4 w-full">Back to arcade</CartoonButton></div></div>}
     </div>
   );
 }
