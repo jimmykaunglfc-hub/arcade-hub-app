@@ -18,7 +18,7 @@ type SplashCampaign = {
   show_every_launch: boolean;
 };
 
-export default function CampaignSplash({ onAction, onVisibilityChange }: { onAction: (actionUrl: string) => void; onVisibilityChange: (visible: boolean) => void }) {
+export default function CampaignSplash({ onAction, onVisibilityChange, onResolved }: { onAction: (actionUrl: string) => void; onVisibilityChange: (visible: boolean) => void; onResolved: () => void }) {
   const [campaign, setCampaign] = useState<SplashCampaign | null>(null);
   const [remaining, setRemaining] = useState(0);
   const dismissed = useRef(false);
@@ -33,19 +33,26 @@ export default function CampaignSplash({ onAction, onVisibilityChange }: { onAct
       // never make it appear again, including for anonymous players.
       if (sessionStorage.getItem("joeyoke_campaign_splash_seen")) {
         onVisibilityChange(false);
+        onResolved();
         return;
       }
       sessionStorage.setItem("joeyoke_campaign_splash_seen", "1");
-      const { data } = await supabase.from("splash_campaigns").select("id, title, message, image_url, action_label, action_url, display_seconds, show_every_launch").order("created_at", { ascending: false }).limit(1).maybeSingle();
-      if (!active) return;
-      if (!data) { onVisibilityChange(false); return; }
-      setCampaign(data as SplashCampaign);
-      setRemaining(Math.max(0, Number(data.display_seconds) || 0));
-      onVisibilityChange(true);
+      try {
+        const { data } = await supabase.from("splash_campaigns").select("id, title, message, image_url, action_label, action_url, display_seconds, show_every_launch").order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (!active) return;
+        if (!data) { onVisibilityChange(false); onResolved(); return; }
+        setCampaign(data as SplashCampaign);
+        setRemaining(Math.max(0, Number(data.display_seconds) || 0));
+        onVisibilityChange(true);
+        onResolved();
+      } catch {
+        // A campaign must never hold the application at launch when offline.
+        if (active) { onVisibilityChange(false); onResolved(); }
+      }
     };
     void loadCampaign();
     return () => { active = false; };
-  }, [onVisibilityChange]);
+  }, [onResolved, onVisibilityChange]);
 
   useEffect(() => {
     if (!campaign || remaining <= 0) return;

@@ -83,6 +83,39 @@ type ProfileEditConfig = {
   profile_edit_currency: "points" | "gems";
 };
 
+type ProfileLandingSnapshot = {
+  userId: string;
+  profile: Profile;
+  inventoryCount: number;
+  ledger: LedgerEntry[];
+};
+
+const PROFILE_CACHE_PREFIX = "joeyoke.profile-landing.v1";
+let profileLandingSnapshot: ProfileLandingSnapshot | null = null;
+
+const readProfileLandingCache = (userId: string): ProfileLandingSnapshot | null => {
+  if (profileLandingSnapshot?.userId === userId) return profileLandingSnapshot;
+  try {
+    const raw = window.localStorage.getItem(`${PROFILE_CACHE_PREFIX}:${userId}`);
+    if (!raw) return null;
+    const snapshot = JSON.parse(raw) as ProfileLandingSnapshot;
+    if (snapshot.userId !== userId || !snapshot.profile) return null;
+    profileLandingSnapshot = snapshot;
+    return snapshot;
+  } catch {
+    return null;
+  }
+};
+
+const writeProfileLandingCache = (snapshot: ProfileLandingSnapshot) => {
+  profileLandingSnapshot = snapshot;
+  try {
+    window.localStorage.setItem(`${PROFILE_CACHE_PREFIX}:${snapshot.userId}`, JSON.stringify(snapshot));
+  } catch {
+    // The live profile remains the source of truth when storage is unavailable.
+  }
+};
+
 interface ProfileTabProps {
   isDarkMode: boolean;
   onToggleTheme: () => void;
@@ -141,18 +174,21 @@ export default function ProfileTab({
       setFetchStatus("missing");
       return;
     }
-    const [
-      { data: myProfile },
-      { count },
-      { data: ledgerData },
-      { data: config },
-      { data: editConfig },
-      { data: rawInventory },
-      { data: storeItems },
-      { data: cosmetics },
-      { data: favorites },
-      { data: catalog },
-    ] = await Promise.all([
+
+    // Render the saved landing snapshot immediately, then refresh it. The
+    // profile screen is a destination players revisit often, so it should not
+    // be blank while optional inventory and support data is loading.
+    const cachedSnapshot = readProfileLandingCache(user.id);
+    if (cachedSnapshot) {
+      setProfile(cachedSnapshot.profile);
+      setName(cachedSnapshot.profile.username || "");
+      setAvatarUrl(cachedSnapshot.profile.avatar_url || "");
+      setInventoryCount(cachedSnapshot.inventoryCount);
+      setLedger(cachedSnapshot.ledger);
+      setFetchStatus("found");
+    }
+
+    const [{ data: myProfile }, { count }, { data: ledgerData }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase
         .from("user_inventory")
@@ -166,17 +202,6 @@ export default function ProfileTab({
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(5),
-      supabase
-        .from("platform_config")
-        .select("support_email")
-        .eq("id", 1)
-        .maybeSingle(),
-      supabase.from("platform_config").select("profile_edit_cost, profile_edit_currency").eq("id", 1).maybeSingle(),
-      supabase.from("user_inventory").select("id, cosmetic_id, is_equipped").eq("user_id", user.id),
-      supabase.from("store_items").select("*"),
-      supabase.from("cosmetics").select("id, name, game_category, cosmetic_type, game_target, image_url, modifiers"),
-      supabase.from("game_favorites").select("game_id").eq("user_id", user.id),
-      supabase.rpc("get_game_catalog"),
     ]);
     if (!myProfile) {
       setFetchStatus("missing");
@@ -186,6 +211,35 @@ export default function ProfileTab({
     setName(myProfile.username || "");
     setAvatarUrl(myProfile.avatar_url || "");
     setInventoryCount(count || 0);
+    setLedger((ledgerData || []) as LedgerEntry[]);
+    const landingSnapshot = {
+      userId: user.id,
+      profile: myProfile as Profile,
+      inventoryCount: count || 0,
+      ledger: (ledgerData || []) as LedgerEntry[],
+    };
+    writeProfileLandingCache(landingSnapshot);
+    setFetchStatus("found");
+
+    // The following data is used by modals and cosmetic decoration. It loads
+    // after the profile landing page is visible instead of blocking it.
+    const [
+      { data: config },
+      { data: editConfig },
+      { data: rawInventory },
+      { data: storeItems },
+      { data: cosmetics },
+      { data: favorites },
+      { data: catalog },
+    ] = await Promise.all([
+      supabase.from("platform_config").select("support_email").eq("id", 1).maybeSingle(),
+      supabase.from("platform_config").select("profile_edit_cost, profile_edit_currency").eq("id", 1).maybeSingle(),
+      supabase.from("user_inventory").select("id, cosmetic_id, is_equipped").eq("user_id", user.id),
+      supabase.from("store_items").select("*"),
+      supabase.from("cosmetics").select("id, name, game_category, cosmetic_type, game_target, image_url, modifiers"),
+      supabase.from("game_favorites").select("game_id").eq("user_id", user.id),
+      supabase.rpc("get_game_catalog"),
+    ]);
     const catalogById = new Map<string, { title?: string; category?: string }>((catalog || []).map((game: any) => [String(game.id), game]));
     setFavoriteGames((favorites || []).map((favorite: any) => { const game = catalogById.get(String(favorite.game_id)); return { game_id: String(favorite.game_id), title: game?.title || String(favorite.game_id), category: game?.category }; }));
     const storeById = new Map((storeItems || []).map((item) => [item.id, item]));
@@ -209,13 +263,11 @@ export default function ProfileTab({
     const equipped = resolvedInventory.filter((item) => item.is_equipped) as EquippedCosmetic[];
     setProfileCardCosmetic(equipped.find((item) => ["profile_card", "profile_card_theme"].includes(item.cosmetics?.game_category || ""))?.cosmetics || null);
     setAvatarFrameCosmetic(equipped.find((item) => ["avatar_frame", "profile_avatar_frame", "avatar_border"].includes(item.cosmetics?.game_category || ""))?.cosmetics || null);
-    setLedger((ledgerData || []) as LedgerEntry[]);
     if (config?.support_email) setSupportEmail(config.support_email);
     if (editConfig) setProfileEditConfig({
       profile_edit_cost: Number(editConfig.profile_edit_cost ?? 100),
       profile_edit_currency: editConfig.profile_edit_currency === "gems" ? "gems" : "points",
     });
-    setFetchStatus("found");
   };
 
   useEffect(() => {

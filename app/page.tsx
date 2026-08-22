@@ -5,7 +5,7 @@
 
 import { tr } from "../lib/i18n";
 import { LocalizedText } from "../lib/i18n";
-import { useState, useEffect, useLayoutEffect, type ComponentType } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, type ComponentType } from "react";
 import dynamic from "next/dynamic";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "../lib/supabaseClient";
@@ -140,6 +140,7 @@ export default function Home() {
   const { t } = useTranslation();
   const [session, setSession] = useState<any>(null);
   const [splashVisible, setSplashVisible] = useState(false);
+  const [splashDecisionReady, setSplashDecisionReady] = useState(false);
   const [deferredStartupReady, setDeferredStartupReady] = useState(false);
 
   const [activeTab, setActiveTab] = useState("Home");
@@ -324,9 +325,9 @@ export default function Home() {
     };
   }, [deferredStartupReady]);
 
-  // Social apps feel immediate because their inbox is already warm before the
-  // player opens it. After the home shell is idle, mount the signed-in chat hub
-  // invisibly so its cache and first network refresh finish in the background.
+  // Social apps feel immediate because their inbox and profile are already
+  // warm before the player opens them. After the home shell is idle, mount the
+  // signed-in destinations invisibly so their cache refreshes in the background.
   useEffect(() => {
     if (!deferredStartupReady || !session || typeof window === "undefined") return;
 
@@ -335,17 +336,18 @@ export default function Home() {
     }).connection;
     if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") return;
 
-    const primeChat = () => {
+    const primeSignedInTabs = () => {
       if (document.visibilityState !== "visible") return;
       setVisitedTabs((currentTabs) => {
-        if (currentTabs.has("Chats")) return currentTabs;
+        if (currentTabs.has("Chats") && currentTabs.has("Profile")) return currentTabs;
         const nextTabs = new Set(currentTabs);
         nextTabs.add("Chats");
+        nextTabs.add("Profile");
         return nextTabs;
       });
     };
-    const idleCallback = window.requestIdleCallback?.(primeChat, { timeout: 3_500 });
-    const fallbackTimer = idleCallback === undefined ? window.setTimeout(primeChat, 1_200) : undefined;
+    const idleCallback = window.requestIdleCallback?.(primeSignedInTabs, { timeout: 3_500 });
+    const fallbackTimer = idleCallback === undefined ? window.setTimeout(primeSignedInTabs, 1_200) : undefined;
 
     return () => {
       if (idleCallback !== undefined) window.cancelIdleCallback?.(idleCallback);
@@ -516,11 +518,22 @@ export default function Home() {
     }
   };
 
+  const handleSplashResolved = useCallback(() => setSplashDecisionReady(true), []);
+
   return (
     <>
-      {deferredStartupReady && <CampaignSplash onAction={handleDeepLink} onVisibilityChange={setSplashVisible} />}
-      {deferredStartupReady && session && !splashVisible && <InAppBroadcastDialog points={userPoints} gems={userGems} onAction={handleDeepLink} />}
-      {deferredStartupReady && session && !splashVisible && (
+      <CampaignSplash onAction={handleDeepLink} onVisibilityChange={setSplashVisible} onResolved={handleSplashResolved} />
+      {!splashDecisionReady && (
+        <div className="fixed inset-0 z-[499] flex min-h-[100dvh] flex-col items-center justify-center gap-5 bg-[#070b13] text-white" aria-label={tr("UI_0127", "Loading Joe Yoke")}>
+          <JoeYokeLogo className="h-20 w-20 rounded-[24px]" />
+          <div className="text-center">
+            <p className="font-headline text-xl font-black tracking-tight">Joe Yoke</p>
+            <p className="mt-1 text-xs font-medium text-white/60"><LocalizedText id="UI_0129" fallback="Loading arena" /></p>
+          </div>
+        </div>
+      )}
+      {deferredStartupReady && splashDecisionReady && session && !splashVisible && <InAppBroadcastDialog points={userPoints} gems={userGems} onAction={handleDeepLink} />}
+      {deferredStartupReady && splashDecisionReady && session && !splashVisible && (
         <>
           <GlobalInviteListener
             userId={session.user.id}
@@ -662,7 +675,7 @@ export default function Home() {
         className={
           playingGame && !gameReturn
             ? "hidden"
-            : "fixed inset-0 flex flex-col w-full max-w-full bg-background text-on-background font-body overflow-hidden transition-colors duration-300"
+            : `fixed inset-0 flex flex-col w-full max-w-full bg-background text-on-background font-body overflow-hidden transition-colors duration-300 ${splashDecisionReady ? "" : "invisible pointer-events-none"}`
         }
       >
         {gameReturn && (
