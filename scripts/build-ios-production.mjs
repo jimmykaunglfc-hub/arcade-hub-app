@@ -1,5 +1,5 @@
-import { existsSync } from "node:fs";
-import { rename } from "node:fs/promises";
+import { existsSync, readFileSync } from "node:fs";
+import { rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -55,6 +55,18 @@ async function restoreServerCode() {
   }
 }
 
+async function registerAppNativePlugins() {
+  // Capacitor regenerates this file during every sync. The StoreKit bridge
+  // lives in the app target (not an npm plugin), so retain its class in the
+  // generated registration list after each sync.
+  const configPath = resolve(projectRoot, "ios/App/App/capacitor.config.json");
+  const config = JSON.parse(readFileSync(configPath, "utf8"));
+  const classes = new Set(config.packageClassList || []);
+  classes.add("AppleStoreKitPlugin");
+  config.packageClassList = [...classes];
+  await writeFile(configPath, `${JSON.stringify(config, null, "\t")}\n`);
+}
+
 try {
   await moveServerCodeOutOfTheExport();
   await run("npx", ["next", "build"], {
@@ -62,6 +74,7 @@ try {
     NEXT_PUBLIC_APP_ENV: "production",
   });
   await run("npx", ["cap", "sync", "ios"]);
+  await registerAppNativePlugins();
 } finally {
   await restoreServerCode();
 }

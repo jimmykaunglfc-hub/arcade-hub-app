@@ -5,8 +5,26 @@
 import { tr } from "../lib/i18n";
 import { LocalizedText } from "../lib/i18n";
 import React, { useState, useEffect } from "react";
+import { App as CapacitorApp } from "@capacitor/app";
 import { soundEngine } from "@/lib/soundManager";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  AppleStoreProduct,
+  AppleTransactionEvidence,
+  finishAppleTransaction,
+  isNativeAppleStoreKitAvailable,
+  loadAppleStoreProducts,
+  purchaseAppleProduct,
+  recoverUnfinishedAppleTransactions,
+} from "@/lib/appleIap";
+import {
+  GooglePlayProduct,
+  GooglePlayPurchaseEvidence,
+  isNativeGooglePlayBillingAvailable,
+  loadGooglePlayProducts,
+  purchaseGooglePlayProduct,
+  recoverOutstandingGooglePlayPurchases,
+} from "@/lib/googlePlayIap";
 
 interface ShopTabProps {
   userId?: string | null;
@@ -31,6 +49,9 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
   const [wallet, setWallet] = useState({ points: 0, gems: 0 });
   const [exchangeConfig, setExchangeConfig] = useState({ gemCost: 1, pointsReward: 100 });
   const [exchanging, setExchanging] = useState(false);
+  const [appleProducts, setAppleProducts] = useState<Record<string, AppleStoreProduct> | null>(null);
+  const [googleProducts, setGoogleProducts] = useState<Record<string, GooglePlayProduct> | null>(null);
+  const [purchasingProductId, setPurchasingProductId] = useState<string | null>(null);
 
   // 📡 FETCH LIVE STORE DATA (From store_items & user_inventory)
   const fetchStoreData = async () => {
@@ -104,17 +125,247 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
     fetchStoreData();
   }, [userId]);
 
+  // Apple is the storefront source of truth for prices. The server catalogue
+  // only supplies the active product IDs and the verified Gem grant.
+  useEffect(() => {
+    if (!isNativeAppleStoreKitAvailable()) return;
+    const productIds = dbStoreItems
+      .filter((item) => item.category === "currency" && Number(item.gem_amount || 0) > 0)
+      .map((item) => String(item.apple_product_id || "").trim())
+      .filter(Boolean);
+    if (!productIds.length) return;
+
+    let cancelled = false;
+    void loadAppleStoreProducts(productIds)
+      .then(({ products, missingProductIds }) => {
+        if (cancelled) return;
+        setAppleProducts(Object.fromEntries(products.map((product) => [product.id, product])));
+        if (missingProductIds.length && process.env.NODE_ENV !== "production") {
+          console.warn("[IAP] Apple did not return configured product IDs:", missingProductIds);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.error("[IAP] Unable to load Apple products", error);
+          setAppleProducts({});
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dbStoreItems]);
+
+  // Google Play supplies the localized Android checkout price. The database
+  // catalog supplies only active product IDs and the server-side Gem mapping.
+  useEffect(() => {
+    if (!isNativeGooglePlayBillingAvailable()) return;
+    const productIds = dbStoreItems
+      .filter((item) => item.category === "currency" && Number(item.gem_amount || 0) > 0)
+      .map((item) => String(item.google_product_id || "").trim())
+      .filter(Boolean);
+    if (!productIds.length) return;
+
+    let cancelled = false;
+    void loadGooglePlayProducts(productIds)
+      .then(({ products, missingProductIds }) => {
+        if (cancelled) return;
+        setGoogleProducts(Object.fromEntries(products.map((product) => [product.id, product])));
+        if (missingProductIds.length) console.warn("[IAP] Google Play did not return configured product IDs:", missingProductIds);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.error("[IAP] Unable to load Google Play products", error);
+          setGoogleProducts({});
+        }
+      });
+    return () => { cancelled = true; };
+  }, [dbStoreItems]);
+
+  const verifyAndFinishAppleTransaction = async (transaction: AppleTransactionEvidence) => {
+    const { data, error } = await supabase.functions.invoke("verify-apple-iap", {
+      body: {
+        transactionId: transaction.transactionId,
+      },
+    });
+    if (error) throw error;
+    await finishAppleTransaction(transaction.transactionId);
+    return data as { alreadyCredited?: boolean; gemsCredited?: number; newGemsBalance?: number };
+  };
+
+  const verifyGooglePlayPurchase = async (purchase: GooglePlayPurchaseEvidence) => {
+    if (purchase.purchaseState !== "purchased") throw new Error("Google Play is still confirming this purchase.");
+    console.info("[IAP] Verifying Google Play purchase with server", { productId: purchase.productId });
+    const { data, error } = await supabase.functions.invoke("verify-google-play-purchase", {
+      body: { productId: purchase.productId, purchaseToken: purchase.purchaseToken },
+    });
+    if (error) throw error;
+    return data as { alreadyCredited?: boolean; gemsCredited?: number; newGemsBalance?: number; consumed?: boolean };
+  };
+
+  // A transaction is finished only after the verified server-side grant. If
+  // connectivity is interrupted, StoreKit keeps it unfinished and this retry is
+  // safe because the existing ledger has a unique Apple transaction identity.
+  useEffect(() => {
+    if (!userId || !isNativeAppleStoreKitAvailable()) return;
+    let cancelled = false;
+    const recover = async () => {
+      try {
+        const transactions = await recoverUnfinishedAppleTransactions();
+        let recovered = 0;
+        for (const transaction of transactions) {
+          if (cancelled) return;
+          await verifyAndFinishAppleTransaction(transaction);
+          recovered += 1;
+        }
+        if (recovered && !cancelled) {
+          await fetchStoreData();
+          onWalletUpdated?.();
+          setRewardModal({
+            title: "PURCHASE COMPLETED",
+            desc: "Your pending Gem purchase was verified and added to your wallet.",
+          });
+        }
+      } catch (error) {
+        // Leave the StoreKit transaction unfinished for a later safe retry.
+        console.warn("[IAP] Pending Apple purchase recovery will retry", error);
+      }
+    };
+    void recover();
+    const listener = CapacitorApp.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) void recover();
+    });
+    return () => {
+      cancelled = true;
+      void listener.then((handle) => handle.remove());
+    };
+  }, [userId]);
+
+  // Google Play retains an unconsumed consumable when the app closes after
+  // checkout. On recovery we resubmit it to the idempotent server verifier;
+  // only a verified PURCHASED token can be credited and consumed.
+  useEffect(() => {
+    if (!userId || !isNativeGooglePlayBillingAvailable()) return;
+    let cancelled = false;
+    const recover = async () => {
+      try {
+        const purchases = await recoverOutstandingGooglePlayPurchases();
+        let recovered = 0;
+        for (const purchase of purchases) {
+          if (cancelled || purchase.purchaseState !== "purchased") continue;
+          await verifyGooglePlayPurchase(purchase);
+          recovered += 1;
+        }
+        if (recovered && !cancelled) {
+          await fetchStoreData();
+          onWalletUpdated?.();
+          setRewardModal({ title: "PURCHASE COMPLETED", desc: "Your pending Google Play purchase was verified and added to your wallet." });
+        }
+      } catch (error) {
+        console.warn("[IAP] Pending Google Play purchase recovery will retry", error);
+      }
+    };
+    void recover();
+    const listener = CapacitorApp.addListener("appStateChange", ({ isActive }) => { if (isActive) void recover(); });
+    return () => {
+      cancelled = true;
+      void listener.then((handle) => handle.remove());
+    };
+  }, [userId]);
+
   // Real-money packs are intentionally not credited from the client. Apple
   // and Google purchase receipt verification will call the server-side grant.
   const handleBuyCurrencyPack = async (item: any) => {
     if (!userId) return;
-    
-    soundEngine.playSFX("victory");
-    
-    setRewardModal({
-      title: "PLATFORM PURCHASE REQUIRED",
-      desc: `${item.name} grants ${(Number(item.gem_amount || 0) + Number(item.bonus_gems || 0)).toLocaleString()} Gems after Apple App Store or Google Play confirms the purchase. No Gems were added by this preview action.`,
-    });
+    const appleProductId = String(item.apple_product_id || "").trim();
+    const googleProductId = String(item.google_product_id || "").trim();
+    const isApple = isNativeAppleStoreKitAvailable();
+    const isGooglePlay = isNativeGooglePlayBillingAvailable();
+    if (!isApple && !isGooglePlay) {
+      setRewardModal({
+        title: "PLATFORM PURCHASE REQUIRED",
+        desc: `${item.name} grants ${(Number(item.gem_amount || 0) + Number(item.bonus_gems || 0)).toLocaleString()} Gems after Apple App Store or Google Play confirms the purchase. No Gems were added by this preview action.`,
+      });
+      return;
+    }
+    if (isGooglePlay) {
+      if (!googleProductId || !googleProducts?.[googleProductId]) {
+        setRewardModal({ title: "PURCHASE UNAVAILABLE", desc: "This Gem pack is not currently available from Google Play. Please try again later." });
+        return;
+      }
+      setPurchasingProductId(googleProductId);
+      try {
+        const result = await purchaseGooglePlayProduct(googleProductId, userId);
+        if (result.status === "cancelled") {
+          setRewardModal({ title: "PURCHASE CANCELLED", desc: "No payment was made and no Gems were added." });
+          return;
+        }
+        if (result.status === "pending") {
+          setRewardModal({ title: "PURCHASE PENDING", desc: "Google Play is still confirming this purchase. We will finish it automatically when confirmation arrives." });
+          return;
+        }
+        const fulfilled = await verifyGooglePlayPurchase(result.purchase);
+        await fetchStoreData();
+        onWalletUpdated?.();
+        soundEngine.playSFX("victory");
+        setRewardModal({
+          title: fulfilled.alreadyCredited ? "PURCHASE RESTORED" : "GEMS ADDED",
+          desc: fulfilled.alreadyCredited ? "This verified purchase was already applied to your wallet." : `${(fulfilled.gemsCredited || 0).toLocaleString()} Gems were added to your wallet.`,
+        });
+      } catch (error) {
+        console.error("[IAP] Google Play purchase failed", error);
+        soundEngine.playSFX("defeat");
+        setRewardModal({ title: "PURCHASE NOT COMPLETED", desc: error instanceof Error ? error.message : "We could not verify this Google Play purchase yet. Your payment will not be lost; reopen the Store to retry." });
+      } finally {
+        setPurchasingProductId(null);
+      }
+      return;
+    }
+    if (!appleProductId || !appleProducts?.[appleProductId]) {
+      setRewardModal({
+        title: "PURCHASE UNAVAILABLE",
+        desc: "This Gem pack is not currently available from the App Store. Please try again later.",
+      });
+      return;
+    }
+
+    setPurchasingProductId(appleProductId);
+    try {
+      const result = await purchaseAppleProduct(appleProductId, userId);
+      if (result.status === "cancelled") {
+        setRewardModal({ title: "PURCHASE CANCELLED", desc: "No payment was made and no Gems were added." });
+        return;
+      }
+      if (result.status === "pending") {
+        setRewardModal({ title: "PURCHASE PENDING", desc: "Apple is still confirming this purchase. We will finish it automatically when confirmation arrives." });
+        return;
+      }
+      if (result.status === "unverified") {
+        throw new Error("Apple could not verify this transaction on the device.");
+      }
+      if (result.status !== "success") {
+        throw new Error("Apple did not return a completed purchase transaction.");
+      }
+
+      const fulfilled = await verifyAndFinishAppleTransaction(result.transaction);
+      await fetchStoreData();
+      onWalletUpdated?.();
+      soundEngine.playSFX("victory");
+      setRewardModal({
+        title: fulfilled.alreadyCredited ? "PURCHASE RESTORED" : "GEMS ADDED",
+        desc: fulfilled.alreadyCredited
+          ? "This verified purchase was already applied to your wallet."
+          : `${(fulfilled.gemsCredited || 0).toLocaleString()} Gems were added to your wallet.`,
+      });
+    } catch (error) {
+      console.error("[IAP] Apple purchase failed", error);
+      soundEngine.playSFX("defeat");
+      setRewardModal({
+        title: "PURCHASE NOT COMPLETED",
+        desc: error instanceof Error ? error.message : "We could not verify this Apple purchase yet. Your payment will not be lost; please try again later.",
+      });
+    } finally {
+      setPurchasingProductId(null);
+    }
   };
 
   const handleExchange = async () => {
@@ -287,7 +538,37 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
               <p className="text-center text-xs text-on-surface-variant mt-10">No Gem packs are available.</p>
             ) : (
               currencyItems.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-surface-container-highest bg-surface p-3.5 shadow-sm dark:border-white/5 dark:bg-[#111a2c]">
+                (() => {
+                  const appleProductId = String(item.apple_product_id || "").trim();
+                  const appleProduct = appleProducts?.[appleProductId];
+                  const googleProductId = String(item.google_product_id || "").trim();
+                  const googleProduct = googleProducts?.[googleProductId];
+                  const isApple = isNativeAppleStoreKitAvailable();
+                  const isGooglePlay = isNativeGooglePlayBillingAvailable();
+                  const appleProductsLoading = isApple && appleProducts === null;
+                  const googleProductsLoading = isGooglePlay && googleProducts === null;
+                  const isUnavailable = isApple
+                    ? (!appleProductId || (!appleProductsLoading && !appleProduct))
+                    : isGooglePlay && (!googleProductId || (!googleProductsLoading && !googleProduct));
+                  const isPurchasing = purchasingProductId === (isGooglePlay ? googleProductId : appleProductId);
+                  const label = isPurchasing
+                    ? "VERIFYING…"
+                    : isApple
+                      ? appleProductsLoading
+                        ? "LOADING…"
+                        : isUnavailable
+                          ? "UNAVAILABLE"
+                          : appleProduct?.displayPrice || "UNAVAILABLE"
+                      : isGooglePlay
+                        ? googleProductsLoading
+                          ? "LOADING…"
+                          : isUnavailable
+                            ? "UNAVAILABLE"
+                            : googleProduct?.displayPrice || "UNAVAILABLE"
+                      : item.price_currency === "fiat_usd"
+                        ? `$${Number(item.price_fiat).toFixed(2)}`
+                        : "Purchase";
+                  return <div key={item.id} className="flex items-center gap-3 rounded-2xl border border-surface-container-highest bg-surface p-3.5 shadow-sm dark:border-white/5 dark:bg-[#111a2c]">
                   <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-container p-2 overflow-hidden">
                     {item.image_url && item.image_url !== "https://img.icons8.com/color/96/present.png" ? (
                        <img src={item.image_url} alt={item.name} className="w-full h-full object-contain" />
@@ -298,11 +579,13 @@ export default function ShopTab({ userId, onWalletUpdated }: ShopTabProps) {
                   <div className="min-w-0 flex-1 text-left"><h3 className="font-headline text-sm font-black text-on-surface dark:text-white">{item.name}</h3><p className="truncate text-[10px] font-medium text-on-surface-variant">💎 {(Number(item.gem_amount || 0) + Number(item.bonus_gems || 0)).toLocaleString()} <LocalizedText id="I18N_gems" fallback="Gems" />{Number(item.bonus_gems || 0) > 0 ? ` (${Number(item.gem_amount).toLocaleString()} + ${Number(item.bonus_gems).toLocaleString()} bonus)` : ""} · {item.description || "Gem package"}</p></div>
                   <button
                     onClick={() => handleBuyCurrencyPack(item)}
-                    className="shrink-0 rounded-xl bg-surface-container-highest px-4 py-2.5 text-xs font-black text-on-surface transition-colors active:scale-95 dark:bg-white dark:text-black"
+                    disabled={isPurchasing || isUnavailable || (isApple && appleProductsLoading) || (isGooglePlay && googleProductsLoading)}
+                    className="shrink-0 rounded-xl bg-surface-container-highest px-4 py-2.5 text-xs font-black text-on-surface transition-colors active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-white dark:text-black"
                   >
-                    {item.price_currency === 'fiat_usd' ? `$${Number(item.price_fiat).toFixed(2)}` : "Purchase"}
+                    {label}
                   </button>
-                </div>
+                </div>;
+                })()
               ))
             )}
             </div>

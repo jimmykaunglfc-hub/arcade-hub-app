@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import AVFoundation
+import StoreKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -85,4 +86,169 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         )
     }
 
+}
+
+// StoreKit 2 bridge for the existing Capacitor application. This is kept in
+// the app target (rather than a third-party IAP plugin) so it tracks the
+// installed Capacitor 8 native APIs and keeps storefront transaction evidence
+// entirely native until it is sent to the verified server endpoint.
+@objc(AppleStoreKitPlugin)
+public class AppleStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "AppleStoreKitPlugin"
+    public let jsName = "AppleStoreKit"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "getProducts", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "purchase", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getUnfinishedTransactions", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "finishTransaction", returnType: CAPPluginReturnPromise),
+    ]
+
+    private var pendingTransactions: [UInt64: Transaction] = [:]
+
+    @objc func getProducts(_ call: CAPPluginCall) {
+        guard let productIds = call.getArray("productIds", String.self), !productIds.isEmpty else {
+            call.reject("At least one Apple product ID is required.")
+            return
+        }
+
+        Task { @MainActor in
+            do {
+                let products = try await Product.products(for: productIds)
+                let foundIds = Set(products.map(\.id))
+                call.resolve([
+                    "products": products.map { product in
+                        [
+                            "id": product.id,
+                            "displayName": product.displayName,
+                            "description": product.description,
+                            "displayPrice": product.displayPrice,
+                            "type": product.type.rawValue,
+                        ]
+                    },
+                    "missingProductIds": productIds.filter { !foundIds.contains($0) },
+                ])
+            } catch {
+                call.reject("Unable to load App Store products: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    @objc func purchase(_ call: CAPPluginCall) {
+        guard let productId = call.getString("productId"), !productId.isEmpty,
+              let accountTokenText = call.getString("appAccountToken"),
+              let accountToken = UUID(uuidString: accountTokenText) else {
+            call.reject("A valid product ID and signed-in account token are required.")
+            return
+        }
+
+        Task { @MainActor in
+            do {
+                guard let product = try await Product.products(for: [productId]).first else {
+                    call.reject("This App Store product is unavailable.")
+                    return
+                }
+                guard product.type == .consumable else {
+                    call.reject("Only consumable Gem packs can be purchased here.")
+                    return
+                }
+
+                switch try await product.purchase(options: [.appAccountToken(accountToken)]) {
+                case .success(let verification):
+                    switch verification {
+                    case .verified(let transaction):
+                        pendingTransactions[transaction.id] = transaction
+                        call.resolve([
+                            "status": "success",
+                            "transaction": transactionPayload(
+                                transaction,
+                                signedTransaction: verification.jwsRepresentation
+                            ),
+                        ])
+                    case .unverified:
+                        call.resolve(["status": "unverified"])
+                    }
+                case .userCancelled:
+                    call.resolve(["status": "cancelled"])
+                case .pending:
+                    call.resolve(["status": "pending"])
+                @unknown default:
+                    call.reject("Apple returned an unsupported purchase result.")
+                }
+            } catch {
+                call.reject("Apple purchase failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    @objc func getUnfinishedTransactions(_ call: CAPPluginCall) {
+        Task { @MainActor in
+            var transactions = [[String: Any]]()
+            for await verification in Transaction.unfinished {
+                switch verification {
+                case .verified(let transaction):
+                    pendingTransactions[transaction.id] = transaction
+                    transactions.append(transactionPayload(
+                        transaction,
+                        signedTransaction: verification.jwsRepresentation
+                    ))
+                case .unverified:
+                    // Unverified transactions must remain unfinished. StoreKit
+                    // will provide a later opportunity to verify them safely.
+                    continue
+                }
+            }
+            call.resolve(["transactions": transactions])
+        }
+    }
+
+    @objc func finishTransaction(_ call: CAPPluginCall) {
+        guard let transactionIdText = call.getString("transactionId"),
+              let transactionId = UInt64(transactionIdText) else {
+            call.reject("A valid Apple transaction ID is required.")
+            return
+        }
+
+        Task { @MainActor in
+            if let transaction = pendingTransactions[transactionId] {
+                await transaction.finish()
+                pendingTransactions.removeValue(forKey: transactionId)
+                call.resolve()
+                return
+            }
+
+            // Recovery can run after a plugin reload, so look in StoreKit's
+            // unfinished sequence before reporting that it was already settled.
+            for await verification in Transaction.unfinished {
+                if case .verified(let transaction) = verification, transaction.id == transactionId {
+                    await transaction.finish()
+                    call.resolve()
+                    return
+                }
+            }
+            call.resolve()
+        }
+    }
+
+    private func transactionPayload(
+        _ transaction: Transaction,
+        signedTransaction: String
+    ) -> [String: Any] {
+        let environment: String
+        if #available(iOS 16.0, *) {
+            environment = transaction.environment.rawValue.lowercased()
+        } else {
+            // StoreKit 2 transactions from a TestFlight/App Store build are
+            // verified by the server against production first, then sandbox.
+            // The server therefore remains authoritative on iOS 15 too.
+            environment = "unknown"
+        }
+
+        return [
+            "productId": transaction.productID,
+            "transactionId": String(transaction.id),
+            "originalTransactionId": String(transaction.originalID),
+            "environment": environment,
+            "signedTransaction": signedTransaction,
+        ]
+    }
 }

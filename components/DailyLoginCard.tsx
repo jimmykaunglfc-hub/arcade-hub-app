@@ -82,38 +82,17 @@ export default function DailyLoginCard({ userId, onClaimSuccess }: DailyLoginCar
     setClaiming(true);
 
     try {
-      const nowISO = new Date().toISOString();
+      // The server locks the player record, validates the once-per-day rule,
+      // reads the Admin payout setting, applies the multiplier, and records
+      // the wallet history in one transaction. The client never writes Points.
+      const { data, error } = await supabase.rpc("claim_daily_login_reward");
+      if (error) throw error;
+      const claim = Array.isArray(data) ? data[0] : data;
+      if (!claim) throw new Error("Daily login reward did not return a result");
 
-      // 1. Fetch current exact payout rule
-      const activePayout = await fetchActiveRewardAmount();
-
-      // 2. Get current user balance
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("points")
-        .eq("id", userId)
-        .single();
-
-      const currentPts = profile?.points ?? 0;
-      const updatedPts = currentPts + activePayout;
-
-      // 3. Update user profile with new point total & timestamp
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({
-          points: updatedPts,
-          last_daily_claim_at: nowISO,
-          last_login_claim: nowISO,
-        })
-        .eq("id", userId);
-
-      if (updateError) throw updateError;
-
-      // 4. Update local state
-      setRewardPoints(activePayout);
+      setRewardPoints(Number(claim.points_awarded || 0));
       setHasClaimedToday(true);
 
-      // 5. Notify header/parent component to refresh balance
       if (onClaimSuccess) {
         onClaimSuccess();
       }
