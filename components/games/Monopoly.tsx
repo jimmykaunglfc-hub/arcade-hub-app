@@ -274,7 +274,17 @@ function isOwnable(space: BoardSpace) {
 
 function getFinalPoints(player: Player) { return Math.round(player.cash * 0.1); }
 function getNetWorth(player: Player) {
-  return player.cash + player.ownedSpaceIds.reduce((total, spaceId) => total + getPropertyPrice(getSpace(spaceId)) + Array.from({ length: getPropertyLevel(player, spaceId) }, (_, index) => getUpgradeCost(getSpace(spaceId), index + 1)).reduce((sum, cost) => sum + cost, 0), 0);
+  // The round-limit winner is determined by cash that could actually be
+  // realised. A mortgaged title cannot be mortgaged again, while buildings
+  // and un-mortgaged titles can be liquidated at their normal 50% value.
+  return player.cash + player.ownedSpaceIds.reduce((total, spaceId) => {
+    const space = getSpace(spaceId);
+    const titleValue = player.mortgagedSpaceIds.includes(spaceId) ? 0 : getMortgageValue(space);
+    const buildingValue = Array.from({ length: getPropertyLevel(player, spaceId) }, (_, index) =>
+      Math.round(getUpgradeCost(space, index + 1) * 0.5),
+    ).reduce((sum, value) => sum + value, 0);
+    return total + titleValue + buildingValue;
+  }, 0);
 }
 function closeMonopolyGame(current: GameState, winnerId: string, title: string): GameState {
   const winner = current.players.find((player) => player.id === winnerId);
@@ -363,6 +373,57 @@ function getQueuedCashDelta(transactions: PendingTransaction[], playerId: string
   return transactions.reduce((total, transaction) => transaction.kind === "balance" ? total + transaction.changes.filter((change) => change.playerId === playerId).reduce((changeTotal, change) => changeTotal + (change.cashDelta ?? 0), 0) : total, 0);
 }
 
+/**
+ * Bankruptcy is a last resort. Before a player defaults, automatically sell
+ * buildings for 50% and mortgage eligible titles for their mortgage value.
+ * This is particularly important for bot turns, where no player can open the
+ * management panel to rescue the bot from a payable debt.
+ */
+function liquidateForDebt(player: Player, amount: number): { player: Player; covered: boolean; liquidated: boolean } {
+  let cash = player.cash;
+  let liquidated = false;
+  const propertyLevels = { ...player.propertyLevels };
+  let mortgagedSpaceIds = [...player.mortgagedSpaceIds];
+
+  while (cash < amount) {
+    const spaceId = player.ownedSpaceIds
+      .filter((id) => (propertyLevels[id] ?? 0) > 0)
+      .sort((left, right) => (propertyLevels[right] ?? 0) - (propertyLevels[left] ?? 0) || getPropertyPrice(getSpace(right)) - getPropertyPrice(getSpace(left)))[0];
+    if (!spaceId) break;
+    const level = propertyLevels[spaceId] ?? 0;
+    propertyLevels[spaceId] = Math.max(0, level - 1);
+    cash += Math.round(getUpgradeCost(getSpace(spaceId), level) * 0.5);
+    liquidated = true;
+  }
+
+  for (const spaceId of [...player.ownedSpaceIds].sort((left, right) => getPropertyPrice(getSpace(right)) - getPropertyPrice(getSpace(left)))) {
+    if (cash >= amount) break;
+    if (mortgagedSpaceIds.includes(spaceId) || (propertyLevels[spaceId] ?? 0) > 0) continue;
+    cash += getMortgageValue(getSpace(spaceId));
+    mortgagedSpaceIds = [...mortgagedSpaceIds, spaceId];
+    liquidated = true;
+  }
+
+  return {
+    player: { ...player, cash, propertyLevels, mortgagedSpaceIds },
+    covered: cash >= amount,
+    liquidated,
+  };
+}
+
+function bankruptPlayer(player: Player): Player {
+  return {
+    ...player,
+    cash: 0,
+    ownedSpaceIds: [],
+    propertyLevels: {},
+    mortgagedSpaceIds: [],
+    jailFreeCards: 0,
+    bankrupt: true,
+    inJail: false,
+  };
+}
+
 function commitPendingTransactions(current: GameState): GameState {
   if (current.pendingTransactions.length === 0) return current;
   let players = current.players;
@@ -379,22 +440,36 @@ function commitPendingTransactions(current: GameState): GameState {
     if (transaction.kind === "bank-fee") {
       const player = players.find((item) => item.id === transaction.playerId);
       if (!player) return;
-      players = players.map((item) => item.id !== player.id ? item : player.cash >= transaction.amount ? { ...item, cash: item.cash - transaction.amount } : { ...item, cash: 0, ownedSpaceIds: [], propertyLevels: {}, mortgagedSpaceIds: [], jailFreeCards: 0, bankrupt: true, inJail: false });
+      const liquidation = liquidateForDebt(player, transaction.amount);
+      players = players.map((item) => {
+        if (item.id !== player.id) return item;
+        return liquidation.covered
+          ? { ...liquidation.player, cash: liquidation.player.cash - transaction.amount }
+          : bankruptPlayer(liquidation.player);
+      });
       return;
     }
 
     const payer = players.find((player) => player.id === transaction.payerId);
     const recipient = players.find((player) => player.id === transaction.recipientId);
     if (!payer || !recipient) return;
-    if (payer.cash < transaction.amount) {
+    const liquidation = liquidateForDebt(payer, transaction.amount);
+    if (!liquidation.covered) {
       players = players.map((player) => {
-        if (player.id === payer.id) return { ...player, cash: 0, ownedSpaceIds: [], propertyLevels: {}, mortgagedSpaceIds: [], jailFreeCards: 0, bankrupt: true, inJail: false };
-        if (player.id === recipient.id) return { ...player, cash: player.cash + payer.cash, ownedSpaceIds: [...player.ownedSpaceIds, ...payer.ownedSpaceIds], propertyLevels: { ...player.propertyLevels, ...payer.propertyLevels }, mortgagedSpaceIds: [...new Set([...player.mortgagedSpaceIds, ...payer.mortgagedSpaceIds])] };
+        if (player.id === payer.id) return bankruptPlayer(liquidation.player);
+        if (player.id === recipient.id) return {
+          ...player,
+          cash: player.cash + liquidation.player.cash,
+          ownedSpaceIds: [...new Set([...player.ownedSpaceIds, ...liquidation.player.ownedSpaceIds])],
+          propertyLevels: { ...player.propertyLevels, ...liquidation.player.propertyLevels },
+          mortgagedSpaceIds: [...new Set([...player.mortgagedSpaceIds, ...liquidation.player.mortgagedSpaceIds])],
+          jailFreeCards: player.jailFreeCards + liquidation.player.jailFreeCards,
+        };
         return player;
       });
     } else {
       players = players.map((player) => {
-        if (player.id === payer.id) return { ...player, cash: player.cash - transaction.amount };
+        if (player.id === payer.id) return { ...liquidation.player, cash: liquidation.player.cash - transaction.amount };
         if (player.id === recipient.id) return { ...player, cash: player.cash + transaction.amount };
         return player;
       });
@@ -941,11 +1016,6 @@ export default function Monopoly({ onBack, onClose, userId, roomId }: MonopolyPr
     const interval = window.setInterval(syncTimer, 250);
     return () => window.clearInterval(interval);
   }, [roomId, serverTurnDeadline]);
-
-  useEffect(() => {
-    if (!roomId || !gameState.winnerId) return;
-    void supabase.rpc("settle_completed_monopoly_match", { p_room_id: roomId });
-  }, [gameState.winnerId, roomId]);
 
   useEffect(() => {
     const serialized = JSON.stringify(gameState);
