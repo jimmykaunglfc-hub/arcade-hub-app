@@ -55,8 +55,10 @@ const GlobalNotificationListener = dynamic(() => import("../components/GlobalNot
 const CompetitiveGameLaunch = dynamic(() => import("../components/CompetitiveGameLaunch"), { ssr: false, loading: TabLoading });
 const FourPlayerMatchLobby = dynamic(() => import("../components/FourPlayerMatchLobby"), { ssr: false, loading: TabLoading });
 const AuthView = dynamic(() => import("../components/AuthView"), { ssr: false, loading: TabLoading });
-// Tabs mount only when visited, keeping game, shop, chat, and profile code out
-// of the launch bundle. Once visited, Next keeps their downloaded chunks cached.
+// Tabs are downloaded on demand so game, shop, chat, and profile code stay out
+// of the launch bundle. Once a tab has been opened, its mounted instance is
+// retained while it is hidden. This preserves its data, scroll-independent UI
+// state, and realtime subscriptions instead of re-fetching on every tab tap.
 const HomeTab = dynamic(() => import("../components/HomeTab"), { ssr: false, loading: TabLoading });
 const GamesTab = dynamic(() => import("../components/GamesTab"), { ssr: false, loading: TabLoading });
 const ChatTab = dynamic(() => import("../components/ChatTab"), { ssr: false, loading: TabLoading });
@@ -141,6 +143,7 @@ export default function Home() {
   const [deferredStartupReady, setDeferredStartupReady] = useState(false);
 
   const [activeTab, setActiveTab] = useState("Home");
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(["Home"]));
 
   const [userPoints, setUserPoints] = useState<number>(0);
   const [userGems, setUserGems] = useState<number>(0); // 💎 Initialized to 0 (dynamic)
@@ -161,6 +164,16 @@ export default function Home() {
   const [chatFullscreen, setChatFullscreen] = useState(false);
   const [gameDetailsFullscreen, setGameDetailsFullscreen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+
+  const selectTab = (tab: string) => {
+    setVisitedTabs((currentTabs) => {
+      if (currentTabs.has(tab)) return currentTabs;
+      const nextTabs = new Set(currentTabs);
+      nextTabs.add(tab);
+      return nextTabs;
+    });
+    setActiveTab(tab);
+  };
 
   // Do not unmount a game immediately when a player taps its back/close
   // button. Keeping the mounted game hidden for 30 seconds preserves its
@@ -280,6 +293,36 @@ export default function Home() {
       if (fallbackTimer !== undefined) window.clearTimeout(fallbackTimer);
     };
   }, []);
+
+  // Warm the normal destination chunks only after the shell is interactive.
+  // Importing modules does not mount the tabs or start their network work; it
+  // merely places their code in the browser/WebView cache before a player taps.
+  // On Data Saver or a 2G connection we keep the strictly on-demand behavior.
+  useEffect(() => {
+    if (!deferredStartupReady || typeof window === "undefined") return;
+
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") return;
+
+    const warmTabChunks = () => {
+      if (document.visibilityState !== "visible") return;
+      void import("../components/GamesTab");
+      void import("../components/ShopTab");
+      void import("../components/ChatTab");
+      void import("../components/SpinTab");
+      void import("../components/ProfileTab");
+    };
+
+    const idleCallback = window.requestIdleCallback?.(warmTabChunks, { timeout: 2_500 });
+    const fallbackTimer = idleCallback === undefined ? window.setTimeout(warmTabChunks, 800) : undefined;
+
+    return () => {
+      if (idleCallback !== undefined) window.cancelIdleCallback?.(idleCallback);
+      if (fallbackTimer !== undefined) window.clearTimeout(fallbackTimer);
+    };
+  }, [deferredStartupReady]);
 
   useEffect(() => {
     const cachedTheme = localStorage.getItem("app_theme");
@@ -427,7 +470,7 @@ export default function Home() {
     if (route.startsWith("native://")) { setPlayingGame(route); return; }
     const tab = route.replace(/^tab:/i, "").toLowerCase();
     const tabs: Record<string, string> = { home: "Home", explore: "Explore", store: "Store", spin: "Spin", chats: "Chats", chat: "Chats", profile: "Profile" };
-    if (tabs[tab]) { setActiveTab(tabs[tab]); setShowNotifications(false); return; }
+    if (tabs[tab]) { selectTab(tabs[tab]); setShowNotifications(false); return; }
     if (route.startsWith("/")) window.location.assign(route);
     else if (/^https?:\/\//i.test(route)) window.open(route, "_blank", "noopener,noreferrer");
   };
@@ -621,7 +664,7 @@ export default function Home() {
               <h1 className="font-headline text-lg font-bold text-on-background leading-tight">
                 <LocalizedText id="UI_0003" fallback={tr("UI_0003", "Joe Yoke")} /></h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <button onClick={() => setActiveTab("Store")} aria-label={tr("UI_0033", "Buy points")} className="flex items-center gap-1 bg-primary-container px-2.5 py-0.5 rounded-full transition-transform active:scale-95">
+                <button onClick={() => selectTab("Store")} aria-label={tr("UI_0033", "Buy points")} className="flex items-center gap-1 bg-primary-container px-2.5 py-0.5 rounded-full transition-transform active:scale-95">
                   <span
                     className="material-symbols-outlined text-primary text-[14px]"
                     style={{ fontVariationSettings: "'FILL' 1" }}
@@ -632,7 +675,7 @@ export default function Home() {
                     {userPoints.toLocaleString()}
                   </span>
                 </button>
-                <button onClick={() => setActiveTab("Store")} aria-label={tr("UI_0034", "Buy gems")} className="flex items-center gap-1 bg-secondary-container px-2.5 py-0.5 rounded-full transition-transform active:scale-95">
+                <button onClick={() => selectTab("Store")} aria-label={tr("UI_0034", "Buy gems")} className="flex items-center gap-1 bg-secondary-container px-2.5 py-0.5 rounded-full transition-transform active:scale-95">
                   <span
                     className="material-symbols-outlined text-secondary text-[14px]"
                     style={{ fontVariationSettings: "'FILL' 1" }}
@@ -685,58 +728,74 @@ export default function Home() {
               activeTab === "Store" ||
               activeTab === "Spin" ||
               activeTab === "Profile") ? (
-            <AuthView onAuthSuccess={() => setActiveTab(activeTab)} />
+            <AuthView onAuthSuccess={() => selectTab(activeTab)} />
           ) : (
             <>
-              {activeTab === "Home" && (
-                <HomeTab
-                  currentPoints={userPoints}
-                  userId={myUserId}
-                  onPlay={(url) => setPlayingGame(url)}
-                  onNavigate={(tab) => {
-                    if (tab === "explore") setActiveTab("Explore");
-                    if (tab === "store") setActiveTab("Store");
-                    if (tab === "spin") setActiveTab("Spin");
-                  }}
-                  rankData={rankData}
-                  onPointsUpdated={() => fetchLiveBalance(myUserId!)}
-                />
+              {visitedTabs.has("Home") && (
+                <section hidden={activeTab !== "Home"} aria-hidden={activeTab !== "Home"}>
+                  <HomeTab
+                    currentPoints={userPoints}
+                    userId={myUserId}
+                    onPlay={(url) => setPlayingGame(url)}
+                    onNavigate={(tab) => {
+                      if (tab === "explore") selectTab("Explore");
+                      if (tab === "store") selectTab("Store");
+                      if (tab === "spin") selectTab("Spin");
+                    }}
+                    rankData={rankData}
+                    onPointsUpdated={() => fetchLiveBalance(myUserId!)}
+                  />
+                </section>
               )}
 
-              {activeTab === "Explore" && (
-                <GamesTab
-                  currentPoints={userPoints}
-                  userId={myUserId}
-                  onPlay={(url) => setPlayingGame(url)}
-                  onGameDetailsChange={setGameDetailsFullscreen}
-                />
+              {visitedTabs.has("Explore") && (
+                <section hidden={activeTab !== "Explore"} aria-hidden={activeTab !== "Explore"}>
+                  <GamesTab
+                    currentPoints={userPoints}
+                    userId={myUserId}
+                    onPlay={(url) => setPlayingGame(url)}
+                    onGameDetailsChange={setGameDetailsFullscreen}
+                  />
+                </section>
               )}
 
-              {activeTab === "Chats" && (
-                <ChatTab
-                  currentPoints={userPoints}
-                  userId={myUserId}
-                  onChatOpenChange={setChatFullscreen}
-                  onPlay={(url, matchId) => {
-                    setActiveMatchId(matchId);
-                    setPlayingGame(url);
-                  }}
-                />
+              {session && visitedTabs.has("Chats") && (
+                <section hidden={activeTab !== "Chats"} aria-hidden={activeTab !== "Chats"}>
+                  <ChatTab
+                    currentPoints={userPoints}
+                    userId={myUserId}
+                    onChatOpenChange={setChatFullscreen}
+                    onPlay={(url, matchId) => {
+                      setActiveMatchId(matchId);
+                      setPlayingGame(url);
+                    }}
+                  />
+                </section>
               )}
 
-              {activeTab === "Store" && <ShopTab userId={myUserId} onWalletUpdated={() => myUserId && fetchLiveBalance(myUserId)} />}
+              {session && visitedTabs.has("Store") && (
+                <section hidden={activeTab !== "Store"} aria-hidden={activeTab !== "Store"}>
+                  <ShopTab userId={myUserId} onWalletUpdated={() => myUserId && fetchLiveBalance(myUserId)} />
+                </section>
+              )}
 
-              {activeTab === "Spin" && <SpinTab userId={myUserId} onBack={() => setActiveTab("Home")} onWalletUpdated={() => myUserId && fetchLiveBalance(myUserId)} />}
+              {session && visitedTabs.has("Spin") && (
+                <section hidden={activeTab !== "Spin"} aria-hidden={activeTab !== "Spin"}>
+                  <SpinTab userId={myUserId} onBack={() => selectTab("Home")} onWalletUpdated={() => myUserId && fetchLiveBalance(myUserId)} />
+                </section>
+              )}
 
-              {activeTab === "Profile" && (
-                <ProfileTab
-                  isDarkMode={isDarkMode}
-                  onToggleTheme={toggleTheme}
-                  onPlayFavorite={(title) => {
-                    const slug = title.toLowerCase().replace(/'/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-                    setPlayingGame(`native://${slug}`);
-                  }}
-                />
+              {session && visitedTabs.has("Profile") && (
+                <section hidden={activeTab !== "Profile"} aria-hidden={activeTab !== "Profile"}>
+                  <ProfileTab
+                    isDarkMode={isDarkMode}
+                    onToggleTheme={toggleTheme}
+                    onPlayFavorite={(title) => {
+                      const slug = title.toLowerCase().replace(/'/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+                      setPlayingGame(`native://${slug}`);
+                    }}
+                  />
+                </section>
               )}
             </>
           )}
@@ -785,7 +844,7 @@ export default function Home() {
             return (
               <button
                 key={tab.id}
-                onClick={() => { setChatFullscreen(false); setGameDetailsFullscreen(false); setActiveTab(tab.id); }}
+                onClick={() => { setChatFullscreen(false); setGameDetailsFullscreen(false); selectTab(tab.id); }}
                 className="relative flex flex-col items-center justify-center w-16 h-full transition-all"
               >
                 {isActive && (
