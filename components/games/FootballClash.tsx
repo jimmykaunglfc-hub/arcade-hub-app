@@ -624,6 +624,29 @@ function AttemptDots({ attempts }: { attempts: ShotOutcome[] }) {
   );
 }
 
+function FootballClashLogo({ className = "h-16 w-16" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 96 96"
+      className={className}
+      role="img"
+      aria-label="Football Clash ball logo"
+    >
+      <defs>
+        <radialGradient id="football-clash-ball" cx="36%" cy="28%" r="72%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="72%" stopColor="#e8f7df" />
+          <stop offset="100%" stopColor="#a3e635" />
+        </radialGradient>
+      </defs>
+      <circle cx="48" cy="48" r="42" fill="url(#football-clash-ball)" stroke="#d9f99d" strokeWidth="3" />
+      <path d="m48 31 13 9-5 15H40l-5-15 13-9Z" fill="#07110b" />
+      <path d="m48 7 11 8-5 16H42l-5-16 11-8Zm37 25-2 14-17 4-9-12 8-12 20 6ZM75 78l-15 8-11-13 8-14 16 3 2 16ZM21 78l2-16 16-3 8 14-11 13-15-8ZM11 32l20-6 8 12-9 12-17-4-2-14Z" fill="#10251a" />
+      <path d="m48 31 1-18M61 40l17-5M56 55l10 15M40 55 30 70M35 40l-17-5" fill="none" stroke="#10251a" strokeLinecap="round" strokeWidth="3" />
+    </svg>
+  );
+}
+
 export default function FootballClash({
   onClose,
   preloadedMatchId,
@@ -675,8 +698,8 @@ export default function FootballClash({
         data: { user },
       } = await supabase.auth.getUser();
       if (!mounted) return;
-      // Bot matches can still render in an unauthenticated local/offline shell;
-      // online entry remains protected by matchManager below.
+      // Guests receive a local-only identity and can immediately test against
+      // the bot. Signed-in players still use matchManager for online pairing.
       setUserId(user?.id ?? `guest:${Math.random().toString(36).slice(2)}`);
       if (user) {
         const { data: profile } = await supabase
@@ -719,7 +742,7 @@ export default function FootballClash({
       });
       if (!result.success) {
         setConnection("error");
-        setMessage("Connection interrupted. Retrying your kickâ€¦");
+        setMessage("Connection interrupted. Retrying your kick...");
         window.setTimeout(() => {
           void JoeYokeEngine.pushGameState({
             gameKey: GAME_KEY,
@@ -932,6 +955,7 @@ export default function FootballClash({
 
   useEffect(() => {
     if (!game?.winner || !role || recordedRef.current) return;
+    if (isBotMatch && userId?.startsWith("guest:")) return;
     recordedRef.current = true;
     const didWin = game.winner === role;
     // matchManager owns the platform lifecycle/history record. Queue pairing is
@@ -943,7 +967,7 @@ export default function FootballClash({
       result: didWin ? "Win" : "Loss",
       points_change: 0,
     });
-  }, [game?.winner, localOpponent?.name, role]);
+  }, [game?.winner, isBotMatch, localOpponent?.name, role, userId]);
 
   const pointFromPointer = (event: React.PointerEvent<HTMLCanvasElement>): Point => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -997,6 +1021,30 @@ export default function FootballClash({
 
   const beginMatchmaking = async () => {
     setMessage(null);
+    if (!authReady || !userId) return;
+
+    if (userId.startsWith("guest:")) {
+      const testMatchId = `bot_football_clash_${Date.now()}`;
+      recordedRef.current = false;
+      animatedShotRef.current = null;
+      gameRef.current = null;
+      setGame(null);
+      setPlayerName("Guest Striker");
+      setActiveMatchId(testMatchId);
+      setRole("player1");
+      setMatchmakerRole(1);
+      setLocalOpponent({
+        name: "Clash Bot",
+        isBot: true,
+        avatarIcon: "FC",
+        elo: 1100,
+      });
+      setConnection("connected");
+      setPullComplete(true);
+      setView("play");
+      return;
+    }
+
     // Existing games use matchManager for entry validation/ledger setup before
     // handing queue/pairing to MatchmakingModal. Change entryFee here if the
     // Football Clash game record later becomes wagered.
@@ -1006,7 +1054,7 @@ export default function FootballClash({
       opponentName: "Matchmaking Opponent",
     });
     if (!entry.success) {
-      setMessage(entry.error === "UNAUTHORIZED" ? "Sign in to play online." : entry.error ?? "Unable to enter matchmaking.");
+      setMessage(entry.error ?? "Unable to enter matchmaking.");
       return;
     }
     setView("matchmaking");
@@ -1026,13 +1074,15 @@ export default function FootballClash({
   }, [isBotMatch, localOpponent?.name, playerName, role]);
 
   const statusText = useMemo(() => {
-    if (!game) return connection === "error" ? "Connection problem" : "Syncing matchâ€¦";
-    if (!opponentReady) return "Waiting for opponentâ€¦";
+    if (!game) return connection === "error" ? "Connection problem" : "Syncing match...";
+    if (!opponentReady) return "Waiting for opponent...";
     if (game.phase === "finished") return "Full time";
     if (isAnimating) return `${playerLabels[game.lastShot?.player ?? game.currentTurn]}'s shot`;
-    if (game.currentTurn === role) return "Your turn â€” swipe to shoot";
-    return `${playerLabels[game.currentTurn]} is lining upâ€¦`;
+    if (game.currentTurn === role) return "Your turn - swipe to shoot";
+    return `${playerLabels[game.currentTurn]} is lining up...`;
   }, [connection, game, isAnimating, opponentReady, playerLabels, role]);
+
+  const isGuest = Boolean(userId?.startsWith("guest:"));
 
   if (view === "menu") {
     return (
@@ -1041,15 +1091,15 @@ export default function FootballClash({
         <div className="relative flex h-full flex-col items-center justify-center px-6 text-center" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
           {onClose && (
             <button onClick={onClose} className="absolute left-5 top-[max(1.25rem,env(safe-area-inset-top))] grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-xl active:scale-95" aria-label="Close Football Clash">
-              Ã—
+              {"\u00d7"}
             </button>
           )}
           <div className="mb-5 grid h-24 w-24 place-items-center rounded-[30px] border border-lime-300/35 bg-lime-300/10 shadow-[0_0_55px_rgba(163,230,53,.2)]">
-            <span className="text-5xl" aria-hidden="true">âš½</span>
+            <FootballClashLogo className="h-[74px] w-[74px] drop-shadow-[0_10px_24px_rgba(163,230,53,.28)]" />
           </div>
-          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.36em] text-lime-300">Five rounds Â· sudden death</p>
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.36em] text-lime-300">Five rounds &middot; sudden death</p>
           <h1 className="text-4xl font-black uppercase italic tracking-[-0.05em] sm:text-5xl">Football Clash</h1>
-          <p className="mt-4 max-w-sm text-sm leading-6 text-white/55">Read the wind, swipe for power and curl, and beat the keeper in a live 1v1 shootout.</p>
+          <p className="mt-4 max-w-sm text-sm leading-6 text-white/55">{isGuest ? "Test every shot instantly against the Clash Bot - no sign-in required." : "Read the wind, swipe for power and curl, and beat the keeper in a live 1v1 shootout."}</p>
           <div className="mt-8 grid w-full max-w-sm grid-cols-3 gap-2 text-left">
             {["Swipe up", "Beat the AI", "Score five"].map((label, index) => (
               <div key={label} className="rounded-2xl border border-white/8 bg-white/[0.035] p-3">
@@ -1059,7 +1109,7 @@ export default function FootballClash({
             ))}
           </div>
           <button onClick={() => void beginMatchmaking()} disabled={!authReady} className="mt-8 w-full max-w-sm rounded-2xl bg-lime-300 px-6 py-4 text-sm font-black uppercase tracking-[0.16em] text-[#07110b] shadow-[0_14px_45px_rgba(163,230,53,.2)] transition active:scale-[.98] disabled:opacity-50">
-            {authReady ? "Find opponent" : "Loading playerâ€¦"}
+            {authReady ? (isGuest ? "Play test match" : "Find opponent") : "Loading player..."}
           </button>
           {message && <p className="mt-4 text-xs font-semibold text-rose-300">{message}</p>}
         </div>
@@ -1109,13 +1159,13 @@ export default function FootballClash({
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 px-3" style={{ paddingTop: "max(.65rem, env(safe-area-inset-top))" }}>
         <div className="mx-auto flex max-w-[620px] items-center justify-between">
-          <button onClick={onClose} className="pointer-events-auto grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-black/45 text-xl backdrop-blur-md active:scale-95" aria-label="Leave match">Ã—</button>
+          <button onClick={onClose} className="pointer-events-auto grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-black/45 text-xl backdrop-blur-md active:scale-95" aria-label="Leave match">{"\u00d7"}</button>
           <div className="rounded-full border border-white/10 bg-black/45 px-4 py-2 text-center backdrop-blur-md">
             <p className="text-[9px] font-black uppercase tracking-[.28em] text-lime-300">{game?.phase === "suddenDeath" ? "Sudden death" : `Round ${game?.round ?? 1} / 5`}</p>
             <p className="mt-0.5 text-[10px] font-bold text-white/70">{statusText}</p>
           </div>
           <div className={`grid h-10 w-10 place-items-center rounded-full border bg-black/45 text-xs backdrop-blur-md ${connection === "error" ? "border-rose-400/60 text-rose-300" : "border-white/15 text-lime-300"}`} aria-label={`Network ${connection}`}>
-            {connection === "error" ? "!" : "â—"}
+            {connection === "error" ? "!" : <span className="h-2 w-2 rounded-full bg-lime-300" aria-hidden="true" />}
           </div>
         </div>
 
@@ -1147,8 +1197,8 @@ export default function FootballClash({
       <div className="pointer-events-none absolute left-3 top-[172px] z-10 rounded-2xl border border-white/10 bg-black/48 px-3 py-2 backdrop-blur-md" style={{ top: "calc(max(.65rem, env(safe-area-inset-top)) + 7.7rem)" }}>
         <p className="text-[8px] font-black uppercase tracking-[.24em] text-white/45">Wind</p>
         <div className="mt-0.5 flex items-center gap-2">
-          <span className="text-xl font-black text-sky-300">{game?.wind.direction === -1 ? "â†" : "â†’"}</span>
-          <span className="text-xs font-black tabular-nums">{game?.wind.speed.toFixed(1) ?? "â€”"} <span className="text-[8px] text-white/45">m/s</span></span>
+          <span className="text-xl font-black text-sky-300">{game?.wind.direction === -1 ? "\u2190" : "\u2192"}</span>
+          <span className="text-xs font-black tabular-nums">{game?.wind.speed.toFixed(1) ?? "-"} <span className="text-[8px] text-white/45">m/s</span></span>
         </div>
       </div>
 
@@ -1168,7 +1218,7 @@ export default function FootballClash({
           <div>
             <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-white/10 border-t-lime-300" />
             <p className="mt-5 text-xs font-black uppercase tracking-[.25em]">{!authReady ? "Loading player" : !activeMatchId ? "Waiting for match" : "Syncing kickoff"}</p>
-            <p className="mt-2 text-[11px] text-white/45">Restoring the latest Supabase match snapshotâ€¦</p>
+            <p className="mt-2 text-[11px] text-white/45">{isBotMatch ? "Preparing your test shootout..." : "Restoring the latest Supabase match snapshot..."}</p>
           </div>
         </div>
       )}
@@ -1184,8 +1234,8 @@ export default function FootballClash({
       {!showingLoader && opponentReady && game?.phase !== "finished" && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 text-center" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
           <div className={`mx-auto max-w-sm rounded-2xl border px-4 py-3 backdrop-blur-xl transition ${canShoot ? "border-lime-300/35 bg-lime-300/12" : "border-white/10 bg-black/55"}`}>
-            <p className={`text-[10px] font-black uppercase tracking-[.22em] ${canShoot ? "text-lime-300" : "text-white/55"}`}>{canShoot ? "Touch Â· swipe up Â· release" : statusText}</p>
-            {canShoot && <p className="mt-1 text-[9px] text-white/45">Angle controls placement Â· speed controls power Â· sideways drag adds curve</p>}
+            <p className={`text-[10px] font-black uppercase tracking-[.22em] ${canShoot ? "text-lime-300" : "text-white/55"}`}>{canShoot ? <>Touch &middot; swipe up &middot; release</> : statusText}</p>
+            {canShoot && <p className="mt-1 text-[9px] text-white/45">Angle controls placement &middot; speed controls power &middot; sideways drag adds curve</p>}
           </div>
         </div>
       )}
@@ -1197,10 +1247,10 @@ export default function FootballClash({
       {game?.phase === "finished" && game.winner && role && !isAnimating && (
         <div className="absolute inset-0 z-50 grid place-items-center bg-black/72 px-6 backdrop-blur-md">
           <div className="w-full max-w-sm rounded-[32px] border border-white/12 bg-[#0b1510] p-7 text-center shadow-2xl">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-lime-300 text-3xl text-black">{game.winner === role ? "ðŸ†" : "âš½"}</div>
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-lime-300 text-black"><FootballClashLogo className="h-12 w-12" /></div>
             <p className="mt-5 text-[10px] font-black uppercase tracking-[.3em] text-lime-300">Full time</p>
             <h2 className="mt-2 text-3xl font-black uppercase italic tracking-tight">{game.winner === role ? "You win" : "Opponent wins"}</h2>
-            <p className="mt-3 text-sm text-white/50">Final score <span className="ml-1 font-black text-white">{game.scores.player1} â€” {game.scores.player2}</span></p>
+            <p className="mt-3 text-sm text-white/50">Final score <span className="ml-1 font-black text-white">{game.scores.player1} - {game.scores.player2}</span></p>
             <button onClick={onClose} className="mt-7 w-full rounded-2xl bg-lime-300 py-4 text-xs font-black uppercase tracking-[.18em] text-black active:scale-[.98]">Back to arcade</button>
           </div>
         </div>
