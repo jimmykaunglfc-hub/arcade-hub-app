@@ -10,6 +10,7 @@ import dynamic from "next/dynamic";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "../lib/supabaseClient";
 import { markPerformance } from "../lib/performance";
+import { soundEngine } from "../lib/soundManager";
 
 // 👇 Ranking utilities
 import { getHoursPlayed } from "../lib/rankingUtils";
@@ -234,6 +235,10 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    soundEngine.restorePreference();
+  }, []);
+
+  useEffect(() => {
     const savedLaunch = sessionStorage.getItem("tournament_match_launch");
     if (!savedLaunch) return;
     sessionStorage.removeItem("tournament_match_launch");
@@ -262,10 +267,8 @@ export default function Home() {
     const source = process.env.NEXT_PUBLIC_APP_BGM_URL;
     if (!source) return;
     const beginAudio = () => {
-      void import("../lib/soundManager").then(({ soundEngine }) => {
-        soundEngine.restorePreference();
-        soundEngine.startBGM(source, 0.22);
-      });
+      soundEngine.unlockForUserGesture();
+      soundEngine.startBGM(source, 0.22);
       window.removeEventListener("pointerdown", beginAudio);
     };
     window.addEventListener("pointerdown", beginAudio, { once: true });

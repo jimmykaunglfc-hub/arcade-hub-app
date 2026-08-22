@@ -101,6 +101,7 @@ class SoundEngine {
   private activeGameplaySources = new Map<GameplayClip, AudioBufferSourceNode[]>();
   private clipCursor = new Map<GameplayClip, number>();
   private diceShakeSource: AudioBufferSourceNode | null = null;
+  private outputPrimed = false;
 
   constructor() {
     // AudioContext is initialized lazily. A looping shake must never resume
@@ -109,6 +110,15 @@ class SoundEngine {
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) this.stopDiceShake();
       });
+
+      // WKWebView will keep Web Audio suspended if the context is created by a
+      // game-screen preload rather than by a physical interaction. Listen in
+      // the capture phase so the context is unlocked before a button, canvas,
+      // or Phaser/Matter handler starts the first game action.
+      const unlockFromGesture = () => this.unlockForUserGesture();
+      document.addEventListener("pointerdown", unlockFromGesture, { capture: true, passive: true });
+      document.addEventListener("touchend", unlockFromGesture, { capture: true, passive: true });
+      document.addEventListener("keydown", unlockFromGesture, { capture: true });
     }
   }
 
@@ -123,6 +133,50 @@ class SoundEngine {
       void this.ctx.resume().catch(() => {
         // The first physical user gesture will resume audio on mobile browsers.
       });
+    }
+  }
+
+  /**
+   * Resume and prime the Web Audio output while a real user interaction is in
+   * progress. This is required by iOS Safari/WKWebView; Android is more
+   * forgiving, which is why the same game clips could work there only.
+   */
+  public unlockForUserGesture() {
+    this.initContext(false);
+    if (!this.ctx) return;
+
+    const context = this.ctx;
+    if (context.state === "suspended") {
+      // Call resume synchronously from the gesture stack. Do not await it:
+      // awaiting would lose iOS's user-activation allowance.
+      const resume = context.resume();
+      this.primeOutput(context);
+      void resume.then(() => this.primeOutput(context)).catch(() => {
+        // Another physical gesture will retry the unlock.
+      });
+      return;
+    }
+
+    this.primeOutput(context);
+  }
+
+  /** Starts one inaudible sample so iOS attaches the Web Audio graph to its output. */
+  private primeOutput(context: AudioContext) {
+    if (this.outputPrimed || context.state !== "running") return;
+    try {
+      const buffer = context.createBuffer(1, 1, context.sampleRate);
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+      gain.gain.setValueAtTime(0, context.currentTime);
+      source.buffer = buffer;
+      source.connect(gain);
+      gain.connect(context.destination);
+      source.start(context.currentTime);
+      source.stop(context.currentTime + 0.001);
+      this.outputPrimed = true;
+    } catch {
+      // Safe to retry from the next physical gesture if the context is not
+      // ready yet (for example immediately after returning from background).
     }
   }
 
